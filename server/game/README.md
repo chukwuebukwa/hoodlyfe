@@ -41,6 +41,8 @@ game/
     crime-response-controller.ts
     dispatch-system.ts
     pursuit-memory.ts
+  population/
+    district-population-controller.ts
   players/
     player-control-controller.ts
     player-lifecycle-controller.ts
@@ -103,8 +105,9 @@ Extracted domain policies and room adapters now include:
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, spread, pellet count, muzzle origin, and bullet creation.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
+- `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.
 - `pedestrian-controller.ts` for pedestrian population creation, private runtime memory, deterministic wander, panic/threat response, police pursuit consumption, rate-limited police fire requests, collision-safe locomotion, death/respawn, and ejected-driver creation.
 
-`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player control/lifecycle, or pedestrian runtime and behavior. District population assembly, state/debug projection, and client presentation remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
+`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player control/lifecycle, pedestrian runtime/behavior, or district population assembly. State/debug projection and client presentation remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.

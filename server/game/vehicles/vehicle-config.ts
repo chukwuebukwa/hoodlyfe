@@ -4,6 +4,8 @@ export interface VehicleConfig {
   collisionDamageScale: number;
 }
 
+export const VEHICLE_RADIUS = 20;
+
 const DEFAULT_CONFIG: VehicleConfig = {
   maxHealth: 1000,
   mass: 1,

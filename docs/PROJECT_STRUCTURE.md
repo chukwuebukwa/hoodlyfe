@@ -191,6 +191,7 @@ The first room-facing facades are now live:
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` owns deterministic ambient routes and driving targets.
+- `DistrictPopulationController` owns idempotent map bootstrap, initial archetype budgets, parked/traffic vehicle creation, and registration through domain APIs.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
@@ -198,7 +199,7 @@ The first room-facing facades are now live:
 - `PedestrianController` owns pedestrian spawn/runtime memory, panic, deterministic ambient movement, police pursuit consumption, police fire requests, respawn, and ejected drivers.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
-ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. District population assembly, state/debug projection, and client presentation remain explicit extraction debt. The pedestrian facade must next split into population policy, perception, behavior, navigation, and locomotion modules as those behaviors deepen.
+ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. State/debug projection and client presentation remain explicit extraction debt. The pedestrian facade must next split into dynamic population policy, perception, behavior, navigation, and locomotion modules as those behaviors deepen.
 
 ## Fixed Simulation Order
 

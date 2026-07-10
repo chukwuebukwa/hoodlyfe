@@ -19,6 +19,7 @@ import {
 } from './game/events/game-events.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
+import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
@@ -34,7 +35,7 @@ import {
   PedestrianController,
   PEDESTRIAN_RADIUS
 } from './game/pedestrians/pedestrian-controller.ts';
-import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
+import {VEHICLE_RADIUS} from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
@@ -43,9 +44,6 @@ import {FixedStepClock} from './game/world/fixed-step-clock.ts';
 import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
-
-const VEHICLE_RADIUS = 20;
-const TRAFFIC_VEHICLE_COUNT = 8;
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -77,6 +75,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private fireControl!: FireControlController;
   private projectileController!: ProjectileController;
   private pedestrians!: PedestrianController;
+  private population!: DistrictPopulationController;
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
   private random = new DeterministicRandom('industrial-district:v1');
@@ -96,8 +95,6 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
-    this.state.missionContactX = this.world.spawn.x;
-    this.state.missionContactY = this.world.spawn.y;
     this.playerControl = new PlayerControlController({
       state: this.state,
       world: this.world
@@ -227,6 +224,13 @@ export class DistrictRoom extends Room<DistrictState> {
       },
       onSpawned: (npc) => this.indexNpc(npc)
     });
+    this.population = new DistrictPopulationController({
+      state: this.state,
+      world: this.world,
+      pedestrians: this.pedestrians,
+      traffic: this.trafficController,
+      onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle)
+    });
     this.projectileController = new ProjectileController({
       state: this.state,
       world: this.world,
@@ -272,7 +276,7 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs
       )
     });
-    this.spawnDistrictPopulation();
+    this.population.populate();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
 
@@ -333,66 +337,6 @@ export class DistrictRoom extends Room<DistrictState> {
   ): void {
     const client = this.clients.find((candidate) => candidate.sessionId === playerId);
     client?.send(MISSION_NOTICE_MESSAGE, {message, tone} satisfies MissionNotice);
-  }
-
-  private spawnDistrictPopulation(): void {
-    for (let index = 0; index < 10; index++) {
-      this.pedestrians.spawn(`civilian-${index + 1}`, 'civilian', index, 130, 760);
-    }
-    for (let index = 0; index < 3; index++) {
-      this.pedestrians.spawn(`police-${index + 1}`, 'police', index + 30, 420, 900);
-    }
-
-    const kinds = ['sedan', 'police', 'taxi'];
-    for (let index = 0; index < kinds.length; index++) {
-      let starterAngle = Math.PI;
-      let position: {x: number; y: number} | undefined;
-      if (index === 0) {
-        const starterOffsets = [[52, 0], [-52, 0], [0, 52], [0, -52]];
-        for (const [offsetX, offsetY] of starterOffsets) {
-          const candidate = {x: this.world.spawn.x + offsetX, y: this.world.spawn.y + offsetY};
-          if (!this.world.canOccupy(candidate.x, candidate.y, VEHICLE_RADIUS)) continue;
-          position = candidate;
-          starterAngle = Math.atan2(offsetY, offsetX);
-          break;
-        }
-        position ??= {...this.world.spawn};
-      } else {
-        position = this.world.openPointNear(
-          this.world.spawn.x,
-          this.world.spawn.y,
-          180 + index * 80,
-          420 + index * 120,
-          VEHICLE_RADIUS,
-          70 + index
-        );
-      }
-      const vehicle = new VehicleState();
-      vehicle.id = `vehicle-${index + 1}`;
-      vehicle.kind = kinds[index];
-      vehicle.x = position.x;
-      vehicle.y = position.y;
-      vehicle.angle = index === 0 ? starterAngle : (index % 2 === 0 ? -Math.PI / 2 : 0);
-      vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
-      vehicle.health = vehicle.maxHealth;
-      this.state.vehicles.set(vehicle.id, vehicle);
-    }
-
-    for (let index = 0; index < TRAFFIC_VEHICLE_COUNT; index++) {
-      const spawn = this.world.trafficSpawn(200 + index * 19, VEHICLE_RADIUS);
-      const vehicle = new VehicleState();
-      vehicle.id = `traffic-${index + 1}`;
-      vehicle.kind = index % 4 === 2 ? 'taxi' : 'sedan';
-      vehicle.x = spawn.x;
-      vehicle.y = spawn.y;
-      vehicle.angle = spawn.angle;
-      vehicle.speed = 90 + index * 4;
-      vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
-      vehicle.health = vehicle.maxHealth;
-      vehicle.traffic = true;
-      this.state.vehicles.set(vehicle.id, vehicle);
-      this.trafficController.register(vehicle.id, spawn, 105 + (index % 4) * 14);
-    }
   }
 
   private advanceSimulation(deltaTime: number): void {
