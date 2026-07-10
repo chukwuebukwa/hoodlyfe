@@ -48,6 +48,8 @@ interface RenderNpc {
 interface RenderVehicle {
   container: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Sprite;
+  smoke: Phaser.GameObjects.Arc;
+  fire: Phaser.GameObjects.Arc;
   redLight?: Phaser.GameObjects.Arc;
   blueLight?: Phaser.GameObjects.Arc;
   targetX: number;
@@ -367,7 +369,11 @@ export class DistrictScene extends Phaser.Scene {
     const localOccupant = this.latestState?.players?.get(this.room.sessionId)?.vehicleId === vehicleId;
     if (!rendered) {
       const sprite = this.add.sprite(0, 0, 'vehicles', vehicleFrame(vehicle.kind)).setDisplaySize(96, 96);
-      const children: Phaser.GameObjects.GameObject[] = [sprite];
+      const smoke = this.add.circle(0, -17, 6, 0x2d3436, 0.75).setStrokeStyle(2, 0x9aa2a4, 0.5);
+      const fire = this.add.circle(0, -14, 4, 0xff8c24, 0.95).setStrokeStyle(2, 0xffd34d, 0.9);
+      smoke.setVisible(false);
+      fire.setVisible(false);
+      const children: Phaser.GameObjects.GameObject[] = [sprite, smoke, fire];
       let redLight: Phaser.GameObjects.Arc | undefined;
       let blueLight: Phaser.GameObjects.Arc | undefined;
       if (vehicle.kind === 'police') {
@@ -380,6 +386,8 @@ export class DistrictScene extends Phaser.Scene {
       rendered = {
         container,
         sprite,
+        smoke,
+        fire,
         redLight,
         blueLight,
         targetX: vehicle.x,
@@ -396,6 +404,14 @@ export class DistrictScene extends Phaser.Scene {
     rendered.localDriver = localDriver;
     rendered.localOccupant = localOccupant;
     rendered.sprite.setFrame(vehicleFrame(vehicle.kind));
+    const maxHealth = vehicle.kind === 'police' ? 120 : (vehicle.kind === 'taxi' ? 105 : 100);
+    const healthRatio = clamp(vehicle.health / maxHealth, 0, 1);
+    rendered.smoke.setVisible(vehicle.destroyed || healthRatio < 0.48);
+    rendered.fire.setVisible(vehicle.destroyed || healthRatio < 0.2);
+    rendered.sprite.setAlpha(vehicle.destroyed ? 0.68 : 1);
+    if (vehicle.destroyed) rendered.sprite.setTint(0x4f4f4f);
+    else if (healthRatio < 0.35) rendered.sprite.setTint(0xc77b68);
+    else rendered.sprite.clearTint();
     if (localOccupant && this.cameraTargetId !== `vehicle:${vehicleId}`) {
       this.cameras.main.startFollow(rendered.container, true, 0.12, 0.12);
       this.cameraTargetId = `vehicle:${vehicleId}`;
@@ -524,6 +540,7 @@ export class DistrictScene extends Phaser.Scene {
     let nearest: NetworkVehicle | undefined;
     let nearestDistance = 82;
     this.latestState?.vehicles?.forEach((vehicle) => {
+      if (vehicle.destroyed) return;
       const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
       if (distance < nearestDistance) {
         nearest = vehicle;
@@ -678,6 +695,14 @@ export class DistrictScene extends Phaser.Scene {
         const phase = Math.floor(time / 120) % 2;
         rendered.redLight.alpha = phase === 0 ? 1 : 0.22;
         rendered.blueLight.alpha = phase === 1 ? 1 : 0.22;
+      }
+      if (rendered.smoke.visible) {
+        rendered.smoke.setPosition(Math.sin(time / 180) * 2.5, -17 - Math.sin(time / 110) * 3);
+        rendered.smoke.setScale(0.85 + (Math.sin(time / 140) + 1) * 0.18);
+        rendered.smoke.alpha = 0.45 + (Math.sin(time / 170) + 1) * 0.16;
+      }
+      if (rendered.fire.visible) {
+        rendered.fire.setScale(0.78 + (Math.sin(time / 52) + 1) * 0.22);
       }
     }
 
@@ -839,7 +864,7 @@ export class DistrictScene extends Phaser.Scene {
         vehicle.angle,
         0x9d8bff,
         key,
-        `${vehicleId} ${mode} v:${Math.round(vehicle.speed)}`,
+        `${vehicleId} ${mode} hp:${vehicle.health} v:${Math.round(vehicle.speed)}${vehicle.destroyed ? ' WRECK' : ''}`,
         presentLabels,
         vehicle.health > 0
       );
@@ -976,6 +1001,8 @@ export class DistrictScene extends Phaser.Scene {
     const weaponAmmo = document.querySelector('#weapon-ammo');
     const weaponIcon = document.querySelector<HTMLImageElement>('#weapon-icon');
     const speedValue = document.querySelector('#speed-value');
+    const vehicleCondition = document.querySelector<HTMLElement>('#vehicle-condition-fill');
+    const vehicleConditionTrack = document.querySelector('#vehicle-condition');
     const shell = document.querySelector<HTMLElement>('#game-shell');
 
     if (name) name.textContent = player.name;
@@ -999,6 +1026,11 @@ export class DistrictScene extends Phaser.Scene {
       weaponIcon.alt = player.weapon;
     }
     if (speedValue) speedValue.textContent = String(Math.round(Math.abs(vehicle?.speed ?? 0) * 0.55)).padStart(3, '0');
+    if (vehicleCondition) {
+      const maxHealth = vehicle?.kind === 'police' ? 120 : (vehicle?.kind === 'taxi' ? 105 : 100);
+      vehicleCondition.style.width = `${clamp((vehicle?.health ?? 0) / maxHealth * 100, 0, 100)}%`;
+    }
+    vehicleConditionTrack?.setAttribute('aria-label', `Vehicle condition ${vehicle?.health ?? 0}`);
     if (shell) {
       shell.dataset.mode = vehicle ? 'vehicle' : (player.alive ? 'foot' : 'dead');
       shell.dataset.health = String(player.health);

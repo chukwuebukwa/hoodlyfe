@@ -49,6 +49,30 @@ export interface PursuitChangedEvent extends EventMetadata {
   suspectId: string;
 }
 
+export type VehicleDamageSource = 'world' | 'vehicle' | 'weapon';
+
+export interface VehicleDamagedEvent extends EventMetadata {
+  type: 'vehicle.damaged';
+  vehicleId: string;
+  sourceId: string;
+  sourceKind: VehicleDamageSource;
+  amount: number;
+  remainingHealth: number;
+}
+
+export interface VehicleDestroyedEvent extends EventMetadata {
+  type: 'vehicle.destroyed';
+  vehicleId: string;
+  sourceId: string;
+  sourceKind: VehicleDamageSource;
+}
+
+export interface VehicleRestoredEvent extends EventMetadata {
+  type: 'vehicle.restored';
+  vehicleId: string;
+  health: number;
+}
+
 export interface PlayerRespawnedEvent extends EventMetadata {
   type: 'player.respawned';
   playerId: string;
@@ -62,6 +86,9 @@ export type GameEvent =
   | CrimeCommittedEvent
   | IncidentReportedEvent
   | PursuitChangedEvent
+  | VehicleDamagedEvent
+  | VehicleDestroyedEvent
+  | VehicleRestoredEvent
   | PlayerRespawnedEvent;
 
 export class GameEventStream {

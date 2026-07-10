@@ -94,6 +94,8 @@ export class VehicleState extends Schema {
   angle = 0;
   speed = 0;
   health = 100;
+  destroyed = false;
+  respawnAt = 0;
   driverId = '';
   traffic = false;
   hijackBy = '';
@@ -107,6 +109,8 @@ defineTypes(VehicleState, {
   angle: 'number',
   speed: 'number',
   health: 'number',
+  destroyed: 'boolean',
+  respawnAt: 'number',
   driverId: 'string',
   traffic: 'boolean',
   hijackBy: 'string'

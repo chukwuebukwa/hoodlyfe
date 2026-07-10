@@ -4,12 +4,19 @@ import {
   type DebugEventEntry,
   type DebugSnapshot
 } from '../shared/protocol/debug.ts';
-import {GameEventStream, type GameEvent} from './game/events/game-events.ts';
+import {
+  GameEventStream,
+  type GameEvent,
+  type VehicleDamageSource
+} from './game/events/game-events.ts';
 import type {CrimeKind} from './game/incidents/crime-policy.ts';
 import {IncidentRegistry, type Incident} from './game/incidents/incident-registry.ts';
 import {WitnessSystem, type WitnessCandidate} from './game/incidents/witness-system.ts';
 import {DispatchSystem} from './game/police/dispatch-system.ts';
 import {PursuitMemory} from './game/police/pursuit-memory.ts';
+import {VehicleCollisionSystem} from './game/vehicles/vehicle-collision-system.ts';
+import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
+import {VehicleDamageSystem} from './game/vehicles/vehicle-damage-system.ts';
 import {WantedSystem} from './game/wanted/wanted-system.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
@@ -37,6 +44,7 @@ const MAX_VEHICLE_OCCUPANTS = 4;
 const TRAFFIC_VEHICLE_COUNT = 8;
 const ENTER_VEHICLE_DURATION_MS = 320;
 const HIJACK_DURATION_MS = 1050;
+const VEHICLE_RESPAWN_DELAY_MS = 8000;
 
 interface InputMessage {
   x?: number;
@@ -98,6 +106,9 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly wanted = new WantedSystem();
   private readonly dispatch = new DispatchSystem();
   private readonly pursuitMemory = new PursuitMemory();
+  private readonly vehicleCollisions = new VehicleCollisionSystem();
+  private readonly vehicleDamage = new VehicleDamageSystem();
+  private readonly vehicleCollisionPairsThisTick = new Set<string>();
   private readonly reportedSuspectLocations = new Map<string, {x: number; y: number}>();
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
@@ -116,6 +127,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.wanted.clear();
     this.dispatch.clear();
     this.pursuitMemory.clear();
+    this.vehicleCollisionPairsThisTick.clear();
     this.reportedSuspectLocations.clear();
     this.recentDebugEvents.length = 0;
     this.lastDebugBroadcastTick = 0;
@@ -218,6 +230,7 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.x = position.x;
       vehicle.y = position.y;
       vehicle.angle = index === 0 ? starterAngle : (index % 2 === 0 ? -Math.PI / 2 : 0);
+      vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
       this.state.vehicles.set(vehicle.id, vehicle);
     }
 
@@ -230,6 +243,7 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.y = spawn.y;
       vehicle.angle = spawn.angle;
       vehicle.speed = 90 + index * 4;
+      vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
       vehicle.traffic = true;
       this.state.vehicles.set(vehicle.id, vehicle);
       this.runtimeTraffic.set(vehicle.id, {
@@ -285,6 +299,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.vehicleCollisionPairsThisTick.clear();
     this.state.vehicles.forEach((vehicle) => {
       this.updateVehicle(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
@@ -328,8 +343,14 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateVehicle(vehicle: VehicleState, deltaSeconds: number, now: number): void {
+    if (vehicle.destroyed) {
+      this.updateDestroyedVehicle(vehicle, now);
+      this.syncVehicleOccupants(vehicle);
+      return;
+    }
     if (vehicle.traffic && !vehicle.driverId) {
       this.updateTrafficVehicle(vehicle, deltaSeconds, now);
+      this.handleVehicleCollision(vehicle, now);
       this.syncVehicleOccupants(vehicle);
       return;
     }
@@ -344,7 +365,11 @@ export class DistrictRoom extends Room<DistrictState> {
       } else {
         vehicle.speed = approach(vehicle.speed, 0, 150 * deltaSeconds);
       }
-      vehicle.speed = clamp(vehicle.speed, -115, 410);
+      const speedMultiplier = this.vehicleDamage.speedMultiplier(
+        vehicle.health,
+        vehicleConfig(vehicle.kind).maxHealth
+      );
+      vehicle.speed = clamp(vehicle.speed, -115 * speedMultiplier, 410 * speedMultiplier);
 
       if (Math.abs(vehicle.speed) > 4 && runtime.inputX !== 0) {
         const grip = clamp(Math.abs(vehicle.speed) / 120, 0.22, 1);
@@ -360,10 +385,17 @@ export class DistrictRoom extends Room<DistrictState> {
         vehicle.x = nextX;
         vehicle.y = nextY;
       } else {
+        this.applyVehicleDamage(
+          vehicle,
+          this.vehicleDamage.wallImpactDamage(vehicle.speed),
+          '',
+          'world',
+          now
+        );
         vehicle.speed *= -0.2;
       }
 
-      this.handleVehicleImpacts(vehicle, driver, now);
+      if (!vehicle.destroyed) this.handleVehicleImpacts(vehicle, driver, now);
     } else {
       if (vehicle.driverId) {
         vehicle.driverId = '';
@@ -371,6 +403,7 @@ export class DistrictRoom extends Room<DistrictState> {
       }
       vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
     }
+    this.handleVehicleCollision(vehicle, now);
     this.syncVehicleOccupants(vehicle);
   }
 
@@ -517,6 +550,147 @@ export class DistrictRoom extends Room<DistrictState> {
     }
   }
 
+  private handleVehicleCollision(vehicle: VehicleState, now: number): void {
+    const nearbyVehicles = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
+      kinds: ['vehicle'],
+      includeRecordRadius: true
+    });
+    for (const record of nearbyVehicles) {
+      if (record.id === vehicle.id) continue;
+      const other = this.state.vehicles.get(record.id);
+      if (!other) continue;
+      const pairKey = [vehicle.id, other.id].sort().join(':');
+      if (this.vehicleCollisionPairsThisTick.has(pairKey)) continue;
+      const vehicleSettings = vehicleConfig(vehicle.kind);
+      const otherSettings = vehicleConfig(other.kind);
+      const result = this.vehicleCollisions.resolve({
+        id: vehicle.id,
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.speed,
+        radius: VEHICLE_RADIUS,
+        mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
+        damageScale: vehicleSettings.collisionDamageScale
+      }, {
+        id: other.id,
+        x: other.x,
+        y: other.y,
+        angle: other.angle,
+        speed: other.destroyed ? 0 : other.speed,
+        radius: VEHICLE_RADIUS,
+        mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
+        damageScale: otherSettings.collisionDamageScale
+      });
+      if (!result.collided) continue;
+      this.vehicleCollisionPairsThisTick.add(pairKey);
+      if (this.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
+        vehicle.x = result.primaryX;
+        vehicle.y = result.primaryY;
+      }
+      if (this.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
+        other.x = result.otherX;
+        other.y = result.otherY;
+      }
+      if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
+      if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
+      this.applyVehicleDamage(vehicle, result.primaryDamage, other.driverId, 'vehicle', now);
+      this.applyVehicleDamage(other, result.otherDamage, vehicle.driverId, 'vehicle', now);
+      this.syncVehicleOccupants(other);
+      return;
+    }
+  }
+
+  private applyVehicleDamage(
+    vehicle: VehicleState,
+    damage: number,
+    sourceId: string,
+    sourceKind: VehicleDamageSource,
+    now: number
+  ): void {
+    if (vehicle.destroyed || damage <= 0) return;
+    const result = this.vehicleDamage.apply(vehicle.health, damage);
+    if (result.appliedDamage <= 0) return;
+    vehicle.health = result.health;
+    this.events.publish({
+      type: 'vehicle.damaged',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      vehicleId: vehicle.id,
+      sourceId,
+      sourceKind,
+      amount: result.appliedDamage,
+      remainingHealth: result.health
+    });
+    if (result.destroyed) this.destroyVehicle(vehicle, sourceId, sourceKind, now);
+  }
+
+  private destroyVehicle(
+    vehicle: VehicleState,
+    sourceId: string,
+    sourceKind: VehicleDamageSource,
+    now: number
+  ): void {
+    vehicle.destroyed = true;
+    vehicle.respawnAt = now + VEHICLE_RESPAWN_DELAY_MS;
+    vehicle.speed = 0;
+    vehicle.traffic = false;
+    vehicle.hijackBy = '';
+    const occupants = this.vehicleOccupants(vehicle.id);
+    vehicle.driverId = '';
+    for (let index = 0; index < occupants.length; index++) {
+      const occupant = occupants[index];
+      const position = this.world.openPointNear(
+        vehicle.x,
+        vehicle.y,
+        34,
+        82,
+        PLAYER_RADIUS,
+        now + index * 47 + occupant.id.length
+      );
+      occupant.vehicleId = '';
+      occupant.vehicleSeat = -1;
+      occupant.x = position.x;
+      occupant.y = position.y;
+      this.clearPlayerAction(occupant);
+      this.damagePlayer(occupant, 35, '', now);
+    }
+    this.events.publish({
+      type: 'vehicle.destroyed',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      vehicleId: vehicle.id,
+      sourceId,
+      sourceKind
+    });
+  }
+
+  private updateDestroyedVehicle(vehicle: VehicleState, now: number): void {
+    vehicle.speed = 0;
+    if (now < vehicle.respawnAt) return;
+    const position = this.world.openPointNear(
+      vehicle.x,
+      vehicle.y,
+      0,
+      96,
+      VEHICLE_RADIUS,
+      now + vehicle.id.length
+    );
+    vehicle.x = position.x;
+    vehicle.y = position.y;
+    vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
+    vehicle.destroyed = false;
+    vehicle.respawnAt = 0;
+    vehicle.traffic = this.runtimeTraffic.has(vehicle.id);
+    this.events.publish({
+      type: 'vehicle.restored',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      vehicleId: vehicle.id,
+      health: vehicle.health
+    });
+  }
+
   private updateNpc(npc: NpcState, deltaSeconds: number, now: number): void {
     const runtime = this.runtimeNpcs.get(npc.id);
     if (!runtime) return;
@@ -638,6 +812,7 @@ export class DistrictRoom extends Room<DistrictState> {
     for (const record of nearbyVehicles) {
       const vehicle = this.state.vehicles.get(record.id);
       if (!vehicle) continue;
+      if (vehicle.destroyed) continue;
       if (this.vehicleOccupants(vehicle.id).length >= MAX_VEHICLE_OCCUPANTS) continue;
       if (vehicle.hijackBy && vehicle.hijackBy !== player.id) continue;
       const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
@@ -900,6 +1075,28 @@ export class DistrictRoom extends Room<DistrictState> {
       if (bullet.ownerKind === 'police' && target.wanted <= 0) continue;
       if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > PLAYER_RADIUS + 4) continue;
       this.damagePlayer(target, weapon.damage, bullet.ownerKind === 'player' ? bullet.ownerId : '', now);
+      this.deferBulletRemoval(bulletId);
+      return;
+    }
+
+    const vehicleCandidates = this.spatialIndex.queryAabb(minX, minY, maxX, maxY, {
+      kinds: ['vehicle']
+    });
+    for (const record of vehicleCandidates) {
+      const target = this.state.vehicles.get(record.id);
+      if (!target || target.destroyed) continue;
+      if (this.vehicleOccupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) continue;
+      if (
+        pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) >
+        VEHICLE_RADIUS + 4
+      ) continue;
+      this.applyVehicleDamage(
+        target,
+        this.vehicleDamage.weaponDamage(weapon.damage, weapon.pellets),
+        bullet.ownerId,
+        'weapon',
+        now
+      );
       this.deferBulletRemoval(bulletId);
       return;
     }
@@ -1311,6 +1508,12 @@ function summarizeGameEvent(event: GameEvent): string {
       return event.suspectId
         ? `${event.officerId} dispatched to ${event.suspectId}`
         : `${event.officerId} cleared from ${event.previousSuspectId}`;
+    case 'vehicle.damaged':
+      return `${event.vehicleId} -${event.amount} hp (${event.sourceKind})`;
+    case 'vehicle.destroyed':
+      return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
+    case 'vehicle.restored':
+      return `${event.vehicleId} restored to ${event.health} hp`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
   }

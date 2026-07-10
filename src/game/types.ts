@@ -49,6 +49,8 @@ export interface NetworkVehicle {
   angle: number;
   speed: number;
   health: number;
+  destroyed: boolean;
+  respawnAt: number;
   driverId: string;
   traffic: boolean;
   hijackBy: string;

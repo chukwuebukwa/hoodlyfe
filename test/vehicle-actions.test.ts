@@ -59,3 +59,47 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
     'incident.reported'
   ]);
 });
+
+test('destroying a vehicle ejects occupants and restores the wreck after its cooldown', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+
+  const player = new PlayerState();
+  player.id = 'driver';
+  player.x = room.world.spawn.x;
+  player.y = room.world.spawn.y;
+  player.vehicleId = 'wreck-test';
+  player.vehicleSeat = 0;
+  room.state.players.set(player.id, player);
+  room.runtimePlayers.set(player.id, {inputX: 0, inputY: 0, lastShotAt: 0});
+
+  const vehicle = new VehicleState();
+  vehicle.id = 'wreck-test';
+  vehicle.x = player.x;
+  vehicle.y = player.y;
+  vehicle.driverId = player.id;
+  room.state.vehicles.set(vehicle.id, vehicle);
+
+  room.applyVehicleDamage(vehicle, 200, 'attacker', 'weapon', 1000);
+  assert.equal(vehicle.destroyed, true);
+  assert.equal(vehicle.health, 0);
+  assert.equal(vehicle.driverId, '');
+  assert.equal(player.vehicleId, '');
+  assert.equal(player.health, 65);
+  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
+    'vehicle.damaged',
+    'damage.applied',
+    'vehicle.destroyed'
+  ]);
+
+  room.updateDestroyedVehicle(vehicle, 8999);
+  assert.equal(vehicle.destroyed, true);
+  room.updateDestroyedVehicle(vehicle, 9000);
+  assert.equal(vehicle.destroyed, false);
+  assert.equal(vehicle.health, 100);
+  assert.equal(vehicle.respawnAt, 0);
+  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
+    'vehicle.restored'
+  ]);
+});

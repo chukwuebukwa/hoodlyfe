@@ -38,6 +38,10 @@ game/
     pursuit-memory.ts
   wanted/
     wanted-system.ts
+  vehicles/
+    vehicle-collision-system.ts
+    vehicle-config.ts
+    vehicle-damage-system.ts
   world/
     deferred-command-queue.ts
     deterministic-random.ts
@@ -70,4 +74,4 @@ The first gameplay domain extraction is active:
 - `police/dispatch-system.ts` for district capacity and assignments.
 - `pursuit-memory.ts` for visible pursuit and last-known-position search state.
 
-`DistrictRoom` currently adapts schema entities into these plain-data APIs. The next extraction should move vehicle impact/damage rules into `game/vehicles/`, followed by pedestrian behavior and perception. New features should not add another unrelated behavior block to the room.
+`DistrictRoom` currently adapts schema entities into these plain-data APIs. Vehicle collision and damage math now lives in `game/vehicles/`; destruction, occupant ejection, and state projection remain room adapters until lifecycle extraction has another concrete consumer. Pedestrian behavior/perception and mission scope are the next server domains. New features should not add another unrelated behavior block to the room.
