@@ -15,6 +15,7 @@ import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
+import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {
   DistrictNetworkState,
   NetworkMission,
@@ -35,6 +36,7 @@ export class DistrictScene extends Phaser.Scene {
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
   private vehicleRenderer!: VehicleRenderer;
+  private hudController!: LocalHudController;
   private debugSubscription!: DebugSnapshotSubscription;
   private inputController!: ClientInputController;
   private debugKey!: Phaser.Input.Keyboard.Key;
@@ -45,10 +47,6 @@ export class DistrictScene extends Phaser.Scene {
   private missionGraphics!: Phaser.GameObjects.Graphics;
   private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
   private minimap?: MinimapRenderer;
-  private lastWanted = 0;
-  private lastCash = 0;
-  private lastLocalAction = '';
-  private toastTimeout?: number;
   private latestState?: DistrictNetworkState;
   private latestDebugSnapshot?: DebugSnapshot;
   private debugVisible = false;
@@ -99,6 +97,8 @@ export class DistrictScene extends Phaser.Scene {
 
     this.cameraController = new CameraPresentationController(this);
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
+    this.hudController = new LocalHudController();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
     this.input.setDefaultCursor('crosshair');
 
     this.createPedestrianAnimation('driver-walk', 'driver');
@@ -115,7 +115,8 @@ export class DistrictScene extends Phaser.Scene {
       vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
       canOccupy: (x, y) => this.canOccupy(x, y),
       onLocalState: (playerId, player, sprite, damaged) => {
-        this.updateHud(player);
+        const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
+        this.hudController.update(player, vehicle);
         if (!player.vehicleId) this.cameraController.followPlayer(playerId, sprite, player.x, player.y);
         if (damaged) this.cameraController.localDamageFeedback();
       }
@@ -168,17 +169,17 @@ export class DistrictScene extends Phaser.Scene {
       this.debugSubscription
     );
     this.room.onMessage<MissionNotice>(MISSION_NOTICE_MESSAGE, (notice) => {
-      this.showToast(notice.message, notice.tone);
+      this.hudController.show(notice.message, notice.tone);
     });
     this.room.onStateChange((state) => {
       this.latestState = state;
       this.synchronizeState(state);
     });
-    this.room.onLeave(() => this.setConnectionState(false));
-    this.room.onError(() => this.setConnectionState(false));
+    this.room.onLeave(() => this.hudController.setConnection(false));
+    this.room.onError(() => this.hudController.setConnection(false));
     this.latestState = this.room.state;
     this.synchronizeState(this.room.state);
-    this.setConnectionState(true);
+    this.hudController.setConnection(true);
     document.querySelector('#loading')?.classList.add('hidden');
   }
 
@@ -679,95 +680,6 @@ export class DistrictScene extends Phaser.Scene {
     }));
   }
 
-  private updateHud(player: NetworkPlayer): void {
-    const name = document.querySelector('#driver-name');
-    const cash = document.querySelector('#cash');
-    const healthFill = document.querySelector<HTMLElement>('#health-fill');
-    const healthTrack = document.querySelector('#health-track');
-    const heatMeter = document.querySelector('#heat-meter');
-    const deathScreen = document.querySelector('#death-screen');
-    const vehicleHud = document.querySelector('#vehicle-hud');
-    const weaponHud = document.querySelector('#weapon-hud');
-    const weaponName = document.querySelector('#weapon-name');
-    const weaponAmmo = document.querySelector('#weapon-ammo');
-    const weaponIcon = document.querySelector<HTMLImageElement>('#weapon-icon');
-    const speedValue = document.querySelector('#speed-value');
-    const vehicleCondition = document.querySelector<HTMLElement>('#vehicle-condition-fill');
-    const vehicleConditionTrack = document.querySelector('#vehicle-condition');
-    const shell = document.querySelector<HTMLElement>('#game-shell');
-
-    if (name) name.textContent = player.name;
-    if (cash) cash.textContent = `$${String(player.cash).padStart(6, '0')}`;
-    if (healthFill) healthFill.style.width = `${clamp(player.health, 0, 100)}%`;
-    healthTrack?.setAttribute('aria-label', `Health ${player.health}`);
-    heatMeter?.setAttribute('aria-label', `Heat level ${player.wanted}`);
-    document.querySelectorAll('#heat-meter i').forEach((cell, index) => {
-      cell.classList.toggle('active', index < player.wanted);
-    });
-    deathScreen?.classList.toggle('hidden', player.alive);
-
-    const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
-    const isDriver = Boolean(vehicle) && player.vehicleSeat === 0;
-    vehicleHud?.classList.toggle('hidden', !isDriver);
-    weaponHud?.classList.toggle('hidden', isDriver || !player.alive || Boolean(player.action));
-    if (weaponName) weaponName.textContent = weaponLabel(player.weapon);
-    if (weaponAmmo) weaponAmmo.textContent = String(playerAmmo(player));
-    if (weaponIcon) {
-      weaponIcon.src = `/assets/original/weapons/${player.weapon}.svg`;
-      weaponIcon.alt = player.weapon;
-    }
-    if (speedValue) speedValue.textContent = String(Math.round(Math.abs(vehicle?.speed ?? 0) * 0.55)).padStart(3, '0');
-    if (vehicleCondition) {
-      vehicleCondition.style.width = `${clamp(
-        (vehicle?.health ?? 0) / Math.max(1, vehicle?.maxHealth ?? 1) * 100,
-        0,
-        100
-      )}%`;
-    }
-    vehicleConditionTrack?.setAttribute('aria-label', `Vehicle condition ${vehicle?.health ?? 0}`);
-    if (shell) {
-      shell.dataset.mode = vehicle ? 'vehicle' : (player.alive ? 'foot' : 'dead');
-      shell.dataset.health = String(player.health);
-      shell.dataset.wanted = String(player.wanted);
-      shell.dataset.action = player.action;
-    }
-
-    if (player.wanted > this.lastWanted) this.showToast(player.wanted >= 3 ? 'POLICE ESCALATION' : 'WANTED');
-    if (player.wanted === 0 && this.lastWanted > 0) this.showToast('HEAT LOST');
-    if (player.cash > this.lastCash) this.showToast(`+$${player.cash - this.lastCash}`);
-    if (player.action === 'hijacking' && player.action !== this.lastLocalAction) this.showToast('CARJACKING');
-    if (player.action === 'entering' && player.action !== this.lastLocalAction) this.showToast('ENTERING');
-    this.lastWanted = player.wanted;
-    this.lastCash = player.cash;
-    this.lastLocalAction = player.action;
-  }
-
-  private showToast(message: string, tone: MissionNotice['tone'] = 'info'): void {
-    const element = document.querySelector('#event-toast');
-    if (!element) return;
-    element.textContent = message;
-    element.setAttribute('data-tone', tone);
-    element.classList.add('visible');
-    if (this.toastTimeout) window.clearTimeout(this.toastTimeout);
-    this.toastTimeout = window.setTimeout(() => element.classList.remove('visible'), 1300);
-  }
-
-  private setConnectionState(online: boolean): void {
-    const element = document.querySelector('#connection-state');
-    if (!element) return;
-    element.textContent = online ? 'Online' : 'Disconnected';
-    element.classList.toggle('offline', !online);
-  }
-}
-
-function weaponLabel(weapon: NetworkPlayer['weapon']): string {
-  return weapon === 'smg' ? 'SMG' : weapon.toUpperCase();
-}
-
-function playerAmmo(player: NetworkPlayer): number {
-  if (player.weapon === 'smg') return player.ammoSmg;
-  if (player.weapon === 'shotgun') return player.ammoShotgun;
-  return player.ammoPistol;
 }
 
 function clamp(value: number, min: number, max: number): number {

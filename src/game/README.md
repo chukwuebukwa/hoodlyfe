@@ -43,6 +43,9 @@ game/
     render-types.ts
     vehicle-render-policy.ts
     vehicle-renderer.ts
+  ui/
+    hud-policy.ts
+    local-hud-controller.ts
   minimap-marker-policy.ts
   minimap-renderer.ts
   touch-controls.ts
@@ -61,4 +64,6 @@ game/
 - `projectile-render-policy.ts` owns weapon/police projectile presentation data.
 - `ProjectileRenderer` owns bullet render-object creation, synchronization, interpolation, muzzle flashes, removal, and teardown.
 - `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
-- `DistrictScene` still owns world setup, mission presentation, debug rendering, HUD, camera callbacks, and crosshair/minimap coordination. Those are the next extraction targets.
+- `hud-policy.ts` projects player/vehicle facts and edge-triggered notices without DOM access.
+- `LocalHudController` owns cached HUD elements, meters, mode visibility, bounded notices, connection state, timers, and teardown.
+- `DistrictScene` still owns world setup, mission presentation, debug rendering, and crosshair/minimap coordination. Those are the next extraction targets.

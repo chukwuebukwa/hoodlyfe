@@ -422,9 +422,10 @@ The first client extractions are live under `src/game/input/` and `src/game/rend
 - `ProjectileRenderer` owns projectile render-object lifecycle, weapon/police visual policy, interpolation, and muzzle flashes while reporting creation through a narrow callback for player recoil presentation.
 - `PlayerRenderer` owns player, weapon, passenger, and nameplate lifecycle; local prediction; remote correction; seat composition; and cosmetic recoil.
 - `VehicleRenderer` owns vehicle bodies, police lights, staged damage effects, interpolation, depth, and read-only poses consumed by player composition.
+- `LocalHudController` owns cached local HUD DOM, meters, mode visibility, bounded notices, connection state, and teardown behind a pure projection/transition policy.
 - `DistrictScene` remains the Phaser lifecycle coordinator and uses focused input and rendering owners instead of owning their device bindings, command timers, and entity caches.
 
-The next client extractions are mission presentation, debug world/panel rendering, and HUD/toast projection. Do not combine these into one replacement client monolith.
+The next client extractions are mission presentation and debug world/panel rendering. Do not combine these into one replacement client monolith.
 
 `DistrictScene` should become a Phaser lifecycle shell:
 
