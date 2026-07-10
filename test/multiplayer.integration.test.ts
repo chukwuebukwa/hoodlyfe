@@ -126,6 +126,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   }
   await waitUntil(() => first.state.players.get(second.sessionId)?.alive === false);
   assert.ok((first.state.players.get(first.sessionId)?.wanted ?? 0) >= 1);
+  await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.pursuits.length > 0));
+  assert.ok(debugSnapshots.some((snapshot) => (
+    snapshot.events.some((event) => event.type === 'incident.reported')
+  )));
   assert.ok((first.state.players.get(first.sessionId)?.cash ?? 0) >= 100);
   await waitUntil(() => first.state.players.get(second.sessionId)?.alive === true, 5000);
   assert.equal(first.state.players.get(second.sessionId)?.health, 100);

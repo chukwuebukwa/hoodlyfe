@@ -1,3 +1,5 @@
+import type {CrimeKind} from '../incidents/crime-policy.ts';
+
 export type DamageTargetKind = 'player' | 'npc';
 
 interface EventMetadata {
@@ -23,9 +25,28 @@ export interface EntityKilledEvent extends EventMetadata {
 
 export interface CrimeCommittedEvent extends EventMetadata {
   type: 'crime.committed';
+  incidentId: string;
   suspectId: string;
-  heat: number;
-  resultingWantedLevel: number;
+  victimId: string;
+  crimeKind: CrimeKind;
+  severity: number;
+  x: number;
+  y: number;
+}
+
+export interface IncidentReportedEvent extends EventMetadata {
+  type: 'incident.reported';
+  incidentId: string;
+  suspectId: string;
+  witnessId: string;
+  wantedLevel: number;
+}
+
+export interface PursuitChangedEvent extends EventMetadata {
+  type: 'pursuit.changed';
+  officerId: string;
+  previousSuspectId: string;
+  suspectId: string;
 }
 
 export interface PlayerRespawnedEvent extends EventMetadata {
@@ -39,6 +60,8 @@ export type GameEvent =
   | DamageAppliedEvent
   | EntityKilledEvent
   | CrimeCommittedEvent
+  | IncidentReportedEvent
+  | PursuitChangedEvent
   | PlayerRespawnedEvent;
 
 export class GameEventStream {

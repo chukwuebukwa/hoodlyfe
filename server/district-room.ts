@@ -5,6 +5,12 @@ import {
   type DebugSnapshot
 } from '../shared/protocol/debug.ts';
 import {GameEventStream, type GameEvent} from './game/events/game-events.ts';
+import type {CrimeKind} from './game/incidents/crime-policy.ts';
+import {IncidentRegistry, type Incident} from './game/incidents/incident-registry.ts';
+import {WitnessSystem, type WitnessCandidate} from './game/incidents/witness-system.ts';
+import {DispatchSystem} from './game/police/dispatch-system.ts';
+import {PursuitMemory} from './game/police/pursuit-memory.ts';
+import {WantedSystem} from './game/wanted/wanted-system.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
@@ -27,8 +33,6 @@ const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const POLICE_FIRE_COOLDOWN_MS = 680;
 const RESPAWN_DELAY_MS = 3000;
-const HEAT_DECAY_DELAY_MS = 10_000;
-const HEAT_DECAY_STEP_MS = 6500;
 const MAX_VEHICLE_OCCUPANTS = 4;
 const TRAFFIC_VEHICLE_COUNT = 8;
 const ENTER_VEHICLE_DURATION_MS = 320;
@@ -57,8 +61,6 @@ interface RuntimePlayer {
   inputX: number;
   inputY: number;
   lastShotAt: number;
-  lastCrimeAt: number;
-  lastHeatDecayAt: number;
 }
 
 interface RuntimeNpc {
@@ -91,6 +93,12 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
+  private readonly incidents = new IncidentRegistry();
+  private readonly witnesses = new WitnessSystem();
+  private readonly wanted = new WantedSystem();
+  private readonly dispatch = new DispatchSystem();
+  private readonly pursuitMemory = new PursuitMemory();
+  private readonly reportedSuspectLocations = new Map<string, {x: number; y: number}>();
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
   private random = new DeterministicRandom('industrial-district:v1');
@@ -104,6 +112,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
+    this.incidents.clear();
+    this.wanted.clear();
+    this.dispatch.clear();
+    this.pursuitMemory.clear();
+    this.reportedSuspectLocations.clear();
     this.recentDebugEvents.length = 0;
     this.lastDebugBroadcastTick = 0;
     const requestedSeed = Number(options?.seed);
@@ -153,9 +166,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.runtimePlayers.set(client.sessionId, {
       inputX: 0,
       inputY: 0,
-      lastShotAt: Number.NEGATIVE_INFINITY,
-      lastCrimeAt: Number.NEGATIVE_INFINITY,
-      lastHeatDecayAt: Number.NEGATIVE_INFINITY
+      lastShotAt: Number.NEGATIVE_INFINITY
     });
     this.indexPlayer(player);
   }
@@ -165,6 +176,7 @@ export class DistrictRoom extends Room<DistrictState> {
     if (player) this.removePlayerFromVehicle(player);
     this.state.players.delete(client.sessionId);
     this.runtimePlayers.delete(client.sessionId);
+    this.clearSuspectResponse(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
 
@@ -286,10 +298,12 @@ export class DistrictRoom extends Room<DistrictState> {
         this.updatePlayerAction(player, now);
       } else {
         if (!player.vehicleId) this.movePlayer(player, runtime, deltaSeconds);
-        this.decayHeat(player, runtime, now);
+        this.decayHeat(player, now);
       }
       this.indexPlayer(player);
     });
+    this.processIncidentReports(now);
+    this.updatePoliceDispatch(now);
     this.state.npcs.forEach((npc) => {
       this.updateNpc(npc, deltaSeconds, now);
       this.indexNpc(npc);
@@ -297,6 +311,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.state.bullets.forEach((bullet, bulletId) => {
       this.moveBullet(bullet, bulletId, deltaSeconds, now);
     });
+    this.incidents.expire(now);
     this.lifecycle.flush();
   }
 
@@ -474,7 +489,13 @@ export class DistrictRoom extends Room<DistrictState> {
       const npc = this.state.npcs.get(record.id);
       if (!npc) continue;
       if (!npc.alive || Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
-      this.damageNpc(npc, Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)), driver.id, now);
+      this.damageNpc(
+        npc,
+        Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)),
+        driver.id,
+        now,
+        npc.kind === 'police' ? 'hit-and-run-police' : 'hit-and-run'
+      );
       vehicle.speed *= 0.72;
       this.vehicleImpactAt.set(vehicle.id, now);
       return;
@@ -489,7 +510,7 @@ export class DistrictRoom extends Room<DistrictState> {
       if (!player) continue;
       if (!player.alive || player.id === driver.id || player.vehicleId) continue;
       if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.damagePlayer(player, 50, driver.id, now);
+      this.damagePlayer(player, 50, driver.id, now, 'hit-and-run');
       vehicle.speed *= 0.68;
       this.vehicleImpactAt.set(vehicle.id, now);
       return;
@@ -518,21 +539,38 @@ export class DistrictRoom extends Room<DistrictState> {
     }
 
     if (npc.kind === 'police') {
-      const target = this.nearestWantedPlayer(npc.x, npc.y);
-      if (target) {
-        const angle = Math.atan2(target.y - npc.y, target.x - npc.x);
-        const distance = Math.hypot(target.x - npc.x, target.y - npc.y);
-        npc.angle = angle;
-        if (distance > 165) this.moveNpc(npc, angle, 158, deltaSeconds);
-        if (
-          distance < 430 &&
-          now - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS &&
-          this.world.hasLineOfSight(npc.x, npc.y, target.x, target.y)
-        ) {
-          runtime.lastShotAt = now;
-          this.createBullet(npc.id, 'police', npc.x, npc.y, angle, now, 'pistol');
+      const targetId = this.dispatch.targetFor(npc.id);
+      const target = targetId ? this.state.players.get(targetId) : undefined;
+      if (target?.alive && target.wanted > 0) {
+        const targetDistance = Math.hypot(target.x - npc.x, target.y - npc.y);
+        const canSeeTarget = targetDistance <= 620 && this.world.hasLineOfSight(
+          npc.x,
+          npc.y,
+          target.x,
+          target.y
+        );
+        const pursuit = canSeeTarget
+          ? this.pursuitMemory.observe(npc.id, target.id, target.x, target.y, now)
+          : this.pursuitMemory.search(npc.id, target.id, now);
+        if (!pursuit) {
+          // An assigned officer without a sighting patrols until the suspect re-enters view.
+        } else {
+          const angle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
+          const distance = Math.hypot(pursuit.lastKnownX - npc.x, pursuit.lastKnownY - npc.y);
+          npc.angle = angle;
+          if (distance > (pursuit.mode === 'pursuit' ? 165 : 28)) {
+            this.moveNpc(npc, angle, pursuit.mode === 'pursuit' ? 158 : 132, deltaSeconds);
+          }
+          if (
+            canSeeTarget &&
+            targetDistance < 430 &&
+            now - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS
+          ) {
+            runtime.lastShotAt = now;
+            this.createBullet(npc.id, 'police', npc.x, npc.y, angle, now, 'pistol');
+          }
+          return;
         }
-        return;
       }
     }
 
@@ -575,20 +613,6 @@ export class DistrictRoom extends Room<DistrictState> {
       moved = true;
     }
     return moved;
-  }
-
-  private nearestWantedPlayer(x: number, y: number): PlayerState | undefined {
-    let nearest: PlayerState | undefined;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const player of this.state.players.values()) {
-      if (!player.alive || player.wanted <= 0) continue;
-      const distance = Math.hypot(player.x - x, player.y - y);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = player;
-      }
-    }
-    return nearest;
   }
 
   private interact(playerId: string): void {
@@ -680,8 +704,8 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.hijackBy = '';
       vehicle.speed = 0;
       this.runtimeTraffic.delete(vehicle.id);
-      this.spawnEjectedDriver(vehicle, player, now);
-      this.recordCrime(player.id, 1, now);
+      const victimId = this.spawnEjectedDriver(vehicle, player, now);
+      this.recordCrime(player.id, 'vehicle-theft', now, victimId, vehicle.x, vehicle.y);
     }
 
     this.clearPlayerAction(player);
@@ -751,7 +775,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.actionVehicleId = '';
   }
 
-  private spawnEjectedDriver(vehicle: VehicleState, hijacker: PlayerState, now: number): void {
+  private spawnEjectedDriver(vehicle: VehicleState, hijacker: PlayerState, now: number): string {
     const id = `ejected-driver-${this.nextEjectedDriverId++}`;
     const sideAngle = vehicle.angle - Math.PI / 2;
     const preferredX = vehicle.x + Math.cos(sideAngle) * 48;
@@ -775,6 +799,7 @@ export class DistrictRoom extends Room<DistrictState> {
       respawnAt: 0
     });
     this.indexNpc(npc);
+    return id;
   }
 
   private shoot(playerId: string): void {
@@ -895,7 +920,13 @@ export class DistrictRoom extends Room<DistrictState> {
     }
   }
 
-  private damagePlayer(target: PlayerState, damage: number, attackerId: string, now: number): void {
+  private damagePlayer(
+    target: PlayerState,
+    damage: number,
+    attackerId: string,
+    now: number,
+    crimeKind: CrimeKind = 'assault'
+  ): void {
     const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
     this.events.publish({
@@ -908,17 +939,24 @@ export class DistrictRoom extends Room<DistrictState> {
       amount: previousHealth - target.health,
       remainingHealth: target.health
     });
-    if (attackerId) this.recordCrime(attackerId, 1, now);
+    if (attackerId) this.recordCrime(attackerId, crimeKind, now, target.id, target.x, target.y);
     if (target.health > 0) return;
 
     if (attackerId) {
       const attacker = this.state.players.get(attackerId);
       if (attacker) attacker.cash += 100;
+      this.recordCrime(attackerId, 'murder', now, target.id, target.x, target.y);
     }
     this.killPlayer(target, now, attackerId);
   }
 
-  private damageNpc(target: NpcState, damage: number, attackerId: string, now: number): void {
+  private damageNpc(
+    target: NpcState,
+    damage: number,
+    attackerId: string,
+    now: number,
+    crimeKind: CrimeKind = target.kind === 'police' ? 'assault-police' : 'assault'
+  ): void {
     const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
     this.events.publish({
@@ -931,7 +969,7 @@ export class DistrictRoom extends Room<DistrictState> {
       amount: previousHealth - target.health,
       remainingHealth: target.health
     });
-    this.recordCrime(attackerId, target.kind === 'police' ? 2 : 1, now);
+    if (attackerId) this.recordCrime(attackerId, crimeKind, now, target.id, target.x, target.y);
     const runtime = this.runtimeNpcs.get(target.id);
     if (runtime) {
       runtime.panicUntil = now + 4500;
@@ -951,12 +989,24 @@ export class DistrictRoom extends Room<DistrictState> {
     if (runtime) runtime.respawnAt = now + 5500;
     const attacker = this.state.players.get(attackerId);
     if (attacker) attacker.cash += target.kind === 'police' ? 200 : 50;
+    if (attackerId) {
+      this.recordCrime(
+        attackerId,
+        target.kind === 'police' ? 'murder-police' : 'murder',
+        now,
+        target.id,
+        target.x,
+        target.y
+      );
+    }
   }
 
   private killPlayer(player: PlayerState, now: number, attackerId: string): void {
     player.alive = false;
     player.health = 0;
     player.respawnAt = now + RESPAWN_DELAY_MS;
+    player.wanted = 0;
+    this.clearSuspectResponse(player.id);
     this.events.publish({
       type: 'entity.killed',
       tick: this.simulationClock.tick,
@@ -996,8 +1046,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.vehicleSeat = -1;
     this.clearPlayerAction(player);
     refillAmmo(player);
-    runtime.lastCrimeAt = Number.NEGATIVE_INFINITY;
-    runtime.lastHeatDecayAt = now;
+    this.clearSuspectResponse(player.id);
     this.events.publish({
       type: 'player.respawned',
       tick: this.simulationClock.tick,
@@ -1008,34 +1057,150 @@ export class DistrictRoom extends Room<DistrictState> {
     });
   }
 
-  private recordCrime(playerId: string, heat: number, now: number): void {
+  private recordCrime(
+    playerId: string,
+    kind: CrimeKind,
+    now: number,
+    victimId = '',
+    x?: number,
+    y?: number
+  ): void {
     const player = this.state.players.get(playerId);
-    const runtime = this.runtimePlayers.get(playerId);
-    if (!player || !runtime) return;
-    player.wanted = Math.min(5, player.wanted + heat);
-    runtime.lastCrimeAt = now;
-    runtime.lastHeatDecayAt = now;
+    if (!player?.alive) return;
+    const result = this.incidents.register({
+      kind,
+      suspectId: playerId,
+      victimId,
+      x: x ?? player.x,
+      y: y ?? player.y,
+      nowMs: now
+    });
+    this.wanted.noteCrime(playerId, now);
+    if (!result.created) return;
+    const incident = result.incident;
     this.events.publish({
       type: 'crime.committed',
       tick: this.simulationClock.tick,
       nowMs: now,
+      incidentId: incident.id,
       suspectId: playerId,
-      heat,
-      resultingWantedLevel: player.wanted
+      victimId,
+      crimeKind: kind,
+      severity: incident.severity,
+      x: incident.x,
+      y: incident.y
     });
+    const report = this.witnesses.selectReporter(
+      incident,
+      this.witnessCandidatesFor(incident),
+      (fromX, fromY, toX, toY) => this.world.hasLineOfSight(fromX, fromY, toX, toY)
+    );
+    if (!report) return;
+    this.incidents.scheduleReport(incident.id, report.witnessId, now + report.delayMs);
+    if (report.witnessKind === 'civilian') {
+      const runtime = this.runtimeNpcs.get(report.witnessId);
+      if (runtime) {
+        runtime.panicUntil = Math.max(runtime.panicUntil, now + 4500);
+        runtime.threatId = playerId;
+      }
+    }
   }
 
-  private decayHeat(player: PlayerState, runtime: RuntimePlayer, now: number): void {
-    if (player.wanted === 0 || now - runtime.lastCrimeAt < HEAT_DECAY_DELAY_MS) return;
+  private decayHeat(player: PlayerState, now: number): void {
+    if (player.wanted === 0) return;
     const policeNearby = this.spatialIndex.queryCircle(player.x, player.y, 430, {kinds: ['npc']})
       .some((record) => {
         const npc = this.state.npcs.get(record.id);
         return Boolean(npc?.kind === 'police' && npc.alive);
       });
-    if (!policeNearby && now - runtime.lastHeatDecayAt >= HEAT_DECAY_STEP_MS) {
-      player.wanted -= 1;
-      runtime.lastHeatDecayAt = now;
+    player.wanted = this.wanted.tryDecay(player.id, now, policeNearby).level;
+  }
+
+  private witnessCandidatesFor(incident: Incident): WitnessCandidate[] {
+    return this.spatialIndex.queryCircle(incident.x, incident.y, 760, {kinds: ['npc']})
+      .map((record) => this.state.npcs.get(record.id))
+      .filter((npc): npc is NpcState => Boolean(npc))
+      .map((npc) => ({
+        id: npc.id,
+        kind: npc.kind === 'police' ? 'police' : 'civilian',
+        x: npc.x,
+        y: npc.y,
+        alive: npc.alive
+      }));
+  }
+
+  private processIncidentReports(now: number): void {
+    for (const incident of this.incidents.dueReports(now)) {
+      const suspect = this.state.players.get(incident.suspectId);
+      if (!suspect?.alive) {
+        this.incidents.markReported(incident.id, now);
+        continue;
+      }
+      this.incidents.markReported(incident.id, now);
+      const wanted = this.wanted.report(incident.suspectId, incident.severity, now);
+      suspect.wanted = wanted.level;
+      this.reportedSuspectLocations.set(incident.suspectId, {x: incident.x, y: incident.y});
+      this.events.publish({
+        type: 'incident.reported',
+        tick: this.simulationClock.tick,
+        nowMs: now,
+        incidentId: incident.id,
+        suspectId: incident.suspectId,
+        witnessId: incident.witnessId,
+        wantedLevel: wanted.level
+      });
     }
+  }
+
+  private updatePoliceDispatch(now: number): void {
+    const suspects = [...this.state.players.values()]
+      .filter((player) => player.alive && player.wanted > 0)
+      .map((player) => ({id: player.id, wantedLevel: player.wanted}));
+    const officerIds = [...this.state.npcs.values()]
+      .filter((npc) => npc.alive && npc.kind === 'police')
+      .map((npc) => npc.id);
+    const changes = this.dispatch.update(suspects, officerIds);
+    for (const change of changes) {
+      if (change.suspectId) {
+        const location = this.reportedSuspectLocations.get(change.suspectId);
+        const officer = this.state.npcs.get(change.officerId);
+        if (location) {
+          this.pursuitMemory.assignSearch(
+            change.officerId,
+            change.suspectId,
+            location.x,
+            location.y,
+            now
+          );
+        } else if (officer) {
+          this.pursuitMemory.assignSearch(
+            change.officerId,
+            change.suspectId,
+            officer.x,
+            officer.y,
+            now
+          );
+        }
+      } else {
+        this.pursuitMemory.clearOfficer(change.officerId);
+      }
+      this.events.publish({
+        type: 'pursuit.changed',
+        tick: this.simulationClock.tick,
+        nowMs: now,
+        officerId: change.officerId,
+        previousSuspectId: change.previousSuspectId,
+        suspectId: change.suspectId
+      });
+    }
+  }
+
+  private clearSuspectResponse(suspectId: string): void {
+    this.incidents.clearSuspect(suspectId);
+    this.wanted.reset(suspectId);
+    this.dispatch.clearSuspect(suspectId);
+    this.pursuitMemory.clearSuspect(suspectId);
+    this.reportedSuspectLocations.delete(suspectId);
   }
 
   private rebuildSpatialIndex(): void {
@@ -1110,6 +1275,22 @@ export class DistrictRoom extends Room<DistrictState> {
       npcs: this.state.npcs.size,
       vehicles: this.state.vehicles.size,
       bullets: this.state.bullets.size,
+      incidents: this.incidents.snapshot().map((incident) => ({
+        id: incident.id,
+        kind: incident.kind,
+        suspectId: incident.suspectId,
+        witnessId: incident.witnessId,
+        status: incident.status,
+        x: incident.x,
+        y: incident.y
+      })),
+      pursuits: this.pursuitMemory.entries().map((pursuit) => ({
+        officerId: pursuit.officerId,
+        suspectId: pursuit.suspectId,
+        lastKnownX: pursuit.lastKnownX,
+        lastKnownY: pursuit.lastKnownY,
+        mode: pursuit.mode
+      })),
       events: [...this.recentDebugEvents]
     };
     this.broadcast(DEBUG_SNAPSHOT_MESSAGE, snapshot);
@@ -1123,7 +1304,13 @@ function summarizeGameEvent(event: GameEvent): string {
     case 'entity.killed':
       return `${event.entityKind}:${event.entityId} killed by ${event.attackerId || 'world'}`;
     case 'crime.committed':
-      return `${event.suspectId} heat +${event.heat} => ${event.resultingWantedLevel}`;
+      return `${event.suspectId} committed ${event.crimeKind} (${event.incidentId})`;
+    case 'incident.reported':
+      return `${event.witnessId} reported ${event.suspectId} => heat ${event.wantedLevel}`;
+    case 'pursuit.changed':
+      return event.suspectId
+        ? `${event.officerId} dispatched to ${event.suspectId}`
+        : `${event.officerId} cleared from ${event.previousSuspectId}`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
   }

@@ -51,6 +51,11 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   assert.equal(vehicle.driverId, player.id);
   assert.equal(vehicle.traffic, false);
   assert.equal(room.state.npcs.size, 1);
+  assert.equal(player.wanted, 0);
+  room.processIncidentReports(Date.now() + 3000);
   assert.equal(player.wanted, 1);
-  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), ['crime.committed']);
+  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
+    'crime.committed',
+    'incident.reported'
+  ]);
 });

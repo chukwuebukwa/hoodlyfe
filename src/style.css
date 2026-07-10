@@ -218,6 +218,8 @@ canvas {
 #debug-legend .police { color: #ff5e68; }
 #debug-legend .vehicle { color: #9d8bff; }
 #debug-legend .collision { color: #ff3652; }
+#debug-legend .incident { color: #ff9d3f; }
+#debug-legend .search { color: #51f0b2; }
 
 #debug-events {
   max-height: 172px;

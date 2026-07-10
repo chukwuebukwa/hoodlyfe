@@ -90,9 +90,13 @@ test('game event stream preserves typed event order and drains atomically', () =
     type: 'crime.committed',
     tick: 4,
     nowMs: 120,
+    incidentId: 'incident-1',
     suspectId: 'driver',
-    heat: 1,
-    resultingWantedLevel: 2
+    victimId: 'civilian-1',
+    crimeKind: 'assault',
+    severity: 10,
+    x: 40,
+    y: 60
   });
   events.publish({
     type: 'player.respawned',

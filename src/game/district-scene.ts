@@ -855,6 +855,37 @@ export class DistrictScene extends Phaser.Scene {
       );
     });
 
+    for (const incident of this.latestDebugSnapshot?.incidents ?? []) {
+      const color = incident.status === 'reported' ? 0x777777 : 0xff9d3f;
+      graphics.lineStyle(2, color, 0.95);
+      graphics.strokeCircle(incident.x, incident.y, 18);
+      graphics.lineBetween(incident.x - 7, incident.y - 7, incident.x + 7, incident.y + 7);
+      graphics.lineBetween(incident.x + 7, incident.y - 7, incident.x - 7, incident.y + 7);
+      const key = `incident:${incident.id}`;
+      let label = this.debugLabels.get(key);
+      const text = `${incident.id} ${incident.kind} ${incident.status}`;
+      if (!label) {
+        label = this.add.text(incident.x, incident.y - 22, text, {
+          color: colorString(color),
+          backgroundColor: 'rgba(0, 0, 0, 0.78)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: '8px'
+        }).setOrigin(0.5, 1).setDepth(990_000).setPadding(2, 1, 2, 1);
+        this.debugLabels.set(key, label);
+      }
+      label.setPosition(incident.x, incident.y - 22).setText(text).setVisible(true);
+      presentLabels.add(key);
+    }
+
+    for (const pursuit of this.latestDebugSnapshot?.pursuits ?? []) {
+      const officer = state.npcs?.get(pursuit.officerId);
+      if (!officer) continue;
+      const color = pursuit.mode === 'pursuit' ? 0xff5e68 : 0x51f0b2;
+      graphics.lineStyle(2, color, pursuit.mode === 'pursuit' ? 0.9 : 0.65);
+      graphics.lineBetween(officer.x, officer.y, pursuit.lastKnownX, pursuit.lastKnownY);
+      graphics.strokeCircle(pursuit.lastKnownX, pursuit.lastKnownY, pursuit.mode === 'pursuit' ? 9 : 24);
+    }
+
     for (const [key, label] of this.debugLabels) {
       if (presentLabels.has(key)) continue;
       label.destroy();
@@ -913,6 +944,8 @@ export class DistrictScene extends Phaser.Scene {
     setDebugText('#debug-dropped', `${Math.round(snapshot?.droppedMs ?? 0)}ms`);
     setDebugText('#debug-deferred', snapshot?.deferredCommands ?? 0);
     setDebugText('#debug-event-count', snapshot?.eventsThisTick ?? 0);
+    setDebugText('#debug-incidents', snapshot?.incidents.length ?? 0);
+    setDebugText('#debug-pursuits', snapshot?.pursuits.length ?? 0);
 
     const list = document.querySelector<HTMLOListElement>('#debug-events');
     if (!list) return;
