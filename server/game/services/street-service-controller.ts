@@ -9,10 +9,7 @@ import {StreetServiceState, type DistrictState, type PlayerState, type VehicleSt
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
 import type {MedicalCareController} from '../medical/medical-care-controller.ts';
-import {
-  STREET_SPACE_ID,
-  interiorServiceAnchor
-} from '../../../shared/content/interior-catalog.ts';
+import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
 interface StreetServiceControllerOptions {
   state: DistrictState;
@@ -50,18 +47,17 @@ export class StreetServiceController {
       20,
       2411
     );
-    const clothing = interiorServiceAnchor('clothing-store');
-    if (!clothing) throw new Error('Missing interior service anchor: clothing-store');
+    const clothing = world.openPointNear(
+      world.spawn.x,
+      world.spawn.y,
+      100,
+      120,
+      11,
+      3019
+    );
     this.addService('ammunition-counter', 'ammunition', 'Ammunition', ammunition.x, ammunition.y);
     this.addService('repair-garage', 'repair', 'Repair Garage', repair.x, repair.y);
-    this.addService(
-      'clothing-store',
-      'clothing',
-      'Threads',
-      clothing.x,
-      clothing.y,
-      clothing.spaceId
-    );
+    this.addService('clothing-store', 'clothing', 'Threads', clothing.x, clothing.y);
     this.initialized = true;
   }
 

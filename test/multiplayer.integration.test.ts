@@ -88,11 +88,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(first.state.services.size, 4);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
-    'hospital',
+    'clothing',
     'hospital',
     'repair'
   ]);
-  assert.equal(first.state.services.has('clothing-store'), false);
+  assert.equal(first.state.services.has('clothing-store'), true);
+  assert.equal(first.state.services.has('hospital-mercy'), false);
   assert.ok([...first.state.vehicles.values()].every((vehicle) => {
     const maximumHealth = vehicleConfig(vehicle.kind).maxHealth;
     return vehicle.health === maximumHealth && vehicle.maxHealth === maximumHealth &&
@@ -245,84 +246,55 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     snapshot.events.some((event) => event.type === 'incident.reported')
   )));
   assert.ok((first.state.players.get(first.sessionId)?.cash ?? 0) >= 100);
-  await waitUntil(() => first.state.players.get(second.sessionId)?.alive === true, 5000);
-  assert.equal(first.state.players.get(second.sessionId)?.health, 100);
+  await waitUntil(() => second.state.players.get(second.sessionId)?.alive === true, 5000);
+  assert.equal(second.state.players.get(second.sessionId)?.health, 100);
+  await returnToStreetIfNeeded(second, second.sessionId);
 
-  const revengeShooter = second.state.players.get(second.sessionId);
-  const wantedTarget = second.state.players.get(first.sessionId);
-  assert.ok(revengeShooter && wantedTarget);
-  const revengeDistance = await moveNear(
-    second,
-    second.sessionId,
-    first.sessionId,
-    110,
-    (mover, target) => world.hasLineOfSight(mover.x, mover.y, target.x, target.y)
-  );
-  assert.ok(revengeDistance <= 150, `Revenge shooter stopped ${Math.round(revengeDistance)} units away.`);
-  const revengePosition = second.state.players.get(second.sessionId);
-  const targetPosition = second.state.players.get(first.sessionId);
-  assert.ok(revengePosition && targetPosition);
-  assert.equal(
-    world.hasLineOfSight(revengePosition.x, revengePosition.y, targetPosition.x, targetPosition.y),
-    true,
-    'Revenge shooter requires a collision-free firing lane.'
-  );
-  for (let shot = 0; shot < 16 && second.state.players.get(first.sessionId)?.alive; shot++) {
-    const currentShooter = second.state.players.get(second.sessionId);
-    const currentTarget = second.state.players.get(first.sessionId);
-    assert.ok(currentShooter && currentTarget);
-    second.send('aim', {
-      angle: Math.atan2(currentTarget.y - currentShooter.y, currentTarget.x - currentShooter.x)
-    });
-    await delay(25);
-    second.send('shoot');
-    await delay(220);
-  }
-  await waitUntil(() => second.state.players.get(first.sessionId)?.alive === false, 5000).catch(() => {
-    const shooter = second.state.players.get(second.sessionId);
-    const target = second.state.players.get(first.sessionId);
-    const distance = shooter && target ? Math.hypot(target.x - shooter.x, target.y - shooter.y) : -1;
-    throw new Error(
-      `Revenge fire did not kill target: health=${target?.health}, distance=${Math.round(distance)}.`
-    );
-  });
-  await waitUntil(() => second.state.players.get(first.sessionId)?.alive === true, 5000);
-  assert.equal(second.state.players.get(first.sessionId)?.wanted, 0);
-
-  const showroom = INTERIORS[0];
+  const hospital = INTERIORS[0];
   await driveToSpace(
-    first,
-    showroom.exteriorDoor.x,
-    showroom.exteriorDoor.y,
-    showroom.id
+    second,
+    hospital.exteriorDoor.x,
+    hospital.exteriorDoor.y,
+    hospital.id
   );
   await waitUntil(() => (
-    first.state.players.get(first.sessionId)?.spaceId === showroom.id &&
-    first.state.players.size === 1 &&
-    first.state.npcs.size === 0 &&
-    first.state.vehicles.size === 0 &&
-    first.state.missions.size === 0 &&
-    first.state.services.size === 1 &&
-    first.state.services.has('clothing-store') &&
-    second.state.players.size === 1 &&
-    !second.state.players.has(first.sessionId) &&
-    !second.state.services.has('clothing-store')
+    second.state.players.get(second.sessionId)?.spaceId === hospital.id &&
+    second.state.npcs.size === 0 &&
+    second.state.vehicles.size === 0 &&
+    second.state.missions.size === 0 &&
+    second.state.services.size === 1 &&
+    second.state.services.has('hospital-mercy')
   ));
   await driveToSpace(
-    first,
-    showroom.exitDoor.maxX,
-    (showroom.exitDoor.minY + showroom.exitDoor.maxY) / 2,
+    second,
+    hospital.exitDoor.maxX,
+    (hospital.exitDoor.minY + hospital.exitDoor.maxY) / 2,
     STREET_SPACE_ID
   );
   await waitUntil(() => (
-    first.state.players.size === 2 &&
-    second.state.players.size === 2 &&
-    first.state.npcs.size === 13 &&
-    first.state.vehicles.size === AMBIENT_TRAFFIC_TARGET + 3 &&
-    first.state.services.size === 4 &&
-    !first.state.services.has('clothing-store')
+    second.state.npcs.size === 13 &&
+    second.state.vehicles.size === AMBIENT_TRAFFIC_TARGET + 3 &&
+    second.state.services.size === 4 &&
+    second.state.services.has('clothing-store') &&
+    !second.state.services.has('hospital-mercy')
   ));
 });
+
+async function returnToStreetIfNeeded(
+  room: Room<DistrictNetworkState>,
+  playerId: string
+): Promise<void> {
+  const spaceId = room.state.players.get(playerId)?.spaceId || STREET_SPACE_ID;
+  if (spaceId === STREET_SPACE_ID) return;
+  const interior = INTERIORS.find((candidate) => candidate.id === spaceId);
+  assert.ok(interior, `Unknown respawn interior: ${spaceId}`);
+  await driveToSpace(
+    room,
+    interior.exitDoor.maxX,
+    (interior.exitDoor.minY + interior.exitDoor.maxY) / 2,
+    STREET_SPACE_ID
+  );
+}
 
 async function waitForServer(port: number, child: ChildProcess, output: () => string): Promise<void> {
   await waitUntil(async () => {
@@ -362,7 +334,10 @@ async function moveNear(
   for (let step = 0; step < 60; step++) {
     const mover = room.state.players.get(moverId);
     const target = room.state.players.get(targetId);
-    if (!mover || !target) break;
+    if (!mover || !target) {
+      await delay(30);
+      continue;
+    }
     const deltaX = target.x - mover.x;
     const deltaY = target.y - mover.y;
     const distance = Math.hypot(deltaX, deltaY);

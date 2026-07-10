@@ -62,16 +62,16 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** four complete jobs now share objective/encounter modules; item, explicit eliminate-target, escort, placement-scored race, and event-mode objectives remain incomplete.
 - **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
-- **Playable foundation** one seamless same-building single-floor Threads showroom: walk through the east-wall doorway, switch replicated space/collision automatically, see the roof-open interior in the building footprint, and walk back out without a load screen.
-- **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to showroom clients.
+- **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
+- **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
 
 ### Street Economy and Services
 
 - **Playable** bounded server-authoritative street cash with idempotent credits/debits, balance limits, typed audit events, mission payouts, and kill rewards.
 - **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
 - **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
-- **Playable** two collision-safe hospitals with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, authoritative living treatment, wanted/vehicle gates, world/minimap markers, and idempotent billing.
-- **Playable** clothing service inside the seamless Threads showroom that opens the existing creator in Wardrobe mode, with no duplicate renderer or customization path and no exterior-space leakage.
+- **Playable** Mercy Hospital as an indoor recovery/treatment destination plus street-based Southside Clinic, with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, wanted/vehicle gates, markers, and idempotent billing.
+- **Playable** collision-safe street Threads service that opens the existing creator in Wardrobe mode; its own seamless building remains queued and must use the authored interior guide.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
 - **Playable** one shared grenade pickup grants three up to a six-grenade cap, resolves contention authoritatively, projects world/minimap presentation, and respawns after 20 seconds.
 - **Foundation** street cash remains session-local and non-redeemable; money/item pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
@@ -114,7 +114,7 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 - **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
 - **Delivered playable**: ammunition and repair services quote from shared content policy, validate authoritative context, debit once, apply complete domain effects, and replicate world/minimap/action presentation.
 - **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
-- **Delivered playable**: `Threads` now belongs to the authored showroom space, opens the shared creator in Wardrobe mode, blocks wanted/vehicle use, keeps every current item free during development, and cannot be discovered or triggered from the street at overlapping coordinates.
+- **Delivered playable**: Mercy owns the authored hospital space, treatment anchor, and recovery spawn; Threads opens the shared creator from a separate street marker until its own building is authored.
 - **Delivered foundation**: inventory uses private namespaced item IDs and targeted snapshots; equipped appearance alone remains public replicated state.
 - **Delivered playable**: a shared grenade cache proves proximity collection, bounded quantity, deterministic contention, transient availability, respawn, notice, event, world model, and minimap projection without entering the service/economy controller.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
@@ -156,14 +156,14 @@ Exit gate met for current presentation states; authored layer art and durable ou
 
 ### 5. Seamless Building Interiors
 
-**Playable single-floor vertical slice; authored content and isolation next**
+**Playable authored single-floor vertical slice; content depth next**
 
 - **Delivered foundation** finite shared interior catalog, replicated player `spaceId`, automatic doorway thresholds, axis-resolved floor/wall/fixture collision, same-space player presentation, and street-system isolation.
-- **Delivered playable** Threads Showroom occupies the existing building footprint and keeps the surrounding Three city visible; entering hides street minimap, mission, traffic, and exterior markers while preserving player HUD, controls, and same-space service presentation.
-- **Delivered playable** interior-owned service anchors and replicated service `spaceId` move Threads interaction inside without room-specific rules; server execution, world markers, affordances, and minimap policy all enforce the same player/service space match.
+- **Delivered playable** Mercy Hospital occupies its real building footprint; the exporter owns 32 exact roof-lid triangles, and entering hides only that named group while preserving the surrounding city, HUD, controls, and same-space service presentation.
+- **Delivered playable** Mercy's treatment service and recovery spawn are interior-owned anchors. Medical respawn plans carry coordinates plus `spaceId`; lifecycle applies them without owning facility policy. Threads remains a street service until it gets a separate authored building.
 - **Delivered foundation** `DistrictReplicationController` diffs Colyseus state-view membership per outgoing patch. Interior clients no longer receive street collections, and street peers no longer receive interior players.
-- **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> showroom -> street round trips. It does not expose a server teleport command.
-- Export building/roof triangle ownership and door anchors from the original map pipeline. Roof visibility must toggle by authored interior ID, never by generic height or moving tile deletion.
+- **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> hospital -> street round trips. It does not expose a server teleport command.
+- **Delivered tooling** `INTERIOR_AUTHORING_GUIDE.md` documents source/runtime coordinate conversion, catalog/export ownership, failure signatures, required tests, and desktop/mobile browser QA for subsequent buildings.
 - Move ammunition, repair, and later garage/property services into authored interiors only as each building gains collision-safe anchors and appropriate vehicle/actor portal rules.
 - Add interior combat/projectile collision, NPC destinations/schedules, audio zones, lighting, cameras, and multiple floors only after the single-floor space contract is stable.
 - Add street area-of-interest cells with hysteresis, mission relevance, and add/remove budgets before raising room population substantially; space filtering alone does not make the whole street district cheap.

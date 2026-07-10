@@ -7,6 +7,11 @@ import {GameEventStream} from '../server/game/events/game-events.ts';
 import {MedicalCareController} from '../server/game/medical/medical-care-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {
+  STREET_SPACE_ID,
+  containsPoint,
+  interiorDefinition
+} from '../shared/content/interior-catalog.ts';
 
 test('medical care registers safe facilities and completes one paid nearest-hospital admission', () => {
   const fixture = createFixture(500);
@@ -20,9 +25,15 @@ test('medical care registers safe facilities and completes one paid nearest-hosp
     facilities[0].x - facilities[1].x,
     facilities[0].y - facilities[1].y
   ) >= 320);
-  for (const facility of facilities) {
-    assert.equal(fixture.world.canOccupy(facility.x, facility.y, 11), true);
-  }
+  const mercy = facilities.find((facility) => facility.id === 'hospital-mercy');
+  const southside = facilities.find((facility) => facility.id === 'hospital-southside');
+  assert.ok(mercy && southside);
+  const hospital = interiorDefinition(mercy.spaceId);
+  assert.ok(hospital?.recoveryAnchor);
+  assert.equal(containsPoint(hospital.bounds, mercy.x, mercy.y), true);
+  assert.equal(hospital.obstacles.some((obstacle) => containsPoint(obstacle, mercy.x, mercy.y)), false);
+  assert.equal(southside.spaceId, STREET_SPACE_ID);
+  assert.equal(fixture.world.canOccupy(southside.x, southside.y, 11), true);
 
   fixture.tick = 7;
   fixture.medical.begin(fixture.player, facilities[0].x, facilities[0].y, 1000);
@@ -38,6 +49,11 @@ test('medical care registers safe facilities and completes one paid nearest-hosp
   const plan = fixture.medical.complete(fixture.player.id, fixture.player.respawnAt);
   assert.equal(plan.care, 'trauma');
   assert.equal(plan.restoreAmmo, true);
+  assert.equal(plan.spaceId, hospital.id);
+  assert.deepEqual({x: plan.x, y: plan.y}, {
+    x: hospital.recoveryAnchor.x,
+    y: hospital.recoveryAnchor.y
+  });
   assert.ok(Math.hypot(plan.x - facilities[0].x, plan.y - facilities[0].y) <= 100);
 });
 
@@ -60,6 +76,7 @@ test('insufficient trauma funds preserve public fallback and living treatment is
   fixture.player.respawnAt = 0;
   fixture.player.x = hospital.x;
   fixture.player.y = hospital.y;
+  fixture.player.spaceId = hospital.spaceId;
   fixture.player.health = 40;
   fixture.player.cash = 500;
   fixture.tick = 12;

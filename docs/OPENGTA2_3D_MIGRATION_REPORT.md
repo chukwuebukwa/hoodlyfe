@@ -21,11 +21,9 @@ Delivered:
 - One explicit coordinate boundary: `(serverX, -serverY, blockZ * 64)`, plus authored `90-degree` sprite-forward corrections for pedestrians and vehicles.
 - Three rendering for players, appearance variants, pedestrians, vehicle catalog frames, damage stages, held weapons, passengers, in-car names, bullets, grenades, explosions, pickups, signals, services, and mission objectives.
 - Authoritative input, collision, aiming, shooting, weapon cycling, vehicle interaction, touch controls, HUD, minimap, missions, medical care, wardrobe, notices, animation, interpolation, camera following, and F3 diagnostics.
-- One same-building single-floor interior prototype with an automatic doorway, replicated `spaceId`, interior collision, fixture collision, same-space filtering, exterior UI suppression, and a same-coordinate Three floor/fixture presentation.
+- One same-building Mercy Hospital interior with an automatic facade doorway, replicated `spaceId`, medical recovery anchor, interior collision, same-space filtering, exact authored roof removal, exterior UI suppression, and a same-coordinate Three clinic presentation.
 
-The attempted generic CPU roof deletion and dithered height cutaway were both rejected during live QA. They exposed missing geometry as black void and produced visible popping/noise. The production path is authored occluder metadata: exported roof triangle groups linked to interior IDs, with a valid interior floor below them. Only the linked roof group may hide when the local player enters that interior.
-
-The browser currently identifies 93 conservative roof candidates inside the block-aligned Threads footprint. Live QA deliberately keeps them rendered: hiding even the vertex-contained candidates still exposes unclosed vertical void around the replacement floor. This counter is diagnostic evidence for the exporter task, not a runtime cutaway.
+The attempted generic CPU roof deletion and dithered height cutaway were both rejected during live QA. The implemented replacement is exporter-authored occluder metadata. Payload version 2 preserves permanent opaque/alpha base indices and emits named interior groups. Mercy Hospital owns 32 stable lid triangles selected from tight source-map XYZ bounds and lid-normal filtering. The browser validates ID, door, floor height, and triangle count before rendering and hides only the matching group.
 
 ## What OpenGTA2 Does
 
@@ -157,7 +155,6 @@ Do not directly port OpenGTA2's collision implementation: it currently operates 
 - Emergency and traffic route data.
 - Full slope-aware vehicle physics.
 - Multi-level authoritative navigation.
-- Exported per-building roof/occluder group IDs and door anchors.
 - Interior combat, NPC schedules, services, garage vehicle transfer, and multiple floors.
 
 ## Acceptance Criteria

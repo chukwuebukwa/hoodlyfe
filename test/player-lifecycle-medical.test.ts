@@ -14,6 +14,7 @@ test('public medical respawn preserves ammo and grants bounded damage protection
   assert.equal(fixture.player.alive, true);
   assert.equal(fixture.player.ammoPistol, 17);
   assert.equal(fixture.player.spawnProtected, true);
+  assert.equal(fixture.player.spaceId, 'mercy-hospital');
 
   fixture.damage.player(fixture.player, 25, 'hostile', 3000, 'assault', 'non-player');
   assert.equal(fixture.player.health, 100);
@@ -51,7 +52,14 @@ function createLifecycle(restoreAmmo: boolean) {
       target.respawnCare = restoreAmmo ? 'trauma' : 'public';
     },
     complete() {
-      return {x: 100, y: 120, angle: 0, care: 'public' as const, restoreAmmo};
+      return {
+        x: 100,
+        y: 120,
+        angle: 0,
+        spaceId: 'mercy-hospital',
+        care: 'public' as const,
+        restoreAmmo
+      };
     },
     clearPlayer() {}
   };

@@ -8,7 +8,7 @@ import {ThreeDebugController} from './three-debug-controller.ts';
 import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
 import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
-import {INTERIORS, containsPoint} from '../../../shared/content/interior-catalog.ts';
+import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -41,8 +41,21 @@ interface PrototypePayload {
   vertices: PrototypeVertex[];
   opaqueIndices: number[];
   alphaTestedIndices: number[];
+  baseOpaqueIndices?: number[];
+  baseAlphaTestedIndices?: number[];
+  occluders?: PrototypeOccluder[];
   triangleCount: number;
   surfaces: {width: number; height: number; values: number[]};
+}
+
+interface PrototypeOccluder {
+  id: string;
+  bounds: {minX: number; minY: number; maxX: number; maxY: number; minZ: number; maxZ: number};
+  exteriorDoor: {x: number; y: number};
+  floorZ: number;
+  opaqueIndices: number[];
+  alphaTestedIndices: number[];
+  triangleCount: number;
 }
 
 const FIELD_OF_VIEW = 45;
@@ -177,26 +190,29 @@ export class ThreePrototypeViewer {
       colors[positionOffset + 2] = brightness;
     });
 
-    const opaque = partitionOccluders(payload.opaqueIndices, payload);
-    const alphaTested = partitionOccluders(payload.alphaTestedIndices, payload);
     const group = new THREE.Group();
-    group.add(createMapMesh(positions, uvs, colors, opaque.base, alphaTested.base, texture));
-    for (const interior of INTERIORS) {
-      const interiorOpaque = opaque.byInterior.get(interior.id) ?? [];
-      const interiorAlpha = alphaTested.byInterior.get(interior.id) ?? [];
-      if (interiorOpaque.length + interiorAlpha.length === 0) continue;
+    group.add(createMapMesh(
+      positions,
+      uvs,
+      colors,
+      payload.baseOpaqueIndices ?? payload.opaqueIndices,
+      payload.baseAlphaTestedIndices ?? payload.alphaTestedIndices,
+      texture
+    ));
+    for (const authored of payload.occluders ?? []) {
+      validateOccluder(authored, payload.blockSize);
       const occluder = new THREE.Group();
-      occluder.name = `roof:${interior.id}`;
+      occluder.name = `roof:${authored.id}`;
       occluder.add(createMapMesh(
         positions,
         uvs,
         colors,
-        interiorOpaque,
-        interiorAlpha,
+        authored.opaqueIndices,
+        authored.alphaTestedIndices,
         texture
       ));
-      occluder.userData.triangleCount = (interiorOpaque.length + interiorAlpha.length) / 3;
-      this.mapOccluders.set(interior.id, occluder);
+      occluder.userData.triangleCount = authored.triangleCount;
+      this.mapOccluders.set(authored.id, occluder);
       group.add(occluder);
     }
     return group;
@@ -226,7 +242,7 @@ export class ThreePrototypeViewer {
     const roofTriangles = [...this.mapOccluders.values()]
       .reduce((sum, occluder) => sum + Number(occluder.userData.triangleCount ?? 0), 0);
     status.innerHTML = `<strong>3D GEOMETRY</strong><span>REGION ${payload.chunk.x}:${payload.chunk.y}</span>` +
-      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} ROOF CANDIDATES</i>`;
+      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>`;
     document.querySelector('#game-shell')?.append(status);
     this.status = status;
   }
@@ -235,7 +251,7 @@ export class ThreePrototypeViewer {
     const delta = Math.min(this.clock.getDelta(), 0.05);
     if (this.room) {
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
-      for (const occluder of this.mapOccluders.values()) occluder.visible = true;
+      for (const [id, occluder] of this.mapOccluders) occluder.visible = id !== localSpaceId;
       this.entities?.synchronize(this.room.state, localSpaceId);
       this.world?.synchronize(this.room.state, performance.now(), localSpaceId);
       this.debug?.update(this.room.state, performance.now());
@@ -351,34 +367,23 @@ export class ThreePrototypeViewer {
   }
 }
 
-interface PartitionedIndices {
-  base: number[];
-  byInterior: Map<string, number[]>;
-}
-
-function partitionOccluders(indices: number[], payload: PrototypePayload): PartitionedIndices {
-  const base: number[] = [];
-  const byInterior = new Map<string, number[]>();
-  for (let offset = 0; offset < indices.length; offset += 3) {
-    const triangle = [indices[offset], indices[offset + 1], indices[offset + 2]];
-    const vertices = triangle.map((index) => payload.vertices[index]);
-    const minimumZ = Math.min(...vertices.map((vertex) => vertex.z * payload.blockSize));
-    const interior = INTERIORS.find((candidate) => (
-      vertices.every((vertex) => containsPoint(
-        candidate.bounds,
-        vertex.x * payload.blockSize,
-        vertex.y * payload.blockSize
-      )) && minimumZ >= candidate.floorZ - 8
-    ));
-    if (!interior) {
-      base.push(...triangle);
-      continue;
-    }
-    const target = byInterior.get(interior.id) ?? [];
-    target.push(...triangle);
-    byInterior.set(interior.id, target);
+function validateOccluder(occluder: PrototypeOccluder, blockSize: number): void {
+  const expected = interiorDefinition(occluder.id);
+  if (!expected) return;
+  const doorX = occluder.exteriorDoor.x * blockSize;
+  const doorY = occluder.exteriorDoor.y * blockSize;
+  const floorZ = occluder.floorZ * blockSize;
+  if (
+    Math.abs(doorX - expected.exteriorDoor.x) > 1 ||
+    Math.abs(doorY - expected.exteriorDoor.y) > 1 ||
+    Math.abs(floorZ - expected.floorZ) > 1
+  ) {
+    throw new Error(`Authored occluder metadata does not match interior: ${occluder.id}`);
   }
-  return {base, byInterior};
+  const actualTriangles = (occluder.opaqueIndices.length + occluder.alphaTestedIndices.length) / 3;
+  if (actualTriangles !== occluder.triangleCount) {
+    throw new Error(`Authored occluder triangle count is invalid: ${occluder.id}`);
+  }
 }
 
 function createMapMesh(

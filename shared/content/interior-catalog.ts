@@ -10,6 +10,7 @@ export interface InteriorObstacle {
 export interface InteriorDefinition {
   id: string;
   label: string;
+  kind: 'hospital' | 'clothing';
   floorZ: number;
   exteriorDoor: {
     x: number;
@@ -17,9 +18,11 @@ export interface InteriorDefinition {
     radius: number;
     exitX: number;
     exitY: number;
+    side: 'east' | 'south';
   };
   bounds: InteriorObstacle;
   entry: {x: number; y: number; angle: number};
+  recoveryAnchor?: {x: number; y: number; angle: number};
   exitDoor: InteriorObstacle;
   obstacles: readonly InteriorObstacle[];
   serviceAnchors: readonly InteriorServiceAnchor[];
@@ -33,26 +36,30 @@ export interface InteriorServiceAnchor {
 
 export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
   Object.freeze({
-    id: 'threads-showroom',
-    label: 'Threads Showroom',
-    floorZ: 196,
+    id: 'mercy-hospital',
+    label: 'Mercy Hospital',
+    kind: 'hospital' as const,
+    floorZ: 132,
     exteriorDoor: {
-      x: 2190,
-      y: 2112,
+      x: 2632,
+      y: 1944,
       radius: 20,
-      exitX: 2218,
-      exitY: 2112
+      exitX: 2632,
+      exitY: 1972,
+      side: 'south' as const
     },
-    bounds: {minX: 1856, minY: 1984, maxX: 2176, maxY: 2176},
-    entry: {x: 2120, y: 2112, angle: Math.PI},
-    exitDoor: {minX: 2136, minY: 2082, maxX: 2172, maxY: 2142},
+    bounds: {minX: 2560, minY: 1664, maxX: 2816, maxY: 1920},
+    entry: {x: 2632, y: 1880, angle: -Math.PI / 2},
+    recoveryAnchor: {x: 2676, y: 1756, angle: Math.PI / 2},
+    exitDoor: {minX: 2602, minY: 1884, maxX: 2662, maxY: 1916},
     obstacles: Object.freeze([
-      {minX: 1910, minY: 2020, maxX: 1990, maxY: 2060},
-      {minX: 1910, minY: 2100, maxX: 1990, maxY: 2140},
-      {minX: 2040, minY: 2025, maxX: 2100, maxY: 2135}
+      {minX: 2588, minY: 1692, maxX: 2652, maxY: 1732},
+      {minX: 2700, minY: 1692, maxX: 2764, maxY: 1732},
+      {minX: 2588, minY: 1780, maxX: 2648, maxY: 1812},
+      {minX: 2690, minY: 1800, maxX: 2760, maxY: 1844}
     ]),
     serviceAnchors: Object.freeze([
-      {id: 'clothing-store', x: 2118, y: 2070}
+      {id: 'hospital-mercy', x: 2672, y: 1840}
     ])
   })
 ]);

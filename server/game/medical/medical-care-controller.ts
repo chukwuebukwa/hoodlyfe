@@ -10,6 +10,11 @@ import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import {StreetServiceState, type DistrictState, type PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
+import {
+  STREET_SPACE_ID,
+  interiorDefinition,
+  interiorServiceAnchor
+} from '../../../shared/content/interior-catalog.ts';
 
 const PLAYER_RADIUS = 11;
 
@@ -34,6 +39,7 @@ export interface MedicalRespawnPlan {
   x: number;
   y: number;
   angle: number;
+  spaceId: string;
   care: MedicalCareKind;
   restoreAmmo: boolean;
 }
@@ -46,14 +52,8 @@ export class MedicalCareController {
 
   initialize(): void {
     if (this.initialized) return;
-    const first = this.options.world.openPointNear(
-      this.options.world.spawn.x,
-      this.options.world.spawn.y,
-      420,
-      760,
-      PLAYER_RADIUS,
-      3557
-    );
+    const mercy = interiorServiceAnchor('hospital-mercy');
+    if (!mercy) throw new Error('Missing interior service anchor: hospital-mercy');
     let second = this.options.world.openPointNear(
       this.options.world.spawn.x,
       this.options.world.spawn.y,
@@ -62,7 +62,7 @@ export class MedicalCareController {
       PLAYER_RADIUS,
       4271
     );
-    for (let attempt = 1; attempt <= 12 && distance(first, second) < 320; attempt++) {
+    for (let attempt = 1; attempt <= 12 && distance(mercy, second) < 320; attempt++) {
       second = this.options.world.openPointNear(
         this.options.world.spawn.x,
         this.options.world.spawn.y,
@@ -72,7 +72,13 @@ export class MedicalCareController {
         4271 + attempt * 79
       );
     }
-    this.addFacility('hospital-mercy', 'Mercy Hospital', first.x, first.y);
+    this.addFacility(
+      'hospital-mercy',
+      'Mercy Hospital',
+      mercy.x,
+      mercy.y,
+      mercy.spaceId
+    );
     this.addFacility('hospital-southside', 'Southside Clinic', second.x, second.y);
     this.initialized = true;
   }
@@ -124,8 +130,10 @@ export class MedicalCareController {
       admission?.deathX ?? this.options.world.spawn.x,
       admission?.deathY ?? this.options.world.spawn.y
     );
+    const interior = facility ? interiorDefinition(facility.spaceId) : undefined;
+    const recovery = interior?.recoveryAnchor;
     const center = facility ?? this.options.world.spawn;
-    const spawn = this.options.world.openPointNear(
+    const spawn = recovery ?? this.options.world.openPointNear(
       center.x,
       center.y,
       0,
@@ -137,7 +145,8 @@ export class MedicalCareController {
     return {
       x: spawn.x,
       y: spawn.y,
-      angle: -Math.PI / 2,
+      angle: recovery?.angle ?? -Math.PI / 2,
+      spaceId: facility?.spaceId || STREET_SPACE_ID,
       care: care.id,
       restoreAmmo: care.restoreAmmo
     };
@@ -187,12 +196,18 @@ export class MedicalCareController {
       ))[0];
   }
 
-  private addFacility(id: string, label: string, x: number, y: number): void {
+  private addFacility(
+    id: string,
+    label: string,
+    x: number,
+    y: number,
+    spaceId = STREET_SPACE_ID
+  ): void {
     const service = new StreetServiceState();
     service.id = id;
     service.kind = 'hospital';
     service.label = label;
-    service.spaceId = 'street';
+    service.spaceId = spaceId;
     service.x = x;
     service.y = y;
     service.radius = STREET_SERVICE_RADIUS.hospital;

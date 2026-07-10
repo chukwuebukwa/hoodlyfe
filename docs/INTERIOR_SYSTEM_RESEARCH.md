@@ -2,44 +2,52 @@
 
 ## Current Vertical Slice
 
-Threads Showroom is the first same-building, single-floor interior. The exterior door is authored on the east wall of the building beside spawn. Walking into its threshold changes the authoritative player `spaceId` from `street` to `threads-showroom`; walking through the inside threshold returns the player to the street. Entry and exit require no interact button, room reconnect, loading screen, or QA teleport command. The ordinary interaction control is reserved for the Threads service inside.
+Mercy Hospital is the first same-building, single-floor production slice. Its doorway is attached to the south facade of the large building above the `SLOW` road marking. Walking into the threshold changes authoritative `PlayerState.spaceId` from `street` to `mercy-hospital`; walking through the inside threshold returns to collision-safe street ground. There is no room reconnect, loading screen, or teleport message.
 
-The showroom uses the building's existing XY footprint. Its floor presentation covers the exterior lid while the player is inside, and its walls, counter, racks, and displays use Three geometry. The surrounding city remains visible. The server owns interior bounds and fixture collision, resolves movement per axis, and replicates only the player's space identity.
+The OpenGTA2 exporter owns the exact 32-triangle roof-lid group. The browser hides only `roof:mercy-hospital`, then renders a hospital floor, beds, waiting bench, reception desk, recovery marker, treatment service, walls, and doorway in the same XY footprint. Neighboring geometry remains visible and depth-tested.
+
+Mercy is also a real medical destination. `MedicalCareController` selects the nearest facility and returns a respawn plan containing coordinates plus `spaceId`; `PlayerLifecycleController` applies that plan. Mercy respawns inside at its recovery anchor, while Southside Clinic remains a street fallback. Threads is a separate street service until it receives its own authored building.
 
 ## System Boundaries
 
-- `shared/content/interior-catalog.ts`: finite interior IDs, labels, floor height, building footprint, door thresholds, entry pose, fixture collision, and interior-owned service anchors.
+- `shared/content/interior-catalog.ts`: finite IDs, kind, floor height, building footprint, facade threshold, entry/exit pose, fixture collision, recovery anchors, and service anchors.
 - `server/game/interiors/interior-controller.ts`: entry, exit, interior movement, wall collision, and fixture collision.
-- `PlayerState.spaceId`: replicated spatial membership. Durable property ownership does not belong here.
-- `StreetServiceState.spaceId`: authoritative service membership. Service execution and client affordances require an exact player/service space match.
-- `three-interior-renderer.ts`: visual floor/walls/fixtures and exterior door presentation only.
-- Street combat, traffic, vehicles, missions, pickups, and minimap remain suppressed indoors. Same-space services and players are explicitly projected; other entities never gain implicit interior access.
+- `server/game/medical/medical-care-controller.ts`: facility registration, nearest-facility selection, pricing, admissions, and recovery destination.
+- `server/game/players/player-lifecycle-controller.ts`: death/respawn mutation and application of the selected medical plan.
+- `PlayerState.spaceId` and `StreetServiceState.spaceId`: authoritative spatial membership; durable property ownership does not belong here.
+- `DistrictReplicationController`: exact same-space player/service membership and street-only collection ownership through Colyseus `StateView`.
+- OpenGTA2 `WebAssetExporter`: authored source-map occluder bounds and stable roof index groups.
+- `three-interior-renderer.ts`: floor, walls, fixtures, facade sign/awning, and door presentation only.
+
+`DistrictRoom` remains composition and message routing. No building-specific gameplay rule belongs there.
 
 ## Roof Rule
 
-Do not infer roofs from height at runtime. Two rejected prototypes demonstrated why:
+Do not infer roofs from player radius, footprint, or height at runtime. Rejected prototypes produced rectangular popping, black holes, noisy transparency, and disappearing neighboring geometry.
 
-1. CPU triangle removal by moving tile radius produced rectangular popping and black holes.
-2. Fragment dithering of every surface above the player produced noisy transparency and exposed missing geometry.
+The accepted contract is:
 
-The exporter must assign an `occluderGroupId` to authored roof triangles and link that group to an `interiorId`. Entering an interior hides only that fixed group. A valid interior floor must exist below it before the roof can hide. Exterior walls remain depth-tested and visible.
+1. OpenGTA2 source-map bounds and lid-normal filtering select exact roof triangles offline.
+2. Export version 2 separates permanent base indices from named occluder indices without changing index order.
+3. The shared catalog and payload must agree on ID, door coordinates, and floor Z.
+4. Entering one interior hides only the matching named group.
+5. A valid floor and closed interior shell must already exist beneath it.
 
-## Next Production Steps
-
-1. Export roof group and doorway anchors for Threads Showroom.
-2. Add interior projectile/world collision before enabling weapons indoors.
-3. Add interior NPC destinations and perception ownership before spawning pedestrians or police indoors.
-4. Add a garage interior only after vehicle portal width, occupancy, storage record, and spawn clearance are authored.
-5. Add multi-floor `surfaceId` only after one-floor transitions and roof ownership are stable.
-
-Completed: Colyseus state views now remove street actors, vehicles, combat transients, missions, pickups, signals, and exterior services from an interior client's decoded state. Client-side hiding remains defensive presentation only.
+`test/three-prototype-interior-contract.test.ts` now fails locally when stale generated assets use a different interior ID.
 
 ## QA Contract
 
-- Focused controller tests cover entry, exit, wall collision, and fixture collision.
-- `?renderer=three&qa=1` adds a development-only browser driver that sends ordinary movement input toward the real thresholds.
-- Browser QA completed a street `(2080,2080)` -> showroom `(2120,2112)` -> street `(2231,2112)` round trip.
-- Browser QA also opened the server-authoritative Threads wardrobe inside and proved that the same coordinates on `street` expose neither its marker nor interaction.
-- Real two-client and live browser QA prove the showroom client receives `1/0/0` players/NPCs/vehicles and one interior service while the street peer no longer receives that interior player; exit restores both views.
-- Desktop and `390 x 844` mobile views showed the same building footprint, no page overflow, hidden exterior-only UI, and a full-size Three canvas.
-- Mobile screenshot pixel analysis found 18,463 unique center-crop colors, channel standard deviations above 45, and `0.07%` near-black pixels, rejecting blank/void output.
+- Controller tests cover entry, exit, wall collision, fixtures, service-space isolation, nearest medical selection, recovery anchors, and lifecycle application.
+- The real two-client scenario covers death, indoor respawn, same-space isolation, exit, restored street visibility, continued combat, and an explicit hospital round trip.
+- `?renderer=three&qa=1` sends ordinary movement toward real thresholds; it exposes no server teleport command.
+- Live desktop QA completed street -> `mercy-hospital` -> street and showed the facade sign, exact roof cutaway, clinic fixtures, same-space treatment marker, player, and surrounding city.
+- Explicit `390 x 844` QA produced a nonblank `390 x 844` canvas with zero document overflow.
+- Wire behavior remains `street: players/NPCs/vehicles/services` versus `hospital: same-space players plus hospital-mercy only`.
+
+## Next Production Steps
+
+1. Give Threads a separate authored building using `INTERIOR_AUTHORING_GUIDE.md`.
+2. Add interior projectile/world collision before enabling weapons indoors.
+3. Add interior NPC destinations and perception ownership before spawning patients, staff, or police indoors.
+4. Add a garage only after vehicle portal width, occupancy, storage record, and spawn clearance are authored.
+5. Add multi-floor `surfaceId` only after multiple one-floor interiors pass the same contract.

@@ -14,8 +14,8 @@ export class ThreeQaDriver {
     this.panel.id = 'three-qa-controls';
     this.panel.innerHTML = [
       '<strong>QA DRIVER</strong>',
-      '<button type="button" data-testid="qa-enter-interior">ENTER SHOWROOM</button>',
-      '<button type="button" data-testid="qa-exit-interior">EXIT SHOWROOM</button>',
+      '<button type="button" data-testid="qa-enter-interior">ENTER HOSPITAL</button>',
+      '<button type="button" data-testid="qa-exit-interior">EXIT HOSPITAL</button>',
       '<span data-testid="qa-space">street</span>'
     ].join('');
     document.querySelector('#game-shell')?.append(this.panel);
