@@ -127,6 +127,8 @@ Safe development-tool improvements:
 
 Do not bind gameplay code to GTA2 model numbers. The converter should produce NOCK0 content IDs through a development-only mapping file.
 
+The [`OPENGTA2_3D_MIGRATION_REPORT.md`](OPENGTA2_3D_MIGRATION_REPORT.md) adds a separate world-presentation track: extract renderer-neutral block geometry offline, prove it in a feature-flagged Three.js viewer, reach actor/HUD/input parity, and only then add authoritative elevation. This is not a client rewrite prerequisite for the current street-loop work.
+
 ## Ranked Build Roadmap
 
 ### Tier 1: Street Loop and Trustworthy Simulation
@@ -165,6 +167,21 @@ These require accounts, a database, original map content, and district/interior 
 5. property-launched mission chains and cooperative heists;
 6. market listings and durable item ownership;
 7. multiple districts, interiors, and safe social venues.
+
+### Parallel Track: GTA2-Accurate 3D World Presentation
+
+This track can advance alongside gameplay architecture, but it must preserve the working Phaser client until parity:
+
+1. extract renderer-neutral GTA2 block geometry into an OpenGTA2 geometry library;
+2. export and validate one `8 x 8` chunk with lids, walls, slopes, partial blocks, UV transforms, transparency, and shading;
+3. build a standalone Three.js viewer behind `?renderer=three` with the vertical 45-degree perspective camera;
+4. export the current district as chunked geometry and verify bridge/roof depth occlusion;
+5. render network players, NPCs, vehicles, weapons, bullets, labels, and current damage effects in the same Three scene;
+6. adapt aiming through raycasting and match interpolation, camera follow, HUD, minimap, mobile controls, and frame pacing;
+7. make Three the default only after parity and keep Phaser as a temporary fallback;
+8. later export navigation surfaces and add authoritative `z`/`surfaceId`, multi-level collision, line of sight, and navigation.
+
+Rockstar-derived maps, textures, sprites, and layouts remain private compatibility fixtures. Public release still requires original world geometry/layout and art even though the OpenGTA2 converter code is MIT licensed.
 
 ## Character Creator and Cosmetic Policy
 

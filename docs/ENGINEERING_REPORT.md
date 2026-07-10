@@ -448,6 +448,7 @@ Goal: build depth on top of a stable platform.
 - businesses, properties, crews, and territory;
 - chat, parties, friends, moderation, and reporting;
 - original art, audio, animation, and map production pipeline.
+- feature-flagged Three.js world rendering from offline OpenGTA2 geometry export, with Phaser retained until full gameplay/input/HUD parity and authoritative height deferred until visual proof.
 
 ## Observability Requirements
 
@@ -468,7 +469,7 @@ The Colyseus monitoring panel is useful during development but exposes administr
 ## Architectural Decisions to Keep
 
 - Keep the server authoritative.
-- Keep Phaser for the browser client.
+- Keep Phaser as the working browser renderer until a feature-flagged Three.js path reaches measured gameplay, input, HUD, mobile, and performance parity.
 - Keep Colyseus rooms as bounded simulation units.
 - Keep map conversion offline.
 - Keep generated third-party assets out of Git.
