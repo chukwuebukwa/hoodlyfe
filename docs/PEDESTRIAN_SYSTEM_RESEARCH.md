@@ -32,22 +32,24 @@ The reference is used only to study behavior and ownership. NOCK0 code remains a
 
 ## NOCK0 Adaptation
 
-The first extraction establishes one room-facing owner without prematurely creating a generic AI framework:
+The pedestrian domain now exposes one room-facing lifecycle facade over focused simulation layers:
 
-1. `PedestrianController` owns synchronized NPC creation plus private runtime memory for wandering, thinking, firing, panic, threats, and respawn deadlines.
-2. It consumes a narrow police-target query supplied by `CrimeResponseController`; it does not assign officers or mutate wanted state.
-3. It requests police fire through `FireControlController`; it does not create projectiles or apply damage itself.
-4. It owns collision-safe pedestrian locomotion and deterministic low-frequency wander decisions.
-5. It owns ejected-driver creation because that actor becomes an ambient civilian after vehicle access creates the event.
-6. `DistrictRoom` only schedules pedestrian updates and updates spatial-index projection.
+1. `PedestrianController` owns synchronized NPC creation, ejected-driver creation, death/respawn lifecycle, and layer scheduling. It does not decide movement or tactics.
+2. `pedestrian-runtime.ts` owns private, server-only objectives, think/fire deadlines, panic memory, last-known threat position, navigation recovery, and respawn deadline.
+3. `PedestrianPerceptionSystem` consumes the narrow police pursuit query and resolves expiring civilian threat memory. A temporarily missing player does not erase the civilian's last-known danger location.
+4. `PedestrianBehaviorSystem` converts observations into explicit `wander`, `flee`, `pursue`, or `search` intent. Police authoritative target aim remains separate from collision detours.
+5. `PedestrianNavigationSystem` owns deterministic blocked-path recovery and its independent decision cadence.
+6. `PedestrianLocomotionSystem` owns continuous collision-safe, per-axis movement.
+7. Police fire remains a request to `FireControlController`; pedestrian AI never creates projectiles or applies damage itself.
+8. `DistrictRoom` only schedules the facade and projects resulting positions into the spatial index.
 
-The next behavior-depth phase should split the controller internally as complexity becomes real:
+The next behavior-depth phase should add real production complexity behind these established boundaries:
 
 - `population-policy.ts`: density budgets, archetypes, zones, activation, spawn/despawn, and mission ownership;
-- `perception-system.ts`: vision, hearing, incidents, nearby traffic, and expiring memory;
-- `behavior-system.ts`: explicit ambient, reaction, police, gang, and recovery states/objectives;
-- `navigation-system.ts`: sidewalk graph, crossings, destinations, path requests, and stuck recovery;
-- `locomotion-system.ts`: local steering, separation, vehicle avoidance, and collision resolution;
+- perception stimuli: bounded gunshot, impact, injury, death, and explosion events with severity, radius, source, and expiry;
+- richer behavior: bravery-scaled flee/investigate/fight choices, police containment/arrest, and recovery transitions;
+- navigation: sidewalk graph, crossings, destinations, path-request budgets, and longer-term stuck recovery;
+- locomotion: local separation, moving-vehicle avoidance, and crowd steering;
 - pedestrian content data: health, bravery, awareness, aggression, speed, weapon skill, model, animation, and voice set.
 
 These layers stay inside the pedestrian domain. They communicate with combat, vehicles, incidents, wanted, missions, and animation through typed queries, commands, and events rather than direct cross-domain mutation.
@@ -69,6 +71,9 @@ These layers stay inside the pedestrian domain. They communicate with combat, ve
 - Equal seeds produce equal initial headings and wander decisions.
 - A panicked civilian turns and moves away from its current player threat.
 - Police consume an assigned pursuit target, move toward its last-known location, and request rate-limited fire only with line of sight and range.
+- Police collision detours do not change their authoritative aim angle or fire cadence.
+- Civilian threat memory retains a last-known player location only until the panic window expires.
+- Navigation recovery is deterministic and locomotion resolves blocked axes independently.
 - Dead pedestrians remain inactive until their deadline, then respawn alive at a collision-safe location with archetype health restored.
 - Carjacking creates an indexed ejected civilian beside the vehicle with the hijacker recorded as a temporary threat.
 - Existing witnessed-crime, police dispatch, combat, vehicle, and two-client scenarios remain green.

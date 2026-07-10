@@ -1,26 +1,22 @@
-import type {PursuitRecord} from '../police/pursuit-memory.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import {NpcState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import {PedestrianBehaviorSystem} from './pedestrian-behavior-system.ts';
+import {PedestrianLocomotionSystem} from './pedestrian-locomotion-system.ts';
+import {PedestrianNavigationSystem} from './pedestrian-navigation-system.ts';
+import {
+  PedestrianPerceptionSystem,
+  type PedestrianPoliceTarget
+} from './pedestrian-perception-system.ts';
+import {
+  clearPedestrianThreat,
+  createPedestrianRuntime,
+  type PedestrianRuntime
+} from './pedestrian-runtime.ts';
+
+export type {PedestrianPoliceTarget} from './pedestrian-perception-system.ts';
 
 export const PEDESTRIAN_RADIUS = 10;
-
-const POLICE_FIRE_COOLDOWN_MS = 680;
-
-interface PedestrianRuntime {
-  wanderAngle: number;
-  nextThinkAt: number;
-  lastShotAt: number;
-  panicUntil: number;
-  threatId: string;
-  respawnAt: number;
-}
-
-export interface PedestrianPoliceTarget {
-  pursuit?: PursuitRecord;
-  canSeeTarget: boolean;
-  targetDistance: number;
-}
 
 interface PedestrianControllerOptions {
   state: DistrictState;
@@ -40,9 +36,27 @@ interface PedestrianControllerOptions {
 
 export class PedestrianController {
   private readonly runtime = new Map<string, PedestrianRuntime>();
+  private readonly perception: PedestrianPerceptionSystem;
+  private readonly behavior: PedestrianBehaviorSystem;
+  private readonly navigation: PedestrianNavigationSystem;
+  private readonly locomotion: PedestrianLocomotionSystem;
   private nextEjectedDriverId = 1;
 
-  constructor(private readonly options: PedestrianControllerOptions) {}
+  constructor(private readonly options: PedestrianControllerOptions) {
+    this.perception = new PedestrianPerceptionSystem({
+      state: options.state,
+      policeTarget: options.policeTarget
+    });
+    this.behavior = new PedestrianBehaviorSystem({
+      random: options.random,
+      clock: options.clock
+    });
+    this.navigation = new PedestrianNavigationSystem({
+      random: options.random,
+      clock: options.clock
+    });
+    this.locomotion = new PedestrianLocomotionSystem(options.world, PEDESTRIAN_RADIUS);
+  }
 
   spawn(
     id: string,
@@ -68,7 +82,7 @@ export class PedestrianController {
     npc.angle = random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
     npc.health = healthFor(kind);
     state.npcs.set(id, npc);
-    this.runtime.set(id, createRuntime(npc.angle));
+    this.runtime.set(id, createPedestrianRuntime(npc.angle));
     this.options.onSpawned?.(npc);
     return npc;
   }
@@ -81,45 +95,21 @@ export class PedestrianController {
       return;
     }
 
-    if (npc.kind === 'police' && this.updatePolice(npc, runtime, deltaSeconds, nowMs)) {
-      return;
+    const observation = this.perception.observe(npc, runtime, nowMs);
+    const intent = this.behavior.decide(npc, runtime, observation, nowMs);
+    npc.angle = intent.angle;
+    if (!this.locomotion.move(npc, intent.angle, intent.speed, deltaSeconds)) {
+      this.navigation.recoverFromBlock(runtime, npc.id, intent.angle, nowMs);
     }
-
-    if (runtime.panicUntil > nowMs) {
-      const threat = this.options.state.players.get(runtime.threatId);
-      if (threat) runtime.wanderAngle = angleAwayFrom(npc, threat);
-    } else if (nowMs >= runtime.nextThinkAt) {
-      const key = `${npc.id}:${this.options.clock().tick}`;
-      runtime.wanderAngle += (
-        this.options.random.unit('npc-wander-turn', key) - 0.5
-      ) * Math.PI * 1.6;
-      runtime.nextThinkAt = nowMs + this.options.random.range(
-        'npc-think-delay',
-        key,
-        1200,
-        3800
-      );
+    if (intent.fire) {
+      this.options.requestPoliceFire(npc.id, npc.x, npc.y, intent.aimAngle, nowMs);
     }
-
-    const speed = runtime.panicUntil > nowMs ? 175 : (npc.kind === 'police' ? 78 : 62);
-    npc.angle = runtime.wanderAngle;
-    if (this.move(npc, runtime.wanderAngle, speed, deltaSeconds)) return;
-    runtime.wanderAngle = normalizeAngle(
-      runtime.wanderAngle + Math.PI * this.options.random.range(
-        'npc-collision-turn',
-        `${npc.id}:${this.options.clock().tick}`,
-        0.55,
-        1.55
-      )
-    );
-    runtime.nextThinkAt = nowMs + 250;
   }
 
   panic(npcId: string, threatId: string, untilMs: number): void {
     const runtime = this.runtime.get(npcId);
     if (!runtime) return;
-    runtime.panicUntil = Math.max(runtime.panicUntil, untilMs);
-    runtime.threatId = threatId;
+    this.perception.rememberThreat(runtime, threatId, untilMs);
   }
 
   scheduleRespawn(npcId: string, respawnAt: number): void {
@@ -151,39 +141,13 @@ export class PedestrianController {
     npc.health = healthFor(npc.kind);
     this.options.state.npcs.set(id, npc);
     this.runtime.set(id, {
-      ...createRuntime(npc.angle),
+      ...createPedestrianRuntime(npc.angle),
       nextThinkAt: nowMs + 1100,
       panicUntil: nowMs + 4500,
       threatId: hijacker.id
     });
     this.options.onSpawned?.(npc);
     return id;
-  }
-
-  private updatePolice(
-    npc: NpcState,
-    runtime: PedestrianRuntime,
-    deltaSeconds: number,
-    nowMs: number
-  ): boolean {
-    const response = this.options.policeTarget(npc, nowMs);
-    if (!response?.pursuit) return false;
-    const {pursuit, canSeeTarget, targetDistance} = response;
-    const angle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
-    const distance = Math.hypot(pursuit.lastKnownX - npc.x, pursuit.lastKnownY - npc.y);
-    npc.angle = angle;
-    if (distance > (pursuit.mode === 'pursuit' ? 165 : 28)) {
-      this.move(npc, angle, pursuit.mode === 'pursuit' ? 158 : 132, deltaSeconds);
-    }
-    if (
-      canSeeTarget &&
-      targetDistance < 430 &&
-      nowMs - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS
-    ) {
-      runtime.lastShotAt = nowMs;
-      this.options.requestPoliceFire(npc.id, npc.x, npc.y, angle, nowMs);
-    }
-    return true;
   }
 
   private tryRespawn(npc: NpcState, runtime: PedestrianRuntime, nowMs: number): void {
@@ -200,46 +164,13 @@ export class PedestrianController {
     npc.y = position.y;
     npc.health = healthFor(npc.kind);
     npc.alive = true;
-    runtime.panicUntil = 0;
-    runtime.threatId = '';
+    clearPedestrianThreat(runtime);
+    runtime.objective = 'wander';
+    runtime.avoidUntil = 0;
     runtime.respawnAt = 0;
   }
-
-  private move(npc: NpcState, angle: number, speed: number, deltaSeconds: number): boolean {
-    const nextX = npc.x + Math.cos(angle) * speed * deltaSeconds;
-    const nextY = npc.y + Math.sin(angle) * speed * deltaSeconds;
-    let moved = false;
-    if (this.options.world.canOccupy(nextX, npc.y, PEDESTRIAN_RADIUS)) {
-      npc.x = nextX;
-      moved = true;
-    }
-    if (this.options.world.canOccupy(npc.x, nextY, PEDESTRIAN_RADIUS)) {
-      npc.y = nextY;
-      moved = true;
-    }
-    return moved;
-  }
-}
-
-function createRuntime(wanderAngle: number): PedestrianRuntime {
-  return {
-    wanderAngle,
-    nextThinkAt: 0,
-    lastShotAt: 0,
-    panicUntil: 0,
-    threatId: '',
-    respawnAt: 0
-  };
 }
 
 function healthFor(kind: string): number {
   return kind === 'police' ? 100 : 50;
-}
-
-function angleAwayFrom(npc: NpcState, threat: PlayerState): number {
-  return Math.atan2(npc.y - threat.y, npc.x - threat.x);
-}
-
-function normalizeAngle(angle: number): number {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }

@@ -197,10 +197,10 @@ The first room-facing facades are now live:
 - `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
 - `PlayerLifecycleController` owns death and respawn independently of combat and the room.
-- `PedestrianController` owns pedestrian spawn/runtime memory, panic, deterministic ambient movement, police pursuit consumption, police fire requests, respawn, and ejected drivers.
+- `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
-ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. The room now contains transport lifecycle, dependency wiring, explicit schedule order, and spatial projection; client presentation is the remaining large coordinator extraction. The pedestrian facade must next split into dynamic population policy, perception, behavior, navigation, and locomotion modules as those behaviors deepen.
+ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. The room now contains transport lifecycle, dependency wiring, explicit schedule order, and spatial projection. The first client coordinator extraction and the pedestrian perception/behavior/navigation/locomotion split are complete; dynamic population policy and deeper event-driven behavior remain domain work.
 
 ## Fixed Simulation Order
 

@@ -56,7 +56,12 @@ game/
     mission-state-projector.ts
     mission-system.ts
   pedestrians/
+    pedestrian-behavior-system.ts
     pedestrian-controller.ts
+    pedestrian-locomotion-system.ts
+    pedestrian-navigation-system.ts
+    pedestrian-perception-system.ts
+    pedestrian-runtime.ts
   wanted/
     wanted-system.ts
   vehicles/
@@ -111,6 +116,10 @@ Extracted domain policies and room adapters now include:
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.
-- `pedestrian-controller.ts` for pedestrian population creation, private runtime memory, deterministic wander, panic/threat response, police pursuit consumption, rate-limited police fire requests, collision-safe locomotion, death/respawn, and ejected-driver creation.
+- `pedestrian-controller.ts` for pedestrian spawn/ejected-driver/death/respawn lifecycle and room-facing composition.
+- `pedestrian-runtime.ts` for private objectives, threat memory, think/fire/navigation deadlines, and respawn state.
+- `pedestrian-perception-system.ts` for police pursuit observations and expiring civilian last-known-threat memory.
+- `pedestrian-behavior-system.ts` for explicit wander/flee/pursue/search intent, independent authoritative aim, and fire cadence.
+- `pedestrian-navigation-system.ts` for deterministic blocked-path recovery, plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
 
 `DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, explicit simulation scheduling, spatial projection, and client transport. Client presentation remains extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
