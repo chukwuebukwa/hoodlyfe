@@ -55,8 +55,11 @@ Weapon damage does not also become an impact, preventing one shot from producing
 - Add line-of-sight attenuation, wall/indoor layers, vehicle cabin attenuation, and distinct visual versus audible facts.
 - Add archetype awareness, bravery, aggression, faction, and weapon-skill profiles rather than one randomized bravery value.
 - Protect perception work with per-tick budgets as ambient population scales beyond the current district.
-- Add inspectable debug projection for objective, threat/stimulus memory, response age, and registry pressure.
 - Later behavior phases should add look-at/turn, call police, take cover, assist, retaliate, arrest, and containment states instead of treating all reactions as movement.
+
+## Debug Inspection
+
+The opt-in F3 snapshot now includes pedestrian objective, bravery, personal threat, stimulus kind/source/expiry, and every active stimulus. The client labels each NPC with its AI state and draws stimulus center, radius, severity, and remaining lifetime. This diagnostic payload is not part of ordinary synchronized entity state and is only delivered to explicit debug subscribers.
 
 ## Acceptance Coverage
 

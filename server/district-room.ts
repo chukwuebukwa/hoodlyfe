@@ -123,6 +123,8 @@ export class DistrictRoom extends Room<DistrictState> {
       deferredSize: () => this.lifecycle.size,
       incidents: () => this.crimeController.incidentSnapshot(),
       pursuits: () => this.crimeController.pursuitSnapshot(),
+      pedestrians: () => this.pedestrians.diagnostics(),
+      stimuli: () => this.pedestrians.stimulusSnapshot(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);

@@ -1,7 +1,9 @@
 import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugEventEntry,
-  type DebugSnapshot
+  type DebugPedestrianAiEntry,
+  type DebugSnapshot,
+  type DebugStimulusEntry
 } from '../../../shared/protocol/debug.ts';
 import type {DistrictState} from '../../state.ts';
 import type {GameEvent} from '../events/game-events.ts';
@@ -22,6 +24,8 @@ interface DebugSnapshotControllerOptions {
   deferredSize: () => number;
   incidents: () => readonly Incident[];
   pursuits: () => readonly PursuitRecord[];
+  pedestrians?: () => ReadonlyArray<DebugPedestrianAiEntry>;
+  stimuli?: () => ReadonlyArray<DebugStimulusEntry>;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -89,6 +93,8 @@ export class DebugSnapshotController {
         lastKnownY: pursuit.lastKnownY,
         mode: pursuit.mode
       })),
+      pedestrianAi: (this.options.pedestrians?.() ?? []).map((pedestrian) => ({...pedestrian})),
+      stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({...stimulus})),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }

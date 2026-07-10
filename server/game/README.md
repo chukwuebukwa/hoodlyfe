@@ -114,7 +114,7 @@ Extracted domain policies and room adapters now include:
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, spread, pellet count, muzzle origin, and bullet creation.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
-- `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit copies, simulation pressure counters, and debug transport publication.
+- `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.

@@ -51,7 +51,8 @@ export class DebugPresentationController {
       deferred: this.root.querySelector('#debug-deferred'),
       eventsThisTick: this.root.querySelector('#debug-event-count'),
       incidents: this.root.querySelector('#debug-incidents'),
-      pursuits: this.root.querySelector('#debug-pursuits')
+      pursuits: this.root.querySelector('#debug-pursuits'),
+      stimuli: this.root.querySelector('#debug-stimuli')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -114,6 +115,7 @@ export class DebugPresentationController {
     this.drawNpcs(presentLabels);
     this.drawVehicles(presentLabels);
     this.drawBullets();
+    this.drawStimuli(presentLabels);
     this.drawIncidents(presentLabels);
     this.drawPursuits();
     for (const [key, label] of this.labels) {
@@ -172,8 +174,18 @@ export class DebugPresentationController {
   }
 
   private drawNpcs(present: Set<string>): void {
+    const diagnostics = new Map(
+      (this.snapshot?.pedestrianAi ?? []).map((entry) => [entry.id, entry])
+    );
     this.state?.npcs?.forEach((npc, npcId) => {
       const color = npc.kind === 'police' ? 0xff5e68 : 0xf4cf55;
+      const diagnostic = diagnostics.get(npcId);
+      const memory = diagnostic?.threatId
+        ? ` threat:${shortId(diagnostic.threatId)}`
+        : (diagnostic?.stimulusKind ? ` mem:${diagnostic.stimulusKind}` : '');
+      const ai = diagnostic
+        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}`
+        : '';
       this.drawEntity(
         npc.x,
         npc.y,
@@ -181,7 +193,7 @@ export class DebugPresentationController {
         npc.angle,
         color,
         `npc:${npcId}`,
-        `${npcId} hp:${npc.health}`,
+        `${npcId} hp:${npc.health}${ai}`,
         present,
         npc.alive
       );
@@ -222,6 +234,30 @@ export class DebugPresentationController {
         bullet.y + Math.sin(bullet.angle) * 14
       );
     });
+  }
+
+  private drawStimuli(present: Set<string>): void {
+    for (const stimulus of this.snapshot?.stimuli ?? []) {
+      const color = stimulusColor(stimulus.kind);
+      this.graphics.fillStyle(color, 0.025);
+      this.graphics.fillCircle(stimulus.x, stimulus.y, stimulus.radius);
+      this.graphics.lineStyle(1, color, 0.36);
+      this.graphics.strokeCircle(stimulus.x, stimulus.y, stimulus.radius);
+      this.graphics.lineStyle(2, color, 0.95);
+      this.graphics.strokeCircle(stimulus.x, stimulus.y, 10);
+      const remaining = Math.max(0, stimulus.expiresAt - (this.snapshot?.nowMs ?? 0));
+      const key = `stimulus:${stimulus.id}`;
+      this.updateLabel(
+        key,
+        stimulus.x,
+        stimulus.y - 14,
+        `${stimulus.kind} s:${stimulus.severity.toFixed(2)} r:${Math.round(stimulus.radius)} ` +
+          `ttl:${(remaining / 1000).toFixed(1)}s`,
+        color,
+        0.95
+      );
+      present.add(key);
+    }
   }
 
   private drawIncidents(present: Set<string>): void {
@@ -331,4 +367,12 @@ function shortId(id: string): string {
 
 function colorString(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+function stimulusColor(kind: string): number {
+  if (kind === 'gunshot') return 0xffd24a;
+  if (kind === 'impact') return 0x8fdcff;
+  if (kind === 'injury' || kind === 'death') return 0xff6b6b;
+  if (kind === 'fire' || kind === 'explosion') return 0xff8f3f;
+  return 0xffffff;
 }

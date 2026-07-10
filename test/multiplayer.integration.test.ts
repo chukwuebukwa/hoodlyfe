@@ -16,6 +16,7 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
+import {CollisionMap} from '../server/world-map.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -176,8 +177,23 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const revengeShooter = second.state.players.get(second.sessionId);
   const wantedTarget = second.state.players.get(first.sessionId);
   assert.ok(revengeShooter && wantedTarget);
-  const revengeDistance = await moveNear(second, second.sessionId, first.sessionId, 120);
+  const world = CollisionMap.load();
+  const revengeDistance = await moveNear(
+    second,
+    second.sessionId,
+    first.sessionId,
+    110,
+    (mover, target) => world.hasLineOfSight(mover.x, mover.y, target.x, target.y)
+  );
   assert.ok(revengeDistance <= 150, `Revenge shooter stopped ${Math.round(revengeDistance)} units away.`);
+  const revengePosition = second.state.players.get(second.sessionId);
+  const targetPosition = second.state.players.get(first.sessionId);
+  assert.ok(revengePosition && targetPosition);
+  assert.equal(
+    world.hasLineOfSight(revengePosition.x, revengePosition.y, targetPosition.x, targetPosition.y),
+    true,
+    'Revenge shooter requires a collision-free firing lane.'
+  );
   for (let shot = 0; shot < 16 && second.state.players.get(first.sessionId)?.alive; shot++) {
     const currentShooter = second.state.players.get(second.sessionId);
     const currentTarget = second.state.players.get(first.sessionId);
@@ -226,20 +242,24 @@ async function moveNear(
   room: Room<DistrictNetworkState>,
   moverId: string,
   targetId: string,
-  targetDistance: number
+  targetDistance: number,
+  positionIsUsable: (
+    mover: {x: number; y: number},
+    target: {x: number; y: number}
+  ) => boolean = () => true
 ): Promise<number> {
   let previousDistance = Number.POSITIVE_INFINITY;
   let stagnantSteps = 0;
   let detourSteps = 0;
   let detourDirection = 1;
-  for (let step = 0; step < 45; step++) {
+  for (let step = 0; step < 60; step++) {
     const mover = room.state.players.get(moverId);
     const target = room.state.players.get(targetId);
     if (!mover || !target) break;
     const deltaX = target.x - mover.x;
     const deltaY = target.y - mover.y;
     const distance = Math.hypot(deltaX, deltaY);
-    if (distance <= targetDistance) break;
+    if (distance <= targetDistance && positionIsUsable(mover, target)) break;
     if (distance >= previousDistance - 1) stagnantSteps++;
     else stagnantSteps = 0;
     if (stagnantSteps >= 4) {

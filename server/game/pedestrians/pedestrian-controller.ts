@@ -15,9 +15,23 @@ import {
   type PedestrianRuntime
 } from './pedestrian-runtime.ts';
 import {PedestrianStimulusAdapter} from './pedestrian-stimulus-adapter.ts';
-import {PedestrianStimulusRegistry} from './pedestrian-stimulus-registry.ts';
+import {
+  PedestrianStimulusRegistry,
+  type PedestrianStimulus
+} from './pedestrian-stimulus-registry.ts';
 
 export type {PedestrianPoliceTarget} from './pedestrian-perception-system.ts';
+
+export interface PedestrianDiagnostic {
+  id: string;
+  objective: string;
+  bravery: number;
+  threatId: string;
+  panicUntil: number;
+  stimulusKind: string;
+  stimulusSourceId: string;
+  stimulusUntil: number;
+}
 
 export const PEDESTRIAN_RADIUS = 10;
 
@@ -126,6 +140,23 @@ export class PedestrianController {
 
   observeEvents(events: readonly GameEvent[]): void {
     this.stimulusAdapter.ingest(events);
+  }
+
+  diagnostics(): PedestrianDiagnostic[] {
+    return [...this.runtime.entries()].map(([id, runtime]) => ({
+      id,
+      objective: runtime.objective,
+      bravery: runtime.bravery,
+      threatId: runtime.threatId,
+      panicUntil: runtime.panicUntil,
+      stimulusKind: runtime.stimulusKind,
+      stimulusSourceId: runtime.stimulusSourceId,
+      stimulusUntil: runtime.stimulusUntil
+    })).sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  stimulusSnapshot(): PedestrianStimulus[] {
+    return this.stimuli.snapshot();
   }
 
   panic(npcId: string, threatId: string, untilMs: number): void {

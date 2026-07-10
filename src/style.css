@@ -220,6 +220,7 @@ canvas {
 #debug-legend .collision { color: #ff3652; }
 #debug-legend .incident { color: #ff9d3f; }
 #debug-legend .search { color: #51f0b2; }
+#debug-legend .stimulus { color: #ffd24a; }
 
 #debug-events {
   max-height: 172px;

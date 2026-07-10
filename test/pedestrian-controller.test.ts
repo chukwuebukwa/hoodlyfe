@@ -51,6 +51,12 @@ test('panicked civilian faces away from the current player threat', () => {
 
   assert.ok(Math.abs(civilian.angle) < 0.0001);
   assert.ok(civilian.x >= threat.x + 30);
+  const diagnostic = controller.diagnostics().find((entry) => entry.id === civilian.id);
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.objective, 'flee');
+  assert.equal(diagnostic.threatId, threat.id);
+  assert.ok(diagnostic.bravery >= 0.22 && diagnostic.bravery <= 0.72);
+  assert.equal(diagnostic.stimulusKind, '');
 });
 
 test('police pursue assigned targets and request rate-limited fire', () => {

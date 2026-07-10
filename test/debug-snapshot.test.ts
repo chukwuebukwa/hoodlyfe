@@ -47,11 +47,17 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.deepEqual(first.events.map((event) => event.tick), [3, 4, 5, 6, 7, 8, 9, 10]);
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
+  assert.equal(first.pedestrianAi?.[0].objective, 'flee');
+  assert.equal(first.stimuli?.[0].kind, 'gunshot');
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
+  fixture.pedestrian.objective = 'wander';
+  fixture.stimulus.kind = 'impact';
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
+  assert.equal(first.pedestrianAi?.[0].objective, 'flee');
+  assert.equal(first.stimuli?.[0].kind, 'gunshot');
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -112,6 +118,28 @@ function createFixture(enabled: boolean) {
     mode: 'search'
   };
   const published: DebugSnapshot[] = [];
+  const pedestrian = {
+    id: 'civilian-1',
+    objective: 'flee',
+    bravery: 0.4,
+    threatId: '',
+    panicUntil: 0,
+    stimulusKind: 'gunshot',
+    stimulusSourceId: 'driver',
+    stimulusUntil: 1400
+  };
+  const stimulus = {
+    id: 'stimulus-1',
+    kind: 'gunshot',
+    sourceId: 'driver',
+    subjectId: 'driver',
+    x: 100,
+    y: 200,
+    severity: 0.84,
+    radius: 500,
+    occurredAt: 100,
+    expiresAt: 1500
+  };
   const controller = new DebugSnapshotController({
     enabled,
     state,
@@ -120,9 +148,11 @@ function createFixture(enabled: boolean) {
     deferredSize: () => 2,
     incidents: () => [incident],
     pursuits: () => [pursuit],
+    pedestrians: () => [pedestrian],
+    stimuli: () => [stimulus],
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
-  return {controller, state, clock, incident, pursuit, published};
+  return {controller, state, clock, incident, pursuit, pedestrian, stimulus, published};
 }
 
 function addEntities(state: DistrictState): void {

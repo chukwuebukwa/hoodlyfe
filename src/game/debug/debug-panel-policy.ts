@@ -13,6 +13,7 @@ export interface DebugPanelProjection {
   eventsThisTick: number;
   incidents: number;
   pursuits: number;
+  stimuli: number;
   events: string[];
 }
 
@@ -33,6 +34,7 @@ export function projectDebugPanel(
     eventsThisTick: snapshot?.eventsThisTick ?? 0,
     incidents: snapshot?.incidents.length ?? 0,
     pursuits: snapshot?.pursuits.length ?? 0,
+    stimuli: snapshot?.stimuli?.length ?? 0,
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']

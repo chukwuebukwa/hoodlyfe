@@ -26,6 +26,30 @@ export interface DebugPursuitEntry {
   mode: 'pursuit' | 'search';
 }
 
+export interface DebugPedestrianAiEntry {
+  id: string;
+  objective: string;
+  bravery: number;
+  threatId: string;
+  panicUntil: number;
+  stimulusKind: string;
+  stimulusSourceId: string;
+  stimulusUntil: number;
+}
+
+export interface DebugStimulusEntry {
+  id: string;
+  kind: string;
+  sourceId: string;
+  subjectId: string;
+  x: number;
+  y: number;
+  severity: number;
+  radius: number;
+  occurredAt: number;
+  expiresAt: number;
+}
+
 export interface DebugSnapshot {
   tick: number;
   nowMs: number;
@@ -39,5 +63,7 @@ export interface DebugSnapshot {
   bullets: number;
   incidents: DebugIncidentEntry[];
   pursuits: DebugPursuitEntry[];
+  pedestrianAi?: DebugPedestrianAiEntry[];
+  stimuli?: DebugStimulusEntry[];
   events: DebugEventEntry[];
 }
