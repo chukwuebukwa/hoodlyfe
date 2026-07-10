@@ -59,13 +59,6 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   player.x = spawn.x + 40;
   player.y = spawn.y;
   room.state.players.set(player.id, player);
-  room.runtimePlayers.set(player.id, {
-    inputX: 0,
-    inputY: 0,
-    lastShotAt: 0,
-    lastCrimeAt: 0,
-    lastHeatDecayAt: 0
-  });
 
   const vehicle = new VehicleState();
   vehicle.id = 'traffic-test';
@@ -112,7 +105,7 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   player.vehicleId = 'wreck-test';
   player.vehicleSeat = 0;
   room.state.players.set(player.id, player);
-  room.runtimePlayers.set(player.id, {inputX: 0, inputY: 0, lastShotAt: 0});
+  room.playerControl.register(player.id);
 
   const vehicle = new VehicleState();
   vehicle.id = 'wreck-test';

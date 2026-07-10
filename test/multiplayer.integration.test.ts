@@ -163,9 +163,15 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const revengeShooter = second.state.players.get(second.sessionId);
   const wantedTarget = second.state.players.get(first.sessionId);
   assert.ok(revengeShooter && wantedTarget);
-  second.send('aim', {angle: Math.atan2(wantedTarget.y - revengeShooter.y, wantedTarget.x - revengeShooter.x)});
-  await delay(80);
-  for (let shot = 0; shot < 6 && second.state.players.get(first.sessionId)?.alive; shot++) {
+  await moveNear(second, second.sessionId, first.sessionId, 280);
+  for (let shot = 0; shot < 12 && second.state.players.get(first.sessionId)?.alive; shot++) {
+    const currentShooter = second.state.players.get(second.sessionId);
+    const currentTarget = second.state.players.get(first.sessionId);
+    assert.ok(currentShooter && currentTarget);
+    second.send('aim', {
+      angle: Math.atan2(currentTarget.y - currentShooter.y, currentTarget.x - currentShooter.x)
+    });
+    await delay(25);
     second.send('shoot');
     await delay(220);
   }
@@ -193,6 +199,26 @@ async function waitUntil(check: () => boolean | Promise<boolean>, timeout = 3000
     await delay(30);
   }
   throw new Error('Timed out waiting for multiplayer state.');
+}
+
+async function moveNear(
+  room: Room<DistrictNetworkState>,
+  moverId: string,
+  targetId: string,
+  targetDistance: number
+): Promise<void> {
+  for (let step = 0; step < 30; step++) {
+    const mover = room.state.players.get(moverId);
+    const target = room.state.players.get(targetId);
+    if (!mover || !target) break;
+    const deltaX = target.x - mover.x;
+    const deltaY = target.y - mover.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= targetDistance) break;
+    room.send('input', {x: deltaX / distance, y: deltaY / distance});
+    await delay(100);
+  }
+  room.send('input', {x: 0, y: 0});
 }
 
 function delay(milliseconds: number): Promise<void> {

@@ -33,8 +33,8 @@ test('district mission adapter completes shared work, pays once, and releases it
   const support = createPlayer('support', room.world.spawn.x + 24, room.world.spawn.y);
   room.state.players.set(leader.id, leader);
   room.state.players.set(support.id, support);
-  room.runtimePlayers.set(leader.id, {inputX: 0, inputY: 0, lastShotAt: 0});
-  room.runtimePlayers.set(support.id, {inputX: 0, inputY: 0, lastShotAt: 0});
+  room.playerControl.register(leader.id);
+  room.playerControl.register(support.id);
 
   const trafficSpawn = room.world.trafficSpawn(88, 20);
   const target = new VehicleState();

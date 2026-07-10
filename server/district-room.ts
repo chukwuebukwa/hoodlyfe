@@ -23,6 +23,12 @@ import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
+import {
+  PlayerControlController,
+  PLAYER_RADIUS,
+  type PlayerAimInput,
+  type PlayerMoveInput
+} from './game/players/player-control-controller.ts';
 import {PlayerLifecycleController} from './game/players/player-lifecycle-controller.ts';
 import {
   PedestrianController,
@@ -38,19 +44,8 @@ import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
 
-const PLAYER_RADIUS = 11;
-const PLAYER_SPEED = 190;
 const VEHICLE_RADIUS = 20;
 const TRAFFIC_VEHICLE_COUNT = 8;
-
-interface InputMessage {
-  x?: number;
-  y?: number;
-}
-
-interface AimMessage {
-  angle?: number;
-}
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -62,17 +57,11 @@ interface DistrictRoomOptions {
 
 type WorldEntityKind = 'player' | 'npc' | 'vehicle';
 
-interface RuntimePlayer {
-  inputX: number;
-  inputY: number;
-}
-
 export class DistrictRoom extends Room<DistrictState> {
   maxClients = 32;
   autoDispose = false;
   patchRate = 50;
 
-  private readonly runtimePlayers = new Map<string, RuntimePlayer>();
   private readonly simulationClock = new FixedStepClock();
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
@@ -82,6 +71,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
   private vehicleSimulation!: VehicleSimulationController;
+  private playerControl!: PlayerControlController;
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
   private fireControl!: FireControlController;
@@ -108,6 +98,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.setState(new DistrictState());
     this.state.missionContactX = this.world.spawn.x;
     this.state.missionContactY = this.world.spawn.y;
+    this.playerControl = new PlayerControlController({
+      state: this.state,
+      world: this.world
+    });
     this.trafficController = new TrafficController({
       world: this.world,
       random: this.random
@@ -155,12 +149,7 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       crime: this.crimeController,
       clock: () => ({tick: this.simulationClock.tick}),
-      resetInput: (playerId) => {
-        const input = this.runtimePlayers.get(playerId);
-        if (!input) return;
-        input.inputX = 0;
-        input.inputY = 0;
-      }
+      resetInput: (playerId) => this.playerControl.reset(playerId)
     });
     this.damageController = new DamageController({
       state: this.state,
@@ -199,7 +188,7 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       traffic: this.trafficController,
       clock: () => ({tick: this.simulationClock.tick}),
-      inputFor: (playerId) => this.runtimePlayers.get(playerId),
+      inputFor: (playerId) => this.playerControl.inputFor(playerId),
       nearbyPlayers,
       nearbyNpcs,
       nearbyVehicles: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
@@ -287,22 +276,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
 
-    this.onMessage<InputMessage>('input', (client, message) => {
-      const runtime = this.runtimePlayers.get(client.sessionId);
-      if (!runtime) return;
-      const x = Number(message?.x);
-      const y = Number(message?.y);
-      runtime.inputX = Number.isFinite(x) ? clamp(x, -1, 1) : 0;
-      runtime.inputY = Number.isFinite(y) ? clamp(y, -1, 1) : 0;
+    this.onMessage<PlayerMoveInput>('input', (client, message) => {
+      this.playerControl.setMove(client.sessionId, message);
     });
 
-    this.onMessage<AimMessage>('aim', (client, message) => {
-      const player = this.state.players.get(client.sessionId);
-      const angle = Number(message?.angle);
-      const canAim = player && (!player.vehicleId || player.vehicleSeat > 0);
-      if (player?.alive && canAim && !player.action && Number.isFinite(angle)) {
-        player.angle = normalizeAngle(angle);
-      }
+    this.onMessage<PlayerAimInput>('aim', (client, message) => {
+      this.playerControl.setAim(client.sessionId, message);
     });
 
     this.onMessage('shoot', (client) => this.fireControl.shoot(client.sessionId));
@@ -333,10 +312,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.y = spawn.y;
     player.angle = -Math.PI / 2;
     this.state.players.set(client.sessionId, player);
-    this.runtimePlayers.set(client.sessionId, {
-      inputX: 0,
-      inputY: 0
-    });
+    this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
   }
 
@@ -344,7 +320,7 @@ export class DistrictRoom extends Room<DistrictState> {
     const player = this.state.players.get(client.sessionId);
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
-    this.runtimePlayers.delete(client.sessionId);
+    this.playerControl.unregister(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
@@ -434,15 +410,13 @@ export class DistrictRoom extends Room<DistrictState> {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
     });
-    this.state.players.forEach((player, playerId) => {
-      const runtime = this.runtimePlayers.get(playerId);
-      if (!runtime) return;
+    this.state.players.forEach((player) => {
       if (!player.alive) {
         this.playerLifecycle.tryRespawn(player, now);
       } else if (player.action) {
         this.vehicleAccess.updateAction(player, now);
       } else {
-        if (!player.vehicleId) this.movePlayer(player, runtime, deltaSeconds);
+        this.playerControl.updateOnFoot(player, deltaSeconds);
         this.crimeController.decay(player, now);
       }
       this.indexPlayer(player);
@@ -459,18 +433,6 @@ export class DistrictRoom extends Room<DistrictState> {
     this.crimeController.expire(now);
     this.missionController.update(now);
     this.lifecycle.flush();
-  }
-
-  private movePlayer(player: PlayerState, runtime: RuntimePlayer, deltaSeconds: number): void {
-    const magnitude = Math.hypot(runtime.inputX, runtime.inputY);
-    if (magnitude === 0) return;
-    const distance = PLAYER_SPEED * deltaSeconds;
-    const moveX = runtime.inputX / magnitude * distance;
-    const moveY = runtime.inputY / magnitude * distance;
-    const nextX = player.x + moveX;
-    if (this.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
-    const nextY = player.y + moveY;
-    if (this.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
   }
 
   private rebuildSpatialIndex(): void {
@@ -597,12 +559,4 @@ function summarizeGameEvent(event: GameEvent): string {
 function sanitizeName(value: unknown, fallbackNumber: number): string {
   const name = String(value ?? '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 18);
   return name || `Driver ${fallbackNumber}`;
-}
-
-function normalizeAngle(angle: number): number {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

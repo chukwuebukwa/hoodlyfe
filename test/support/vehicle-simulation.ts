@@ -1,10 +1,12 @@
 import {VehicleSimulationController} from '../../server/game/vehicles/vehicle-simulation-controller.ts';
+import {attachTestPlayerControl} from './player-control.ts';
 import {attachTestTrafficController} from './traffic-controller.ts';
 import {attachTestVehicleAccess} from './vehicle-access.ts';
 
 export function attachTestVehicleSimulation(room: any): VehicleSimulationController {
   if (!room.trafficController) attachTestTrafficController(room);
   if (!room.vehicleAccess) attachTestVehicleAccess(room);
+  if (!room.playerControl) attachTestPlayerControl(room);
   const controller = new VehicleSimulationController({
     state: room.state,
     world: room.world,
@@ -12,7 +14,7 @@ export function attachTestVehicleSimulation(room: any): VehicleSimulationControl
     access: room.vehicleAccess,
     traffic: room.trafficController,
     clock: () => ({tick: room.simulationClock?.tick ?? 0}),
-    inputFor: (playerId) => room.runtimePlayers?.get(playerId),
+    inputFor: (playerId) => room.playerControl.inputFor(playerId),
     nearbyPlayers: (x, y, radius) => [...room.state.players.values()].filter((player: any) => (
       Math.hypot(player.x - x, player.y - y) <= radius + 11
     )),
