@@ -1,10 +1,10 @@
 import type {MapSchema} from '@colyseus/schema';
 import {MissionParticipantState, MissionState, type PlayerState} from '../../state.ts';
-import type {VehicleTheftMission} from './mission-system.ts';
+import type {FreemodeMission} from './mission-system.ts';
 
 export function projectMissionState(
   missions: MapSchema<MissionState>,
-  mission: VehicleTheftMission,
+  mission: FreemodeMission,
   players: MapSchema<PlayerState>,
   nowMs: number
 ): MissionState {
@@ -17,7 +17,17 @@ export function projectMissionState(
   }
   state.leaderId = mission.leaderId;
   state.phase = mission.phase;
+  state.objectiveId = mission.objectiveId;
+  state.objectiveKind = mission.objectiveKind;
+  state.objectiveIndex = mission.objectiveIndex;
+  state.objectiveCount = mission.objectiveCount;
   state.targetVehicleId = mission.targetVehicleId;
+  state.checkpointIndex = mission.checkpointIndex;
+  state.checkpointCount = mission.checkpoints.length;
+  const checkpoint = mission.checkpoints[mission.checkpointIndex];
+  state.checkpointX = checkpoint?.x ?? 0;
+  state.checkpointY = checkpoint?.y ?? 0;
+  state.checkpointRadius = checkpoint?.radius ?? 0;
   state.deliveryX = mission.deliveryX;
   state.deliveryY = mission.deliveryY;
   state.deliveryRadius = mission.deliveryRadius;
@@ -50,7 +60,7 @@ export function projectMissionState(
   return state;
 }
 
-function remainingTime(mission: VehicleTheftMission, nowMs: number): number {
+function remainingTime(mission: FreemodeMission, nowMs: number): number {
   if (mission.phase === 'forming') return Math.max(0, mission.formationEndsAt - nowMs);
   if (mission.phase === 'completed' || mission.phase === 'failed') return 0;
   return Math.max(0, mission.expiresAt - nowMs);

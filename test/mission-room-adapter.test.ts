@@ -100,6 +100,86 @@ test('district mission adapter completes shared work, pays once, and releases it
   assert.equal(support.vehicleId, '');
 });
 
+test('district mission adapter generates and completes an authoritative Getaway Run route', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+  attachTestTrafficController(room);
+  attachTestVehicleAccess(room);
+  attachTestVehicleSimulation(room);
+  room.state.missionContactX = room.world.spawn.x;
+  room.state.missionContactY = room.world.spawn.y;
+  room.economyController = new StreetEconomyController({
+    state: room.state,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick})
+  });
+  room.missionController = new FreemodeMissionController({
+    state: room.state,
+    world: room.world,
+    events: room.events,
+    economy: room.economyController,
+    clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
+    notice: () => undefined,
+    releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => (
+      room.vehicleSimulation.returnToTraffic(vehicle, nowMs)
+    )
+  });
+
+  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  room.state.players.set(leader.id, leader);
+  room.playerControl.register(leader.id);
+  const spawn = room.world.trafficSpawn(120, 20);
+  const target = new VehicleState();
+  target.id = 'getaway-target';
+  target.x = spawn.x;
+  target.y = spawn.y;
+  target.angle = spawn.angle;
+  target.traffic = true;
+  room.state.vehicles.set(target.id, target);
+  room.trafficController.register(target.id, spawn, 110);
+
+  room.missionController.start(leader.id, 'getaway-run');
+  const schema = [...room.state.missions.values()][0];
+  assert.ok(schema);
+  assert.equal(schema.templateId, 'getaway-run');
+  assert.equal(schema.objectiveCount, 4);
+  assert.equal(schema.checkpointCount, 3);
+  const runtime = room.missionController.get(schema.id);
+  assert.ok(runtime);
+  assert.equal(new Set(runtime.checkpoints.map((checkpoint: {x: number; y: number}) => (
+    `${checkpoint.x}:${checkpoint.y}`
+  ))).size, 3);
+  assert.ok(runtime.checkpoints.every((checkpoint: {x: number; y: number}) => (
+    room.world.canOccupy(checkpoint.x, checkpoint.y, 20)
+  )));
+
+  room.missionController.launch(leader.id, schema.id);
+  target.traffic = false;
+  target.driverId = leader.id;
+  leader.vehicleId = target.id;
+  leader.vehicleSeat = 0;
+  leader.wanted = 1;
+  room.missionController.update(100);
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'checkpoints');
+  for (const [index, checkpoint] of runtime.checkpoints.entries()) {
+    target.x = checkpoint.x;
+    target.y = checkpoint.y;
+    room.missionController.update(200 + index * 100);
+  }
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'lose-heat');
+  leader.wanted = 0;
+  room.missionController.update(600);
+  const delivery = room.state.missions.get(schema.id);
+  assert.equal(delivery?.phase, 'deliver');
+  target.x = delivery.deliveryX;
+  target.y = delivery.deliveryY;
+  target.speed = 0;
+  room.missionController.update(700);
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'completed');
+  assert.equal(leader.cash, 1_100);
+});
+
 function createPlayer(id: string, x: number, y: number): PlayerState {
   const player = new PlayerState();
   player.id = id;

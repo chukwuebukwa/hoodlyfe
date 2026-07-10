@@ -1,4 +1,10 @@
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
+import {
+  DEFAULT_MISSION_TEMPLATE_ID,
+  isMissionTemplateId,
+  missionCheckpointCount,
+  missionTemplate
+} from '../../../shared/content/mission-catalog.ts';
 import type {GameEventStream} from '../events/game-events.ts';
 import type {StreetEconomyPort} from '../economy/street-economy-controller.ts';
 import type {DistrictState, VehicleState} from '../../state.ts';
@@ -7,9 +13,10 @@ import {MissionEntityScope} from './mission-entity-scope.ts';
 import {projectMissionState} from './mission-state-projector.ts';
 import {
   MissionSystem,
-  type MissionTransition,
-  type VehicleTheftMission
+  type FreemodeMission,
+  type MissionTransition
 } from './mission-system.ts';
+import type {MissionCheckpoint} from './mission-objective-system.ts';
 
 const VEHICLE_RADIUS = 20;
 const CONTACT_RADIUS = 130;
@@ -38,10 +45,16 @@ export class FreemodeMissionController {
 
   constructor(private readonly options: FreemodeMissionControllerOptions) {}
 
-  start(playerId: string): void {
+  start(playerId: string, rawTemplateId: unknown = DEFAULT_MISSION_TEMPLATE_ID): void {
     const {state} = this.options;
     const player = state.players.get(playerId);
     if (!player?.alive) return;
+    if (!isMissionTemplateId(rawTemplateId)) {
+      this.options.notice(playerId, 'That Freemode job is unavailable.', 'warning');
+      return;
+    }
+    const templateId = rawTemplateId;
+    const definition = missionTemplate(templateId);
     if (Math.hypot(player.x - state.missionContactX, player.y - state.missionContactY) > CONTACT_RADIUS) {
       this.options.notice(playerId, 'Meet the orange contact to start work.', 'warning');
       return;
@@ -64,13 +77,20 @@ export class FreemodeMissionController {
     }
     const clock = this.options.clock();
     const delivery = this.deliveryPoint(target, clock.nowMs);
-    const result = this.system.startVehicleTheft({
+    const checkpoints = this.checkpointRoute(
+      target,
+      delivery,
+      clock.nowMs,
+      missionCheckpointCount(templateId)
+    );
+    const result = this.system.start({
       leaderId: playerId,
+      templateId,
       targetVehicleId: target.id,
       deliveryX: delivery.x,
       deliveryY: delivery.y,
+      checkpoints,
       nowMs: clock.nowMs,
-      baseReward: 750
     });
     if (!result.ok) {
       const message = result.reason === 'participant-active'
@@ -86,7 +106,11 @@ export class FreemodeMissionController {
       disposition: 'release'
     });
     projectMissionState(state.missions, result.mission, state.players, clock.nowMs);
-    this.options.notice(playerId, 'Crew forming. Invite nearby drivers or launch now.', 'info');
+    this.options.notice(
+      playerId,
+      `${definition.label}: crew forming. Invite nearby drivers or launch now.`,
+      'info'
+    );
   }
 
   join(playerId: string, missionId: unknown): void {
@@ -179,7 +203,7 @@ export class FreemodeMissionController {
     }
   }
 
-  get(missionId: string): VehicleTheftMission | undefined {
+  get(missionId: string): FreemodeMission | undefined {
     return this.system.get(missionId);
   }
 
@@ -199,8 +223,49 @@ export class FreemodeMissionController {
     return fallback;
   }
 
+  private checkpointRoute(
+    target: VehicleState,
+    delivery: {x: number; y: number},
+    nowMs: number,
+    count: number
+  ): MissionCheckpoint[] {
+    const checkpoints: MissionCheckpoint[] = [];
+    let previous = {x: target.x, y: target.y};
+    for (let index = 0; index < count; index++) {
+      let selected = this.options.world.trafficSpawn(nowMs + 1_301 + index * 211, VEHICLE_RADIUS);
+      let selectedScore = Number.NEGATIVE_INFINITY;
+      for (let attempt = 0; attempt < 48; attempt++) {
+        const candidate = this.options.world.trafficSpawn(
+          nowMs + 1_301 + index * 211 + attempt * 47,
+          VEHICLE_RADIUS
+        );
+        const previousDistance = Math.hypot(candidate.x - previous.x, candidate.y - previous.y);
+        const deliveryDistance = Math.hypot(candidate.x - delivery.x, candidate.y - delivery.y);
+        const routeDistance = checkpoints.reduce((minimum, checkpoint) => Math.min(
+          minimum,
+          Math.hypot(candidate.x - checkpoint.x, candidate.y - checkpoint.y)
+        ), Number.POSITIVE_INFINITY);
+        const score = Math.min(previousDistance, deliveryDistance, routeDistance);
+        if (score > selectedScore) {
+          selected = candidate;
+          selectedScore = score;
+        }
+        if (previousDistance >= 360 && deliveryDistance >= 280 && routeDistance >= 300) break;
+      }
+      const checkpoint = {
+        id: `checkpoint-${index + 1}`,
+        x: selected.x,
+        y: selected.y,
+        radius: 82
+      };
+      checkpoints.push(checkpoint);
+      previous = checkpoint;
+    }
+    return checkpoints;
+  }
+
   private processTransitions(
-    mission: VehicleTheftMission,
+    mission: FreemodeMission,
     transitions: readonly MissionTransition[],
     clock: MissionClock
   ): void {
@@ -272,7 +337,7 @@ export class FreemodeMissionController {
   }
 
   private broadcast(
-    mission: VehicleTheftMission,
+    mission: FreemodeMission,
     message: string,
     tone: GameNotice['tone']
   ): void {
@@ -284,6 +349,7 @@ export class FreemodeMissionController {
 
 function phaseNotice(phase: string): string {
   if (phase === 'steal') return 'Job launched. Steal the marked vehicle.';
+  if (phase === 'checkpoints') return 'Drive the target through every marked checkpoint.';
   if (phase === 'lose-heat') return 'Lose the crew\'s police heat.';
   if (phase === 'deliver') return 'Deliver the vehicle to the marked garage.';
   return 'Objective updated.';

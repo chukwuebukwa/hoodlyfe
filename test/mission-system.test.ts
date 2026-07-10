@@ -31,7 +31,7 @@ function world(overrides: Partial<MissionWorldSnapshot> = {}): MissionWorldSnaps
 }
 
 function startMission(missions: MissionSystem, overrides: Record<string, unknown> = {}) {
-  return missions.startVehicleTheft({
+  return missions.start({
     leaderId: 'leader',
     targetVehicleId: 'target',
     deliveryX: 900,
@@ -62,14 +62,14 @@ test('participants and target cannot be reserved by overlapping missions', () =>
   const start = startMission(missions);
   assert.equal(start.ok, true);
   if (!start.ok) return;
-  assert.equal(missions.startVehicleTheft({
+  assert.equal(missions.start({
     leaderId: 'leader', targetVehicleId: 'other', deliveryX: 0, deliveryY: 0, nowMs: 0
   }).ok, false);
-  assert.equal(missions.startVehicleTheft({
+  assert.equal(missions.start({
     leaderId: 'other', targetVehicleId: 'target', deliveryX: 0, deliveryY: 0, nowMs: 0
   }).ok, false);
   assert.equal(missions.join(start.mission.id, 'support', 100).ok, true);
-  assert.equal(missions.startVehicleTheft({
+  assert.equal(missions.start({
     leaderId: 'support', targetVehicleId: 'third', deliveryX: 0, deliveryY: 0, nowMs: 100
   }).ok, false);
 });
@@ -185,6 +185,54 @@ test('delivery pays every locked participant once with stable individual keys', 
     {playerId: 'support', amount: 337, idempotencyKey: `${start.mission.id}:payout:support`}
   ]);
   assert.deepEqual(missions.update(start.mission.id, world()), []);
+});
+
+test('Getaway Run composes acquire, ordered checkpoints, heat escape, and delivery', () => {
+  const missions = new MissionSystem();
+  const start = startMission(missions, {
+    templateId: 'getaway-run',
+    checkpoints: [
+      {id: 'one', x: 100, y: 100, radius: 50},
+      {id: 'two', x: 200, y: 200, radius: 50},
+      {id: 'three', x: 300, y: 300, radius: 50}
+    ]
+  });
+  assert.equal(start.ok, true);
+  if (!start.ok) return;
+  missions.launch(start.mission.id, 'leader', 100);
+  missions.update(start.mission.id, world({
+    nowMs: 200,
+    participants: [player('leader', {vehicleId: 'target', wantedLevel: 1})]
+  }));
+  assert.equal(missions.get(start.mission.id)?.phase, 'checkpoints');
+
+  for (const [index, coordinate] of [100, 200, 300].entries()) {
+    missions.update(start.mission.id, world({
+      nowMs: 300 + index * 100,
+      participants: [player('leader', {vehicleId: 'target', wantedLevel: 1})],
+      targetX: coordinate,
+      targetY: coordinate
+    }));
+  }
+  assert.equal(missions.get(start.mission.id)?.checkpointIndex, 3);
+  assert.equal(missions.get(start.mission.id)?.phase, 'lose-heat');
+
+  missions.update(start.mission.id, world({
+    nowMs: 700,
+    participants: [player('leader', {vehicleId: 'target'})],
+    targetX: 500,
+    targetY: 500
+  }));
+  assert.equal(missions.get(start.mission.id)?.phase, 'deliver');
+  const complete = missions.update(start.mission.id, world({
+    nowMs: 800,
+    participants: [player('leader', {vehicleId: 'target'})],
+    targetX: 900,
+    targetY: 900,
+    targetSpeed: 20
+  }));
+  assert.equal(complete[0]?.type, 'completed');
+  assert.equal(missions.get(start.mission.id)?.finalReward, 1_100);
 });
 
 test('removal releases every participant and the reserved target', () => {

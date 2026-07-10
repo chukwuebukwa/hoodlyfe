@@ -79,6 +79,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const mission = [...first.state.missions.values()][0];
   assert.equal(mission.phase, 'forming');
   assert.equal(mission.leaderId, first.sessionId);
+  assert.equal(mission.objectiveKind, 'acquire-vehicle');
+  assert.equal(mission.objectiveCount, 3);
+  assert.equal(mission.checkpointCount, 0);
   assert.ok(first.state.vehicles.has(mission.targetVehicleId));
   assert.equal(mission.participants.size, 1);
   second.send(MISSION_JOIN_MESSAGE, {missionId: mission.id});

@@ -50,9 +50,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 - **Playable** GTA2 compatibility map, corrected collision layers, spawn, roads, labels, overhead props, and minimap.
 - **Playable** GTA Online-inspired Freemode Boost and Deliver job with opt-in nearby crew, leader launch, shared objective, target reservation, wanted escape, delivery, failure states, and idempotent participant payouts.
+- **Playable** Getaway Run composes the same crew/runtime boundaries with three ordered authoritative road checkpoints, wanted escape, delivery, condition payout, and cleanup.
+- **Playable** compact job selector, shared immutable mission catalog, and reusable acquire-vehicle, checkpoint-route, clear-wanted, and low-speed-delivery objective evaluators.
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
-- **Foundation** the mission instance/entity-scope boundary can host more objectives; only one complete mission is currently available.
+- **Foundation** two complete jobs now share objective modules; item, eliminate, hold-area, escort, and multi-vehicle race objectives remain incomplete.
 
 ### Street Economy and Services
 
@@ -94,10 +96,12 @@ Exit gate: a player can earn from a mission, damage a car, escape police, repair
 
 ### 3. Reusable Freemode Mission Objectives
 
-**Next after services**
+**Foundation in progress**
 
-- Extract definitions and reusable objectives: reach zone, acquire item, steal vehicle, escape wanted, deliver vehicle, eliminate target, hold area, and race checkpoints.
-- Add courier/getaway, street race, and holdout jobs before a menu-heavy mission lobby.
+- **Delivered playable**: shared definitions plus reusable steal vehicle, ordered vehicle checkpoints, escape wanted, and deliver vehicle objectives.
+- **Delivered playable**: Getaway Run is the second composed Freemode job and uses the existing crew, reservation, payout, and cleanup infrastructure.
+- Add reach-zone, acquire-item, eliminate-target, hold-area, escort, and multi-vehicle race objectives.
+- Add courier and holdout as the third and fourth jobs before a menu-heavy mission lobby.
 - Preserve GTA Online Freemode rules: optional nearby joining, explicit roster lock, role-friendly shared work, individual death tolerance, leader transfer, bounded payout, and cleanup ownership.
 - Add rotating district events such as GTA2-style Tag and Deathmatch with scores isolated from the street economy.
 

@@ -298,7 +298,39 @@ canvas {
   gap: 12px;
 }
 
+#mission-selector {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 5px;
+}
+
+#mission-prev,
+#mission-next {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 2px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  font: 900 10px/1 inherit;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#mission-prev:hover,
+#mission-prev:focus-visible,
+#mission-next:hover,
+#mission-next:focus-visible {
+  color: #050505;
+  background: #f2c94c;
+  outline: none;
+}
+
 #mission-title {
+  min-width: 0;
   overflow: hidden;
   color: #f2c94c;
   font-size: 10px;

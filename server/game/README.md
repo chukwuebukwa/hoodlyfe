@@ -60,6 +60,8 @@ game/
   missions/
     freemode-mission-controller.ts
     mission-entity-scope.ts
+    mission-objective-system.ts
+    mission-reward-policy.ts
     mission-state-projector.ts
     mission-system.ts
   pedestrians/
@@ -115,8 +117,10 @@ Extracted domain policies and room adapters now include:
 - `police/dispatch-system.ts` for district capacity and assignments.
 - `pursuit-memory.ts` for visible pursuit and last-known-position search state.
 - `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, dispatch, and pursuit modules;
-- `mission-system.ts` for plain deterministic group mission state and transitions;
-- `freemode-mission-controller.ts` for target selection, schema projection, typed events, reward idempotency, and cleanup;
+- `mission-system.ts` for plain deterministic group roster, reservation, deadline, objective-progress, payout, and terminal transitions;
+- `mission-objective-system.ts` for bounded reusable acquire-vehicle, ordered-checkpoint, wanted-clear, and delivery predicates, plus `mission-reward-policy.ts` for condition-sensitive payout calculation;
+- `shared/content/mission-catalog.ts` for immutable job definitions, presentation metadata, ordered objective composition, and template cycling;
+- `freemode-mission-controller.ts` for template validation, target selection, deterministic road-safe checkpoint generation, schema projection, typed events, economy payout, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
 - `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning, following/stopping speed policy, and inspectable limiting obstacles; `traffic-controller.ts` for ambient route state, deterministic turn/recovery selection, model-aware asymmetric cruise/braking, hijack braking, and release.

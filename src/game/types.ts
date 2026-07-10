@@ -1,5 +1,9 @@
 import type {VehicleKind} from '../../shared/content/vehicle-catalog.ts';
 import type {StreetServiceKind} from '../../shared/content/street-services.ts';
+import type {
+  MissionObjectiveKind,
+  MissionTemplateId
+} from '../../shared/content/mission-catalog.ts';
 
 export interface NetworkPlayer {
   id: string;
@@ -89,10 +93,19 @@ export interface NetworkStreetService {
 
 export interface NetworkMission {
   id: string;
-  templateId: 'boost-and-deliver';
+  templateId: MissionTemplateId;
   leaderId: string;
-  phase: 'forming' | 'steal' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  phase: 'forming' | 'steal' | 'checkpoints' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  objectiveId: string;
+  objectiveKind: MissionObjectiveKind;
+  objectiveIndex: number;
+  objectiveCount: number;
   targetVehicleId: string;
+  checkpointIndex: number;
+  checkpointCount: number;
+  checkpointX: number;
+  checkpointY: number;
+  checkpointRadius: number;
   deliveryX: number;
   deliveryY: number;
   deliveryRadius: number;

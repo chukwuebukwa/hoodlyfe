@@ -187,7 +187,8 @@ It should not contain weapon math, pedestrian decisions, vehicle steering, missi
 
 The first room-facing facades are now live:
 
-- `FreemodeMissionController` composes the pure mission state machine, entity scope, state projection, notices, rewards, and cleanup.
+- `FreemodeMissionController` adapts mission templates to district entities, deterministic route generation, state projection, notices, rewards, and cleanup.
+- `MissionSystem` owns Freemode roster/deadline/reservation/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered objective predicates; shared mission content owns definitions and presentation metadata.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` owns deterministic ambient routes and driving targets.

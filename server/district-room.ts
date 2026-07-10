@@ -8,7 +8,8 @@ import {
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
   MISSION_START_MESSAGE,
-  type MissionIdMessage
+  type MissionIdMessage,
+  type MissionStartMessage
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
@@ -340,7 +341,9 @@ export class DistrictRoom extends Room<DistrictState> {
         this.simulationClock.tick
       );
     });
-    this.onMessage(MISSION_START_MESSAGE, (client) => this.missionController.start(client.sessionId));
+    this.onMessage<MissionStartMessage>(MISSION_START_MESSAGE, (client, message) => {
+      this.missionController.start(client.sessionId, message?.templateId);
+    });
     this.onMessage<MissionIdMessage>(MISSION_JOIN_MESSAGE, (client, message) => {
       this.missionController.join(client.sessionId, message?.missionId);
     });

@@ -177,7 +177,16 @@ export class MissionState extends Schema {
   templateId = '';
   leaderId = '';
   phase = '';
+  objectiveId = '';
+  objectiveKind = '';
+  objectiveIndex = 0;
+  objectiveCount = 0;
   targetVehicleId = '';
+  checkpointIndex = 0;
+  checkpointCount = 0;
+  checkpointX = 0;
+  checkpointY = 0;
+  checkpointRadius = 0;
   deliveryX = 0;
   deliveryY = 0;
   deliveryRadius = 0;
@@ -195,7 +204,16 @@ defineTypes(MissionState, {
   templateId: 'string',
   leaderId: 'string',
   phase: 'string',
+  objectiveId: 'string',
+  objectiveKind: 'string',
+  objectiveIndex: 'number',
+  objectiveCount: 'number',
   targetVehicleId: 'string',
+  checkpointIndex: 'number',
+  checkpointCount: 'number',
+  checkpointX: 'number',
+  checkpointY: 'number',
+  checkpointRadius: 'number',
   deliveryX: 'number',
   deliveryY: 'number',
   deliveryRadius: 'number',

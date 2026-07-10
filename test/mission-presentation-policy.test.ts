@@ -19,6 +19,10 @@ test('mission HUD projects street contact and deterministic nearby crew joining'
   assert.equal(contact.visible, true);
   assert.equal(contact.action, 'start');
   assert.equal(contact.timer, 'AVAILABLE');
+  const getaway = projectMissionHud(state, 'local', 'getaway-run');
+  assert.equal(getaway.title, 'Getaway Run');
+  assert.equal(getaway.templateSelectorVisible, true);
+  assert.match(getaway.objective, /route/);
 
   const leader = createPlayer({id: 'leader', name: 'Leader', x: 100, y: 0});
   state.players.set('leader', leader);
@@ -76,6 +80,19 @@ test('mission world and minimap share target and delivery phase projection', () 
   const world = projectMissionWorld(state, 'local');
   assert.deepEqual(world.delivery, {x: 500, y: 600, radius: 70});
   assert.equal(missionMinimapPoints(state, 'local').at(-1)?.id, `${mission.id}:delivery`);
+
+  mission.phase = 'checkpoints';
+  mission.objectiveKind = 'vehicle-checkpoints';
+  mission.checkpointIndex = 1;
+  mission.checkpointCount = 3;
+  mission.checkpointX = 320;
+  mission.checkpointY = 440;
+  mission.checkpointRadius = 82;
+  assert.deepEqual(projectMissionWorld(state, 'local').checkpoint, {x: 320, y: 440, radius: 82});
+  assert.equal(
+    missionMinimapPoints(state, 'local').find((point) => point.id.includes('checkpoint'))?.x,
+    320
+  );
 });
 
 function createState(): DistrictNetworkState {
@@ -97,7 +114,16 @@ function createMission(overrides: Partial<NetworkMission> = {}): NetworkMission 
     templateId: 'boost-and-deliver',
     leaderId: 'local',
     phase: 'forming',
+    objectiveId: 'acquire-target',
+    objectiveKind: 'acquire-vehicle',
+    objectiveIndex: 0,
+    objectiveCount: 3,
     targetVehicleId: 'target',
+    checkpointIndex: 0,
+    checkpointCount: 0,
+    checkpointX: 0,
+    checkpointY: 0,
+    checkpointRadius: 0,
     deliveryX: 500,
     deliveryY: 600,
     deliveryRadius: 70,

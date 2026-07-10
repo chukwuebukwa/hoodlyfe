@@ -1,10 +1,19 @@
-export type MissionPhase =
-  | 'forming'
-  | 'steal'
-  | 'lose-heat'
-  | 'deliver'
-  | 'completed'
-  | 'failed';
+import {
+  DEFAULT_MISSION_TEMPLATE_ID,
+  isMissionTemplateId,
+  missionCheckpointCount,
+  missionTemplate,
+  type ActiveMissionPhase,
+  type MissionObjectiveKind,
+  type MissionTemplateId
+} from '../../../shared/content/mission-catalog.ts';
+import {
+  advanceMissionObjectives,
+  type MissionCheckpoint
+} from './mission-objective-system.ts';
+import {conditionReward, vehicleCondition} from './mission-reward-policy.ts';
+
+export type MissionPhase = 'forming' | ActiveMissionPhase | 'completed' | 'failed';
 export type MissionFailureReason =
   | 'all-participants-disconnected'
   | 'target-destroyed'
@@ -29,9 +38,9 @@ export interface MissionPayout {
   idempotencyKey: string;
 }
 
-export interface VehicleTheftMission {
+export interface FreemodeMission {
   id: string;
-  templateId: 'boost-and-deliver';
+  templateId: MissionTemplateId;
   leaderId: string;
   participants: MissionParticipant[];
   rosterVersion: number;
@@ -39,6 +48,12 @@ export interface VehicleTheftMission {
   maximumParticipants: number;
   targetVehicleId: string;
   phase: MissionPhase;
+  objectiveId: string;
+  objectiveKind: MissionObjectiveKind;
+  objectiveIndex: number;
+  objectiveCount: number;
+  checkpoints: MissionCheckpoint[];
+  checkpointIndex: number;
   formedAt: number;
   formationEndsAt: number;
   launchedAt: number;
@@ -56,11 +71,13 @@ export interface VehicleTheftMission {
   failureReason: MissionFailureReason | '';
 }
 
-export interface StartVehicleTheftInput {
+export interface StartMissionInput {
   leaderId: string;
+  templateId?: MissionTemplateId;
   targetVehicleId: string;
   deliveryX: number;
   deliveryY: number;
+  checkpoints?: readonly MissionCheckpoint[];
   nowMs: number;
   formationDurationMs?: number;
   durationMs?: number;
@@ -69,11 +86,11 @@ export interface StartVehicleTheftInput {
 }
 
 export type StartMissionResult =
-  | {ok: true; mission: VehicleTheftMission}
+  | {ok: true; mission: FreemodeMission}
   | {ok: false; reason: 'participant-active' | 'target-reserved' | 'invalid'};
 
 export type JoinMissionResult =
-  | {ok: true; mission: VehicleTheftMission}
+  | {ok: true; mission: FreemodeMission}
   | {
       ok: false;
       reason: 'not-found' | 'roster-locked' | 'roster-full' | 'participant-active' | 'invalid';
@@ -142,21 +159,26 @@ export type MissionTransition =
     };
 
 export class MissionSystem {
-  private readonly missions = new Map<string, VehicleTheftMission>();
+  private readonly missions = new Map<string, FreemodeMission>();
   private readonly participantMissions = new Map<string, string>();
   private readonly reservedTargets = new Map<string, string>();
   private nextMissionId = 1;
 
-  startVehicleTheft(input: StartVehicleTheftInput): StartMissionResult {
+  start(input: StartMissionInput): StartMissionResult {
+    const templateId = input.templateId ?? DEFAULT_MISSION_TEMPLATE_ID;
     if (
       !input.leaderId ||
       !input.targetVehicleId ||
+      !isMissionTemplateId(templateId) ||
       !Number.isFinite(input.nowMs) ||
       !Number.isFinite(input.deliveryX) ||
       !Number.isFinite(input.deliveryY)
     ) {
       return {ok: false, reason: 'invalid'};
     }
+    const definition = missionTemplate(templateId);
+    const checkpoints = validateCheckpoints(input.checkpoints ?? [], missionCheckpointCount(templateId));
+    if (!checkpoints) return {ok: false, reason: 'invalid'};
     if (this.participantMissions.has(input.leaderId)) {
       return {ok: false, reason: 'participant-active'};
     }
@@ -164,13 +186,21 @@ export class MissionSystem {
       return {ok: false, reason: 'target-reserved'};
     }
     const id = `mission-${this.nextMissionId++}`;
-    const baseReward = Math.max(0, Math.floor(input.baseReward ?? 500));
-    const durationMs = Math.max(10_000, input.durationMs ?? 180_000);
-    const formationDurationMs = Math.max(3_000, Math.min(60_000, input.formationDurationMs ?? 15_000));
-    const maximumParticipants = Math.max(1, Math.min(4, Math.floor(input.maximumParticipants ?? 4)));
-    const mission: VehicleTheftMission = {
+    const baseReward = Math.max(0, Math.floor(input.baseReward ?? definition.baseReward));
+    const durationMs = Math.max(10_000, input.durationMs ?? definition.durationMs);
+    const formationDurationMs = Math.max(
+      3_000,
+      Math.min(60_000, input.formationDurationMs ?? definition.formationDurationMs)
+    );
+    const maximumParticipants = Math.max(
+      1,
+      Math.min(4, Math.floor(input.maximumParticipants ?? definition.maximumParticipants))
+    );
+    const firstObjective = definition.objectives[0];
+    if (!firstObjective) return {ok: false, reason: 'invalid'};
+    const mission: FreemodeMission = {
       id,
-      templateId: 'boost-and-deliver',
+      templateId,
       leaderId: input.leaderId,
       participants: [createParticipant(input.leaderId, 'leader', input.nowMs)],
       rosterVersion: 1,
@@ -178,6 +208,12 @@ export class MissionSystem {
       maximumParticipants,
       targetVehicleId: input.targetVehicleId,
       phase: 'forming',
+      objectiveId: firstObjective.id,
+      objectiveKind: firstObjective.kind,
+      objectiveIndex: 0,
+      objectiveCount: definition.objectives.length,
+      checkpoints,
+      checkpointIndex: 0,
       formedAt: input.nowMs,
       formationEndsAt: input.nowMs + formationDurationMs,
       launchedAt: 0,
@@ -277,43 +313,38 @@ export class MissionSystem {
       if (!participant.connected) return maximum;
       return Math.max(maximum, participantSnapshots.get(participant.playerId)?.wantedLevel ?? 0);
     }, 0);
-    if (mission.phase === 'steal' && targetOccupiedByCrew) {
-      transitions.push(this.changePhase(mission, teamWantedLevel > 0 ? 'lose-heat' : 'deliver'));
+    const previousPhase = mission.phase;
+    const progress = advanceMissionObjectives(
+      missionTemplate(mission.templateId),
+      {objectiveIndex: mission.objectiveIndex, checkpointIndex: mission.checkpointIndex},
+      {
+        targetOccupiedByCrew,
+        teamWantedLevel,
+        targetX: world.targetX,
+        targetY: world.targetY,
+        targetSpeed: world.targetSpeed,
+        deliveryX: mission.deliveryX,
+        deliveryY: mission.deliveryY,
+        deliveryRadius: mission.deliveryRadius,
+        checkpoints: mission.checkpoints
+      }
+    );
+    mission.objectiveIndex = progress.objectiveIndex;
+    mission.checkpointIndex = progress.checkpointIndex;
+    if (progress.status === 'completed') {
+      transitions.push(this.complete(mission, condition, world.nowMs));
+      return transitions;
     }
-    if (mission.phase === 'lose-heat' && teamWantedLevel === 0) {
-      transitions.push(this.changePhase(mission, 'deliver'));
-    }
-    if (mission.phase === 'deliver' && teamWantedLevel > 0) {
-      transitions.push(this.changePhase(mission, 'lose-heat'));
-    }
-    const atDelivery = Math.hypot(
-      world.targetX - mission.deliveryX,
-      world.targetY - mission.deliveryY
-    ) <= mission.deliveryRadius;
-    if (
-      mission.phase === 'deliver' &&
-      targetOccupiedByCrew &&
-      atDelivery &&
-      Math.abs(world.targetSpeed) <= 32
-    ) {
-      mission.phase = 'completed';
-      mission.terminalAt = world.nowMs;
-      mission.finalReward = mission.projectedReward;
-      mission.payouts = mission.participants
-        .filter((participant) => participant.payoutEligible && participant.connected)
-        .map((participant) => ({
-          playerId: participant.playerId,
-          amount: mission.finalReward,
-          idempotencyKey: `${mission.id}:payout:${participant.playerId}`
-        }));
+    mission.objectiveId = progress.objective.id;
+    mission.objectiveKind = progress.objective.kind;
+    mission.phase = progress.phase;
+    if (mission.phase !== previousPhase) {
       transitions.push({
-        type: 'completed',
+        type: 'phase',
         missionId: mission.id,
         leaderId: mission.leaderId,
-        phase: 'completed',
-        rewardPerParticipant: mission.finalReward,
-        condition,
-        payouts: mission.payouts.map((payout) => ({...payout}))
+        previousPhase,
+        phase: mission.phase
       });
     }
     return transitions;
@@ -325,23 +356,23 @@ export class MissionSystem {
     return [this.fail(mission, 'abandoned', nowMs)];
   }
 
-  get(missionId: string): VehicleTheftMission | undefined {
+  get(missionId: string): FreemodeMission | undefined {
     const mission = this.missions.get(missionId);
     return mission ? cloneMission(mission) : undefined;
   }
 
-  getByParticipant(playerId: string): VehicleTheftMission | undefined {
+  getByParticipant(playerId: string): FreemodeMission | undefined {
     const missionId = this.participantMissions.get(playerId);
     return missionId ? this.get(missionId) : undefined;
   }
 
-  list(): VehicleTheftMission[] {
+  list(): FreemodeMission[] {
     return [...this.missions.values()]
       .map(cloneMission)
       .sort((left, right) => left.id.localeCompare(right.id));
   }
 
-  remove(missionId: string): VehicleTheftMission | undefined {
+  remove(missionId: string): FreemodeMission | undefined {
     const mission = this.missions.get(missionId);
     if (!mission) return undefined;
     this.missions.delete(missionId);
@@ -367,7 +398,7 @@ export class MissionSystem {
     this.nextMissionId = 1;
   }
 
-  private observeParticipants(mission: VehicleTheftMission, world: MissionWorldSnapshot): void {
+  private observeParticipants(mission: FreemodeMission, world: MissionWorldSnapshot): void {
     const snapshots = new Map(world.participants.map((entry) => [entry.playerId, entry]));
     const elapsedMs = Math.max(0, Math.min(1_000, world.nowMs - mission.lastUpdatedAt));
     for (const participant of mission.participants) {
@@ -382,17 +413,17 @@ export class MissionSystem {
   }
 
   private lockRoster(
-    mission: VehicleTheftMission,
+    mission: FreemodeMission,
     nowMs: number
   ): Extract<MissionTransition, {type: 'phase'}> {
     mission.rosterLockedAt = nowMs;
     mission.launchedAt = nowMs;
     mission.expiresAt = nowMs + mission.durationMs;
-    return this.changePhase(mission, 'steal');
+    return this.changePhase(mission, missionTemplate(mission.templateId).objectives[0].phase);
   }
 
   private changePhase(
-    mission: VehicleTheftMission,
+    mission: FreemodeMission,
     phase: MissionPhase
   ): Extract<MissionTransition, {type: 'phase'}> {
     const previousPhase = mission.phase;
@@ -401,19 +432,28 @@ export class MissionSystem {
   }
 
   private transferLeadership(
-    mission: VehicleTheftMission
+    mission: FreemodeMission
   ): Extract<MissionTransition, {type: 'leader-transferred'}> {
     const previousLeaderId = mission.leaderId;
     const nextLeader = mission.participants
       .filter((participant) => participant.connected)
-      .sort((left, right) => left.joinedAt - right.joinedAt || left.playerId.localeCompare(right.playerId))[0];
+      .sort((left, right) => (
+        left.joinedAt - right.joinedAt || left.playerId.localeCompare(right.playerId)
+      ))[0];
     for (const participant of mission.participants) participant.role = 'support';
     nextLeader.role = 'leader';
     mission.leaderId = nextLeader.playerId;
-    return {type: 'leader-transferred', missionId: mission.id, previousLeaderId, leaderId: nextLeader.playerId};
+    return {
+      type: 'leader-transferred',
+      missionId: mission.id,
+      previousLeaderId,
+      leaderId: nextLeader.playerId
+    };
   }
 
-  private rosterTransition(mission: VehicleTheftMission): Extract<MissionTransition, {type: 'roster'}> {
+  private rosterTransition(
+    mission: FreemodeMission
+  ): Extract<MissionTransition, {type: 'roster'}> {
     return {
       type: 'roster',
       missionId: mission.id,
@@ -423,8 +463,34 @@ export class MissionSystem {
     };
   }
 
+  private complete(
+    mission: FreemodeMission,
+    condition: number,
+    nowMs: number
+  ): Extract<MissionTransition, {type: 'completed'}> {
+    mission.phase = 'completed';
+    mission.terminalAt = nowMs;
+    mission.finalReward = mission.projectedReward;
+    mission.payouts = mission.participants
+      .filter((participant) => participant.payoutEligible && participant.connected)
+      .map((participant) => ({
+        playerId: participant.playerId,
+        amount: mission.finalReward,
+        idempotencyKey: `${mission.id}:payout:${participant.playerId}`
+      }));
+    return {
+      type: 'completed',
+      missionId: mission.id,
+      leaderId: mission.leaderId,
+      phase: 'completed',
+      rewardPerParticipant: mission.finalReward,
+      condition,
+      payouts: mission.payouts.map((payout) => ({...payout}))
+    };
+  }
+
   private fail(
-    mission: VehicleTheftMission,
+    mission: FreemodeMission,
     reason: MissionFailureReason,
     nowMs: number
   ): Extract<MissionTransition, {type: 'failed'}> {
@@ -452,23 +518,38 @@ function createParticipant(
   };
 }
 
-function cloneMission(mission: VehicleTheftMission): VehicleTheftMission {
+function cloneMission(mission: FreemodeMission): FreemodeMission {
   return {
     ...mission,
     participants: mission.participants.map((participant) => ({...participant})),
+    checkpoints: mission.checkpoints.map((checkpoint) => ({...checkpoint})),
     payouts: mission.payouts.map((payout) => ({...payout}))
   };
 }
 
+function validateCheckpoints(
+  checkpoints: readonly MissionCheckpoint[],
+  expectedCount: number
+): MissionCheckpoint[] | undefined {
+  if (checkpoints.length < expectedCount) return undefined;
+  const selected = checkpoints.slice(0, expectedCount);
+  if (selected.some((checkpoint) => (
+    !checkpoint.id ||
+    !Number.isFinite(checkpoint.x) ||
+    !Number.isFinite(checkpoint.y) ||
+    !Number.isFinite(checkpoint.radius) ||
+    checkpoint.radius <= 0
+  ))) {
+    return undefined;
+  }
+  return selected.map((checkpoint) => ({
+    id: checkpoint.id,
+    x: checkpoint.x,
+    y: checkpoint.y,
+    radius: Math.max(24, Math.min(180, checkpoint.radius))
+  }));
+}
+
 function isTerminal(phase: MissionPhase): boolean {
   return phase === 'completed' || phase === 'failed';
-}
-
-function vehicleCondition(health: number, maxHealth: number): number {
-  if (maxHealth <= 0) return 0;
-  return Math.max(0, Math.min(1, health / maxHealth));
-}
-
-function conditionReward(baseReward: number, condition: number): number {
-  return Math.floor(baseReward * (0.35 + condition * 0.65));
 }

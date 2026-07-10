@@ -1,4 +1,9 @@
 import type {MinimapPointInput} from '../minimap-marker-policy.ts';
+import {
+  DEFAULT_MISSION_TEMPLATE_ID,
+  missionTemplate,
+  type MissionTemplateId
+} from '../../../shared/content/mission-catalog.ts';
 import type {
   DistrictNetworkState,
   NetworkMission,
@@ -18,17 +23,21 @@ export interface MissionHudProjection {
   actionLabel: string;
   actionWarning: boolean;
   missionId: string;
+  templateId: MissionTemplateId;
+  templateSelectorVisible: boolean;
 }
 
 export interface MissionWorldProjection {
   contact: {x: number; y: number};
   target?: {x: number; y: number; angle: number};
+  checkpoint?: {x: number; y: number; radius: number};
   delivery?: {x: number; y: number; radius: number};
 }
 
 export function projectMissionHud(
   state: DistrictNetworkState,
-  localPlayerId: string
+  localPlayerId: string,
+  offeredTemplateId: MissionTemplateId = DEFAULT_MISSION_TEMPLATE_ID
 ): MissionHudProjection {
   const local = state.players?.get(localPlayerId);
   if (!local) return hiddenHud();
@@ -40,17 +49,21 @@ export function projectMissionHud(
   ) <= 130;
   if (!active && !joinable && !nearContact) return hiddenHud();
   const mission = active ?? joinable;
+  const templateId = mission?.templateId ?? offeredTemplateId;
+  const definition = missionTemplate(templateId);
   const base = {
     visible: true,
-    title: mission ? 'BOOST AND DELIVER' : 'STREET CONTACT',
+    title: definition.label,
     timer: mission ? formatMissionTime(mission.remainingMs) : 'AVAILABLE',
     objective: mission
       ? missionObjective(mission, Boolean(active), localPlayerId)
-      : 'Boost a marked traffic vehicle and deliver it intact.',
+      : definition.summary,
     meta: mission
       ? `CREW ${mission.participants.size}/${mission.maximumParticipants} | $${mission.projectedReward}`
-      : 'FREEMODE CREW WORK',
-    missionId: mission?.id ?? ''
+      : `FREEMODE | $${definition.baseReward}`,
+    missionId: mission?.id ?? '',
+    templateId,
+    templateSelectorVisible: !mission
   };
   if (!mission) {
     return {...base, action: 'start', actionLabel: 'START JOB', actionWarning: false};
@@ -87,6 +100,13 @@ export function projectMissionWorld(
       radius: mission.deliveryRadius
     };
   }
+  if (mission.phase === 'checkpoints' && mission.checkpointRadius > 0) {
+    projection.checkpoint = {
+      x: mission.checkpointX,
+      y: mission.checkpointY,
+      radius: mission.checkpointRadius
+    };
+  }
   const target = state.vehicles?.get(mission.targetVehicleId);
   if (target) projection.target = vehiclePoint(target);
   return projection;
@@ -112,6 +132,14 @@ export function missionMinimapPoints(
       y: mission.deliveryY
     });
     return points;
+  }
+  if (mission.phase === 'checkpoints' && mission.checkpointRadius > 0) {
+    points.push({
+      id: `${mission.id}:checkpoint:${mission.checkpointIndex}`,
+      kind: 'objective',
+      x: mission.checkpointX,
+      y: mission.checkpointY
+    });
   }
   const target = state.vehicles?.get(mission.targetVehicleId);
   if (target) {
@@ -173,6 +201,12 @@ function missionObjective(
       : 'Crew ready. Waiting for the leader to launch.';
   }
   if (mission.phase === 'steal') return 'Steal the marked traffic vehicle.';
+  if (mission.phase === 'checkpoints') {
+    return `Drive through checkpoint ${Math.min(
+      mission.checkpointIndex + 1,
+      mission.checkpointCount
+    )} of ${mission.checkpointCount}.`;
+  }
   if (mission.phase === 'lose-heat') return 'Lose all crew police heat.';
   if (mission.phase === 'deliver') {
     return 'Bring the target into the green delivery zone at low speed.';
@@ -207,6 +241,8 @@ function hiddenHud(): MissionHudProjection {
     action: '',
     actionLabel: '',
     actionWarning: false,
-    missionId: ''
+    missionId: '',
+    templateId: DEFAULT_MISSION_TEMPLATE_ID,
+    templateSelectorVisible: false
   };
 }

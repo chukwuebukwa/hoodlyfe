@@ -2,6 +2,8 @@
 
 Date: 2026-07-10
 
+Current reusable-objective and second-job expansion: `docs/MISSION_OBJECTIVE_RESEARCH.md`.
+
 Primary code reference: `daynz/GTAviceCity` commit `3233ffe1c4b99e8efb4c41c6794b4fce880cf503`
 
 ## Production Behaviors Found
