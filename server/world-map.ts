@@ -1,5 +1,8 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {DeterministicRandom} from './game/world/deterministic-random.ts';
+
+const MAP_RANDOM = new DeterministicRandom('industrial-district-map:v1');
 
 interface TileLayer {
   name: string;
@@ -145,8 +148,8 @@ export class CollisionMap {
     seed: number
   ): {x: number; y: number} {
     for (let attempt = 0; attempt < 96; attempt++) {
-      const sample = pseudoRandom(seed + attempt * 17);
-      const angle = pseudoRandom(seed + attempt * 31 + 7) * Math.PI * 2;
+      const sample = MAP_RANDOM.unit('open-point-distance', seed + attempt * 17);
+      const angle = MAP_RANDOM.unit('open-point-angle', seed + attempt * 31 + 7) * Math.PI * 2;
       const distance = minDistance + (maxDistance - minDistance) * sample;
       const candidateX = x + Math.cos(angle) * distance;
       const candidateY = y + Math.sin(angle) * distance;
@@ -237,9 +240,4 @@ export class CollisionMap {
     return column >= 0 && row >= 0 && column < this.width && row < this.height &&
       this.roads[row * this.width + column] !== 0;
   }
-}
-
-function pseudoRandom(seed: number): number {
-  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
-  return value - Math.floor(value);
 }

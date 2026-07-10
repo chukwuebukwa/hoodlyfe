@@ -38,6 +38,7 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
     targetRow: spawn.targetRow,
     cruiseSpeed: 110
   });
+  room.rebuildSpatialIndex();
 
   room.interact(player.id);
   assert.equal(player.action, 'hijacking');
@@ -51,4 +52,5 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   assert.equal(vehicle.traffic, false);
   assert.equal(room.state.npcs.size, 1);
   assert.equal(player.wanted, 1);
+  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), ['crime.committed']);
 });

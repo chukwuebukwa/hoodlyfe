@@ -1,0 +1,62 @@
+# Server Game Modules
+
+This directory contains authoritative simulation code that is independent of Colyseus room lifecycle and browser presentation.
+
+## Dependency Direction
+
+```text
+DistrictRoom
+  -> game domain systems
+    -> game/world primitives
+    -> game/events contracts
+  -> Colyseus schema state
+```
+
+Rules:
+
+- `DistrictRoom` orchestrates phases and network commands; it should not become the permanent home of new gameplay rules.
+- Domain systems may depend on `game/world` and `game/events`.
+- World primitives must not import `DistrictRoom`, Phaser, Express, or Colyseus schema classes.
+- Event contracts use stable IDs and plain data.
+- Browser animation and effects consume replicated state or messages and never decide gameplay outcomes.
+- Collection additions and removals during iteration go through the deferred lifecycle queue.
+- Random gameplay decisions use a named deterministic stream and a stable key.
+- Spatial gameplay queries go through the shared index and retain exact final geometry checks.
+
+## Current Modules
+
+```text
+game/
+  events/
+    game-events.ts
+  world/
+    deferred-command-queue.ts
+    deterministic-random.ts
+    fixed-step-clock.ts
+    spatial-index.ts
+```
+
+## Simulation Order
+
+The current compatibility order is:
+
+1. rebuild spatial memberships from authoritative state;
+2. update vehicles and traffic;
+3. update players and actions;
+4. update pedestrians and police;
+5. move and resolve projectiles;
+6. flush deferred lifecycle commands;
+7. drain the tick's typed events for downstream consumers.
+
+As systems are extracted, retain an explicit order in `DistrictRoom` and queue structural mutations until the lifecycle phase.
+
+## Next Extraction
+
+The next domain boundary is `incidents/`:
+
+- `incident-registry.ts` for bounded, expiring world incidents;
+- `witness-system.ts` for perception and reporting;
+- `wanted-system.ts` for per-suspect heat and response tiers;
+- `police/dispatch-system.ts` for district capacity and assignments.
+
+These systems should consume `GameEvent` records rather than receive callbacks from weapon or vehicle code.

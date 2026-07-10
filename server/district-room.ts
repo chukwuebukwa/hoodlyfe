@@ -1,4 +1,14 @@
 import {type Client, Room} from '@colyseus/core';
+import {
+  DEBUG_SNAPSHOT_MESSAGE,
+  type DebugEventEntry,
+  type DebugSnapshot
+} from '../shared/protocol/debug.ts';
+import {GameEventStream, type GameEvent} from './game/events/game-events.ts';
+import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
+import {DeterministicRandom} from './game/world/deterministic-random.ts';
+import {FixedStepClock} from './game/world/fixed-step-clock.ts';
+import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
 import {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {
   WEAPON_ORDER,
@@ -37,6 +47,12 @@ interface CycleWeaponMessage {
   direction?: number;
 }
 
+interface DistrictRoomOptions {
+  seed?: number;
+}
+
+type WorldEntityKind = 'player' | 'npc' | 'vehicle';
+
 interface RuntimePlayer {
   inputX: number;
   inputY: number;
@@ -71,15 +87,34 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly runtimeNpcs = new Map<string, RuntimeNpc>();
   private readonly runtimeTraffic = new Map<string, RuntimeTraffic>();
   private readonly vehicleImpactAt = new Map<string, number>();
+  private readonly simulationClock = new FixedStepClock();
+  private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
+  private readonly lifecycle = new DeferredCommandQueue();
+  private readonly events = new GameEventStream();
+  private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+  private readonly recentDebugEvents: DebugEventEntry[] = [];
+  private random = new DeterministicRandom('industrial-district:v1');
+  private lastTickEvents: GameEvent[] = [];
+  private lastDebugBroadcastTick = 0;
   private world!: CollisionMap;
   private nextBulletId = 1;
   private nextEjectedDriverId = 1;
 
-  onCreate(): void {
+  onCreate(options?: DistrictRoomOptions): void {
+    this.simulationClock.reset();
+    this.lifecycle.clear();
+    this.events.clear();
+    this.recentDebugEvents.length = 0;
+    this.lastDebugBroadcastTick = 0;
+    const requestedSeed = Number(options?.seed);
+    this.random = new DeterministicRandom(
+      Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
+    );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
     this.spawnDistrictPopulation();
-    this.setSimulationInterval((deltaTime) => this.update(deltaTime), 1000 / 30);
+    this.rebuildSpatialIndex();
+    this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
 
     this.onMessage<InputMessage>('input', (client, message) => {
       const runtime = this.runtimePlayers.get(client.sessionId);
@@ -118,10 +153,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.runtimePlayers.set(client.sessionId, {
       inputX: 0,
       inputY: 0,
-      lastShotAt: 0,
-      lastCrimeAt: 0,
-      lastHeatDecayAt: 0
+      lastShotAt: Number.NEGATIVE_INFINITY,
+      lastCrimeAt: Number.NEGATIVE_INFINITY,
+      lastHeatDecayAt: Number.NEGATIVE_INFINITY
     });
+    this.indexPlayer(player);
   }
 
   onLeave(client: Client): void {
@@ -129,6 +165,7 @@ export class DistrictRoom extends Room<DistrictState> {
     if (player) this.removePlayerFromVehicle(player);
     this.state.players.delete(client.sessionId);
     this.runtimePlayers.delete(client.sessionId);
+    this.spatialIndex.remove('player', client.sessionId);
   }
 
   private spawnDistrictPopulation(): void {
@@ -213,7 +250,7 @@ export class DistrictRoom extends Room<DistrictState> {
     npc.kind = kind;
     npc.x = position.x;
     npc.y = position.y;
-    npc.angle = pseudoRandom(seed) * Math.PI * 2;
+    npc.angle = this.random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
     npc.health = kind === 'police' ? 100 : 50;
     this.state.npcs.set(id, npc);
     this.runtimeNpcs.set(id, {
@@ -226,31 +263,41 @@ export class DistrictRoom extends Room<DistrictState> {
     });
   }
 
-  private update(deltaTime: number): void {
-    const deltaSeconds = Math.min(deltaTime, 100) / 1000;
-    const now = Date.now();
+  private advanceSimulation(deltaTime: number): void {
+    this.simulationClock.advance(deltaTime, (frame) => {
+      this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
+    });
+    this.lastTickEvents = this.events.drain();
+    this.captureDebugEvents(this.lastTickEvents);
+    this.broadcastDebugSnapshot();
+  }
 
-    this.state.vehicles.forEach((vehicle) => this.updateVehicle(vehicle, deltaSeconds, now));
+  private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.state.vehicles.forEach((vehicle) => {
+      this.updateVehicle(vehicle, deltaSeconds, now);
+      this.indexVehicle(vehicle);
+    });
     this.state.players.forEach((player, playerId) => {
       const runtime = this.runtimePlayers.get(playerId);
       if (!runtime) return;
       if (!player.alive) {
         this.tryRespawnPlayer(player, runtime, now);
-        return;
-      }
-      if (player.action) {
+      } else if (player.action) {
         this.updatePlayerAction(player, now);
-        return;
+      } else {
+        if (!player.vehicleId) this.movePlayer(player, runtime, deltaSeconds);
+        this.decayHeat(player, runtime, now);
       }
-      if (!player.vehicleId) {
-        this.movePlayer(player, runtime, deltaSeconds);
-      }
-      this.decayHeat(player, runtime, now);
+      this.indexPlayer(player);
     });
-    this.state.npcs.forEach((npc) => this.updateNpc(npc, deltaSeconds, now));
+    this.state.npcs.forEach((npc) => {
+      this.updateNpc(npc, deltaSeconds, now);
+      this.indexNpc(npc);
+    });
     this.state.bullets.forEach((bullet, bulletId) => {
       this.moveBullet(bullet, bulletId, deltaSeconds, now);
     });
+    this.lifecycle.flush();
   }
 
   private movePlayer(player: PlayerState, runtime: RuntimePlayer, deltaSeconds: number): void {
@@ -365,12 +412,14 @@ export class DistrictRoom extends Room<DistrictState> {
     const forwardColumn = current.column + (current.column - runtime.previousColumn);
     const forwardRow = current.row + (current.row - runtime.previousRow);
     const forward = neighbors.find((node) => node.column === forwardColumn && node.row === forwardRow);
-    if (forward && (neighbors.length <= 2 || pseudoRandom(seed) < 0.88)) return forward;
+    if (forward && (neighbors.length <= 2 || this.random.unit('traffic-forward', seed) < 0.88)) {
+      return forward;
+    }
     const alternatives = neighbors.filter((node) =>
       node.column !== runtime.previousColumn || node.row !== runtime.previousRow
     );
     const choices = alternatives.length > 0 ? alternatives : neighbors;
-    return choices[Math.floor(pseudoRandom(seed + 17) * choices.length)];
+    return choices[this.random.integer('traffic-turn', seed + 17, 0, choices.length)];
   }
 
   private syncVehicleOccupants(vehicle: VehicleState): void {
@@ -384,7 +433,13 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private handleTrafficImpacts(vehicle: VehicleState, now: number): void {
     if (vehicle.speed < 70 || now - (this.vehicleImpactAt.get(vehicle.id) ?? 0) < 600) return;
-    for (const player of this.state.players.values()) {
+    const nearbyPlayers = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
+      kinds: ['player'],
+      includeRecordRadius: true
+    });
+    for (const record of nearbyPlayers) {
+      const player = this.state.players.get(record.id);
+      if (!player) continue;
       if (!player.alive || player.vehicleId) continue;
       if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
       this.damagePlayer(player, 45, '', now);
@@ -392,7 +447,13 @@ export class DistrictRoom extends Room<DistrictState> {
       this.vehicleImpactAt.set(vehicle.id, now);
       return;
     }
-    for (const npc of this.state.npcs.values()) {
+    const nearbyNpcs = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
+      kinds: ['npc'],
+      includeRecordRadius: true
+    });
+    for (const record of nearbyNpcs) {
+      const npc = this.state.npcs.get(record.id);
+      if (!npc) continue;
       if (!npc.alive) continue;
       if (Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
       this.damageNpc(npc, 100, '', now);
@@ -405,7 +466,13 @@ export class DistrictRoom extends Room<DistrictState> {
   private handleVehicleImpacts(vehicle: VehicleState, driver: PlayerState, now: number): void {
     if (Math.abs(vehicle.speed) < 90 || now - (this.vehicleImpactAt.get(vehicle.id) ?? 0) < 450) return;
 
-    for (const npc of this.state.npcs.values()) {
+    const nearbyNpcs = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
+      kinds: ['npc'],
+      includeRecordRadius: true
+    });
+    for (const record of nearbyNpcs) {
+      const npc = this.state.npcs.get(record.id);
+      if (!npc) continue;
       if (!npc.alive || Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
       this.damageNpc(npc, Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)), driver.id, now);
       vehicle.speed *= 0.72;
@@ -413,7 +480,13 @@ export class DistrictRoom extends Room<DistrictState> {
       return;
     }
 
-    for (const player of this.state.players.values()) {
+    const nearbyPlayers = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
+      kinds: ['player'],
+      includeRecordRadius: true
+    });
+    for (const record of nearbyPlayers) {
+      const player = this.state.players.get(record.id);
+      if (!player) continue;
       if (!player.alive || player.id === driver.id || player.vehicleId) continue;
       if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
       this.damagePlayer(player, 50, driver.id, now);
@@ -469,14 +542,22 @@ export class DistrictRoom extends Room<DistrictState> {
         runtime.wanderAngle = Math.atan2(npc.y - threat.y, npc.x - threat.x);
       }
     } else if (now >= runtime.nextThinkAt) {
-      runtime.wanderAngle += (pseudoRandom(now + npc.id.length * 41) - 0.5) * Math.PI * 1.6;
-      runtime.nextThinkAt = now + 1200 + pseudoRandom(now + npc.id.length) * 2600;
+      const key = `${npc.id}:${this.simulationClock.tick}`;
+      runtime.wanderAngle += (this.random.unit('npc-wander-turn', key) - 0.5) * Math.PI * 1.6;
+      runtime.nextThinkAt = now + this.random.range('npc-think-delay', key, 1200, 3800);
     }
 
     const speed = runtime.panicUntil > now ? 175 : (npc.kind === 'police' ? 78 : 62);
     npc.angle = runtime.wanderAngle;
     if (!this.moveNpc(npc, runtime.wanderAngle, speed, deltaSeconds)) {
-      runtime.wanderAngle = normalizeAngle(runtime.wanderAngle + Math.PI * (0.55 + pseudoRandom(now)));
+      runtime.wanderAngle = normalizeAngle(
+        runtime.wanderAngle + Math.PI * this.random.range(
+          'npc-collision-turn',
+          `${npc.id}:${this.simulationClock.tick}`,
+          0.55,
+          1.55
+        )
+      );
       runtime.nextThinkAt = now + 250;
     }
   }
@@ -527,7 +608,12 @@ export class DistrictRoom extends Room<DistrictState> {
 
     let nearest: VehicleState | undefined;
     let nearestDistance = 72;
-    for (const vehicle of this.state.vehicles.values()) {
+    const nearbyVehicles = this.spatialIndex.queryCircle(player.x, player.y, nearestDistance, {
+      kinds: ['vehicle']
+    });
+    for (const record of nearbyVehicles) {
+      const vehicle = this.state.vehicles.get(record.id);
+      if (!vehicle) continue;
       if (this.vehicleOccupants(vehicle.id).length >= MAX_VEHICLE_OCCUPANTS) continue;
       if (vehicle.hijackBy && vehicle.hijackBy !== player.id) continue;
       const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
@@ -538,7 +624,7 @@ export class DistrictRoom extends Room<DistrictState> {
     }
     if (!nearest) return;
     const action = nearest.traffic && !nearest.driverId ? 'hijacking' : 'entering';
-    this.beginVehicleAction(player, nearest, action, Date.now());
+    this.beginVehicleAction(player, nearest, action, this.simulationClock.nowMs);
   }
 
   private beginVehicleAction(
@@ -688,12 +774,13 @@ export class DistrictRoom extends Room<DistrictState> {
       threatId: hijacker.id,
       respawnAt: 0
     });
+    this.indexNpc(npc);
   }
 
   private shoot(playerId: string): void {
     const player = this.state.players.get(playerId);
     const runtime = this.runtimePlayers.get(playerId);
-    const now = Date.now();
+    const now = this.simulationClock.nowMs;
     if (
       !player?.alive ||
       (player.vehicleId && player.vehicleSeat === 0) ||
@@ -710,7 +797,7 @@ export class DistrictRoom extends Room<DistrictState> {
     const origin = this.playerShotOrigin(player);
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
       const spread = weapon.pellets === 1
-        ? (pseudoRandom(now + playerId.length * 31) - 0.5) * weapon.spread
+        ? (this.random.unit('weapon-spread', `${playerId}:${this.simulationClock.tick}`) - 0.5) * weapon.spread
         : ((pellet / (weapon.pellets - 1)) - 0.5) * weapon.spread;
       this.createBullet(playerId, 'player', origin.x, origin.y, player.angle + spread, now, weaponId);
     }
@@ -761,7 +848,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private moveBullet(bullet: BulletState, bulletId: string, deltaSeconds: number, now: number): void {
     const weapon = WEAPONS[isWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
     if (now - bullet.createdAt > weapon.lifetimeMs) {
-      this.state.bullets.delete(bulletId);
+      this.deferBulletRemoval(bulletId);
       return;
     }
 
@@ -770,34 +857,57 @@ export class DistrictRoom extends Room<DistrictState> {
     bullet.x += Math.cos(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     bullet.y += Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     if (this.world.isBlockedAt(bullet.x, bullet.y)) {
-      this.state.bullets.delete(bulletId);
+      this.deferBulletRemoval(bulletId);
       return;
     }
 
-    for (const target of this.state.players.values()) {
+    const minX = Math.min(previousX, bullet.x) - 4;
+    const minY = Math.min(previousY, bullet.y) - 4;
+    const maxX = Math.max(previousX, bullet.x) + 4;
+    const maxY = Math.max(previousY, bullet.y) + 4;
+    const playerCandidates = this.spatialIndex.queryAabb(minX, minY, maxX, maxY, {
+      kinds: ['player']
+    });
+    for (const record of playerCandidates) {
+      const target = this.state.players.get(record.id);
+      if (!target) continue;
       if (!target.alive || target.vehicleId || target.id === bullet.ownerId) continue;
       if (bullet.ownerKind === 'police' && target.wanted <= 0) continue;
       if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > PLAYER_RADIUS + 4) continue;
       this.damagePlayer(target, weapon.damage, bullet.ownerKind === 'player' ? bullet.ownerId : '', now);
-      this.state.bullets.delete(bulletId);
+      this.deferBulletRemoval(bulletId);
       return;
     }
 
     if (bullet.ownerKind === 'player') {
-      for (const target of this.state.npcs.values()) {
+      const npcCandidates = this.spatialIndex.queryAabb(minX, minY, maxX, maxY, {kinds: ['npc']});
+      for (const record of npcCandidates) {
+        const target = this.state.npcs.get(record.id);
+        if (!target) continue;
         if (
           !target.alive ||
           pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > NPC_RADIUS + 4
         ) continue;
         this.damageNpc(target, weapon.damage, bullet.ownerId, now);
-        this.state.bullets.delete(bulletId);
+        this.deferBulletRemoval(bulletId);
         return;
       }
     }
   }
 
   private damagePlayer(target: PlayerState, damage: number, attackerId: string, now: number): void {
+    const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
+    this.events.publish({
+      type: 'damage.applied',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      targetId: target.id,
+      targetKind: 'player',
+      attackerId,
+      amount: previousHealth - target.health,
+      remainingHealth: target.health
+    });
     if (attackerId) this.recordCrime(attackerId, 1, now);
     if (target.health > 0) return;
 
@@ -805,11 +915,22 @@ export class DistrictRoom extends Room<DistrictState> {
       const attacker = this.state.players.get(attackerId);
       if (attacker) attacker.cash += 100;
     }
-    this.killPlayer(target, now);
+    this.killPlayer(target, now, attackerId);
   }
 
   private damageNpc(target: NpcState, damage: number, attackerId: string, now: number): void {
+    const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
+    this.events.publish({
+      type: 'damage.applied',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      targetId: target.id,
+      targetKind: 'npc',
+      attackerId,
+      amount: previousHealth - target.health,
+      remainingHealth: target.health
+    });
     this.recordCrime(attackerId, target.kind === 'police' ? 2 : 1, now);
     const runtime = this.runtimeNpcs.get(target.id);
     if (runtime) {
@@ -819,15 +940,31 @@ export class DistrictRoom extends Room<DistrictState> {
     if (target.health > 0) return;
 
     target.alive = false;
+    this.events.publish({
+      type: 'entity.killed',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      entityId: target.id,
+      entityKind: 'npc',
+      attackerId
+    });
     if (runtime) runtime.respawnAt = now + 5500;
     const attacker = this.state.players.get(attackerId);
     if (attacker) attacker.cash += target.kind === 'police' ? 200 : 50;
   }
 
-  private killPlayer(player: PlayerState, now: number): void {
+  private killPlayer(player: PlayerState, now: number, attackerId: string): void {
     player.alive = false;
     player.health = 0;
     player.respawnAt = now + RESPAWN_DELAY_MS;
+    this.events.publish({
+      type: 'entity.killed',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      entityId: player.id,
+      entityKind: 'player',
+      attackerId
+    });
     const runtime = this.runtimePlayers.get(player.id);
     if (runtime) {
       runtime.inputX = 0;
@@ -859,8 +996,16 @@ export class DistrictRoom extends Room<DistrictState> {
     player.vehicleSeat = -1;
     this.clearPlayerAction(player);
     refillAmmo(player);
-    runtime.lastCrimeAt = 0;
+    runtime.lastCrimeAt = Number.NEGATIVE_INFINITY;
     runtime.lastHeatDecayAt = now;
+    this.events.publish({
+      type: 'player.respawned',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      playerId: player.id,
+      x: player.x,
+      y: player.y
+    });
   }
 
   private recordCrime(playerId: string, heat: number, now: number): void {
@@ -870,17 +1015,117 @@ export class DistrictRoom extends Room<DistrictState> {
     player.wanted = Math.min(5, player.wanted + heat);
     runtime.lastCrimeAt = now;
     runtime.lastHeatDecayAt = now;
+    this.events.publish({
+      type: 'crime.committed',
+      tick: this.simulationClock.tick,
+      nowMs: now,
+      suspectId: playerId,
+      heat,
+      resultingWantedLevel: player.wanted
+    });
   }
 
   private decayHeat(player: PlayerState, runtime: RuntimePlayer, now: number): void {
     if (player.wanted === 0 || now - runtime.lastCrimeAt < HEAT_DECAY_DELAY_MS) return;
-    const policeNearby = [...this.state.npcs.values()].some((npc) =>
-      npc.kind === 'police' && npc.alive && Math.hypot(npc.x - player.x, npc.y - player.y) < 430
-    );
+    const policeNearby = this.spatialIndex.queryCircle(player.x, player.y, 430, {kinds: ['npc']})
+      .some((record) => {
+        const npc = this.state.npcs.get(record.id);
+        return Boolean(npc?.kind === 'police' && npc.alive);
+      });
     if (!policeNearby && now - runtime.lastHeatDecayAt >= HEAT_DECAY_STEP_MS) {
       player.wanted -= 1;
       runtime.lastHeatDecayAt = now;
     }
+  }
+
+  private rebuildSpatialIndex(): void {
+    const records: Array<SpatialRecord<WorldEntityKind>> = [];
+    for (const player of this.state.players.values()) {
+      records.push(this.playerSpatialRecord(player));
+    }
+    for (const npc of this.state.npcs.values()) {
+      records.push(this.npcSpatialRecord(npc));
+    }
+    for (const vehicle of this.state.vehicles.values()) {
+      records.push(this.vehicleSpatialRecord(vehicle));
+    }
+    this.spatialIndex.rebuild(records);
+  }
+
+  private indexPlayer(player: PlayerState): void {
+    this.spatialIndex.upsert(this.playerSpatialRecord(player));
+  }
+
+  private indexNpc(npc: NpcState): void {
+    this.spatialIndex.upsert(this.npcSpatialRecord(npc));
+  }
+
+  private indexVehicle(vehicle: VehicleState): void {
+    this.spatialIndex.upsert(this.vehicleSpatialRecord(vehicle));
+  }
+
+  private playerSpatialRecord(player: PlayerState): SpatialRecord<WorldEntityKind> {
+    return {id: player.id, kind: 'player', x: player.x, y: player.y, radius: PLAYER_RADIUS};
+  }
+
+  private npcSpatialRecord(npc: NpcState): SpatialRecord<WorldEntityKind> {
+    return {id: npc.id, kind: 'npc', x: npc.x, y: npc.y, radius: NPC_RADIUS};
+  }
+
+  private vehicleSpatialRecord(vehicle: VehicleState): SpatialRecord<WorldEntityKind> {
+    return {id: vehicle.id, kind: 'vehicle', x: vehicle.x, y: vehicle.y, radius: VEHICLE_RADIUS};
+  }
+
+  private deferBulletRemoval(bulletId: string): void {
+    this.lifecycle.defer(`bullet.remove:${bulletId}`, () => {
+      this.state.bullets.delete(bulletId);
+    });
+  }
+
+  private captureDebugEvents(events: readonly GameEvent[]): void {
+    if (!this.debugEnabled) return;
+    for (const event of events) {
+      this.recentDebugEvents.push({
+        tick: event.tick,
+        type: event.type,
+        summary: summarizeGameEvent(event)
+      });
+    }
+    if (this.recentDebugEvents.length > 8) {
+      this.recentDebugEvents.splice(0, this.recentDebugEvents.length - 8);
+    }
+  }
+
+  private broadcastDebugSnapshot(): void {
+    if (!this.debugEnabled || this.simulationClock.tick - this.lastDebugBroadcastTick < 6) return;
+    this.lastDebugBroadcastTick = this.simulationClock.tick;
+    const snapshot: DebugSnapshot = {
+      tick: this.simulationClock.tick,
+      nowMs: this.simulationClock.nowMs,
+      droppedMs: this.simulationClock.droppedMs,
+      spatialEntities: this.spatialIndex.size,
+      deferredCommands: this.lifecycle.size,
+      eventsThisTick: this.lastTickEvents.length,
+      players: this.state.players.size,
+      npcs: this.state.npcs.size,
+      vehicles: this.state.vehicles.size,
+      bullets: this.state.bullets.size,
+      events: [...this.recentDebugEvents]
+    };
+    this.broadcast(DEBUG_SNAPSHOT_MESSAGE, snapshot);
+  }
+}
+
+function summarizeGameEvent(event: GameEvent): string {
+  switch (event.type) {
+    case 'damage.applied':
+      return `${event.attackerId || 'world'} -> ${event.targetKind}:${event.targetId} -${event.amount}`;
+    case 'entity.killed':
+      return `${event.entityKind}:${event.entityId} killed by ${event.attackerId || 'world'}`;
+    case 'crime.committed':
+      return `${event.suspectId} heat +${event.heat} => ${event.resultingWantedLevel}`;
+    case 'player.respawned':
+      return `${event.playerId} respawned`;
   }
 }
 
@@ -906,11 +1151,6 @@ function approach(value: number, target: number, amount: number): number {
 function rotateToward(current: number, target: number, amount: number): number {
   const difference = Math.atan2(Math.sin(target - current), Math.cos(target - current));
   return normalizeAngle(current + clamp(difference, -amount, amount));
-}
-
-function pseudoRandom(seed: number): number {
-  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
-  return value - Math.floor(value);
 }
 
 function pointSegmentDistance(

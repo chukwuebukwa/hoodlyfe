@@ -1,5 +1,9 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
+import {
+  DEBUG_SNAPSHOT_MESSAGE,
+  type DebugSnapshot
+} from '../../shared/protocol/debug.ts';
 import {TouchControls} from './touch-controls.ts';
 import type {
   DistrictNetworkState,
@@ -16,6 +20,10 @@ const INPUT_HEARTBEAT = 220;
 const AIM_SEND_INTERVAL = 45;
 const FIRE_INTERVAL = 45;
 const WEAPON_CYCLE_INTERVAL = 120;
+const NPC_RADIUS = 10;
+const VEHICLE_RADIUS = 20;
+const SPATIAL_CELL_SIZE = 256;
+const DEBUG_DRAW_INTERVAL = 100;
 
 interface RenderPlayer {
   sprite: Phaser.GameObjects.Sprite;
@@ -66,8 +74,12 @@ export class DistrictScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private previousWeaponKey!: Phaser.Input.Keyboard.Key;
   private nextWeaponKey!: Phaser.Input.Keyboard.Key;
+  private debugKey!: Phaser.Input.Keyboard.Key;
+  private tilemap!: Phaser.Tilemaps.Tilemap;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
+  private debugGraphics!: Phaser.GameObjects.Graphics;
+  private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
   private touchControls!: TouchControls;
   private lastInputX = 0;
   private lastInputY = 0;
@@ -82,6 +94,9 @@ export class DistrictScene extends Phaser.Scene {
   private cameraTargetId = '';
   private toastTimeout?: number;
   private latestState?: DistrictNetworkState;
+  private latestDebugSnapshot?: DebugSnapshot;
+  private debugVisible = false;
+  private lastDebugDrawAt = Number.NEGATIVE_INFINITY;
 
   constructor(room: Room<DistrictNetworkState>) {
     super('district');
@@ -93,15 +108,15 @@ export class DistrictScene extends Phaser.Scene {
     this.load.image('district-tiles', '/assets/maps/district-tiles.png');
     this.load.image('district-preview', '/assets/maps/district-preview.png');
     this.load.image('district-overlay', '/assets/maps/district-overlay.png');
-    this.load.spritesheet('driver', '/assets/custom/sprites/player-base.png', {
+    this.load.spritesheet('driver', '/assets/original/sprites/player-base.png', {
       frameWidth: 72,
       frameHeight: 72
     });
-    this.load.spritesheet('civilian', '/assets/custom/sprites/civilian.png', {
+    this.load.spritesheet('civilian', '/assets/original/sprites/civilian.png', {
       frameWidth: 72,
       frameHeight: 72
     });
-    this.load.spritesheet('police', '/assets/custom/sprites/police.png', {
+    this.load.spritesheet('police', '/assets/original/sprites/police.png', {
       frameWidth: 72,
       frameHeight: 72
     });
@@ -116,6 +131,7 @@ export class DistrictScene extends Phaser.Scene {
 
   create(): void {
     const map = this.make.tilemap({key: 'district-map'});
+    this.tilemap = map;
     const tileset = map.addTilesetImage('district', 'district-tiles');
     if (!tileset) throw new Error('Industrial District tileset could not be loaded.');
     this.add.image(0, 0, 'district-preview').setOrigin(0).setDepth(0);
@@ -147,6 +163,7 @@ export class DistrictScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.previousWeaponKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
     this.nextWeaponKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F3);
     this.touchControls = new TouchControls();
     this.input.on('wheel', (_pointer: unknown, _objects: unknown, _deltaX: number, deltaY: number) => {
       if (Math.abs(deltaY) > 1) this.cycleWeapon(deltaY > 0 ? 1 : -1);
@@ -156,8 +173,17 @@ export class DistrictScene extends Phaser.Scene {
     document.querySelector('#vehicle-action-button')?.addEventListener('click', () => {
       this.room.send('interact');
     });
+    document.querySelector('#debug-toggle')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.setDebugVisible(!this.debugVisible);
+    });
 
+    this.debugGraphics = this.add.graphics().setDepth(980_000);
     this.crosshair = this.add.graphics().setScrollFactor(0).setDepth(1_000_000);
+    this.room.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => {
+      this.latestDebugSnapshot = snapshot;
+      this.updateDebugPanel();
+    });
     this.room.onStateChange((state) => {
       this.latestState = state;
       this.synchronizeState(state);
@@ -179,6 +205,7 @@ export class DistrictScene extends Phaser.Scene {
     this.updateInteraction();
     this.updateWeaponCycling(time);
     this.interpolateEntities(time);
+    this.updateDebugView(time);
     this.drawCrosshair();
   }
 
@@ -186,7 +213,7 @@ export class DistrictScene extends Phaser.Scene {
     this.anims.create({
       key,
       frames: this.anims.generateFrameNumbers(texture, {start: 1, end: 8}),
-      frameRate: 16,
+      frameRate: 9,
       repeat: -1
     });
   }
@@ -245,6 +272,7 @@ export class DistrictScene extends Phaser.Scene {
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
     }
     this.updateVehicleActionButton();
+    this.updateDebugPanel();
   }
 
   private synchronizePlayer(playerId: string, player: NetworkPlayer): void {
@@ -706,6 +734,202 @@ export class DistrictScene extends Phaser.Scene {
     this.crosshair.lineBetween(pointer.x, pointer.y + 5, pointer.x, pointer.y + 13);
   }
 
+  private updateDebugView(time: number): void {
+    if (Phaser.Input.Keyboard.JustDown(this.debugKey)) {
+      this.setDebugVisible(!this.debugVisible);
+    }
+    if (!this.debugVisible || time - this.lastDebugDrawAt < DEBUG_DRAW_INTERVAL) return;
+    this.lastDebugDrawAt = time;
+    this.drawDebugWorld();
+  }
+
+  private setDebugVisible(visible: boolean): void {
+    this.debugVisible = visible;
+    document.querySelector('#debug-panel')?.classList.toggle('hidden', !visible);
+    const toggle = document.querySelector<HTMLButtonElement>('#debug-toggle');
+    toggle?.setAttribute('aria-pressed', String(visible));
+    const shell = document.querySelector<HTMLElement>('#game-shell');
+    if (shell) shell.dataset.debug = visible ? 'visible' : 'hidden';
+
+    if (visible) {
+      this.lastDebugDrawAt = Number.NEGATIVE_INFINITY;
+      this.updateDebugPanel();
+      this.drawDebugWorld();
+      return;
+    }
+
+    this.debugGraphics.clear();
+    for (const label of this.debugLabels.values()) label.setVisible(false);
+  }
+
+  private drawDebugWorld(): void {
+    const state = this.latestState;
+    if (!state) return;
+    const graphics = this.debugGraphics;
+    const view = this.cameras.main.worldView;
+    graphics.clear();
+
+    graphics.fillStyle(0xff3652, 0.2);
+    const minTileX = Math.max(0, Math.floor(view.left / this.tilemap.tileWidth) - 1);
+    const maxTileX = Math.min(this.tilemap.width - 1, Math.ceil(view.right / this.tilemap.tileWidth) + 1);
+    const minTileY = Math.max(0, Math.floor(view.top / this.tilemap.tileHeight) - 1);
+    const maxTileY = Math.min(this.tilemap.height - 1, Math.ceil(view.bottom / this.tilemap.tileHeight) + 1);
+    for (let row = minTileY; row <= maxTileY; row++) {
+      for (let column = minTileX; column <= maxTileX; column++) {
+        if (!this.collisionLayer.hasTileAt(column, row)) continue;
+        graphics.fillRect(
+          column * this.tilemap.tileWidth,
+          row * this.tilemap.tileHeight,
+          this.tilemap.tileWidth,
+          this.tilemap.tileHeight
+        );
+      }
+    }
+
+    graphics.lineStyle(1, 0x70dcff, 0.34);
+    const gridStartX = Math.floor(view.left / SPATIAL_CELL_SIZE) * SPATIAL_CELL_SIZE;
+    const gridStartY = Math.floor(view.top / SPATIAL_CELL_SIZE) * SPATIAL_CELL_SIZE;
+    for (let x = gridStartX; x <= view.right; x += SPATIAL_CELL_SIZE) {
+      graphics.lineBetween(x, view.top, x, view.bottom);
+    }
+    for (let y = gridStartY; y <= view.bottom; y += SPATIAL_CELL_SIZE) {
+      graphics.lineBetween(view.left, y, view.right, y);
+    }
+
+    const presentLabels = new Set<string>();
+    state.players?.forEach((player, playerId) => {
+      const key = `player:${playerId}`;
+      const mode = player.vehicleId ? `seat:${player.vehicleSeat}` : 'foot';
+      this.drawDebugEntity(
+        player.x,
+        player.y,
+        PLAYER_RADIUS,
+        player.angle,
+        0x70dcff,
+        key,
+        `${player.name} p:${shortId(playerId)} ${mode} w:${player.wanted}`,
+        presentLabels,
+        player.alive
+      );
+    });
+    state.npcs?.forEach((npc, npcId) => {
+      const key = `npc:${npcId}`;
+      const color = npc.kind === 'police' ? 0xff5e68 : 0xf4cf55;
+      this.drawDebugEntity(
+        npc.x,
+        npc.y,
+        NPC_RADIUS,
+        npc.angle,
+        color,
+        key,
+        `${npcId} hp:${npc.health}`,
+        presentLabels,
+        npc.alive
+      );
+    });
+    state.vehicles?.forEach((vehicle, vehicleId) => {
+      const key = `vehicle:${vehicleId}`;
+      const mode = vehicle.traffic
+        ? 'traffic'
+        : (vehicle.driverId ? `driver:${shortId(vehicle.driverId)}` : 'idle');
+      this.drawDebugEntity(
+        vehicle.x,
+        vehicle.y,
+        VEHICLE_RADIUS,
+        vehicle.angle,
+        0x9d8bff,
+        key,
+        `${vehicleId} ${mode} v:${Math.round(vehicle.speed)}`,
+        presentLabels,
+        vehicle.health > 0
+      );
+    });
+    state.bullets?.forEach((bullet) => {
+      graphics.lineStyle(1, bullet.ownerKind === 'police' ? 0xff5e68 : 0xffffff, 1);
+      graphics.strokeCircle(bullet.x, bullet.y, 6);
+      graphics.lineBetween(
+        bullet.x,
+        bullet.y,
+        bullet.x + Math.cos(bullet.angle) * 14,
+        bullet.y + Math.sin(bullet.angle) * 14
+      );
+    });
+
+    for (const [key, label] of this.debugLabels) {
+      if (presentLabels.has(key)) continue;
+      label.destroy();
+      this.debugLabels.delete(key);
+    }
+  }
+
+  private drawDebugEntity(
+    x: number,
+    y: number,
+    radius: number,
+    angle: number,
+    color: number,
+    key: string,
+    text: string,
+    presentLabels: Set<string>,
+    active: boolean
+  ): void {
+    const alpha = active ? 0.95 : 0.38;
+    this.debugGraphics.fillStyle(color, active ? 0.08 : 0.03);
+    this.debugGraphics.fillCircle(x, y, radius);
+    this.debugGraphics.lineStyle(1, color, alpha);
+    this.debugGraphics.strokeCircle(x, y, radius);
+    this.debugGraphics.lineBetween(
+      x,
+      y,
+      x + Math.cos(angle) * (radius + 9),
+      y + Math.sin(angle) * (radius + 9)
+    );
+
+    let label = this.debugLabels.get(key);
+    if (!label) {
+      label = this.add.text(x, y - radius - 4, text, {
+        color: colorString(color),
+        backgroundColor: 'rgba(0, 0, 0, 0.78)',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontSize: '8px'
+      }).setOrigin(0.5, 1).setDepth(990_000).setPadding(2, 1, 2, 1);
+      this.debugLabels.set(key, label);
+    }
+    label.setPosition(x, y - radius - 4).setText(text).setVisible(true).setAlpha(alpha);
+    presentLabels.add(key);
+  }
+
+  private updateDebugPanel(): void {
+    const snapshot = this.latestDebugSnapshot;
+    const state = this.latestState;
+    setDebugText('#debug-clock', snapshot
+      ? `T${snapshot.tick} / ${(snapshot.nowMs / 1000).toFixed(1)}s`
+      : 'Waiting');
+    setDebugText('#debug-players', snapshot?.players ?? state?.players?.size ?? 0);
+    setDebugText('#debug-npcs', snapshot?.npcs ?? state?.npcs?.size ?? 0);
+    setDebugText('#debug-vehicles', snapshot?.vehicles ?? state?.vehicles?.size ?? 0);
+    setDebugText('#debug-bullets', snapshot?.bullets ?? state?.bullets?.size ?? 0);
+    setDebugText('#debug-spatial', snapshot?.spatialEntities ?? 0);
+    setDebugText('#debug-dropped', `${Math.round(snapshot?.droppedMs ?? 0)}ms`);
+    setDebugText('#debug-deferred', snapshot?.deferredCommands ?? 0);
+    setDebugText('#debug-event-count', snapshot?.eventsThisTick ?? 0);
+
+    const list = document.querySelector<HTMLOListElement>('#debug-events');
+    if (!list) return;
+    const events = snapshot?.events ?? [];
+    if (events.length === 0) {
+      const item = document.createElement('li');
+      item.textContent = 'No recent events';
+      list.replaceChildren(item);
+      return;
+    }
+    list.replaceChildren(...events.map((event) => {
+      const item = document.createElement('li');
+      item.textContent = `T${event.tick} ${event.summary}`;
+      return item;
+    }));
+  }
+
   private updateHud(player: NetworkPlayer): void {
     const name = document.querySelector('#driver-name');
     const cash = document.querySelector('#cash');
@@ -810,4 +1034,17 @@ function bulletStyle(bullet: NetworkBullet): {color: number; radius: number} {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function shortId(id: string): string {
+  return id.length <= 6 ? id : id.slice(0, 6);
+}
+
+function colorString(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+function setDebugText(selector: string, value: string | number): void {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = String(value);
 }

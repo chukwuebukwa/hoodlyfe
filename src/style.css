@@ -94,6 +94,145 @@ canvas {
   font-weight: 800;
 }
 
+#debug-toggle {
+  top: 52px;
+  left: 18px;
+  width: 42px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(93, 221, 255, 0.65);
+  border-radius: 3px;
+  color: #9be8ff;
+  background: rgba(0, 10, 14, 0.82);
+  font: 900 9px/1 inherit;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#debug-toggle:hover,
+#debug-toggle:focus-visible,
+#debug-toggle[aria-pressed="true"] {
+  border-color: #70dcff;
+  color: #05090b;
+  background: #70dcff;
+  outline: none;
+}
+
+#debug-panel {
+  top: 86px;
+  left: 18px;
+  width: min(292px, calc(100vw - 36px));
+  max-height: min(470px, calc(100vh - 110px));
+  overflow: hidden;
+  border: 1px solid rgba(112, 220, 255, 0.58);
+  border-radius: 4px;
+  background: rgba(3, 9, 12, 0.92);
+  color: #dce7eb;
+  text-shadow: none;
+}
+
+#debug-panel > header {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(112, 220, 255, 0.32);
+}
+
+#debug-panel > header strong {
+  color: #70dcff;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+#debug-panel > header span {
+  color: #a9bbc1;
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+#debug-panel dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#debug-panel dl div {
+  min-width: 0;
+  padding: 7px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#debug-panel dl div:nth-child(4n) {
+  border-right: 0;
+}
+
+#debug-panel dt {
+  overflow: hidden;
+  color: #7f969e;
+  font-size: 7px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#debug-panel dd {
+  margin: 3px 0 0;
+  color: #fff;
+  font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+#debug-legend {
+  display: flex;
+  min-height: 30px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#debug-legend span {
+  color: #b8c5ca;
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+#debug-legend span::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border: 1px solid currentColor;
+  content: "";
+}
+
+#debug-legend .player { color: #70dcff; }
+#debug-legend .civilian { color: #f4cf55; }
+#debug-legend .police { color: #ff5e68; }
+#debug-legend .vehicle { color: #9d8bff; }
+#debug-legend .collision { color: #ff3652; }
+
+#debug-events {
+  max-height: 172px;
+  margin: 0;
+  overflow: hidden auto;
+  padding: 6px 10px 8px 28px;
+  color: #b8c5ca;
+  font: 600 8px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#debug-events li {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
 #status-hud {
   top: 18px;
   right: 18px;
@@ -415,6 +554,17 @@ canvas {
   #district-label,
   #player-hud {
     left: 12px;
+  }
+
+  #debug-toggle {
+    top: 46px;
+    left: 12px;
+  }
+
+  #debug-panel {
+    top: 78px;
+    left: 12px;
+    max-height: calc(100vh - 96px);
   }
 
   #status-hud,

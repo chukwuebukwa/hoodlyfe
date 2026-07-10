@@ -4,6 +4,10 @@ import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import test from 'node:test';
 import {Client, type Room} from 'colyseus.js';
+import {
+  DEBUG_SNAPSHOT_MESSAGE,
+  type DebugSnapshot
+} from '../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
@@ -23,6 +27,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
 
   const first = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver One'});
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
+  const debugSnapshots: DebugSnapshot[] = [];
+  first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
+  second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   context.after(async () => {
     await Promise.allSettled([first.leave(), second.leave()]);
   });
@@ -33,6 +40,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(first.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.weapon, 'pistol');
+  await waitUntil(() => debugSnapshots.length > 0);
+  const debugSnapshot = debugSnapshots.at(-1);
+  assert.ok(debugSnapshot && debugSnapshot.tick > 0);
+  assert.equal(
+    debugSnapshot.spatialEntities,
+    debugSnapshot.players + debugSnapshot.npcs + debugSnapshot.vehicles
+  );
+  assert.equal(debugSnapshot.deferredCommands, 0);
 
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'smg');
