@@ -279,6 +279,7 @@ export class StreetServiceState extends Schema {
   id = '';
   kind = 'ammunition';
   label = '';
+  spaceId = 'street';
   x = 0;
   y = 0;
   radius = 0;
@@ -288,6 +289,7 @@ defineTypes(StreetServiceState, {
   id: 'string',
   kind: 'string',
   label: 'string',
+  spaceId: 'string',
   x: 'number',
   y: 'number',
   radius: 'number'

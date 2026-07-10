@@ -9,9 +9,10 @@ interface VehicleInteractionPort {
 interface PlayerInteractionControllerOptions {
   services: ServiceInteractionPort;
   vehicles: VehicleInteractionPort;
+  canUseVehicles?: (playerId: string) => boolean;
 }
 
-export type PlayerInteractionResult = 'service' | 'vehicle' | 'duplicate';
+export type PlayerInteractionResult = 'service' | 'vehicle' | 'duplicate' | 'none';
 
 export class PlayerInteractionController {
   private readonly lastTick = new Map<string, number>();
@@ -22,6 +23,7 @@ export class PlayerInteractionController {
     if (this.lastTick.get(playerId) === tick) return 'duplicate';
     this.lastTick.set(playerId, tick);
     if (this.options.services.interact(playerId, nowMs)) return 'service';
+    if (this.options.canUseVehicles && !this.options.canUseVehicles(playerId)) return 'none';
     this.options.vehicles.interact(playerId, nowMs);
     return 'vehicle';
   }

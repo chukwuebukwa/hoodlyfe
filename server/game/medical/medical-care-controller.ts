@@ -151,6 +151,7 @@ export class MedicalCareController {
     const player = this.options.state.players.get(playerId);
     const service = this.options.state.services.get(serviceId);
     if (!player || !service || service.kind !== 'hospital' || !this.canTreat(player)) return false;
+    if (service.spaceId !== player.spaceId) return false;
     if (Math.hypot(player.x - service.x, player.y - service.y) > service.radius) return false;
     if (player.wanted > 0) {
       this.options.notice(playerId, 'Lose police heat before entering the hospital.', 'warning');
@@ -191,6 +192,7 @@ export class MedicalCareController {
     service.id = id;
     service.kind = 'hospital';
     service.label = label;
+    service.spaceId = 'street';
     service.x = x;
     service.y = y;
     service.radius = STREET_SERVICE_RADIUS.hospital;

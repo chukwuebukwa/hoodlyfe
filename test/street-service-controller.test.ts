@@ -6,6 +6,11 @@ import {GameEventStream} from '../server/game/events/game-events.ts';
 import {StreetServiceController} from '../server/game/services/street-service-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {
+  STREET_SPACE_ID,
+  containsPoint,
+  interiorDefinition
+} from '../shared/content/interior-catalog.ts';
 
 test('street services initialize once at collision-safe authoritative locations', () => {
   const fixture = createFixture();
@@ -19,16 +24,22 @@ test('street services initialize once at collision-safe authoritative locations'
     'repair-garage'
   ]);
   for (const service of fixture.state.services.values()) {
+    if (service.spaceId !== STREET_SPACE_ID) continue;
     assert.equal(fixture.world.canOccupy(service.x, service.y, 11), true);
   }
   const clothing = fixture.state.services.get('clothing-store');
   assert.ok(clothing);
-  const clothingDistance = Math.hypot(
-    clothing.x - fixture.world.spawn.x,
-    clothing.y - fixture.world.spawn.y
-  );
-  assert.ok(clothingDistance > clothing.radius);
-  assert.ok(clothingDistance <= 120);
+  assert.equal(clothing.spaceId, 'threads-showroom');
+  const showroom = interiorDefinition(clothing.spaceId);
+  assert.ok(showroom);
+  assert.equal(containsPoint(showroom.bounds, clothing.x, clothing.y), true);
+  assert.equal(showroom.obstacles.some((obstacle) => (
+    containsPoint(obstacle, clothing.x, clothing.y)
+  )), false);
+  assert.ok(Math.hypot(
+    showroom.entry.x - clothing.x,
+    showroom.entry.y - clothing.y
+  ) <= clothing.radius);
 });
 
 test('repair garage atomically charges and restores an eligible vehicle', () => {
@@ -104,6 +115,8 @@ test('clothing store opens only for an on-foot heat-free player without changing
   fixture.player.y = store.y;
   fixture.player.cash = 400;
 
+  assert.equal(fixture.services.interact(fixture.player.id, 3999), false);
+  fixture.player.spaceId = store.spaceId;
   assert.equal(fixture.services.interact(fixture.player.id, 4000), true);
   assert.deepEqual(fixture.wardrobeOpens, [{playerId: fixture.player.id, serviceId: store.id}]);
   assert.equal(fixture.player.cash, 400);
@@ -116,6 +129,23 @@ test('clothing store opens only for an on-foot heat-free player without changing
   fixture.player.wanted = 0;
   fixture.player.vehicleId = 'car';
   assert.equal(fixture.services.interact(fixture.player.id, 4002), false);
+});
+
+test('services never cross space boundaries even when coordinates overlap', () => {
+  const fixture = createFixture();
+  fixture.services.initialize();
+  const store = fixture.state.services.get('clothing-store');
+  assert.ok(store);
+  fixture.player.x = store.x;
+  fixture.player.y = store.y;
+
+  assert.equal(fixture.player.spaceId, STREET_SPACE_ID);
+  assert.equal(fixture.services.interact(fixture.player.id, 5000), false);
+  assert.equal(fixture.wardrobeOpens.length, 0);
+
+  fixture.player.spaceId = store.spaceId;
+  assert.equal(fixture.services.interact(fixture.player.id, 5001), true);
+  assert.equal(fixture.wardrobeOpens.length, 1);
 });
 
 function createFixture() {

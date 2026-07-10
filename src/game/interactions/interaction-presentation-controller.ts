@@ -5,6 +5,7 @@ import {
   projectInteractionAffordance,
   serviceMinimapPoints
 } from './interaction-presentation-policy.ts';
+import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
 export class InteractionPresentationController {
   private readonly graphics: Phaser.GameObjects.Graphics;
@@ -42,13 +43,16 @@ export class InteractionPresentationController {
   }
 
   minimapPoints(): MinimapPointInput[] {
-    return this.state ? serviceMinimapPoints(this.state) : [];
+    const spaceId = this.state?.players.get(this.localPlayerId)?.spaceId || STREET_SPACE_ID;
+    return this.state ? serviceMinimapPoints(this.state, spaceId) : [];
   }
 
   drawWorld(time: number): void {
     this.graphics.clear();
     const present = new Set<string>();
+    const spaceId = this.state?.players.get(this.localPlayerId)?.spaceId || STREET_SPACE_ID;
     for (const service of this.state?.services?.values() ?? []) {
+      if ((service.spaceId || STREET_SPACE_ID) !== spaceId) continue;
       this.drawService(service, time);
       present.add(service.id);
     }

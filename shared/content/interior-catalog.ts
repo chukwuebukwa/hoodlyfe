@@ -22,6 +22,13 @@ export interface InteriorDefinition {
   entry: {x: number; y: number; angle: number};
   exitDoor: InteriorObstacle;
   obstacles: readonly InteriorObstacle[];
+  serviceAnchors: readonly InteriorServiceAnchor[];
+}
+
+export interface InteriorServiceAnchor {
+  id: string;
+  x: number;
+  y: number;
 }
 
 export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
@@ -43,12 +50,25 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
       {minX: 1910, minY: 2020, maxX: 1990, maxY: 2060},
       {minX: 1910, minY: 2100, maxX: 1990, maxY: 2140},
       {minX: 2040, minY: 2025, maxX: 2100, maxY: 2135}
+    ]),
+    serviceAnchors: Object.freeze([
+      {id: 'clothing-store', x: 2118, y: 2070}
     ])
   })
 ]);
 
 export function interiorDefinition(spaceId: string): InteriorDefinition | undefined {
   return INTERIORS.find((interior) => interior.id === spaceId);
+}
+
+export function interiorServiceAnchor(
+  serviceId: string
+): {spaceId: string; x: number; y: number} | undefined {
+  for (const interior of INTERIORS) {
+    const anchor = interior.serviceAnchors.find((candidate) => candidate.id === serviceId);
+    if (anchor) return {spaceId: interior.id, x: anchor.x, y: anchor.y};
+  }
+  return undefined;
 }
 
 export function containsPoint(area: InteriorObstacle, x: number, y: number): boolean {

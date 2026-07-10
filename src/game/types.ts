@@ -137,6 +137,7 @@ export interface NetworkStreetService {
   id: string;
   kind: StreetServiceKind;
   label: string;
+  spaceId?: string;
   x: number;
   y: number;
   radius: number;

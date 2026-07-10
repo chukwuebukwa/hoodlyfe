@@ -70,7 +70,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
 - **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
 - **Playable** two collision-safe hospitals with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, authoritative living treatment, wanted/vehicle gates, world/minimap markers, and idempotent billing.
-- **Playable** discoverable clothing store that opens the existing creator in Wardrobe mode, with no duplicate renderer or customization path.
+- **Playable** clothing service inside the seamless Threads showroom that opens the existing creator in Wardrobe mode, with no duplicate renderer or customization path and no exterior-space leakage.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
 - **Playable** one shared grenade pickup grants three up to a six-grenade cap, resolves contention authoritatively, projects world/minimap presentation, and respawns after 20 seconds.
 - **Foundation** street cash remains session-local and non-redeemable; money/item pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
@@ -113,7 +113,7 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 - **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
 - **Delivered playable**: ammunition and repair services quote from shared content policy, validate authoritative context, debit once, apply complete domain effects, and replicate world/minimap/action presentation.
 - **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
-- **Delivered playable**: `Threads` is collision-safe and discoverable near spawn without intercepting the spawn vehicle action, opens the shared creator in Wardrobe mode, blocks wanted/vehicle use, and keeps every current item free during development.
+- **Delivered playable**: `Threads` now belongs to the authored showroom space, opens the shared creator in Wardrobe mode, blocks wanted/vehicle use, keeps every current item free during development, and cannot be discovered or triggered from the street at overlapping coordinates.
 - **Delivered foundation**: inventory uses private namespaced item IDs and targeted snapshots; equipped appearance alone remains public replicated state.
 - **Delivered playable**: a shared grenade cache proves proximity collection, bounded quantity, deterministic contention, transient availability, respawn, notice, event, world model, and minimap projection without entering the service/economy controller.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
@@ -158,10 +158,11 @@ Exit gate met for current presentation states; authored layer art and durable ou
 **Playable single-floor vertical slice; authored content and isolation next**
 
 - **Delivered foundation** finite shared interior catalog, replicated player `spaceId`, automatic doorway thresholds, axis-resolved floor/wall/fixture collision, same-space player presentation, and street-system isolation.
-- **Delivered playable** Threads Showroom occupies the existing building footprint and keeps the surrounding Three city visible; entering hides street minimap, mission, marker, traffic, and interaction presentation while preserving player HUD and controls.
+- **Delivered playable** Threads Showroom occupies the existing building footprint and keeps the surrounding Three city visible; entering hides street minimap, mission, traffic, and exterior markers while preserving player HUD, controls, and same-space service presentation.
+- **Delivered playable** interior-owned service anchors and replicated service `spaceId` move Threads interaction inside without room-specific rules; server execution, world markers, affordances, and minimap policy all enforce the same player/service space match.
 - **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> showroom -> street round trips. It does not expose a server teleport command.
 - Export building/roof triangle ownership and door anchors from the original map pipeline. Roof visibility must toggle by authored interior ID, never by generic height or moving tile deletion.
-- Move clothing, ammunition, repair, and later garage/property services into authored interiors through service-space IDs and interior interaction ports.
+- Move ammunition, repair, and later garage/property services into authored interiors only as each building gains collision-safe anchors and appropriate vehicle/actor portal rules.
 - Add interior combat/projectile collision, NPC destinations/schedules, audio zones, lighting, cameras, and multiple floors only after the single-floor space contract is stable.
 - Garages must keep the interior physically tied to a building footprint while vehicle spawn/storage records remain separate from transient room vehicles.
 

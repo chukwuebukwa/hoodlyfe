@@ -11,6 +11,7 @@ import type {
   NetworkWeaponPickup
 } from '../types.ts';
 import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
+import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -48,24 +49,22 @@ export class ThreeDistrictWorld {
   }
 
   synchronize(state: DistrictNetworkState, nowMs: number, localSpaceId = 'street'): void {
-    if (localSpaceId !== 'street') {
-      this.clearStreetPresentation();
+    this.synchronizeMarkers(state, nowMs, localSpaceId);
+    if (localSpaceId !== STREET_SPACE_ID) {
+      this.clearStreetTransients();
       return;
     }
-    this.synchronizeMarkers(state, nowMs);
     this.synchronizeBullets(state);
     this.synchronizeGrenades(state, nowMs);
     this.synchronizeExplosions(state, nowMs);
     this.synchronizeSignals(state);
   }
 
-  private clearStreetPresentation(): void {
-    for (const group of this.markers.values()) disposeObject(group);
+  private clearStreetTransients(): void {
     for (const mesh of this.bullets.values()) disposeObject(mesh);
     for (const group of this.grenades.values()) disposeObject(group);
     for (const explosion of this.explosions.values()) disposeObject(explosion.group);
     for (const group of this.signals.values()) disposeObject(group);
-    this.markers.clear();
     this.bullets.clear();
     this.grenades.clear();
     this.explosions.clear();
@@ -86,9 +85,14 @@ export class ThreeDistrictWorld {
     this.grenadeTexture.dispose();
   }
 
-  private synchronizeMarkers(state: DistrictNetworkState, nowMs: number): void {
+  private synchronizeMarkers(
+    state: DistrictNetworkState,
+    nowMs: number,
+    localSpaceId: string
+  ): void {
     const present = new Set<string>();
     for (const service of state.services?.values() ?? []) {
+      if ((service.spaceId || STREET_SPACE_ID) !== localSpaceId) continue;
       const id = `service:${service.id}`;
       present.add(id);
       let group = this.markers.get(id);
@@ -99,7 +103,9 @@ export class ThreeDistrictWorld {
       positionAtSurface(group, service.x, service.y, this.surfaceHeightAt(service.x, service.y) + 7);
       pulseMarker(group, nowMs, service.id.length);
     }
-    for (const pickup of state.weaponPickups?.values() ?? []) {
+    for (const pickup of localSpaceId === STREET_SPACE_ID
+      ? state.weaponPickups?.values() ?? []
+      : []) {
       if (!pickup.available) continue;
       const id = `pickup:${pickup.id}`;
       present.add(id);
@@ -112,6 +118,10 @@ export class ThreeDistrictWorld {
       pulseMarker(group, nowMs, pickup.id.length);
     }
 
+    if (localSpaceId !== STREET_SPACE_ID) {
+      removeAbsent(this.markers, present);
+      return;
+    }
     const mission = projectMissionWorld(state, this.localPlayerId);
     this.syncMissionMarker(present, 'mission:contact', mission.contact.x, mission.contact.y, 24, 0xff9d3f, 'FREEMODE', nowMs);
     if (mission.delivery) {

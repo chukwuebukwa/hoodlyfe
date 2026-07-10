@@ -28,3 +28,19 @@ test('player interaction prioritizes services and suppresses same-tick duplicate
   controller.clearPlayer('driver');
   assert.equal(controller.interact('driver', 201, 5), 'vehicle');
 });
+
+test('player interaction can allow interior services while blocking vehicle access', () => {
+  const calls: string[] = [];
+  const controller = new PlayerInteractionController({
+    services: {
+      interact: () => false
+    },
+    vehicles: {
+      interact: () => calls.push('vehicle')
+    },
+    canUseVehicles: () => false
+  });
+
+  assert.equal(controller.interact('driver', 300, 9), 'none');
+  assert.deepEqual(calls, []);
+});

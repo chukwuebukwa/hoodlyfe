@@ -77,8 +77,11 @@ test('interaction projection gives usable services priority over vehicle actions
     id: 'clothing',
     kind: 'clothing',
     label: 'Threads',
-    radius: 76
+    radius: 76,
+    spaceId: 'threads-showroom'
   }));
+  assert.equal(projectInteractionAffordance(state, player.id).kind, 'hidden');
+  player.spaceId = 'threads-showroom';
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'clothing',
@@ -87,6 +90,7 @@ test('interaction projection gives usable services priority over vehicle actions
     ariaLabel: 'Threads, open wardrobe'
   });
   state.services.delete('clothing');
+  player.spaceId = 'street';
 
   const vehicle = createVehicle({health: 700, x: 0, y: 0, driverId: player.id});
   state.vehicles.set(vehicle.id, vehicle);
@@ -107,11 +111,24 @@ test('interaction projection gives usable services priority over vehicle actions
 test('service minimap points preserve authoritative identities and positions', () => {
   const state = createState();
   state.services.set('ammo', createService({x: 10, y: 20}));
+  state.services.set('threads', createService({
+    id: 'threads',
+    kind: 'clothing',
+    x: 30,
+    y: 40,
+    spaceId: 'threads-showroom'
+  }));
   assert.deepEqual(serviceMinimapPoints(state), [{
     id: 'ammo',
     kind: 'shop',
     x: 10,
     y: 20
+  }]);
+  assert.deepEqual(serviceMinimapPoints(state, 'threads-showroom'), [{
+    id: 'threads',
+    kind: 'shop',
+    x: 30,
+    y: 40
   }]);
 });
 
@@ -189,6 +206,7 @@ function createService(overrides: Partial<NetworkStreetService> = {}): NetworkSt
     id: 'ammo',
     kind: 'ammunition',
     label: 'Ammunition',
+    spaceId: 'street',
     x: 0,
     y: 0,
     radius: 72,

@@ -93,15 +93,10 @@ export class ThreeDistrictUiController {
     );
     this.medical.synchronize(local);
     this.appearance.synchronize(state);
+    this.updateInteraction(state);
     if (onStreet) {
-      this.updateInteraction(state);
       this.updateMission(state);
     } else {
-      this.interactionButton?.classList.add('hidden');
-      if (this.touchInteractionButton) {
-        this.touchInteractionButton.textContent = 'DOOR';
-        this.touchInteractionButton.setAttribute('aria-label', 'Walk through the doorway to exit');
-      }
       this.missionHud?.classList.add('hidden');
     }
     this.updateMinimap(state, nowMs);
@@ -163,6 +158,7 @@ export class ThreeDistrictUiController {
   }
 
   private updateMinimap(state: DistrictNetworkState, nowMs: number): void {
+    const local = state.players.get(this.room.sessionId);
     const frame = buildMinimapFrame({
       localPlayerId: this.room.sessionId,
       players: state.players?.values() ?? [],
@@ -170,7 +166,7 @@ export class ThreeDistrictUiController {
       npcs: state.npcs?.values() ?? [],
       points: [
         ...missionMinimapPoints(state, this.room.sessionId),
-        ...serviceMinimapPoints(state),
+        ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),
         ...weaponPickupMinimapPoints(state.weaponPickups?.values())
       ]
     });

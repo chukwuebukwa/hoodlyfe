@@ -11,6 +11,7 @@ import type {
   NetworkStreetService,
   NetworkVehicle
 } from '../types.ts';
+import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
 export type InteractionAffordanceKind =
   | 'hidden'
@@ -31,13 +32,18 @@ export interface InteractionAffordance {
   ariaLabel: string;
 }
 
-export function serviceMinimapPoints(state: DistrictNetworkState): MinimapPointInput[] {
-  return [...(state.services?.values() ?? [])].map((service) => ({
-    id: service.id,
-    kind: 'shop',
-    x: service.x,
-    y: service.y
-  }));
+export function serviceMinimapPoints(
+  state: DistrictNetworkState,
+  spaceId = STREET_SPACE_ID
+): MinimapPointInput[] {
+  return [...(state.services?.values() ?? [])]
+    .filter((service) => (service.spaceId || STREET_SPACE_ID) === spaceId)
+    .map((service) => ({
+      id: service.id,
+      kind: 'shop',
+      x: service.x,
+      y: service.y
+    }));
 }
 
 export function projectInteractionAffordance(
@@ -113,6 +119,7 @@ function nearestUsableService(
 ): NetworkStreetService | undefined {
   const candidates: Array<{service: NetworkStreetService; distance: number}> = [];
   for (const service of state.services?.values() ?? []) {
+    if ((service.spaceId || STREET_SPACE_ID) !== (player.spaceId || STREET_SPACE_ID)) continue;
     if (service.kind === 'repair') {
       if (!player.vehicleId || player.vehicleSeat !== 0) continue;
       const vehicle = state.vehicles.get(player.vehicleId);
@@ -155,9 +162,10 @@ function nearestEnterableVehicle(
   state: DistrictNetworkState,
   player: NetworkPlayer
 ): NetworkVehicle | undefined {
+  if ((player.spaceId || STREET_SPACE_ID) !== STREET_SPACE_ID) return undefined;
   const occupancy = new Map<string, number>();
   for (const occupant of state.players.values()) {
-    if (!occupant.vehicleId) continue;
+    if (!occupant.vehicleId || (occupant.spaceId || STREET_SPACE_ID) !== STREET_SPACE_ID) continue;
     occupancy.set(occupant.vehicleId, (occupancy.get(occupant.vehicleId) ?? 0) + 1);
   }
   return [...state.vehicles.values()].filter((vehicle) => (

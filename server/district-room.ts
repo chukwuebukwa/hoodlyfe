@@ -363,7 +363,8 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.interactionController = new PlayerInteractionController({
       services: this.serviceController,
-      vehicles: this.vehicleAccess
+      vehicles: this.vehicleAccess,
+      canUseVehicles: (playerId) => this.state.players.get(playerId)?.spaceId === 'street'
     });
     this.pedestrians = new PedestrianController({
       state: this.state,
@@ -489,7 +490,6 @@ export class DistrictRoom extends Room<DistrictState> {
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
     this.onMessage('interact', (client) => {
-      if (this.state.players.get(client.sessionId)?.spaceId !== 'street') return;
       this.interactionController.interact(
         client.sessionId,
         this.simulationClock.nowMs,

@@ -9,6 +9,10 @@ import {StreetServiceState, type DistrictState, type PlayerState, type VehicleSt
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
 import type {MedicalCareController} from '../medical/medical-care-controller.ts';
+import {
+  STREET_SPACE_ID,
+  interiorServiceAnchor
+} from '../../../shared/content/interior-catalog.ts';
 
 interface StreetServiceControllerOptions {
   state: DistrictState;
@@ -46,28 +50,31 @@ export class StreetServiceController {
       20,
       2411
     );
-    const clothing = world.openPointNear(
-      world.spawn.x,
-      world.spawn.y,
-      100,
-      120,
-      11,
-      3019
-    );
+    const clothing = interiorServiceAnchor('clothing-store');
+    if (!clothing) throw new Error('Missing interior service anchor: clothing-store');
     this.addService('ammunition-counter', 'ammunition', 'Ammunition', ammunition.x, ammunition.y);
     this.addService('repair-garage', 'repair', 'Repair Garage', repair.x, repair.y);
-    this.addService('clothing-store', 'clothing', 'Threads', clothing.x, clothing.y);
+    this.addService(
+      'clothing-store',
+      'clothing',
+      'Threads',
+      clothing.x,
+      clothing.y,
+      clothing.spaceId
+    );
     this.initialized = true;
   }
 
   interact(playerId: string, nowMs: number): boolean {
     const player = this.options.state.players.get(playerId);
     if (!player?.alive || player.action) return false;
-    const services = [...this.options.state.services.values()].sort((left, right) => (
-      this.distanceToService(player, left.kind as StreetServiceKind, left.x, left.y) -
-        this.distanceToService(player, right.kind as StreetServiceKind, right.x, right.y) ||
-      left.id.localeCompare(right.id)
-    ));
+    const services = [...this.options.state.services.values()]
+      .filter((service) => service.spaceId === player.spaceId)
+      .sort((left, right) => (
+        this.distanceToService(player, left.kind as StreetServiceKind, left.x, left.y) -
+          this.distanceToService(player, right.kind as StreetServiceKind, right.x, right.y) ||
+        left.id.localeCompare(right.id)
+      ));
     for (const service of services) {
       const kind = service.kind as StreetServiceKind;
       if (this.distanceToService(player, kind, service.x, service.y) > service.radius) continue;
@@ -181,12 +188,14 @@ export class StreetServiceController {
     kind: StreetServiceKind,
     label: string,
     x: number,
-    y: number
+    y: number,
+    spaceId = STREET_SPACE_ID
   ): void {
     const service = new StreetServiceState();
     service.id = id;
     service.kind = kind;
     service.label = label;
+    service.spaceId = spaceId;
     service.x = x;
     service.y = y;
     service.radius = STREET_SERVICE_RADIUS[kind];
