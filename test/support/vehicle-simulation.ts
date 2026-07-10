@@ -22,20 +22,34 @@ export function attachTestVehicleSimulation(room: any): VehicleSimulationControl
     nearbyVehicles: (x, y, radius) => [...room.state.vehicles.values()].filter((vehicle: any) => (
       Math.hypot(vehicle.x - x, vehicle.y - y) <= radius + 20
     )),
-    damagePlayer: (player, damage, attackerId, nowMs, crimeKind) => room.damagePlayer(
-      player,
-      damage,
-      attackerId,
-      nowMs,
-      crimeKind
-    ),
-    damageNpc: (npc, damage, attackerId, nowMs, crimeKind) => room.damageNpc(
-      npc,
-      damage,
-      attackerId,
-      nowMs,
-      crimeKind
-    )
+    damagePlayer: (player, damage, attackerId, nowMs) => {
+      const previousHealth = player.health;
+      player.health = Math.max(0, player.health - damage);
+      room.events.publish({
+        type: 'damage.applied',
+        tick: room.simulationClock?.tick ?? 0,
+        nowMs,
+        targetId: player.id,
+        targetKind: 'player',
+        attackerId,
+        amount: previousHealth - player.health,
+        remainingHealth: player.health
+      });
+    },
+    damageNpc: (npc, damage, attackerId, nowMs) => {
+      const previousHealth = npc.health;
+      npc.health = Math.max(0, npc.health - damage);
+      room.events.publish({
+        type: 'damage.applied',
+        tick: room.simulationClock?.tick ?? 0,
+        nowMs,
+        targetId: npc.id,
+        targetKind: 'npc',
+        attackerId,
+        amount: previousHealth - npc.health,
+        remainingHealth: npc.health
+      });
+    }
   });
   room.vehicleSimulation = controller;
   return controller;

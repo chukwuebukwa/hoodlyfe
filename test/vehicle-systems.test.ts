@@ -6,6 +6,7 @@ import {VehicleDamageSystem} from '../server/game/vehicles/vehicle-damage-system
 import {BulletState, DistrictState, VehicleState} from '../server/state.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
+import {attachTestProjectileController} from './support/projectile-controller.ts';
 
 test('vehicle collision separates overlaps and transfers forward momentum', () => {
   const collision = new VehicleCollisionSystem().resolve({
@@ -133,6 +134,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
   room.setState(new DistrictState());
   attachTestVehicleAccess(room);
   attachTestVehicleSimulation(room);
+  attachTestProjectileController(room);
   const vehicle = new VehicleState();
   vehicle.id = 'target-car';
   vehicle.x = 40;
@@ -149,7 +151,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
   room.state.bullets.set(bullet.id, bullet);
   room.rebuildSpatialIndex();
 
-  room.moveBullet(bullet, bullet.id, 0.05, 50);
+  room.projectileController.update(bullet, bullet.id, 0.05, 50);
   room.lifecycle.flush();
   assert.equal(vehicle.health, 975);
   assert.equal(room.state.bullets.has(bullet.id), false);

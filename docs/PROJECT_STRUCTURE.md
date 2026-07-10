@@ -192,7 +192,9 @@ The first room-facing facades are now live:
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` owns deterministic ambient routes and driving targets.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
-- `DistrictRoom` invokes both from the fixed schedule and maps network commands to the mission controller.
+- `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
+- `PlayerLifecycleController` owns death and respawn independently of combat and the room.
+- `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
 ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. Vehicle, traffic, combat, pedestrians, player lifecycle, and projection remain explicit extraction debt.
 
