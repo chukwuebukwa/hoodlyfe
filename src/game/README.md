@@ -29,6 +29,8 @@ game/
     camera-policy.ts
     camera-presentation-controller.ts
   debug/
+    debug-panel-policy.ts
+    debug-presentation-controller.ts
     debug-snapshot-subscription.ts
   input/
     client-input-controller.ts
@@ -59,6 +61,8 @@ game/
 - `camera-policy.ts` owns renderer-independent responsive zoom and player/vehicle follow decisions.
 - `CameraPresentationController` owns Phaser target identity, following, damage feedback, resize binding, and teardown.
 - `DebugSnapshotSubscription` installs the snapshot handler before opting in, and owns unsubscribe/listener teardown.
+- `debug-panel-policy.ts` projects snapshot/state fallback counters and bounded event text without DOM or Phaser.
+- `DebugPresentationController` composes transport, F3/button input, cached panel DOM, sampled world overlays, label lifecycle, and teardown.
 - `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
 - `mission-presentation-policy.ts` owns active/joinable selection plus HUD, command, minimap, contact, target, and delivery projection.
 - `MissionPresentationController` owns mission DOM, action dispatch, Phaser world markers, replicated-state reference, and teardown.
@@ -71,4 +75,4 @@ game/
 - `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
 - `hud-policy.ts` projects player/vehicle facts and edge-triggered notices without DOM access.
 - `LocalHudController` owns cached HUD elements, meters, mode visibility, bounded notices, connection state, timers, and teardown.
-- `DistrictScene` still owns world setup, debug rendering, and crosshair/minimap coordination. Those are the next extraction targets.
+- `DistrictScene` now owns world/bootstrap wiring, state fan-out, update order, local collision queries, vehicle-action affordance, and crosshair/minimap coordination.

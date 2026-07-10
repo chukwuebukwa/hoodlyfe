@@ -416,6 +416,7 @@ The first client extractions are live under `src/game/input/` and `src/game/rend
 - `ClientInputController` binds Phaser keyboard/pointer/wheel plus DOM/touch controls, publishes intent commands, reports aim/movement intent for local presentation, and removes every listener on scene shutdown.
 - `TouchControls` now owns cleanup for media queries, buttons, and pointer listeners.
 - `DebugSnapshotSubscription` owns the explicit developer-snapshot subscribe/unsubscribe lifecycle, including handler-first ordering and teardown.
+- `DebugPresentationController` composes that transport with F3/button input, cached panel DOM, sampled collision/spatial/entity/incident/pursuit overlays, label lifecycle, and teardown behind a pure panel projection.
 - `CameraPresentationController` owns the active Phaser follow target, player/vehicle smoothing, responsive zoom, damage feedback, and resize/shutdown lifecycle behind a pure camera policy.
 - `interpolation-policy.ts` contains framework-independent snap/blend correction and shortest-path angle interpolation.
 - `PedestrianRenderer` owns NPC render-object lifecycle, replicated targets, visibility, animation, interpolation, and depth.
@@ -426,7 +427,7 @@ The first client extractions are live under `src/game/input/` and `src/game/rend
 - `MissionPresentationController` owns mission DOM, action listener/command dispatch, world markers, and teardown behind pure active/joinable, HUD, minimap, target, and delivery projection.
 - `DistrictScene` remains the Phaser lifecycle coordinator and uses focused input and rendering owners instead of owning their device bindings, command timers, and entity caches.
 
-The next client extraction is debug world/panel rendering, followed by a final scene responsibility audit. Do not combine these into one replacement client monolith.
+The first client modularity pass is complete. The remaining scene is a lifecycle coordinator; future work should extract world loading, vehicle-action affordance, crosshair, or minimap orchestration only when each boundary gains real independent complexity.
 
 `DistrictScene` should become a Phaser lifecycle shell:
 
