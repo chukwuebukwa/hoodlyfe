@@ -9,6 +9,22 @@ Repositories:
 - OpenGTA2: `/Users/jimmyjiggler/Documents/2026/opengta/opengta2`
 - Browser game: `/Users/jimmyjiggler/Documents/2026/opengta/nock0-action`
 
+## Implemented Prototype Status
+
+The feature-flagged client is playable at `/?renderer=three` and the Phaser client remains available at `/`.
+
+Delivered:
+
+- Renderer-neutral geometry extraction in `OpenGta2.Geometry`, including the complete slope, diagonal, partial-block, UV, flip, shade, opaque, and alpha-tested cases from the existing OpenGTA2 client.
+- Full `64 x 64` district export with 20,612 triangles, a complete 992-tile atlas, and a pedestrian-surface height grid.
+- Stable alpha triangle ordering and export validation for triangular, in-range, bounded-edge geometry. This fixed the giant stretched polygons seen in the first browser pass.
+- One explicit coordinate boundary: `(serverX, -serverY, blockZ * 64)`, plus authored `90-degree` sprite-forward corrections for pedestrians and vehicles.
+- Three rendering for players, appearance variants, pedestrians, vehicle catalog frames, damage stages, held weapons, passengers, in-car names, bullets, grenades, explosions, pickups, signals, services, and mission objectives.
+- Authoritative input, collision, aiming, shooting, weapon cycling, vehicle interaction, touch controls, HUD, minimap, missions, medical care, wardrobe, notices, animation, interpolation, camera following, and F3 diagnostics.
+- One same-building single-floor interior prototype with an automatic doorway, replicated `spaceId`, interior collision, fixture collision, same-space filtering, exterior UI suppression, and a same-coordinate Three floor/fixture presentation.
+
+The attempted generic CPU roof deletion and dithered height cutaway were both rejected during live QA. They exposed missing geometry as black void and produced visible popping/noise. The production path is authored occluder metadata: exported roof triangle groups linked to interior IDs, with a valid interior floor below them. Only the linked roof group may hide when the local player enters that interior.
+
 ## What OpenGTA2 Does
 
 OpenGTA2 reads GTA2's compressed `256 x 256 x 8` block map. Every map position is a column containing zero or more blocks.
@@ -139,6 +155,8 @@ Do not directly port OpenGTA2's collision implementation: it currently operates 
 - Emergency and traffic route data.
 - Full slope-aware vehicle physics.
 - Multi-level authoritative navigation.
+- Exported per-building roof/occluder group IDs and door anchors.
+- Interior combat, NPC schedules, services, garage vehicle transfer, and multiple floors.
 
 ## Acceptance Criteria
 

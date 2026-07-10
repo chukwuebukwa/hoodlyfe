@@ -7,6 +7,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/phaser/')) return 'phaser';
+          if (id.includes('/node_modules/three/')) return 'three';
           if (id.includes('/node_modules/colyseus') || id.includes('/node_modules/@colyseus/')) return 'network';
         }
       }

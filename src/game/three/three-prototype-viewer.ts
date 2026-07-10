@@ -1,0 +1,356 @@
+import * as THREE from 'three';
+import type {Room} from 'colyseus.js';
+import type {DistrictNetworkState} from '../types.ts';
+import {ThreeDistrictEntities} from './three-district-entities.ts';
+import {ThreeDistrictUiController} from './three-district-ui-controller.ts';
+import {ThreeDistrictWorld} from './three-district-world.ts';
+import {ThreeDebugController} from './three-debug-controller.ts';
+import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
+import {ThreeQaDriver} from './three-qa-driver.ts';
+import {ThreeInputController} from './three-input-controller.ts';
+import {
+  atlasUv,
+  faceBrightness,
+  perspectiveHeightForSpan,
+  serverYToThree
+} from './three-prototype-policy.ts';
+
+interface PrototypeVertex {
+  x: number;
+  y: number;
+  z: number;
+  u: number;
+  v: number;
+  tile: number;
+  shade: number;
+}
+
+interface PrototypePayload {
+  version: number;
+  source: string;
+  blockSize: number;
+  chunk: {x: number; y: number; size: number};
+  atlas: {
+    image: string;
+    columns: number;
+    rows: number;
+    tileSize: number;
+    tileCount: number;
+  };
+  vertices: PrototypeVertex[];
+  opaqueIndices: number[];
+  alphaTestedIndices: number[];
+  triangleCount: number;
+  surfaces: {width: number; height: number; values: number[]};
+}
+
+const FIELD_OF_VIEW = 45;
+const MIN_ZOOM = 0.55;
+const MAX_ZOOM = 2.8;
+export class ThreePrototypeViewer {
+  private readonly scene = new THREE.Scene();
+  private readonly camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 1, 1, 20_000);
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly clock = new THREE.Clock();
+  private readonly keys = new Set<string>();
+  private frame = 0;
+  private zoom = 1.65;
+  private baseHeight = 1;
+  private center = new THREE.Vector3();
+  private dragging = false;
+  private pointerX = 0;
+  private pointerY = 0;
+  private status?: HTMLElement;
+  private entities?: ThreeDistrictEntities;
+  private input?: ThreeInputController;
+  private ui?: ThreeDistrictUiController;
+  private world?: ThreeDistrictWorld;
+  private debug?: ThreeDebugController;
+  private interiors?: ThreeInteriorRenderer;
+  private mapMesh?: THREE.Mesh;
+  private qa?: ThreeQaDriver;
+  private payload?: PrototypePayload;
+  private centerInitialized = false;
+
+  constructor(
+    private readonly parent: HTMLElement,
+    private readonly room?: Room<DistrictNetworkState>
+  ) {
+    this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.domElement.id = 'three-prototype-canvas';
+    this.renderer.domElement.setAttribute('aria-label', 'GTA2 three-dimensional map prototype');
+    this.parent.replaceChildren(this.renderer.domElement);
+    this.scene.background = new THREE.Color(0x090b0c);
+    this.camera.up.set(0, 1, 0);
+  }
+
+  async start(): Promise<void> {
+    const payload = await loadPayload('/assets/maps/three/prototype.json');
+    this.payload = payload;
+    const textureUrl = new URL(payload.atlas.image, `${window.location.origin}/assets/maps/three/`).toString();
+    const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestMipmapNearestFilter;
+    texture.flipY = false;
+    const mesh = this.createMesh(payload, texture);
+    this.mapMesh = mesh;
+    this.scene.add(mesh);
+    if (this.room) {
+      this.interiors = new ThreeInteriorRenderer(this.scene);
+      this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
+      this.entities = await ThreeDistrictEntities.create(this.scene, this.surfaceHeightAt);
+      this.world = await ThreeDistrictWorld.create(
+        this.scene,
+        this.room.sessionId,
+        this.surfaceHeightAt
+      );
+      this.debug = new ThreeDebugController(this.scene, this.room, this.surfaceHeightAt);
+      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('qa') === '1') {
+        this.qa = new ThreeQaDriver(this.room);
+      }
+      this.ui = new ThreeDistrictUiController(
+        this.room,
+        payload.surfaces.width * payload.blockSize,
+        payload.surfaces.height * payload.blockSize
+      );
+      this.input = new ThreeInputController({
+        room: this.room,
+        canvas: this.renderer.domElement,
+        camera: this.camera,
+        player: () => this.room?.state.players.get(this.room.sessionId),
+        surfaceZ: () => this.center.z,
+        isBlocked: () => this.ui?.isInputBlocked() ?? false
+      });
+      this.followLocalPlayer();
+    } else {
+      this.frameGeometry(mesh);
+    }
+    this.createStatus(payload);
+    this.bind();
+    this.resize();
+    this.frame = requestAnimationFrame(this.render);
+  }
+
+  destroy(): void {
+    cancelAnimationFrame(this.frame);
+    this.unbind();
+    this.input?.destroy();
+    this.ui?.destroy();
+    this.entities?.destroy();
+    this.world?.destroy();
+    this.debug?.destroy();
+    this.interiors?.destroy();
+    this.qa?.destroy();
+    this.scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if (material instanceof THREE.MeshBasicMaterial) material.map?.dispose();
+        material.dispose();
+      }
+    });
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+    this.status?.remove();
+  }
+
+  private createMesh(payload: PrototypePayload, texture: THREE.Texture): THREE.Mesh {
+    const positions = new Float32Array(payload.vertices.length * 3);
+    const uvs = new Float32Array(payload.vertices.length * 2);
+    const colors = new Float32Array(payload.vertices.length * 3);
+    payload.vertices.forEach((vertex, index) => {
+      const positionOffset = index * 3;
+      positions[positionOffset] = vertex.x * payload.blockSize;
+      positions[positionOffset + 1] = serverYToThree(vertex.y * payload.blockSize);
+      positions[positionOffset + 2] = vertex.z * payload.blockSize;
+      const [u, v] = atlasUv(vertex, payload.atlas);
+      const uvOffset = index * 2;
+      uvs[uvOffset] = u;
+      uvs[uvOffset + 1] = v;
+      const brightness = faceBrightness(vertex.shade);
+      colors[positionOffset] = brightness;
+      colors[positionOffset + 1] = brightness;
+      colors[positionOffset + 2] = brightness;
+    });
+
+    const indices = [...payload.opaqueIndices, ...payload.alphaTestedIndices];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.addGroup(0, payload.opaqueIndices.length, 0);
+    geometry.addGroup(payload.opaqueIndices.length, payload.alphaTestedIndices.length, 1);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const common = {map: texture, vertexColors: true, side: THREE.DoubleSide} as const;
+    const opaque = new THREE.MeshBasicMaterial(common);
+    const alphaTested = new THREE.MeshBasicMaterial({
+      ...common,
+      alphaTest: 0.05,
+      transparent: true,
+      depthWrite: true
+    });
+    return new THREE.Mesh(geometry, [opaque, alphaTested]);
+  }
+
+  private frameGeometry(mesh: THREE.Mesh): void {
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    bounds.getCenter(this.center);
+    const size = bounds.getSize(new THREE.Vector3());
+    const span = Math.max(size.y, size.x / Math.max(0.5, window.innerWidth / window.innerHeight)) * 1.12;
+    this.baseHeight = perspectiveHeightForSpan(span, FIELD_OF_VIEW) + size.z;
+    this.applyCamera();
+  }
+
+  private applyCamera(): void {
+    this.camera.position.set(
+      this.center.x,
+      this.center.y,
+      this.center.z + this.baseHeight / this.zoom
+    );
+    this.camera.lookAt(this.center.x, this.center.y, this.center.z);
+  }
+
+  private createStatus(payload: PrototypePayload): void {
+    const status = document.createElement('aside');
+    status.id = 'three-prototype-status';
+    status.innerHTML = `<strong>3D GEOMETRY</strong><span>REGION ${payload.chunk.x}:${payload.chunk.y}</span>` +
+      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES</i>`;
+    document.querySelector('#game-shell')?.append(status);
+    this.status = status;
+  }
+
+  private readonly render = (): void => {
+    const delta = Math.min(this.clock.getDelta(), 0.05);
+    if (this.room) {
+      const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
+      this.entities?.synchronize(this.room.state, localSpaceId);
+      this.world?.synchronize(this.room.state, performance.now(), localSpaceId);
+      this.debug?.update(this.room.state, performance.now());
+      this.qa?.update();
+      this.ui?.update(this.room.state, performance.now());
+      this.followLocalPlayer();
+      this.input?.update(performance.now());
+    } else {
+      const pan = 260 * delta / this.zoom;
+      if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) this.center.x -= pan;
+      if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) this.center.x += pan;
+      if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) this.center.y -= pan;
+      if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) this.center.y += pan;
+    }
+    this.applyCamera();
+    this.renderer.render(this.scene, this.camera);
+    this.frame = requestAnimationFrame(this.render);
+  };
+
+  private readonly resize = (): void => {
+    const width = Math.max(1, this.parent.clientWidth);
+    const height = Math.max(1, this.parent.clientHeight);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
+  };
+
+  private readonly handleWheel = (event: WheelEvent): void => {
+    if (this.room) return;
+    event.preventDefault();
+    this.zoom = clamp(this.zoom * Math.exp(-event.deltaY * 0.001), MIN_ZOOM, MAX_ZOOM);
+  };
+
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (this.room) return;
+    this.dragging = true;
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    this.renderer.domElement.setPointerCapture(event.pointerId);
+  };
+
+  private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (this.room) return;
+    if (!this.dragging) return;
+    const scale = this.baseHeight / this.zoom / Math.max(1, this.parent.clientHeight);
+    this.center.x -= (event.clientX - this.pointerX) * scale;
+    this.center.y -= (event.clientY - this.pointerY) * scale;
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+  };
+
+  private readonly handlePointerUp = (event: PointerEvent): void => {
+    if (this.room) return;
+    this.dragging = false;
+    this.renderer.domElement.releasePointerCapture(event.pointerId);
+  };
+
+  private readonly surfaceHeightAt = (x: number, y: number): number => {
+    const interiorHeight = this.interiors?.surfaceHeightAt(x, y);
+    if (interiorHeight !== undefined) return interiorHeight;
+    const payload = this.payload;
+    if (!payload) return 0;
+    const column = Math.max(0, Math.min(payload.surfaces.width - 1, Math.floor(x / payload.blockSize)));
+    const row = Math.max(0, Math.min(payload.surfaces.height - 1, Math.floor(y / payload.blockSize)));
+    return payload.surfaces.values[row * payload.surfaces.width + column] * payload.blockSize;
+  };
+
+  private followLocalPlayer(): void {
+    const player = this.room?.state.players.get(this.room.sessionId);
+    if (!player) return;
+    const vehicle = player.vehicleId ? this.room?.state.vehicles.get(player.vehicleId) : undefined;
+    const x = vehicle?.x ?? player.x;
+    const y = vehicle?.y ?? player.y;
+    this.renderer.domElement.dataset.localX = x.toFixed(2);
+    this.renderer.domElement.dataset.localY = y.toFixed(2);
+    this.renderer.domElement.dataset.localMode = vehicle ? 'vehicle' : 'foot';
+    const target = new THREE.Vector3(x, serverYToThree(y), this.surfaceHeightAt(x, y));
+    if (!this.centerInitialized || this.center.distanceTo(target) > 700) {
+      this.center.copy(target);
+      this.centerInitialized = true;
+    } else {
+      this.center.lerp(target, 0.2);
+    }
+  }
+
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    this.keys.add(event.code);
+  };
+  private readonly handleKeyUp = (event: KeyboardEvent): void => {
+    this.keys.delete(event.code);
+  };
+
+  private bind(): void {
+    window.addEventListener('resize', this.resize);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+    this.renderer.domElement.addEventListener('wheel', this.handleWheel, {passive: false});
+    this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.addEventListener('pointermove', this.handlePointerMove);
+    this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
+    this.renderer.domElement.addEventListener('pointercancel', this.handlePointerUp);
+  }
+
+  private unbind(): void {
+    window.removeEventListener('resize', this.resize);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+    this.renderer.domElement.removeEventListener('wheel', this.handleWheel);
+    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.removeEventListener('pointermove', this.handlePointerMove);
+    this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
+    this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerUp);
+  }
+}
+
+async function loadPayload(url: string): Promise<PrototypePayload> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Three prototype geometry failed to load (${response.status}).`);
+  return response.json() as Promise<PrototypePayload>;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value));
+}

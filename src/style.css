@@ -32,6 +32,85 @@ canvas {
   background: #050505;
 }
 
+#three-prototype-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+#three-prototype-status {
+  position: absolute;
+  top: 70px;
+  left: 18px;
+  z-index: 20;
+  display: grid;
+  padding: 8px 10px;
+  border-left: 3px solid #f2c94c;
+  background: rgba(3, 5, 6, 0.82);
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  #three-prototype-status {
+    display: none;
+  }
+}
+
+#three-prototype-status strong,
+#three-prototype-status span,
+#three-prototype-status i {
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+#three-qa-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #f2c94c;
+  background: rgba(5, 7, 8, 0.92);
+}
+
+#three-qa-controls strong,
+#three-qa-controls span,
+#three-qa-controls button {
+  font: 800 10px/1 ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+#three-qa-controls button {
+  min-height: 30px;
+  border: 1px solid #5f686c;
+  background: #171b1d;
+  color: #fff;
+}
+
+#three-qa-controls span {
+  color: #63df8a;
+}
+
+#three-prototype-status strong {
+  color: #f2c94c;
+  font-size: 12px;
+}
+
+#three-prototype-status span {
+  margin-top: 2px;
+  color: #fff;
+  font: 800 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#three-prototype-status i {
+  margin-top: 4px;
+  color: #95a0a4;
+  font: normal 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 #loading {
   position: absolute;
   inset: 0;

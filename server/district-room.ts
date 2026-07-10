@@ -54,6 +54,7 @@ import {PlayerLifecycleController} from './game/players/player-lifecycle-control
 import {PlayerAppearanceController} from './game/players/player-appearance-controller.ts';
 import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-controller.ts';
 import {StreetServiceController} from './game/services/street-service-controller.ts';
+import {InteriorController} from './game/interiors/interior-controller.ts';
 import {
   PedestrianController,
   PEDESTRIAN_RADIUS
@@ -112,6 +113,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private serviceController!: StreetServiceController;
+  private interiorController!: InteriorController;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -126,6 +128,7 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.interiorController = new InteriorController();
     this.economyController = new StreetEconomyController({
       state: this.state,
       events: this.events,
@@ -133,7 +136,8 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.playerControl = new PlayerControlController({
       state: this.state,
-      world: this.world
+      world: this.world,
+      interiors: this.interiorController
     });
     this.wardrobeController = new WardrobeInventoryController();
     this.appearanceController = new PlayerAppearanceController({
@@ -253,7 +257,7 @@ export class DistrictRoom extends Room<DistrictState> {
       radius,
       {kinds: ['player'], includeRecordRadius: true}
     ).map((record) => this.state.players.get(record.id))
-      .filter((player): player is PlayerState => Boolean(player));
+      .filter((player): player is PlayerState => Boolean(player && player.spaceId === 'street'));
     const nearbyNpcs = (x: number, y: number, radius: number) => this.spatialIndex.queryCircle(
       x,
       y,
@@ -468,7 +472,10 @@ export class DistrictRoom extends Room<DistrictState> {
       this.playerControl.setAim(client.sessionId, message);
     });
 
-    this.onMessage('shoot', (client) => this.fireControl.shoot(client.sessionId));
+    this.onMessage('shoot', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
+    });
     this.onMessage<CycleWeaponMessage>('cycleWeapon', (client, message) => {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
@@ -482,6 +489,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
     this.onMessage('interact', (client) => {
+      if (this.state.players.get(client.sessionId)?.spaceId !== 'street') return;
       this.interactionController.interact(
         client.sessionId,
         this.simulationClock.nowMs,

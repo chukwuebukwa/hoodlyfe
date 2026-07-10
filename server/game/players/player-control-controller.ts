@@ -1,5 +1,6 @@
 import type {DistrictState, PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import type {InteriorController} from '../interiors/interior-controller.ts';
 
 export const PLAYER_RADIUS = 11;
 
@@ -22,6 +23,7 @@ export interface PlayerControlState {
 interface PlayerControlControllerOptions {
   state: DistrictState;
   world: CollisionMap;
+  interiors?: InteriorController;
 }
 
 export class PlayerControlController {
@@ -73,10 +75,12 @@ export class PlayerControlController {
     const inputScale = magnitude > 1 ? 1 / magnitude : 1;
     const moveX = control.inputX * inputScale * PLAYER_SPEED * deltaSeconds;
     const moveY = control.inputY * inputScale * PLAYER_SPEED * deltaSeconds;
+    if (this.options.interiors?.move(player, moveX, moveY, PLAYER_RADIUS)) return;
     const nextX = player.x + moveX;
     if (this.options.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
     const nextY = player.y + moveY;
     if (this.options.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
+    this.options.interiors?.tryEnter(player);
   }
 }
 

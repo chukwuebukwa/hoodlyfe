@@ -9,6 +9,7 @@ import type {PlayerAppearance} from '../../shared/content/appearance-catalog.ts'
 export interface NetworkPlayer {
   id: string;
   name: string;
+  spaceId?: string;
   x: number;
   y: number;
   angle: number;

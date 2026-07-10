@@ -35,6 +35,7 @@ defineTypes(PlayerAppearanceState, {
 export class PlayerState extends Schema {
   id = '';
   name = '';
+  spaceId = 'street';
   x = 0;
   y = 0;
   angle = 0;
@@ -61,6 +62,7 @@ export class PlayerState extends Schema {
 defineTypes(PlayerState, {
   id: 'string',
   name: 'string',
+  spaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',

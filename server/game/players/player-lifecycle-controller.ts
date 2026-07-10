@@ -49,6 +49,7 @@ export class PlayerLifecycleController {
     const plan = this.options.medical.complete(player.id, nowMs);
     player.x = plan.x;
     player.y = plan.y;
+    player.spaceId = 'street';
     player.angle = plan.angle;
     player.health = 100;
     player.alive = true;

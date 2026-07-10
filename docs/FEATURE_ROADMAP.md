@@ -61,6 +61,8 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** four complete jobs now share objective/encounter modules; item, explicit eliminate-target, escort, placement-scored race, and event-mode objectives remain incomplete.
+- **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
+- **Playable foundation** one seamless same-building single-floor Threads showroom: walk through the east-wall doorway, switch replicated space/collision automatically, see the roof-open interior in the building footprint, and walk back out without a load screen.
 
 ### Street Economy and Services
 
@@ -151,7 +153,21 @@ Exit gate met: four definitions compose shared objectives and one event-driven c
 
 Exit gate met for current presentation states; authored layer art and durable outfit ownership remain the next quality/production gates.
 
-### 5. Durable Identity and Economy
+### 5. Seamless Building Interiors
+
+**Playable single-floor vertical slice; authored content and isolation next**
+
+- **Delivered foundation** finite shared interior catalog, replicated player `spaceId`, automatic doorway thresholds, axis-resolved floor/wall/fixture collision, same-space player presentation, and street-system isolation.
+- **Delivered playable** Threads Showroom occupies the existing building footprint and keeps the surrounding Three city visible; entering hides street minimap, mission, marker, traffic, and interaction presentation while preserving player HUD and controls.
+- **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> showroom -> street round trips. It does not expose a server teleport command.
+- Export building/roof triangle ownership and door anchors from the original map pipeline. Roof visibility must toggle by authored interior ID, never by generic height or moving tile deletion.
+- Move clothing, ammunition, repair, and later garage/property services into authored interiors through service-space IDs and interior interaction ports.
+- Add interior combat/projectile collision, NPC destinations/schedules, audio zones, lighting, cameras, and multiple floors only after the single-floor space contract is stable.
+- Garages must keep the interior physically tied to a building footprint while vehicle spawn/storage records remain separate from transient room vehicles.
+
+Exit gate: two players can independently enter/exit one building, see only same-space actors, collide with authored fixtures, and use an interior service without exterior traffic/combat leaking through walls.
+
+### 6. Durable Identity and Economy
 
 **Next after the transient loop is balanced**
 
@@ -186,9 +202,10 @@ Property is not blocked by 2D presentation, but it is blocked by original map/in
 
 ## Parallel OpenGTA2 3D Track
 
-- **Parallel** renderer-neutral block geometry extraction in OpenGTA2.
-- **Parallel** standalone Three.js chunk viewer behind a feature flag.
-- **Parallel** actor, vehicle, weapon, projectile, label, input, HUD, minimap, and camera parity.
+- **Playable foundation** renderer-neutral full-district block geometry extraction in OpenGTA2.
+- **Playable foundation** room-connected Three.js client behind `?renderer=three`.
+- **Playable foundation** actor, vehicle, weapon, projectile, label, input, HUD, minimap, mission, effects, animation, debug, and camera parity.
+- **Next** authored building/roof/door metadata for clean same-coordinate roof removal.
 - **Later** authoritative elevation/surface IDs, multi-level collision, navigation, and line of sight only after renderer parity.
 
 The working Phaser browser game remains the default until the Three renderer is feature-complete. GTA2-derived maps and sprites are private compatibility fixtures; public distribution and monetization require original art, layout, geometry, vehicles, and branding.
