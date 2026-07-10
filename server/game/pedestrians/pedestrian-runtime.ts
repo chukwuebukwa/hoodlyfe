@@ -25,6 +25,17 @@ export interface PedestrianReactionRuntime {
   phaseUntil: number;
   responseUntil: number;
   safeDistance: number;
+  destinationX: number;
+  destinationY: number;
+}
+
+export interface PedestrianNavigationRuntime {
+  goalX: number;
+  goalY: number;
+  waypoints: Array<{x: number; y: number}>;
+  waypointIndex: number;
+  routeComplete: boolean;
+  nextPathAt: number;
 }
 
 export interface PedestrianRuntime {
@@ -47,6 +58,7 @@ export interface PedestrianRuntime {
   stimulusRadius: number;
   stimulusUntil: number;
   reaction: PedestrianReactionRuntime;
+  navigation: PedestrianNavigationRuntime;
   avoidAngle: number;
   avoidUntil: number;
   respawnAt: number;
@@ -77,6 +89,7 @@ export function createPedestrianRuntime(
     stimulusRadius: 0,
     stimulusUntil: 0,
     reaction: createPedestrianReactionRuntime(),
+    navigation: createPedestrianNavigationRuntime(),
     avoidAngle: 0,
     avoidUntil: 0,
     respawnAt: 0
@@ -96,8 +109,25 @@ export function createPedestrianReactionRuntime(): PedestrianReactionRuntime {
     startedAt: 0,
     phaseUntil: 0,
     responseUntil: 0,
-    safeDistance: 0
+    safeDistance: 0,
+    destinationX: Number.NaN,
+    destinationY: Number.NaN
   };
+}
+
+export function createPedestrianNavigationRuntime(): PedestrianNavigationRuntime {
+  return {
+    goalX: Number.NaN,
+    goalY: Number.NaN,
+    waypoints: [],
+    waypointIndex: 0,
+    routeComplete: false,
+    nextPathAt: 0
+  };
+}
+
+export function clearPedestrianNavigation(runtime: PedestrianRuntime): void {
+  runtime.navigation = createPedestrianNavigationRuntime();
 }
 
 export function clearPedestrianReaction(runtime: PedestrianRuntime): void {

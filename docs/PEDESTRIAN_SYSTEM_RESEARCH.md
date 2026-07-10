@@ -40,7 +40,7 @@ The pedestrian domain now exposes one room-facing lifecycle facade over focused 
 2. `pedestrian-runtime.ts` owns private, server-only objectives, think/fire deadlines, panic memory, last-known threat position, navigation recovery, and respawn deadline.
 3. `PedestrianPerceptionSystem` consumes the narrow police pursuit query and resolves expiring civilian threat memory. A temporarily missing player does not erase the civilian's last-known danger location.
 4. `PedestrianBehaviorSystem` converts observations into explicit `wander`, `flee`, `pursue`, or `search` intent. Police authoritative target aim remains separate from collision detours.
-5. `PedestrianNavigationSystem` owns deterministic blocked-path recovery and its independent decision cadence.
+5. `PedestrianNavigationSystem` owns route memory, a bounded collision-grid path-planning adapter, per-tick request budgets, goal invalidation, and deterministic blocked-path recovery. Its planner can later be replaced by an authored sidewalk graph without changing behavior or locomotion.
 6. `PedestrianLocomotionSystem` owns continuous collision-safe, per-axis movement.
 7. Police fire remains a request to `FireControlController`; pedestrian AI never creates projectiles or applies damage itself.
 8. `DistrictRoom` only schedules the facade and projects resulting positions into the spatial index.
@@ -50,7 +50,7 @@ The next behavior-depth phase should add real production complexity behind these
 - `population-policy.ts`: density budgets, archetypes, zones, activation, spawn/despawn, and mission ownership;
 - perception stimuli: bounded gunshot, impact, injury, death, and explosion events with severity, radius, source, and expiry;
 - richer behavior: bravery-scaled flee/investigate/fight choices, police containment/arrest, and recovery transitions;
-- navigation: sidewalk graph, crossings, destinations, path-request budgets, and longer-term stuck recovery;
+- navigation follow-up: authored sidewalk graph, crossings, semantic destinations, traffic signals, path caching, and longer-term crowd recovery;
 - locomotion: local separation, moving-vehicle avoidance, and crowd steering;
 - pedestrian content data: health, bravery, awareness, aggression, speed, weapon skill, model, animation, and voice set.
 

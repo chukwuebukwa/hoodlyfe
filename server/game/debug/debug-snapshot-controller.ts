@@ -93,7 +93,10 @@ export class DebugSnapshotController {
         lastKnownY: pursuit.lastKnownY,
         mode: pursuit.mode
       })),
-      pedestrianAi: (this.options.pedestrians?.() ?? []).map((pedestrian) => ({...pedestrian})),
+      pedestrianAi: (this.options.pedestrians?.() ?? []).map((pedestrian) => ({
+        ...pedestrian,
+        waypoints: pedestrian.waypoints.map((waypoint) => ({...waypoint}))
+      })),
       stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({...stimulus})),
       events: this.recentEvents.map((event) => ({...event}))
     };

@@ -37,7 +37,6 @@ export class PedestrianBehaviorSystem {
       intent = this.wanderIntent(npc, runtime, nowMs);
     }
     runtime.objective = intent.objective;
-    if (runtime.avoidUntil > nowMs && intent.speed > 0) intent.angle = runtime.avoidAngle;
     return intent;
   }
 
@@ -52,7 +51,9 @@ export class PedestrianBehaviorSystem {
         angle: observation.angleToward,
         speed: observation.distance > 90 ? 150 : 0,
         fire: false,
-        aimAngle: observation.angleToward
+        aimAngle: observation.angleToward,
+        targetX: observation.x,
+        targetY: observation.y
       };
     }
     runtime.wanderAngle = observation.angleAway;
@@ -79,7 +80,9 @@ export class PedestrianBehaviorSystem {
           ? (npc.kind === 'police' ? 128 : 58)
           : 0,
         fire: false,
-        aimAngle: observation.angleToward
+        aimAngle: observation.angleToward,
+        targetX: observation.x,
+        targetY: observation.y
       };
     }
     runtime.wanderAngle = observation.angleAway;
@@ -111,7 +114,9 @@ export class PedestrianBehaviorSystem {
       angle,
       speed: distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0,
       fire: canFire,
-      aimAngle: angle
+      aimAngle: angle,
+      targetX: pursuit.lastKnownX,
+      targetY: pursuit.lastKnownY
     };
   }
 

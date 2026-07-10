@@ -36,6 +36,10 @@ export interface DebugPedestrianAiEntry {
   stimulusSourceId: string;
   stimulusUntil: number;
   reactionPhase: string;
+  navigationGoalX: number;
+  navigationGoalY: number;
+  waypointIndex: number;
+  waypoints: Array<{x: number; y: number}>;
 }
 
 export interface DebugStimulusEntry {

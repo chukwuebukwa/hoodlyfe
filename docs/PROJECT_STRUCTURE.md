@@ -199,6 +199,7 @@ The first room-facing facades are now live:
 - `PlayerLifecycleController` owns death and respawn independently of combat and the room.
 - `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `PedestrianReactionSystem` owns staged civilian orient/respond/recover transitions; synchronized NPC action is presentation intent, not a client-side gameplay decision.
+- `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
 ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. The room now contains transport lifecycle, dependency wiring, explicit schedule order, and spatial projection. The first client coordinator extraction and the pedestrian perception/behavior/navigation/locomotion split are complete; dynamic population policy and deeper event-driven behavior remain domain work.

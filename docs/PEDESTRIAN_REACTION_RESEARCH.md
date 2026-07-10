@@ -37,7 +37,8 @@ perception cue
 
 - `orient` briefly faces the cue and stops movement. Its duration varies with the pedestrian's deterministic bravery trait.
 - `respond` flees high-severity danger or investigates low-severity facts when bravery exceeds severity.
-- Flee response ends after a minimum commitment plus safe-distance check, or its bounded response deadline.
+- Flee response uses danger-specific commitment windows: impacts are brief, injuries are longer, gunshots/deaths commit for at least 4.2 seconds, and fire/explosions commit for at least 4.8 seconds. It ends only after both that commitment and a safe-distance check, or its bounded response deadline.
+- Flight owns a stable destination far enough outside the event radius to read as escape rather than a few animation steps. Investigation owns the event location as its approach goal.
 - Investigation approaches at a slower speed and stops near the event while retaining the response timer.
 - Repeated observations of the same cue update location and extend response lifetime without replaying startle.
 - A materially more severe cue may interrupt the current response; lower-priority noise does not thrash state.
@@ -61,7 +62,7 @@ This is an interim animation vocabulary using the current GTA2 compatibility spr
 ## Required Follow-Up Nuance
 
 - Replace one bravery scalar with validated archetype profiles: fear, aggression, lawfulness, awareness, loyalty, weapon skill, and faction.
-- Add sidewalk/path destinations so fleeing chooses a reachable safe point rather than only local steering.
+- Replace the interim collision-grid planner with authored sidewalk, crossing, destination, and traffic-signal graphs from the original map pipeline.
 - Add call-police, take-cover, retaliate, assist-ally, cower, and crowd-propagation responses.
 - Model visual versus audible orientation and preserve last-known direction under occlusion.
 - Add explicit animation-event messages for one-shot voice/flinch effects while keeping animation callbacks non-authoritative.
@@ -72,6 +73,7 @@ This is an interim animation vocabulary using the current GTA2 compatibility spr
 - High-severity cue transitions through startle, flee, safe-distance recovery, and ambient release.
 - Brave civilian investigates a mild impact and stops near the event.
 - Repeated cue extends response without replaying startle.
+- A gunshot response is still fleeing two seconds after the cue and cannot collapse into a six-step reaction.
 - Civilian reactions cannot override police tactical behavior.
 - Personal threats visibly startle a civilian before fleeing.
 - Replicated presentation policy differentiates startle, flee, investigate, recover, pursue, and death.

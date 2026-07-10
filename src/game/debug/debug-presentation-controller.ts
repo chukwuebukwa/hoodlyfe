@@ -111,6 +111,7 @@ export class DebugPresentationController {
     this.drawCollision(view);
     this.drawSpatialGrid(view);
     const presentLabels = new Set<string>();
+    this.drawPedestrianRoutes();
     this.drawPlayers(presentLabels);
     this.drawNpcs(presentLabels);
     this.drawVehicles(presentLabels);
@@ -186,8 +187,11 @@ export class DebugPresentationController {
       const phase = diagnostic?.reactionPhase && diagnostic.reactionPhase !== 'none'
         ? ` phase:${diagnostic.reactionPhase}`
         : '';
+      const path = diagnostic && diagnostic.waypointIndex < diagnostic.waypoints.length
+        ? ` path:${diagnostic.waypointIndex + 1}/${diagnostic.waypoints.length}`
+        : '';
       const ai = diagnostic
-        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}${phase}`
+        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}${phase}${path}`
         : '';
       this.drawEntity(
         npc.x,
@@ -201,6 +205,28 @@ export class DebugPresentationController {
         npc.alive
       );
     });
+  }
+
+  private drawPedestrianRoutes(): void {
+    for (const diagnostic of this.snapshot?.pedestrianAi ?? []) {
+      const npc = this.state?.npcs?.get(diagnostic.id);
+      if (!npc || diagnostic.waypointIndex >= diagnostic.waypoints.length) continue;
+      const color = npc.kind === 'police' ? 0xff8890 : 0x69e1c2;
+      this.graphics.lineStyle(2, color, 0.62);
+      let previousX = npc.x;
+      let previousY = npc.y;
+      for (let index = diagnostic.waypointIndex; index < diagnostic.waypoints.length; index++) {
+        const waypoint = diagnostic.waypoints[index];
+        this.graphics.lineBetween(previousX, previousY, waypoint.x, waypoint.y);
+        this.graphics.strokeCircle(waypoint.x, waypoint.y, 4);
+        previousX = waypoint.x;
+        previousY = waypoint.y;
+      }
+      if (Number.isFinite(diagnostic.navigationGoalX) && Number.isFinite(diagnostic.navigationGoalY)) {
+        this.graphics.lineStyle(1, color, 0.42);
+        this.graphics.strokeCircle(diagnostic.navigationGoalX, diagnostic.navigationGoalY, 8);
+      }
+    }
   }
 
   private drawVehicles(present: Set<string>): void {

@@ -155,12 +155,21 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     (first.state.players.get(first.sessionId)?.y ?? startY)
   ) < 3);
 
-  const shooter = first.state.players.get(first.sessionId);
-  const target = first.state.players.get(second.sessionId);
-  assert.ok(shooter && target);
-  first.send('aim', {angle: Math.atan2(target.y - shooter.y, target.x - shooter.x)});
-  await delay(80);
-  for (let shot = 0; shot < 4; shot++) {
+  const world = CollisionMap.load();
+  const attackDistance = await moveNear(
+    first,
+    first.sessionId,
+    second.sessionId,
+    110,
+    (mover, target) => world.hasLineOfSight(mover.x, mover.y, target.x, target.y)
+  );
+  assert.ok(attackDistance <= 150, `First shooter stopped ${Math.round(attackDistance)} units away.`);
+  for (let shot = 0; shot < 8 && first.state.players.get(second.sessionId)?.alive; shot++) {
+    const shooter = first.state.players.get(first.sessionId);
+    const target = first.state.players.get(second.sessionId);
+    assert.ok(shooter && target);
+    first.send('aim', {angle: Math.atan2(target.y - shooter.y, target.x - shooter.x)});
+    await delay(25);
     first.send('shoot');
     await delay(220);
   }
@@ -177,7 +186,6 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const revengeShooter = second.state.players.get(second.sessionId);
   const wantedTarget = second.state.players.get(first.sessionId);
   assert.ok(revengeShooter && wantedTarget);
-  const world = CollisionMap.load();
   const revengeDistance = await moveNear(
     second,
     second.sessionId,

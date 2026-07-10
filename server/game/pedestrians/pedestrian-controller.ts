@@ -11,6 +11,7 @@ import {
 } from './pedestrian-perception-system.ts';
 import {
   clearPedestrianReaction,
+  clearPedestrianNavigation,
   clearPedestrianStimulus,
   clearPedestrianThreat,
   createPedestrianRuntime,
@@ -34,6 +35,10 @@ export interface PedestrianDiagnostic {
   stimulusSourceId: string;
   stimulusUntil: number;
   reactionPhase: string;
+  navigationGoalX: number;
+  navigationGoalY: number;
+  waypointIndex: number;
+  waypoints: Array<{x: number; y: number}>;
 }
 
 export const PEDESTRIAN_RADIUS = 10;
@@ -76,7 +81,9 @@ export class PedestrianController {
     });
     this.navigation = new PedestrianNavigationSystem({
       random: options.random,
-      clock: options.clock
+      clock: options.clock,
+      world: options.world,
+      radius: PEDESTRIAN_RADIUS
     });
     this.locomotion = new PedestrianLocomotionSystem(options.world, PEDESTRIAN_RADIUS);
     this.stimulusAdapter = new PedestrianStimulusAdapter({
@@ -130,10 +137,11 @@ export class PedestrianController {
 
     const observation = this.perception.observe(npc, runtime, nowMs);
     const intent = this.behavior.decide(npc, runtime, observation, nowMs);
+    const moveAngle = this.navigation.resolveAngle(npc, runtime, intent, nowMs);
     npc.action = intent.objective;
-    npc.angle = intent.angle;
-    if (!this.locomotion.move(npc, intent.angle, intent.speed, deltaSeconds)) {
-      this.navigation.recoverFromBlock(runtime, npc.id, intent.angle, nowMs);
+    npc.angle = moveAngle;
+    if (!this.locomotion.move(npc, moveAngle, intent.speed, deltaSeconds)) {
+      this.navigation.recoverFromBlock(runtime, npc.id, moveAngle, nowMs);
     }
     if (intent.fire) {
       this.options.requestPoliceFire(npc.id, npc.x, npc.y, intent.aimAngle, nowMs);
@@ -158,7 +166,11 @@ export class PedestrianController {
       stimulusKind: runtime.stimulusKind,
       stimulusSourceId: runtime.stimulusSourceId,
       stimulusUntil: runtime.stimulusUntil,
-      reactionPhase: runtime.reaction.phase
+      reactionPhase: runtime.reaction.phase,
+      navigationGoalX: runtime.navigation.goalX,
+      navigationGoalY: runtime.navigation.goalY,
+      waypointIndex: runtime.navigation.waypointIndex,
+      waypoints: runtime.navigation.waypoints.map((waypoint) => ({...waypoint}))
     })).sort((left, right) => left.id.localeCompare(right.id));
   }
 
@@ -233,6 +245,7 @@ export class PedestrianController {
     clearPedestrianThreat(runtime);
     clearPedestrianStimulus(runtime);
     clearPedestrianReaction(runtime);
+    clearPedestrianNavigation(runtime);
     runtime.objective = 'wander';
     runtime.avoidUntil = 0;
     runtime.respawnAt = 0;

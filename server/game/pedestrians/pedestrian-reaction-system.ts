@@ -7,7 +7,6 @@ import {
   type PedestrianRuntime
 } from './pedestrian-runtime.ts';
 
-const MINIMUM_FLEE_MS = 1200;
 const RECOVERY_MS = 650;
 
 interface ReactionCue {
@@ -29,7 +28,7 @@ export class PedestrianReactionSystem {
   ): PedestrianIntent | undefined {
     if (npc.kind === 'police') return undefined;
     const cue = cueFrom(observation, runtime);
-    if (cue) this.observeCue(runtime, cue, nowMs);
+    if (cue) this.observeCue(npc, runtime, cue, nowMs);
     const reaction = runtime.reaction;
     if (reaction.phase === 'none') return undefined;
 
@@ -45,16 +44,22 @@ export class PedestrianReactionSystem {
 
     if (reaction.phase === 'respond') {
       const reachedSafety = reaction.response === 'flee' &&
-        nowMs - reaction.startedAt >= MINIMUM_FLEE_MS &&
+        nowMs - reaction.startedAt >= minimumFleeMs(reaction.cueKind) &&
         distance >= reaction.safeDistance;
       if (nowMs >= reaction.responseUntil || reachedSafety) {
         reaction.phase = 'recover';
         reaction.phaseUntil = nowMs + RECOVERY_MS;
       } else if (reaction.response === 'flee') {
         runtime.wanderAngle = angleAway;
-        return intent('flee', angleAway, reaction.cueKind === 'explosion' ? 190 : 168);
+        return intent(
+          'flee',
+          angleAway,
+          reaction.cueKind === 'explosion' ? 190 : 168,
+          reaction.destinationX,
+          reaction.destinationY
+        );
       } else {
-        return intent('investigate', angleToward, distance > 72 ? 58 : 0);
+        return intent('investigate', angleToward, distance > 72 ? 58 : 0, reaction.x, reaction.y);
       }
     }
 
@@ -65,7 +70,12 @@ export class PedestrianReactionSystem {
     return undefined;
   }
 
-  private observeCue(runtime: PedestrianRuntime, cue: ReactionCue, nowMs: number): void {
+  private observeCue(
+    npc: NpcState,
+    runtime: PedestrianRuntime,
+    cue: ReactionCue,
+    nowMs: number
+  ): void {
     const reaction = runtime.reaction;
     if (reaction.cueId === cue.id) {
       reaction.x = cue.x;
@@ -96,9 +106,12 @@ export class PedestrianReactionSystem {
     reaction.phaseUntil = nowMs + orientMs;
     reaction.responseUntil = Math.max(
       cue.expiresAt + 1800,
-      nowMs + (response === 'flee' ? 2600 + cue.severity * 2600 : 2800)
+      nowMs + (response === 'flee' ? fleeDurationMs(cue.kind, cue.severity) : 2800)
     );
-    reaction.safeDistance = clamp(cue.radius * 0.45, 120, 300);
+    reaction.safeDistance = clamp(cue.radius * 0.72, 180, 420);
+    const angleAway = Math.atan2(npc.y - cue.y, npc.x - cue.x);
+    reaction.destinationX = npc.x + Math.cos(angleAway) * reaction.safeDistance;
+    reaction.destinationY = npc.y + Math.sin(angleAway) * reaction.safeDistance;
   }
 }
 
@@ -132,11 +145,33 @@ function cueFrom(
 function intent(
   objective: PedestrianIntent['objective'],
   angle: number,
-  speed: number
+  speed: number,
+  targetX?: number,
+  targetY?: number
 ): PedestrianIntent {
-  return {objective, angle, speed, fire: false, aimAngle: angle};
+  const value: PedestrianIntent = {objective, angle, speed, fire: false, aimAngle: angle};
+  if (
+    typeof targetX === 'number' && Number.isFinite(targetX) &&
+    typeof targetY === 'number' && Number.isFinite(targetY)
+  ) {
+    value.targetX = targetX;
+    value.targetY = targetY;
+  }
+  return value;
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function minimumFleeMs(kind: string): number {
+  if (kind === 'impact') return 1800;
+  if (kind === 'injury') return 3400;
+  if (kind === 'gunshot' || kind === 'death') return 4200;
+  return 4800;
+}
+
+function fleeDurationMs(kind: string, severity: number): number {
+  const baseline = minimumFleeMs(kind);
+  return baseline + 900 + severity * 900;
 }

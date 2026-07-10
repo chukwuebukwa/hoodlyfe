@@ -26,10 +26,11 @@ test('danger reactions orient, flee to safety, recover, and restore ambient cont
   assert.equal(flee?.angle, Math.PI);
   assert.equal(runtime.reaction.phase, 'respond');
 
-  npc.x = -240;
-  assert.equal(system.decide(npc, runtime, {kind: 'ambient'}, 1400)?.objective, 'recover');
+  npc.x = -400;
+  assert.equal(system.decide(npc, runtime, {kind: 'ambient'}, 2000)?.objective, 'flee');
+  assert.equal(system.decide(npc, runtime, {kind: 'ambient'}, 4400)?.objective, 'recover');
   assert.equal(runtime.reaction.phase, 'recover');
-  assert.equal(system.decide(npc, runtime, {kind: 'ambient'}, 2100), undefined);
+  assert.equal(system.decide(npc, runtime, {kind: 'ambient'}, 5200), undefined);
   assert.equal(runtime.reaction.phase, 'none');
 });
 
@@ -48,7 +49,8 @@ test('brave civilians investigate mild impacts and pause at the event', () => {
 
   assert.equal(system.decide(npc, runtime, impact, 0)?.objective, 'startle');
   assert.deepEqual(system.decide(npc, runtime, impact, 500), {
-    objective: 'investigate', angle: 0, speed: 58, fire: false, aimAngle: 0
+    objective: 'investigate', angle: 0, speed: 58, fire: false, aimAngle: 0,
+    targetX: 100, targetY: 0
   });
   npc.x = 40;
   assert.equal(system.decide(npc, runtime, impact, 700)?.speed, 0);

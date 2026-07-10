@@ -6,4 +6,6 @@ export interface PedestrianIntent {
   speed: number;
   fire: boolean;
   aimAngle: number;
+  targetX?: number;
+  targetY?: number;
 }

@@ -53,10 +53,12 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
   fixture.pedestrian.objective = 'wander';
+  fixture.pedestrian.waypoints[0].x = 999;
   fixture.stimulus.kind = 'impact';
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
+  assert.equal(first.pedestrianAi?.[0].waypoints[0].x, 150);
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
 
   fixture.clock.tick = 11;
@@ -127,7 +129,11 @@ function createFixture(enabled: boolean) {
     stimulusKind: 'gunshot',
     stimulusSourceId: 'driver',
     stimulusUntil: 1400,
-    reactionPhase: 'respond'
+    reactionPhase: 'respond',
+    navigationGoalX: 300,
+    navigationGoalY: 200,
+    waypointIndex: 0,
+    waypoints: [{x: 150, y: 200}]
   };
   const stimulus = {
     id: 'stimulus-1',

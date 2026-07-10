@@ -48,7 +48,7 @@ test('perception retains last-known threat position only for the panic window', 
   assert.equal(Number.isNaN(runtime.lastKnownThreatX), true);
 });
 
-test('police locomotion detours do not alter authoritative target aim or fire cadence', () => {
+test('navigation detours police locomotion without altering target aim or fire cadence', () => {
   const npc = createNpc('police');
   const runtime = createPedestrianRuntime(0);
   runtime.avoidAngle = Math.PI / 2;
@@ -74,8 +74,13 @@ test('police locomotion detours do not alter authoritative target aim or fire ca
     }
   };
   const first = behavior.decide(npc, runtime, observation, 1000);
+  const navigation = new PedestrianNavigationSystem({
+    random: new DeterministicRandom('police-layer-navigation'),
+    clock: () => ({tick: 1})
+  });
   assert.equal(first.objective, 'pursue');
-  assert.equal(first.angle, Math.PI / 2);
+  assert.equal(first.angle, 0);
+  assert.equal(navigation.resolveAngle(npc, runtime, first, 1000), Math.PI / 2);
   assert.equal(first.aimAngle, 0);
   assert.equal(first.fire, true);
   assert.equal(behavior.decide(npc, runtime, observation, 1200).fire, false);
