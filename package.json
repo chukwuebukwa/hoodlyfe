@@ -1,0 +1,16 @@
+{
+  "name": "nock0",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Top-down multiplayer city sandbox prototype built around Reldens.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "bootstrap": "bash scripts/bootstrap.sh",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "test": "node --test"
+  }
+}
