@@ -1,0 +1,21 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-nock0}
+      MYSQL_USER: ${DB_USER:-nock0}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-nock0_dev_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_dev_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - nock0_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  nock0_mysql:
