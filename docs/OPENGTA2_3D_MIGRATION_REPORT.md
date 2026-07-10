@@ -25,6 +25,8 @@ Delivered:
 
 The attempted generic CPU roof deletion and dithered height cutaway were both rejected during live QA. They exposed missing geometry as black void and produced visible popping/noise. The production path is authored occluder metadata: exported roof triangle groups linked to interior IDs, with a valid interior floor below them. Only the linked roof group may hide when the local player enters that interior.
 
+The browser currently identifies 93 conservative roof candidates inside the block-aligned Threads footprint. Live QA deliberately keeps them rendered: hiding even the vertex-contained candidates still exposes unclosed vertical void around the replacement floor. This counter is diagnostic evidence for the exporter task, not a runtime cutaway.
+
 ## What OpenGTA2 Does
 
 OpenGTA2 reads GTA2's compressed `256 x 256 x 8` block map. Every map position is a column containing zero or more blocks.

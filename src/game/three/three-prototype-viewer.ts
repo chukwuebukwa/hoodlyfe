@@ -8,6 +8,7 @@ import {ThreeDebugController} from './three-debug-controller.ts';
 import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
 import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
+import {INTERIORS, containsPoint} from '../../../shared/content/interior-catalog.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -67,7 +68,7 @@ export class ThreePrototypeViewer {
   private world?: ThreeDistrictWorld;
   private debug?: ThreeDebugController;
   private interiors?: ThreeInteriorRenderer;
-  private mapMesh?: THREE.Mesh;
+  private readonly mapOccluders = new Map<string, THREE.Group>();
   private qa?: ThreeQaDriver;
   private payload?: PrototypePayload;
   private centerInitialized = false;
@@ -95,9 +96,8 @@ export class ThreePrototypeViewer {
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestMipmapNearestFilter;
     texture.flipY = false;
-    const mesh = this.createMesh(payload, texture);
-    this.mapMesh = mesh;
-    this.scene.add(mesh);
+    const map = this.createMap(payload, texture);
+    this.scene.add(map);
     if (this.room) {
       this.interiors = new ThreeInteriorRenderer(this.scene);
       this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
@@ -126,7 +126,7 @@ export class ThreePrototypeViewer {
       });
       this.followLocalPlayer();
     } else {
-      this.frameGeometry(mesh);
+      this.frameGeometry(map);
     }
     this.createStatus(payload);
     this.bind();
@@ -158,7 +158,7 @@ export class ThreePrototypeViewer {
     this.status?.remove();
   }
 
-  private createMesh(payload: PrototypePayload, texture: THREE.Texture): THREE.Mesh {
+  private createMap(payload: PrototypePayload, texture: THREE.Texture): THREE.Group {
     const positions = new Float32Array(payload.vertices.length * 3);
     const uvs = new Float32Array(payload.vertices.length * 2);
     const colors = new Float32Array(payload.vertices.length * 3);
@@ -177,29 +177,32 @@ export class ThreePrototypeViewer {
       colors[positionOffset + 2] = brightness;
     });
 
-    const indices = [...payload.opaqueIndices, ...payload.alphaTestedIndices];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
-    geometry.addGroup(0, payload.opaqueIndices.length, 0);
-    geometry.addGroup(payload.opaqueIndices.length, payload.alphaTestedIndices.length, 1);
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-
-    const common = {map: texture, vertexColors: true, side: THREE.DoubleSide} as const;
-    const opaque = new THREE.MeshBasicMaterial(common);
-    const alphaTested = new THREE.MeshBasicMaterial({
-      ...common,
-      alphaTest: 0.05,
-      transparent: true,
-      depthWrite: true
-    });
-    return new THREE.Mesh(geometry, [opaque, alphaTested]);
+    const opaque = partitionOccluders(payload.opaqueIndices, payload);
+    const alphaTested = partitionOccluders(payload.alphaTestedIndices, payload);
+    const group = new THREE.Group();
+    group.add(createMapMesh(positions, uvs, colors, opaque.base, alphaTested.base, texture));
+    for (const interior of INTERIORS) {
+      const interiorOpaque = opaque.byInterior.get(interior.id) ?? [];
+      const interiorAlpha = alphaTested.byInterior.get(interior.id) ?? [];
+      if (interiorOpaque.length + interiorAlpha.length === 0) continue;
+      const occluder = new THREE.Group();
+      occluder.name = `roof:${interior.id}`;
+      occluder.add(createMapMesh(
+        positions,
+        uvs,
+        colors,
+        interiorOpaque,
+        interiorAlpha,
+        texture
+      ));
+      occluder.userData.triangleCount = (interiorOpaque.length + interiorAlpha.length) / 3;
+      this.mapOccluders.set(interior.id, occluder);
+      group.add(occluder);
+    }
+    return group;
   }
 
-  private frameGeometry(mesh: THREE.Mesh): void {
+  private frameGeometry(mesh: THREE.Object3D): void {
     const bounds = new THREE.Box3().setFromObject(mesh);
     bounds.getCenter(this.center);
     const size = bounds.getSize(new THREE.Vector3());
@@ -220,8 +223,10 @@ export class ThreePrototypeViewer {
   private createStatus(payload: PrototypePayload): void {
     const status = document.createElement('aside');
     status.id = 'three-prototype-status';
+    const roofTriangles = [...this.mapOccluders.values()]
+      .reduce((sum, occluder) => sum + Number(occluder.userData.triangleCount ?? 0), 0);
     status.innerHTML = `<strong>3D GEOMETRY</strong><span>REGION ${payload.chunk.x}:${payload.chunk.y}</span>` +
-      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES</i>`;
+      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} ROOF CANDIDATES</i>`;
     document.querySelector('#game-shell')?.append(status);
     this.status = status;
   }
@@ -230,6 +235,7 @@ export class ThreePrototypeViewer {
     const delta = Math.min(this.clock.getDelta(), 0.05);
     if (this.room) {
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
+      for (const occluder of this.mapOccluders.values()) occluder.visible = true;
       this.entities?.synchronize(this.room.state, localSpaceId);
       this.world?.synchronize(this.room.state, performance.now(), localSpaceId);
       this.debug?.update(this.room.state, performance.now());
@@ -343,6 +349,66 @@ export class ThreePrototypeViewer {
     this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
     this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerUp);
   }
+}
+
+interface PartitionedIndices {
+  base: number[];
+  byInterior: Map<string, number[]>;
+}
+
+function partitionOccluders(indices: number[], payload: PrototypePayload): PartitionedIndices {
+  const base: number[] = [];
+  const byInterior = new Map<string, number[]>();
+  for (let offset = 0; offset < indices.length; offset += 3) {
+    const triangle = [indices[offset], indices[offset + 1], indices[offset + 2]];
+    const vertices = triangle.map((index) => payload.vertices[index]);
+    const minimumZ = Math.min(...vertices.map((vertex) => vertex.z * payload.blockSize));
+    const interior = INTERIORS.find((candidate) => (
+      vertices.every((vertex) => containsPoint(
+        candidate.bounds,
+        vertex.x * payload.blockSize,
+        vertex.y * payload.blockSize
+      )) && minimumZ >= candidate.floorZ - 8
+    ));
+    if (!interior) {
+      base.push(...triangle);
+      continue;
+    }
+    const target = byInterior.get(interior.id) ?? [];
+    target.push(...triangle);
+    byInterior.set(interior.id, target);
+  }
+  return {base, byInterior};
+}
+
+function createMapMesh(
+  positions: Float32Array,
+  uvs: Float32Array,
+  colors: Float32Array,
+  opaqueIndices: number[],
+  alphaIndices: number[],
+  texture: THREE.Texture
+): THREE.Mesh {
+    const indices = [...opaqueIndices, ...alphaIndices];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.addGroup(0, opaqueIndices.length, 0);
+    geometry.addGroup(opaqueIndices.length, alphaIndices.length, 1);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const common = {map: texture, vertexColors: true, side: THREE.DoubleSide} as const;
+    const opaque = new THREE.MeshBasicMaterial(common);
+    const alphaTested = new THREE.MeshBasicMaterial({
+      ...common,
+      alphaTest: 0.05,
+      transparent: true,
+      depthWrite: true
+    });
+    return new THREE.Mesh(geometry, [opaque, alphaTested]);
 }
 
 async function loadPayload(url: string): Promise<PrototypePayload> {

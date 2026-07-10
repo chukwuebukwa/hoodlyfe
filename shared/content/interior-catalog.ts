@@ -36,7 +36,7 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
       exitX: 2218,
       exitY: 2112
     },
-    bounds: {minX: 1872, minY: 1992, maxX: 2168, maxY: 2168},
+    bounds: {minX: 1856, minY: 1984, maxX: 2176, maxY: 2176},
     entry: {x: 2120, y: 2112, angle: Math.PI},
     exitDoor: {minX: 2136, minY: 2082, maxX: 2172, maxY: 2142},
     obstacles: Object.freeze([
