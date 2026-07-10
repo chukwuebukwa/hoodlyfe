@@ -9,6 +9,7 @@ export class TouchControls {
   firing = false;
   active = false;
   private interactQueued = false;
+  private readonly cleanup: Array<() => void> = [];
 
   constructor() {
     const inputMedia = window.matchMedia('(pointer: coarse)');
@@ -20,19 +21,38 @@ export class TouchControls {
     updateMode();
     inputMedia.addEventListener('change', updateMode);
     visibilityMedia.addEventListener('change', updateMode);
+    this.cleanup.push(
+      () => inputMedia.removeEventListener('change', updateMode),
+      () => visibilityMedia.removeEventListener('change', updateMode)
+    );
 
     this.bindStick('#move-stick', '#move-thumb', this.movement, false);
     this.bindStick('#aim-stick', '#aim-thumb', this.aim, true);
-    document.querySelector('#interact-button')?.addEventListener('click', (event) => {
+    const interactButton = document.querySelector('#interact-button');
+    const queueInteraction = (event: Event) => {
       event.preventDefault();
       this.interactQueued = true;
-    });
+    };
+    interactButton?.addEventListener('click', queueInteraction);
+    if (interactButton) {
+      this.cleanup.push(() => interactButton.removeEventListener('click', queueInteraction));
+    }
   }
 
   consumeInteract(): boolean {
     const queued = this.interactQueued;
     this.interactQueued = false;
     return queued;
+  }
+
+  destroy(): void {
+    for (const remove of this.cleanup.splice(0)) remove();
+    this.movement.x = 0;
+    this.movement.y = 0;
+    this.aim.x = 0;
+    this.aim.y = -1;
+    this.firing = false;
+    this.interactQueued = false;
   }
 
   private bindStick(
@@ -72,17 +92,25 @@ export class TouchControls {
       thumb.style.transform = 'translate(0, 0)';
     };
 
-    stick.addEventListener('pointerdown', (event) => {
+    const press = (event: PointerEvent) => {
       event.preventDefault();
       pointerId = event.pointerId;
       stick.setPointerCapture(pointerId);
       if (fires) this.firing = true;
       update(event);
-    });
-    stick.addEventListener('pointermove', (event) => {
+    };
+    const move = (event: PointerEvent) => {
       if (event.pointerId === pointerId) update(event);
-    });
+    };
+    stick.addEventListener('pointerdown', press);
+    stick.addEventListener('pointermove', move);
     stick.addEventListener('pointerup', release);
     stick.addEventListener('pointercancel', release);
+    this.cleanup.push(
+      () => stick.removeEventListener('pointerdown', press),
+      () => stick.removeEventListener('pointermove', move),
+      () => stick.removeEventListener('pointerup', release),
+      () => stick.removeEventListener('pointercancel', release)
+    );
   }
 }

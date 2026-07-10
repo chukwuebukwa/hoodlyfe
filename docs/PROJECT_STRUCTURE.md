@@ -408,6 +408,17 @@ Important boundaries:
 
 ## Client Organization
 
+### Implemented Client Boundary
+
+The first client extraction is live under `src/game/input/`:
+
+- `client-input-policy.ts` contains framework-independent movement normalization, replicated-state weapon gating, and movement/aim/fire/weapon command cadence.
+- `ClientInputController` binds Phaser keyboard/pointer/wheel plus DOM/touch controls, publishes intent commands, reports aim/movement intent for local presentation, and removes every listener on scene shutdown.
+- `TouchControls` now owns cleanup for media queries, buttons, and pointer listeners.
+- `DistrictScene` remains the Phaser lifecycle coordinator and uses one input adapter instead of owning every device binding and command timer.
+
+The next client extractions are replicated entity rendering/interpolation, mission presentation, debug world/panel rendering, and HUD/toast projection. Do not combine these into one replacement client monolith.
+
 `DistrictScene` should become a Phaser lifecycle shell:
 
 ```text

@@ -5,14 +5,10 @@ import {
   type DebugSnapshot
 } from '../../shared/protocol/debug.ts';
 import {
-  MISSION_ABANDON_MESSAGE,
-  MISSION_JOIN_MESSAGE,
-  MISSION_LAUNCH_MESSAGE,
   MISSION_NOTICE_MESSAGE,
-  MISSION_START_MESSAGE,
   type MissionNotice
 } from '../../shared/protocol/missions.ts';
-import {TouchControls} from './touch-controls.ts';
+import {ClientInputController} from './input/client-input-controller.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import type {MinimapPointInput} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
@@ -27,11 +23,6 @@ import type {
 
 const PLAYER_SPEED = 190;
 const PLAYER_RADIUS = 11;
-const INPUT_SEND_INTERVAL = 50;
-const INPUT_HEARTBEAT = 220;
-const AIM_SEND_INTERVAL = 45;
-const FIRE_INTERVAL = 45;
-const WEAPON_CYCLE_INTERVAL = 120;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const SPATIAL_CELL_SIZE = 256;
@@ -83,11 +74,7 @@ export class DistrictScene extends Phaser.Scene {
   private readonly npcs = new Map<string, RenderNpc>();
   private readonly vehicles = new Map<string, RenderVehicle>();
   private readonly bullets = new Map<string, RenderBullet>();
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasd!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
-  private interactKey!: Phaser.Input.Keyboard.Key;
-  private previousWeaponKey!: Phaser.Input.Keyboard.Key;
-  private nextWeaponKey!: Phaser.Input.Keyboard.Key;
+  private inputController!: ClientInputController;
   private debugKey!: Phaser.Input.Keyboard.Key;
   private tilemap!: Phaser.Tilemaps.Tilemap;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
@@ -95,14 +82,7 @@ export class DistrictScene extends Phaser.Scene {
   private debugGraphics!: Phaser.GameObjects.Graphics;
   private missionGraphics!: Phaser.GameObjects.Graphics;
   private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
-  private touchControls!: TouchControls;
   private minimap?: MinimapRenderer;
-  private lastInputX = 0;
-  private lastInputY = 0;
-  private lastInputSentAt = 0;
-  private lastAimSentAt = 0;
-  private lastFireAt = 0;
-  private lastWeaponCycleAt = 0;
   private lastLocalHealth = 100;
   private lastWanted = 0;
   private lastCash = 0;
@@ -180,33 +160,26 @@ export class DistrictScene extends Phaser.Scene {
     }
 
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys({
-      up: Phaser.Input.Keyboard.KeyCodes.W,
-      down: Phaser.Input.Keyboard.KeyCodes.S,
-      left: Phaser.Input.Keyboard.KeyCodes.A,
-      right: Phaser.Input.Keyboard.KeyCodes.D
-    }) as Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
-    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-    this.previousWeaponKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
-    this.nextWeaponKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F3);
-    this.touchControls = new TouchControls();
-    this.input.on('wheel', (_pointer: unknown, _objects: unknown, _deltaX: number, deltaY: number) => {
-      if (Math.abs(deltaY) > 1) this.cycleWeapon(deltaY > 0 ? 1 : -1);
+    this.inputController = new ClientInputController({
+      scene: this,
+      room: this.room,
+      getPlayer: () => this.latestState?.players?.get(this.room.sessionId),
+      getAimOrigin: () => {
+        const local = this.players.get(this.room.sessionId);
+        return local ? {x: local.sprite.x, y: local.sprite.y} : undefined;
+      },
+      onAim: (angle) => {
+        const local = this.players.get(this.room.sessionId);
+        if (!local) return;
+        local.sprite.rotation = angle - Math.PI / 2;
+        local.targetAngle = angle;
+      }
     });
-    document.querySelector('#weapon-prev')?.addEventListener('click', () => this.cycleWeapon(-1));
-    document.querySelector('#weapon-next')?.addEventListener('click', () => this.cycleWeapon(1));
-    document.querySelector('#vehicle-action-button')?.addEventListener('click', () => {
-      this.room.send('interact');
-    });
+    this.inputController.start();
     document.querySelector('#debug-toggle')?.addEventListener('click', (event) => {
       event.stopPropagation();
       this.setDebugVisible(!this.debugVisible);
-    });
-    document.querySelector('#mission-action')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      this.activateMissionAction();
     });
 
     this.debugGraphics = this.add.graphics().setDepth(980_000);
@@ -232,13 +205,8 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
-    const input = this.readMovementInput();
-    this.sendMovement(input.x, input.y, time);
+    const input = this.inputController.update(time);
     this.predictLocalMovement(input.x, input.y, delta / 1000);
-    this.updateAim(time);
-    this.updateShooting(time);
-    this.updateInteraction();
-    this.updateWeaponCycling(time);
     this.interpolateEntities(time);
     this.updateDebugView(time);
     this.updateMinimap(time);
@@ -477,31 +445,6 @@ export class DistrictScene extends Phaser.Scene {
     rendered.targetY = bullet.y;
   }
 
-  private readMovementInput(): {x: number; y: number} {
-    let x = this.touchControls?.movement.x ?? 0;
-    let y = this.touchControls?.movement.y ?? 0;
-    if (this.cursors.left.isDown || this.wasd.left.isDown) x -= 1;
-    if (this.cursors.right.isDown || this.wasd.right.isDown) x += 1;
-    if (this.cursors.up.isDown || this.wasd.up.isDown) y -= 1;
-    if (this.cursors.down.isDown || this.wasd.down.isDown) y += 1;
-    const magnitude = Math.hypot(x, y);
-    if (magnitude > 1) {
-      x /= magnitude;
-      y /= magnitude;
-    }
-    return {x, y};
-  }
-
-  private sendMovement(x: number, y: number, time: number): void {
-    const changed = Math.abs(x - this.lastInputX) > 0.015 || Math.abs(y - this.lastInputY) > 0.015;
-    if ((changed && time - this.lastInputSentAt >= INPUT_SEND_INTERVAL) || time - this.lastInputSentAt >= INPUT_HEARTBEAT) {
-      this.room.send('input', {x, y});
-      this.lastInputX = x;
-      this.lastInputY = y;
-      this.lastInputSentAt = time;
-    }
-  }
-
   private predictLocalMovement(x: number, y: number, deltaSeconds: number): void {
     const localState = this.latestState?.players?.get(this.room.sessionId);
     const local = this.players.get(this.room.sessionId);
@@ -516,60 +459,6 @@ export class DistrictScene extends Phaser.Scene {
     if (this.canOccupy(nextX, local.sprite.y)) local.sprite.x = nextX;
     const nextY = local.sprite.y + y * distance;
     if (this.canOccupy(local.sprite.x, nextY)) local.sprite.y = nextY;
-  }
-
-  private updateAim(time: number): void {
-    const playerState = this.latestState?.players?.get(this.room.sessionId);
-    const local = this.players.get(this.room.sessionId);
-    if (
-      !local ||
-      !playerState?.alive ||
-      (playerState.vehicleId && playerState.vehicleSeat === 0) ||
-      playerState.action
-    ) return;
-
-    let angle: number;
-    if (this.touchControls.active || this.touchControls.firing) {
-      angle = Math.atan2(this.touchControls.aim.y, this.touchControls.aim.x);
-    } else {
-      const worldPointer = this.input.activePointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-      angle = Phaser.Math.Angle.Between(local.sprite.x, local.sprite.y, worldPointer.x, worldPointer.y);
-    }
-    local.sprite.rotation = angle - Math.PI / 2;
-    local.targetAngle = angle;
-    if (time - this.lastAimSentAt >= AIM_SEND_INTERVAL) {
-      this.room.send('aim', {angle});
-      this.lastAimSentAt = time;
-    }
-  }
-
-  private updateShooting(time: number): void {
-    const player = this.latestState?.players?.get(this.room.sessionId);
-    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
-    const pointerEvent = this.input.activePointer.event as PointerEvent | undefined;
-    const firing = this.touchControls.firing || (
-      this.input.activePointer.isDown && pointerEvent?.pointerType !== 'touch'
-    );
-    if (firing && time - this.lastFireAt >= FIRE_INTERVAL) {
-      this.room.send('shoot');
-      this.lastFireAt = time;
-    }
-  }
-
-  private updateInteraction(): void {
-    if (Phaser.Input.Keyboard.JustDown(this.interactKey) || this.touchControls.consumeInteract()) {
-      this.room.send('interact');
-    }
-  }
-
-  private activateMissionAction(): void {
-    const button = document.querySelector<HTMLButtonElement>('#mission-action');
-    const action = button?.dataset.action;
-    const missionId = button?.dataset.missionId ?? '';
-    if (action === 'start') this.room.send(MISSION_START_MESSAGE);
-    else if (action === 'join') this.room.send(MISSION_JOIN_MESSAGE, {missionId});
-    else if (action === 'launch') this.room.send(MISSION_LAUNCH_MESSAGE, {missionId});
-    else if (action === 'abandon') this.room.send(MISSION_ABANDON_MESSAGE, {missionId});
   }
 
   private updateVehicleActionButton(): void {
@@ -600,19 +489,6 @@ export class DistrictScene extends Phaser.Scene {
     }
     button.textContent = nearest.traffic ? 'HIJACK CAR' : (nearest.driverId ? 'RIDE ALONG' : 'ENTER CAR');
     button.classList.remove('hidden');
-  }
-
-  private updateWeaponCycling(time: number): void {
-    if (time - this.lastWeaponCycleAt < WEAPON_CYCLE_INTERVAL) return;
-    if (Phaser.Input.Keyboard.JustDown(this.previousWeaponKey)) this.cycleWeapon(-1);
-    else if (Phaser.Input.Keyboard.JustDown(this.nextWeaponKey)) this.cycleWeapon(1);
-  }
-
-  private cycleWeapon(direction: -1 | 1): void {
-    const player = this.latestState?.players?.get(this.room.sessionId);
-    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
-    this.room.send('cycleWeapon', {direction});
-    this.lastWeaponCycleAt = this.time.now;
   }
 
   private interpolateEntities(time: number): void {
@@ -796,7 +672,7 @@ export class DistrictScene extends Phaser.Scene {
 
   private drawCrosshair(): void {
     this.crosshair.clear();
-    if (this.touchControls.active || this.touchControls.firing) return;
+    if (this.inputController.usesTouchAim()) return;
     const pointer = this.input.activePointer;
     this.crosshair.lineStyle(1, 0xffffff, 0.9);
     this.crosshair.strokeCircle(pointer.x, pointer.y, 8);
