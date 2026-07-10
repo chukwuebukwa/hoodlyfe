@@ -2,6 +2,8 @@
 
 Date: 2026-07-10
 
+Implementation status and the canonical dependency order are maintained in [`FEATURE_ROADMAP.md`](FEATURE_ROADMAP.md). This document records the source research and product rationale.
+
 ## Product Direction
 
 NOCK0 should feel like an active shared city before it feels like a collection of menus. The core loop is:
@@ -203,10 +205,14 @@ Later monetization can apply to original cosmetic content and additional wardrob
 
 ## Immediate Implementation Sequence
 
-1. Finish the incident/witness/wanted/dispatch slice and make it visible in debug tools.
-2. Add vehicle collision and health because traffic, hijacking, police chases, and delivery missions all depend on it.
-3. Add the minimap as the navigation and opportunity surface.
-4. Add a vehicle-theft delivery contact mission and basic mission-owned entity scope.
-5. Add repair/ammunition sinks and banked-versus-carried cash policy.
+The first four sequence items are playable: incident/witness/wanted/dispatch, nuanced vehicle collision/damage, the minimap, and the cooperative vehicle-theft delivery job.
 
-This sequence creates a complete short session: find a job, steal a target car, attract police, escape using the minimap, damage the car, deliver it for a condition-adjusted payout, then spend or bank the reward.
+The current implementation order is:
+
+1. varied data-driven vehicle classes plus production-style traffic braking, following, recovery, and initial police driving;
+2. repair, ammunition, hospital, and clothing-preview services around a closed non-redeemable street-cash loop;
+3. reusable mission objectives plus courier/getaway, street race, holdout, Tag, and Deathmatch content;
+4. the free development character creator and original modular animation-compatible appearance set;
+5. durable account identity, reconnection, append-only ledger, banked/carried balances, and anti-abuse gates.
+
+This completes the intended short session: find work, steal or fight, attract police, escape using the minimap, deliver or cash out, repair/resupply, customize, and continue with friends without putting persistence or chain calls inside district simulation.
