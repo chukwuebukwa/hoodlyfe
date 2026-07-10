@@ -5,7 +5,8 @@ import {
   type DebugPoliceVehicleEntry,
   type DebugSnapshot,
   type DebugStimulusEntry,
-  type DebugTrafficAiEntry
+  type DebugTrafficAiEntry,
+  type DebugTrafficSignalEntry
 } from '../../../shared/protocol/debug.ts';
 import type {DistrictState} from '../../state.ts';
 import type {GameEvent} from '../events/game-events.ts';
@@ -29,6 +30,7 @@ interface DebugSnapshotControllerOptions {
   pedestrians?: () => ReadonlyArray<DebugPedestrianAiEntry>;
   stimuli?: () => ReadonlyArray<DebugStimulusEntry>;
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
+  trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
@@ -103,6 +105,10 @@ export class DebugSnapshotController {
       })),
       stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({...stimulus})),
       trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({...traffic})),
+      trafficSignals: (this.options.trafficSignals?.() ?? []).map((signal) => ({
+        ...signal,
+        waitingVehicleIds: [...signal.waitingVehicleIds]
+      })),
       policeVehicles: (this.options.policeVehicles?.() ?? []).map((unit) => ({
         ...unit,
         waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))

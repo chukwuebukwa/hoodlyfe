@@ -15,6 +15,7 @@ export interface DebugPanelProjection {
   pursuits: number;
   cruisers: string;
   stimuli: number;
+  signals: string;
   events: string[];
 }
 
@@ -37,10 +38,18 @@ export function projectDebugPanel(
     pursuits: snapshot?.pursuits.length ?? 0,
     cruisers: policeVehicleSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
+    signals: trafficSignalSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function trafficSignalSummary(snapshot?: DebugSnapshot): string {
+  const signals = snapshot?.trafficSignals ?? [];
+  if (signals.length === 0) return '0';
+  const waiting = signals.reduce((sum, signal) => sum + signal.waitingVehicleIds.length, 0);
+  return `${signals.length} / ${waiting} wait`;
 }
 
 function policeVehicleSummary(snapshot?: DebugSnapshot): string {

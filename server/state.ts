@@ -174,6 +174,24 @@ defineTypes(WeaponPickupState, {
   respawnAt: 'number'
 });
 
+export class TrafficSignalState extends Schema {
+  id = '';
+  x = 0;
+  y = 0;
+  northSouth = 'green';
+  eastWest = 'red';
+  nextChangeAt = 0;
+}
+
+defineTypes(TrafficSignalState, {
+  id: 'string',
+  x: 'number',
+  y: 'number',
+  northSouth: 'string',
+  eastWest: 'string',
+  nextChangeAt: 'number'
+});
+
 export class NpcState extends Schema {
   id = '';
   kind = 'civilian';
@@ -364,6 +382,7 @@ export class DistrictState extends Schema {
   thrownProjectiles = new MapSchema<ThrownProjectileState>();
   explosions = new MapSchema<ExplosionState>();
   weaponPickups = new MapSchema<WeaponPickupState>();
+  trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
   missions = new MapSchema<MissionState>();
@@ -378,6 +397,7 @@ defineTypes(DistrictState, {
   thrownProjectiles: {map: ThrownProjectileState},
   explosions: {map: ExplosionState},
   weaponPickups: {map: WeaponPickupState},
+  trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
   missions: {map: MissionState},

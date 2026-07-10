@@ -2,9 +2,11 @@ import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts
 import type {TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 import {VehicleState, type DistrictState} from '../../state.ts';
-import type {CollisionMap} from '../../world-map.ts';
+import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
 
-const TRAFFIC_VEHICLE_COUNT = 8;
+export const AMBIENT_TRAFFIC_TARGET = 16;
+const TRAFFIC_SPAWN_ATTEMPTS = 24;
+const TRAFFIC_SPAWN_GAP = 64;
 
 interface DistrictPopulationControllerOptions {
   state: DistrictState;
@@ -39,7 +41,7 @@ export class DistrictPopulationController {
       civilians: 10,
       police: 3,
       parkedVehicles: 3,
-      trafficVehicles: TRAFFIC_VEHICLE_COUNT
+      trafficVehicles: AMBIENT_TRAFFIC_TARGET
     };
     return {...this.result};
   }
@@ -83,8 +85,8 @@ export class DistrictPopulationController {
   }
 
   private spawnTraffic(): void {
-    for (let index = 0; index < TRAFFIC_VEHICLE_COUNT; index++) {
-      const spawn = this.options.world.trafficSpawn(200 + index * 19, VEHICLE_RADIUS);
+    for (let index = 0; index < AMBIENT_TRAFFIC_TARGET; index++) {
+      const spawn = this.openTrafficSpawn(index);
       const vehicle = this.createVehicle(
         `traffic-${index + 1}`,
         index % 4 === 2 ? 'taxi' : 'sedan',
@@ -97,6 +99,22 @@ export class DistrictPopulationController {
       this.options.traffic.register(vehicle.id, spawn, vehicleConfig(vehicle.kind).traffic.cruiseSpeed);
       this.options.onVehicleSpawned?.(vehicle);
     }
+  }
+
+  private openTrafficSpawn(index: number): TrafficSpawn {
+    let fallback = this.options.world.trafficSpawn(200 + index * 19, VEHICLE_RADIUS);
+    for (let attempt = 0; attempt < TRAFFIC_SPAWN_ATTEMPTS; attempt++) {
+      const candidate = this.options.world.trafficSpawn(
+        200 + index * 193 + attempt * 43,
+        VEHICLE_RADIUS
+      );
+      fallback = candidate;
+      const separated = [...this.options.state.vehicles.values()].every((vehicle) => (
+        Math.hypot(vehicle.x - candidate.x, vehicle.y - candidate.y) >= TRAFFIC_SPAWN_GAP
+      ));
+      if (separated) return candidate;
+    }
+    return fallback;
   }
 
   private starterVehiclePosition(): {position: {x: number; y: number}; angle: number} {

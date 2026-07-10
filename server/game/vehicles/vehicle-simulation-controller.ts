@@ -5,6 +5,7 @@ import type {CollisionMap} from '../../world-map.ts';
 import type {TrafficController} from '../traffic/traffic-controller.ts';
 import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
 import type {PoliceVehicleController} from '../police/police-vehicle-controller.ts';
+import type {TrafficSignalController} from '../traffic/traffic-signal-controller.ts';
 import {classifyImpactZone, VehicleCollisionSystem, type VehicleDamageZone} from './vehicle-collision-system.ts';
 import {vehicleConfig} from './vehicle-config.ts';
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
@@ -30,6 +31,7 @@ interface VehicleSimulationControllerOptions {
   events: GameEventStream;
   access: VehicleAccessController;
   traffic: TrafficController;
+  signals?: Pick<TrafficSignalController, 'obstaclesFor'>;
   policeVehicles?: Pick<PoliceVehicleController, 'has' | 'update'>;
   clock: () => SimulationClock;
   inputFor: (playerId: string) => DriverInput | undefined;
@@ -84,7 +86,7 @@ export class VehicleSimulationController {
         vehicle,
         deltaSeconds,
         nowMs,
-        this.trafficObstacles(vehicle, configuration.traffic.lookAhead)
+        this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs, true)
       )) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }
@@ -94,7 +96,7 @@ export class VehicleSimulationController {
     }
     if (vehicle.traffic && !vehicle.driverId) {
       if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
-        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead)
+        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs)
       })) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }
@@ -296,16 +298,21 @@ export class VehicleSimulationController {
     this.fireSources.delete(vehicle.id);
   }
 
-  private trafficObstacles(vehicle: VehicleState, lookAhead: number): TrafficObstacle[] {
+  private trafficObstacles(
+    vehicle: VehicleState,
+    lookAhead: number,
+    nowMs: number,
+    emergencyResponse = false
+  ): TrafficObstacle[] {
     const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
-      .filter((candidate) => candidate.id !== vehicle.id && !candidate.destroyed)
+      .filter((candidate) => candidate.id !== vehicle.id)
       .map((candidate): TrafficObstacle => ({
         id: candidate.id,
         kind: 'vehicle',
         x: candidate.x,
         y: candidate.y,
         radius: VEHICLE_RADIUS,
-        speed: candidate.speed,
+        speed: candidate.destroyed ? 0 : candidate.speed,
         angle: candidate.angle
       }));
     const players = this.options.nearbyPlayers(vehicle.x, vehicle.y, lookAhead)
@@ -326,7 +333,8 @@ export class VehicleSimulationController {
         y: candidate.y,
         radius: NPC_RADIUS
       }));
-    return [...vehicles, ...players, ...npcs];
+    const signals = this.options.signals?.obstaclesFor(vehicle, nowMs, emergencyResponse) ?? [];
+    return [...vehicles, ...players, ...npcs, ...signals];
   }
 
   private handleTrafficImpacts(vehicle: VehicleState, nowMs: number): void {

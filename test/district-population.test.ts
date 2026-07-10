@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {PedestrianController} from '../server/game/pedestrians/pedestrian-controller.ts';
-import {DistrictPopulationController} from '../server/game/population/district-population-controller.ts';
+import {
+  AMBIENT_TRAFFIC_TARGET,
+  DistrictPopulationController
+} from '../server/game/population/district-population-controller.ts';
 import {TrafficController} from '../server/game/traffic/traffic-controller.ts';
 import {VEHICLE_RADIUS, vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
@@ -16,13 +19,13 @@ test('district bootstrap creates deterministic valid population exactly once', (
     civilians: 10,
     police: 3,
     parkedVehicles: 3,
-    trafficVehicles: 8
+    trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   second.population.populate();
 
   assert.equal(first.state.npcs.size, 13);
-  assert.equal(first.state.vehicles.size, 11);
-  assert.equal(first.spawnedVehicles.length, 11);
+  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
+  assert.equal(first.spawnedVehicles.length, AMBIENT_TRAFFIC_TARGET + 3);
   assert.equal(first.state.missionContactX, first.world.spawn.x);
   assert.equal(first.state.missionContactY, first.world.spawn.y);
   assert.deepEqual(
@@ -70,7 +73,7 @@ test('district bootstrap creates deterministic valid population exactly once', (
     civilians: 10,
     police: 3,
     parkedVehicles: 3,
-    trafficVehicles: 8
+    trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   assert.deepEqual({
     npcs: first.state.npcs.size,

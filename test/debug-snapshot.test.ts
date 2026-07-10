@@ -158,7 +158,9 @@ function createFixture(enabled: boolean) {
     obstacleId: 'traffic-2',
     obstacleDistance: 44,
     blockedSince: 0,
-    recoveryCount: 0
+    recoveryCount: 0,
+    maneuverPhase: 'none',
+    maneuverAttempts: 0
   };
   const controller = new DebugSnapshotController({
     enabled,

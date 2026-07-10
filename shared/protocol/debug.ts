@@ -60,11 +60,21 @@ export interface DebugTrafficAiEntry {
   vehicleId: string;
   cruiseSpeed: number;
   desiredSpeed: number;
-  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'blocked' | 'hijack';
+  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
   blockedSince: number;
   recoveryCount: number;
+  maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
+  maneuverAttempts: number;
+}
+
+export interface DebugTrafficSignalEntry {
+  id: string;
+  northSouth: string;
+  eastWest: string;
+  nextChangeAt: number;
+  waitingVehicleIds: string[];
 }
 
 export interface DebugPoliceVehicleEntry {
@@ -99,6 +109,7 @@ export interface DebugSnapshot {
   pedestrianAi?: DebugPedestrianAiEntry[];
   stimuli?: DebugStimulusEntry[];
   trafficAi?: DebugTrafficAiEntry[];
+  trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
   events: DebugEventEntry[];
 }

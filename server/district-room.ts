@@ -37,6 +37,7 @@ import {CrimeResponseController} from './game/police/crime-response-controller.t
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
+import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
@@ -95,6 +96,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
+  private trafficSignalController!: TrafficSignalController;
   private vehicleSimulation!: VehicleSimulationController;
   private playerControl!: PlayerControlController;
   private appearanceController!: PlayerAppearanceController;
@@ -190,6 +192,7 @@ export class DistrictRoom extends Room<DistrictState> {
       pedestrians: () => this.pedestrians.diagnostics(),
       stimuli: () => this.pedestrians.stimulusSnapshot(),
       traffic: () => this.trafficController.diagnostics(),
+      trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
@@ -265,12 +268,18 @@ export class DistrictRoom extends Room<DistrictState> {
       {kinds: ['vehicle'], includeRecordRadius: true}
     ).map((record) => this.state.vehicles.get(record.id))
       .filter((vehicle): vehicle is VehicleState => Boolean(vehicle));
+    this.trafficSignalController = new TrafficSignalController({
+      state: this.state,
+      world: this.world,
+      nearbyVehicles
+    });
     this.vehicleSimulation = new VehicleSimulationController({
       state: this.state,
       world: this.world,
       events: this.events,
       access: this.vehicleAccess,
       traffic: this.trafficController,
+      signals: this.trafficSignalController,
       policeVehicles: this.policeVehicleController,
       clock: () => ({tick: this.simulationClock.tick}),
       inputFor: (playerId) => this.playerControl.inputFor(playerId),
@@ -446,6 +455,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.serviceController.initialize();
     this.medicalController.initialize();
     this.weaponPickupController.initialize();
+    this.trafficSignalController.initialize(this.simulationClock.nowMs);
     this.population.populate();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
@@ -550,6 +560,8 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.trafficSignalController.beginTick();
+    this.trafficSignalController.update(now);
     this.explosionController.update(now);
     this.vehicleSimulation.beginTick();
     this.state.vehicles.forEach((vehicle) => {

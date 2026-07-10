@@ -30,6 +30,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     pursuits: 1,
     cruisers: '1/1 pursuit',
     stimuli: 0,
+    signals: '0',
     events: ['T41 driver committed vehicle-theft']
   });
 });

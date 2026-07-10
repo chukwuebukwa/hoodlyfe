@@ -1,6 +1,7 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
+import {TRAFFIC_SIGNALS} from '../../../shared/content/traffic-signals.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {projectDebugPanel} from './debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
@@ -53,7 +54,8 @@ export class DebugPresentationController {
       incidents: this.root.querySelector('#debug-incidents'),
       pursuits: this.root.querySelector('#debug-pursuits'),
       cruisers: this.root.querySelector('#debug-cruisers'),
-      stimuli: this.root.querySelector('#debug-stimuli')
+      stimuli: this.root.querySelector('#debug-stimuli'),
+      signals: this.root.querySelector('#debug-signals')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -113,6 +115,7 @@ export class DebugPresentationController {
     this.drawSpatialGrid(view);
     const presentLabels = new Set<string>();
     this.drawMissions(presentLabels);
+    this.drawTrafficSignals(presentLabels);
     this.drawPedestrianRoutes();
     this.drawPlayers(presentLabels);
     this.drawNpcs(presentLabels);
@@ -168,6 +171,50 @@ export class DebugPresentationController {
       );
       present.add(key);
     });
+  }
+
+  private drawTrafficSignals(present: Set<string>): void {
+    const diagnostics = new Map(
+      (this.snapshot?.trafficSignals ?? []).map((signal) => [signal.id, signal])
+    );
+    for (const definition of TRAFFIC_SIGNALS) {
+      const diagnostic = diagnostics.get(definition.id);
+      if (!diagnostic) continue;
+      this.graphics.lineStyle(2, 0x56e3a2, 0.52);
+      this.graphics.strokeRect(
+        definition.x - definition.intersectionHalfWidth,
+        definition.y - definition.intersectionHalfHeight,
+        definition.intersectionHalfWidth * 2,
+        definition.intersectionHalfHeight * 2
+      );
+      for (const approach of definition.approaches) {
+        const phase = approach.axis === 'north-south'
+          ? diagnostic.northSouth
+          : diagnostic.eastWest;
+        const color = phase === 'green' ? 0x55e889 : (phase === 'yellow' ? 0xffcc3d : 0xff394f);
+        this.graphics.lineStyle(4, color, 0.92);
+        const half = Math.min(approach.corridorHalfWidth, 52);
+        const normalX = -approach.directionY;
+        const normalY = approach.directionX;
+        this.graphics.lineBetween(
+          approach.stopX - normalX * half,
+          approach.stopY - normalY * half,
+          approach.stopX + normalX * half,
+          approach.stopY + normalY * half
+        );
+      }
+      const key = `signal:${definition.id}`;
+      this.updateLabel(
+        key,
+        definition.x,
+        definition.y - definition.intersectionHalfHeight - 8,
+        `${definition.label} NS:${diagnostic.northSouth} EW:${diagnostic.eastWest} ` +
+          `wait:${diagnostic.waitingVehicleIds.length}`,
+        0x56e3a2,
+        1
+      );
+      present.add(key);
+    }
   }
 
   private drawSpatialGrid(view: Phaser.Geom.Rectangle): void {
@@ -281,6 +328,9 @@ export class DebugPresentationController {
             ? ` gap:${Math.round(diagnostic.obstacleDistance)} ${shortId(diagnostic.obstacleId)}`
             : '') +
           (diagnostic.recoveryCount > 0 ? ` recover:${diagnostic.recoveryCount}` : '')
+          + (diagnostic.maneuverPhase !== 'none'
+            ? ` maneuver:${diagnostic.maneuverPhase}`
+            : '')
         : '';
       const pursuit = police
         ? ` ai:${police.strategy} target:${shortId(police.suspectId) || '-'} ` +

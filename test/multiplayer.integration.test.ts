@@ -30,6 +30,7 @@ import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
+import {AMBIENT_TRAFFIC_TARGET} from '../server/game/population/district-population-controller.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -82,7 +83,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
 
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
-  assert.equal(first.state.vehicles.size, 11);
+  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
   assert.equal(first.state.services.size, 5);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
@@ -160,7 +161,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
       .filter(([, vehicle]) => vehicle.traffic)
       .map(([id, vehicle]) => [id, {x: vehicle.x, y: vehicle.y}])
   );
-  assert.equal(trafficStarts.size, 8);
+  assert.equal(trafficStarts.size, AMBIENT_TRAFFIC_TARGET);
   await waitUntil(() => [...trafficStarts.entries()].some(([id, start]) => {
     const vehicle = first.state.vehicles.get(id);
     return Boolean(vehicle && Math.hypot(vehicle.x - start.x, vehicle.y - start.y) > 10);

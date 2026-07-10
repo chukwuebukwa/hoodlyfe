@@ -16,6 +16,7 @@ import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
 import {ExplosionRenderer} from './rendering/explosion-renderer.ts';
 import {ThrownProjectileRenderer} from './rendering/thrown-projectile-renderer.ts';
 import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
+import {TrafficSignalRenderer} from './rendering/traffic-signal-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
@@ -35,6 +36,7 @@ export class DistrictScene extends Phaser.Scene {
   private explosionRenderer!: ExplosionRenderer;
   private thrownProjectileRenderer!: ThrownProjectileRenderer;
   private weaponPickupRenderer!: WeaponPickupRenderer;
+  private trafficSignalRenderer!: TrafficSignalRenderer;
   private vehicleRenderer!: VehicleRenderer;
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
@@ -140,6 +142,7 @@ export class DistrictScene extends Phaser.Scene {
     this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
     this.explosionRenderer = new ExplosionRenderer(this);
     this.weaponPickupRenderer = new WeaponPickupRenderer(this);
+    this.trafficSignalRenderer = new TrafficSignalRenderer(this);
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (minimapCanvas) {
@@ -214,6 +217,7 @@ export class DistrictScene extends Phaser.Scene {
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
     this.explosionRenderer.synchronize(state.explosions);
     this.weaponPickupRenderer.synchronize(state.weaponPickups);
+    this.trafficSignalRenderer.synchronize(state.trafficSignals);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
       shell.dataset.players = String(state.players?.size ?? 0);

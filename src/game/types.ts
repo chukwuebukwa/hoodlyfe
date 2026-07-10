@@ -77,6 +77,15 @@ export interface NetworkWeaponPickup {
   respawnAt: number;
 }
 
+export interface NetworkTrafficSignal {
+  id: string;
+  x: number;
+  y: number;
+  northSouth: 'green' | 'yellow' | 'red';
+  eastWest: 'green' | 'yellow' | 'red';
+  nextChangeAt: number;
+}
+
 export interface NetworkNpc {
   id: string;
   kind: 'civilian' | 'police' | 'hostile';
@@ -175,6 +184,7 @@ export interface DistrictNetworkState {
   thrownProjectiles: Map<string, NetworkThrownProjectile>;
   explosions: Map<string, NetworkExplosion>;
   weaponPickups: Map<string, NetworkWeaponPickup>;
+  trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
   missions: Map<string, NetworkMission>;

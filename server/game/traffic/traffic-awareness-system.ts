@@ -1,5 +1,5 @@
-export type TrafficObstacleKind = 'vehicle' | 'pedestrian';
-export type TrafficSpeedReason = 'cruise' | 'vehicle' | 'pedestrian';
+export type TrafficObstacleKind = 'vehicle' | 'pedestrian' | 'signal';
+export type TrafficSpeedReason = 'cruise' | 'vehicle' | 'pedestrian' | 'signal';
 
 export interface TrafficObstacle {
   id: string;
@@ -65,7 +65,7 @@ export class TrafficAwarenessSystem {
       const gap = Math.max(0, forwardDistance - input.radius - obstacle.radius);
       const minimumGap = obstacle.kind === 'pedestrian'
         ? Math.max(input.minimumGap, input.pedestrianGap)
-        : input.minimumGap;
+        : (obstacle.kind === 'signal' ? 10 : input.minimumGap);
       const leadSpeed = obstacle.kind === 'vehicle'
         ? Math.max(0, (obstacle.speed ?? 0) * Math.cos((obstacle.angle ?? input.angle) - input.angle))
         : 0;

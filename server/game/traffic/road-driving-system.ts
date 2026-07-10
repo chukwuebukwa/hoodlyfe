@@ -109,6 +109,19 @@ export class RoadDrivingSystem {
   brake(vehicle: VehicleState, deltaSeconds: number, deceleration = 520): void {
     vehicle.speed = approach(vehicle.speed, 0, deceleration * deltaSeconds);
   }
+
+  reverse(vehicle: VehicleState, deltaSeconds: number, speed = 48): boolean {
+    vehicle.speed = approach(vehicle.speed, -speed, 260 * deltaSeconds);
+    const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
+    const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
+    if (!this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) || !this.world.isRoadAt(nextX, nextY)) {
+      vehicle.speed = 0;
+      return false;
+    }
+    vehicle.x = nextX;
+    vehicle.y = nextY;
+    return true;
+  }
 }
 
 function approach(value: number, target: number, amount: number): number {

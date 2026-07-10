@@ -3,6 +3,11 @@ import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {TrafficObstacle, TrafficSpeedReason} from './traffic-awareness-system.ts';
 import {RoadDrivingSystem} from './road-driving-system.ts';
+import {
+  TrafficManeuverSystem,
+  type TrafficManeuverPhase,
+  type TrafficManeuverRuntime
+} from './traffic-maneuver-system.ts';
 
 interface TrafficRuntime {
   previousColumn: number;
@@ -16,6 +21,7 @@ interface TrafficRuntime {
   obstacleDistance: number;
   blockedSince: number;
   recoveryCount: number;
+  maneuver: TrafficManeuverRuntime;
 }
 
 export interface TrafficUpdateContext {
@@ -31,6 +37,8 @@ export interface TrafficDiagnostic {
   obstacleDistance: number;
   blockedSince: number;
   recoveryCount: number;
+  maneuverPhase: TrafficManeuverPhase;
+  maneuverAttempts: number;
 }
 
 interface TrafficControllerOptions {
@@ -41,9 +49,11 @@ interface TrafficControllerOptions {
 export class TrafficController {
   private readonly runtime = new Map<string, TrafficRuntime>();
   private readonly driver: RoadDrivingSystem;
+  private readonly maneuvers: TrafficManeuverSystem;
 
   constructor(private readonly options: TrafficControllerOptions) {
     this.driver = new RoadDrivingSystem(options.world);
+    this.maneuvers = new TrafficManeuverSystem(options.world);
   }
 
   register(vehicleId: string, spawn: TrafficSpawn, cruiseSpeed: number): void {
@@ -58,7 +68,8 @@ export class TrafficController {
       obstacleId: '',
       obstacleDistance: -1,
       blockedSince: 0,
-      recoveryCount: 0
+      recoveryCount: 0,
+      maneuver: this.maneuvers.createRuntime()
     });
   }
 
@@ -79,7 +90,9 @@ export class TrafficController {
       obstacleId: runtime.obstacleId,
       obstacleDistance: runtime.obstacleDistance,
       blockedSince: runtime.blockedSince,
-      recoveryCount: runtime.recoveryCount
+      recoveryCount: runtime.recoveryCount,
+      maneuverPhase: runtime.maneuver.phase,
+      maneuverAttempts: runtime.maneuver.attempts
     })).sort((left, right) => left.vehicleId.localeCompare(right.vehicleId));
   }
 
@@ -92,6 +105,7 @@ export class TrafficController {
     const runtime = this.runtime.get(vehicle.id);
     if (!runtime) return false;
     if (vehicle.hijackBy) {
+      this.maneuvers.reset(runtime.maneuver);
       this.driver.brake(vehicle, deltaSeconds);
       runtime.desiredSpeed = 0;
       runtime.speedReason = 'hijack';
@@ -103,19 +117,44 @@ export class TrafficController {
     const {world} = this.options;
     const targetX = (runtime.targetColumn + 0.5) * world.tileWidth;
     const targetY = (runtime.targetRow + 0.5) * world.tileHeight;
+    const obstacles = context.obstacles ?? [];
+    const maneuver = this.maneuvers.command({
+      vehicle,
+      runtime: runtime.maneuver,
+      routeTargetX: targetX,
+      routeTargetY: targetY,
+      obstacles,
+      speedReason: runtime.speedReason,
+      obstacleId: runtime.obstacleId,
+      desiredSpeed: runtime.desiredSpeed,
+      nowMs
+    });
+    if (maneuver.reverse) {
+      const moved = this.driver.reverse(vehicle, deltaSeconds);
+      runtime.desiredSpeed = -48;
+      runtime.speedReason = 'blocked';
+      return moved;
+    }
     const result = this.driver.update(vehicle, {
-      targetX,
-      targetY,
+      targetX: maneuver.targetX ?? targetX,
+      targetY: maneuver.targetY ?? targetY,
       cruiseSpeed: runtime.cruiseSpeed,
       deltaSeconds,
-      obstacles: context.obstacles ?? []
+      obstacles,
+      ignoredObstacleIds: maneuver.ignoredObstacleIds,
+      minimumGapScale: maneuver.phase === 'none' ? 1 : 0.75
     });
     runtime.desiredSpeed = result.desiredSpeed;
     runtime.speedReason = result.speedReason;
     runtime.obstacleId = result.obstacleId;
     runtime.obstacleDistance = result.obstacleDistance;
 
-    if (result.reached) {
+    if (maneuver.phase !== 'none') {
+      if (result.blocked) runtime.speedReason = 'blocked';
+      return result.moved;
+    }
+
+    if (result.reached && maneuver.phase === 'none') {
       vehicle.x = targetX;
       vehicle.y = targetY;
       const current = {column: runtime.targetColumn, row: runtime.targetRow};
