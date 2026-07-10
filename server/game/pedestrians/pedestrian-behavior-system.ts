@@ -31,20 +31,66 @@ export class PedestrianBehaviorSystem {
     if (observation.kind === 'police') {
       intent = this.policeIntent(npc, runtime, observation, nowMs);
     } else if (observation.kind === 'threat') {
-      runtime.wanderAngle = observation.angleAway;
-      intent = {
-        objective: 'flee',
-        angle: observation.angleAway,
-        speed: 175,
-        fire: false,
-        aimAngle: observation.angleAway
-      };
+      intent = this.threatIntent(npc, runtime, observation);
+    } else if (observation.kind === 'stimulus') {
+      intent = this.stimulusIntent(npc, runtime, observation);
     } else {
       intent = this.wanderIntent(npc, runtime, nowMs);
     }
     runtime.objective = intent.objective;
     if (runtime.avoidUntil > nowMs && intent.speed > 0) intent.angle = runtime.avoidAngle;
     return intent;
+  }
+
+  private threatIntent(
+    npc: NpcState,
+    runtime: PedestrianRuntime,
+    observation: Extract<PedestrianObservation, {kind: 'threat'}>
+  ): PedestrianIntent {
+    if (npc.kind === 'police') {
+      return {
+        objective: 'pursue',
+        angle: observation.angleToward,
+        speed: observation.distance > 90 ? 150 : 0,
+        fire: false,
+        aimAngle: observation.angleToward
+      };
+    }
+    runtime.wanderAngle = observation.angleAway;
+    return {
+      objective: 'flee',
+      angle: observation.angleAway,
+      speed: 175,
+      fire: false,
+      aimAngle: observation.angleAway
+    };
+  }
+
+  private stimulusIntent(
+    npc: NpcState,
+    runtime: PedestrianRuntime,
+    observation: Extract<PedestrianObservation, {kind: 'stimulus'}>
+  ): PedestrianIntent {
+    const shouldInvestigate = npc.kind === 'police' || observation.severity < runtime.bravery;
+    if (shouldInvestigate) {
+      return {
+        objective: 'investigate',
+        angle: observation.angleToward,
+        speed: observation.distance > (npc.kind === 'police' ? 55 : 72)
+          ? (npc.kind === 'police' ? 128 : 58)
+          : 0,
+        fire: false,
+        aimAngle: observation.angleToward
+      };
+    }
+    runtime.wanderAngle = observation.angleAway;
+    return {
+      objective: 'flee',
+      angle: observation.angleAway,
+      speed: observation.stimulusKind === 'explosion' ? 190 : 168,
+      fire: false,
+      aimAngle: observation.angleAway
+    };
   }
 
   private policeIntent(

@@ -30,6 +30,8 @@ References:
 
 The reference is used only to study behavior and ownership. NOCK0 code remains an original TypeScript implementation under this repository's license.
 
+The event-perception follow-up and its separation from durable crime incidents are documented in `docs/PEDESTRIAN_EVENT_PERCEPTION_RESEARCH.md`.
+
 ## NOCK0 Adaptation
 
 The pedestrian domain now exposes one room-facing lifecycle facade over focused simulation layers:

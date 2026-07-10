@@ -24,9 +24,19 @@ test('perception retains last-known threat position only for the panic window', 
   });
   perception.rememberThreat(runtime, threat.id, 5000);
 
-  assert.deepEqual(perception.observe(npc, runtime, 1000), {kind: 'threat', angleAway: 0});
+  assert.deepEqual(perception.observe(npc, runtime, 1000), {
+    kind: 'threat',
+    angleAway: 0,
+    angleToward: Math.PI,
+    distance: 20
+  });
   state.players.delete(threat.id);
-  assert.deepEqual(perception.observe(npc, runtime, 4000), {kind: 'threat', angleAway: 0});
+  assert.deepEqual(perception.observe(npc, runtime, 4000), {
+    kind: 'threat',
+    angleAway: 0,
+    angleToward: Math.PI,
+    distance: 20
+  });
   assert.deepEqual(perception.observe(npc, runtime, 5000), {kind: 'ambient'});
   assert.equal(runtime.threatId, '');
   assert.equal(Number.isNaN(runtime.lastKnownThreatX), true);

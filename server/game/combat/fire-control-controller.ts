@@ -8,11 +8,13 @@ import {
   type WeaponId
 } from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
+import type {GameEventStream} from '../events/game-events.ts';
 
 interface FireControlControllerOptions {
   state: DistrictState;
   random: DeterministicRandom;
   clock: () => {tick: number; nowMs: number};
+  events?: GameEventStream;
 }
 
 export class FireControlController {
@@ -37,6 +39,7 @@ export class FireControlController {
     this.lastShotAt.set(playerId, clock.nowMs);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     const origin = this.shotOrigin(player);
+    this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
       const spread = weapon.pellets === 1
         ? (this.options.random.unit('weapon-spread', `${playerId}:${clock.tick}`) - 0.5) * weapon.spread
@@ -62,6 +65,10 @@ export class FireControlController {
   }
 
   createPoliceBullet(x: number, y: number, angle: number, nowMs: number): void {
+    this.publishWeaponFired('police', 'police', x, y, 'pistol', {
+      tick: this.options.clock().tick,
+      nowMs
+    });
     this.createBullet('police', 'police', x, y, angle, nowMs, 'pistol');
   }
 
@@ -73,11 +80,35 @@ export class FireControlController {
     nowMs: number,
     weapon: WeaponId = 'pistol'
   ): void {
+    this.publishWeaponFired(ownerId, 'police', x, y, weapon, {
+      tick: this.options.clock().tick,
+      nowMs
+    });
     this.createBullet(ownerId, 'police', x, y, angle, nowMs, weapon);
   }
 
   clearPlayer(playerId: string): void {
     this.lastShotAt.delete(playerId);
+  }
+
+  private publishWeaponFired(
+    ownerId: string,
+    ownerKind: 'player' | 'police',
+    x: number,
+    y: number,
+    weapon: WeaponId,
+    clock: {tick: number; nowMs: number}
+  ): void {
+    this.options.events?.publish({
+      type: 'weapon.fired',
+      tick: clock.tick,
+      nowMs: clock.nowMs,
+      ownerId,
+      ownerKind,
+      weapon,
+      x,
+      y
+    });
   }
 
   private shotOrigin(player: PlayerState): {x: number; y: number} {

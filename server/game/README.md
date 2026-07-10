@@ -62,6 +62,8 @@ game/
     pedestrian-navigation-system.ts
     pedestrian-perception-system.ts
     pedestrian-runtime.ts
+    pedestrian-stimulus-adapter.ts
+    pedestrian-stimulus-registry.ts
   wanted/
     wanted-system.ts
   vehicles/
@@ -121,5 +123,6 @@ Extracted domain policies and room adapters now include:
 - `pedestrian-perception-system.ts` for police pursuit observations and expiring civilian last-known-threat memory.
 - `pedestrian-behavior-system.ts` for explicit wander/flee/pursue/search intent, independent authoritative aim, and fire cadence.
 - `pedestrian-navigation-system.ts` for deterministic blocked-path recovery, plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
+- `pedestrian-stimulus-registry.ts` for bounded, expiring, deduplicated sensory facts and `pedestrian-stimulus-adapter.ts` for translating stable cross-domain game events without importing producer systems.
 
 `DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, explicit simulation scheduling, spatial projection, and client transport. Client presentation remains extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.

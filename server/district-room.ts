@@ -223,7 +223,8 @@ export class DistrictRoom extends Room<DistrictState> {
     this.fireControl = new FireControlController({
       state: this.state,
       random: this.random,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs})
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      events: this.events
     });
     this.pedestrians = new PedestrianController({
       state: this.state,
@@ -362,7 +363,9 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.advance(deltaTime, (frame) => {
       this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
     });
-    this.debugProjection.update(this.events.drain());
+    const events = this.events.drain();
+    this.pedestrians.observeEvents(events);
+    this.debugProjection.update(events);
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
@@ -384,6 +387,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.crimeController.processReports(now);
     this.crimeController.updateDispatch(now);
+    this.pedestrians.beginTick(now);
     this.state.npcs.forEach((npc) => {
       this.pedestrians.update(npc, deltaSeconds, now);
       this.indexNpc(npc);

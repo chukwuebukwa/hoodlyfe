@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {FireControlController} from '../server/game/combat/fire-control-controller.ts';
+import {GameEventStream} from '../server/game/events/game-events.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 
@@ -13,17 +14,21 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   player.angle = 0;
   state.players.set(player.id, player);
   const clock = {tick: 1, nowMs: 1000};
+  const events = new GameEventStream();
   const fire = new FireControlController({
     state,
     random: new DeterministicRandom('fire-control-test'),
-    clock: () => clock
+    clock: () => clock,
+    events
   });
 
   fire.shoot(player.id);
   assert.equal(player.ammoPistol, 119);
   assert.equal(state.bullets.size, 1);
+  assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
   fire.shoot(player.id);
   assert.equal(state.bullets.size, 1);
+  assert.equal(events.size, 0);
 
   clock.nowMs += 700;
   clock.tick += 1;
@@ -31,6 +36,7 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   fire.shoot(player.id);
   assert.equal(player.ammoShotgun, 47);
   assert.equal(state.bullets.size, 7);
+  assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
 
   const vehicle = new VehicleState();
   vehicle.id = 'car';
@@ -43,11 +49,13 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   clock.nowMs += 700;
   fire.shoot(player.id);
   assert.equal(state.bullets.size, 7);
+  assert.equal(events.size, 0);
 
   player.vehicleSeat = 1;
   player.weapon = 'pistol';
   fire.shoot(player.id);
   assert.equal(state.bullets.size, 8);
+  assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
   const passengerBullet = [...state.bullets.values()].at(-1);
   assert.ok(passengerBullet);
   assert.ok(Math.hypot(passengerBullet.x - vehicle.x, passengerBullet.y - vehicle.y) < 40);

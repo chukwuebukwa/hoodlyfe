@@ -96,6 +96,8 @@ export class DebugSnapshotController {
 
 export function summarizeGameEvent(event: GameEvent): string {
   switch (event.type) {
+    case 'weapon.fired':
+      return `${event.ownerKind}:${event.ownerId} fired ${event.weapon}`;
     case 'damage.applied':
       return `${event.attackerId || 'world'} -> ${event.targetKind}:${event.targetId} -${event.amount}`;
     case 'entity.killed':

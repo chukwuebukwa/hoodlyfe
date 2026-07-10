@@ -1,6 +1,7 @@
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import {NpcState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import type {GameEvent} from '../events/game-events.ts';
 import {PedestrianBehaviorSystem} from './pedestrian-behavior-system.ts';
 import {PedestrianLocomotionSystem} from './pedestrian-locomotion-system.ts';
 import {PedestrianNavigationSystem} from './pedestrian-navigation-system.ts';
@@ -13,6 +14,8 @@ import {
   createPedestrianRuntime,
   type PedestrianRuntime
 } from './pedestrian-runtime.ts';
+import {PedestrianStimulusAdapter} from './pedestrian-stimulus-adapter.ts';
+import {PedestrianStimulusRegistry} from './pedestrian-stimulus-registry.ts';
 
 export type {PedestrianPoliceTarget} from './pedestrian-perception-system.ts';
 
@@ -40,12 +43,15 @@ export class PedestrianController {
   private readonly behavior: PedestrianBehaviorSystem;
   private readonly navigation: PedestrianNavigationSystem;
   private readonly locomotion: PedestrianLocomotionSystem;
+  private readonly stimuli = new PedestrianStimulusRegistry();
+  private readonly stimulusAdapter: PedestrianStimulusAdapter;
   private nextEjectedDriverId = 1;
 
   constructor(private readonly options: PedestrianControllerOptions) {
     this.perception = new PedestrianPerceptionSystem({
       state: options.state,
-      policeTarget: options.policeTarget
+      policeTarget: options.policeTarget,
+      nearestStimulus: (x, y, nowMs) => this.stimuli.nearest(x, y, nowMs)
     });
     this.behavior = new PedestrianBehaviorSystem({
       random: options.random,
@@ -56,6 +62,10 @@ export class PedestrianController {
       clock: options.clock
     });
     this.locomotion = new PedestrianLocomotionSystem(options.world, PEDESTRIAN_RADIUS);
+    this.stimulusAdapter = new PedestrianStimulusAdapter({
+      state: options.state,
+      registry: this.stimuli
+    });
   }
 
   spawn(
@@ -82,7 +92,11 @@ export class PedestrianController {
     npc.angle = random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
     npc.health = healthFor(kind);
     state.npcs.set(id, npc);
-    this.runtime.set(id, createPedestrianRuntime(npc.angle));
+    this.runtime.set(id, createPedestrianRuntime(
+      npc.angle,
+      random.range('npc-bravery', id, 0.22, 0.72),
+      random.range('npc-perception-offset', id, 0, 220)
+    ));
     this.options.onSpawned?.(npc);
     return npc;
   }
@@ -104,6 +118,14 @@ export class PedestrianController {
     if (intent.fire) {
       this.options.requestPoliceFire(npc.id, npc.x, npc.y, intent.aimAngle, nowMs);
     }
+  }
+
+  beginTick(nowMs: number): void {
+    this.stimuli.expire(nowMs);
+  }
+
+  observeEvents(events: readonly GameEvent[]): void {
+    this.stimulusAdapter.ingest(events);
   }
 
   panic(npcId: string, threatId: string, untilMs: number): void {
@@ -141,7 +163,11 @@ export class PedestrianController {
     npc.health = healthFor(npc.kind);
     this.options.state.npcs.set(id, npc);
     this.runtime.set(id, {
-      ...createPedestrianRuntime(npc.angle),
+      ...createPedestrianRuntime(
+        npc.angle,
+        this.options.random.range('npc-bravery', id, 0.22, 0.72),
+        nowMs + this.options.random.range('npc-perception-offset', id, 0, 220)
+      ),
       nextThinkAt: nowMs + 1100,
       panicUntil: nowMs + 4500,
       threatId: hijacker.id

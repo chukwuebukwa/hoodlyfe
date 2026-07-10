@@ -7,6 +7,15 @@ interface EventMetadata {
   nowMs: number;
 }
 
+export interface WeaponFiredEvent extends EventMetadata {
+  type: 'weapon.fired';
+  ownerId: string;
+  ownerKind: 'player' | 'police';
+  weapon: string;
+  x: number;
+  y: number;
+}
+
 export interface DamageAppliedEvent extends EventMetadata {
   type: 'damage.applied';
   targetId: string;
@@ -112,6 +121,7 @@ export interface MissionFailedEvent extends EventMetadata {
 }
 
 export type GameEvent =
+  | WeaponFiredEvent
   | DamageAppliedEvent
   | EntityKilledEvent
   | CrimeCommittedEvent
