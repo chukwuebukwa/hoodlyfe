@@ -5,6 +5,7 @@ import {
   MISSION_NOTICE_MESSAGE,
   type MissionNotice
 } from '../../shared/protocol/missions.ts';
+import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
 import {ClientInputController} from './input/client-input-controller.ts';
 import {DebugSnapshotSubscription} from './debug/debug-snapshot-subscription.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
@@ -29,6 +30,7 @@ const DEBUG_DRAW_INTERVAL = 100;
 
 export class DistrictScene extends Phaser.Scene {
   private readonly room: Room<DistrictNetworkState>;
+  private cameraController!: CameraPresentationController;
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
@@ -46,7 +48,6 @@ export class DistrictScene extends Phaser.Scene {
   private lastWanted = 0;
   private lastCash = 0;
   private lastLocalAction = '';
-  private cameraTargetId = '';
   private toastTimeout?: number;
   private latestState?: DistrictNetworkState;
   private latestDebugSnapshot?: DebugSnapshot;
@@ -96,13 +97,9 @@ export class DistrictScene extends Phaser.Scene {
     if (!collisions) throw new Error('Industrial District collisions could not be loaded.');
     this.collisionLayer = collisions.setVisible(false);
 
-    this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    this.cameras.main.setBackgroundColor('#080808');
-    this.cameras.main.setZoom(window.innerWidth < 700 ? 1.05 : 1.15);
+    this.cameraController = new CameraPresentationController(this);
+    this.cameraController.configure(map.widthInPixels, map.heightInPixels);
     this.input.setDefaultCursor('crosshair');
-    this.scale.on('resize', (size: Phaser.Structs.Size) => {
-      this.cameras.main.setZoom(size.width < 700 ? 1.05 : 1.15);
-    });
 
     this.createPedestrianAnimation('driver-walk', 'driver');
     this.createPedestrianAnimation('civilian-walk', 'civilian');
@@ -110,9 +107,7 @@ export class DistrictScene extends Phaser.Scene {
     this.pedestrianRenderer = new PedestrianRenderer(this);
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {
-        if (this.cameraTargetId === `vehicle:${vehicleId}`) return;
-        this.cameras.main.startFollow(container, true, 0.12, 0.12);
-        this.cameraTargetId = `vehicle:${vehicleId}`;
+        this.cameraController.followVehicle(vehicleId, container);
       }
     });
     this.playerRenderer = new PlayerRenderer(this, {
@@ -121,15 +116,8 @@ export class DistrictScene extends Phaser.Scene {
       canOccupy: (x, y) => this.canOccupy(x, y),
       onLocalState: (playerId, player, sprite, damaged) => {
         this.updateHud(player);
-        if (!player.vehicleId && this.cameraTargetId !== `player:${playerId}`) {
-          this.cameras.main.startFollow(sprite, true, 0.14, 0.14);
-          this.cameras.main.centerOn(player.x, player.y);
-          this.cameraTargetId = `player:${playerId}`;
-        }
-        if (damaged) {
-          this.cameras.main.shake(110, 0.004);
-          this.cameras.main.flash(90, 150, 20, 20, false);
-        }
+        if (!player.vehicleId) this.cameraController.followPlayer(playerId, sprite, player.x, player.y);
+        if (damaged) this.cameraController.localDamageFeedback();
       }
     });
     this.projectileRenderer = new ProjectileRenderer(this, {

@@ -25,6 +25,9 @@ Rules:
 
 ```text
 game/
+  camera/
+    camera-policy.ts
+    camera-presentation-controller.ts
   debug/
     debug-snapshot-subscription.ts
   input/
@@ -47,6 +50,8 @@ game/
 ```
 
 - `client-input-policy.ts` owns framework-independent movement normalization, gameplay-state gates, and independent command cadence.
+- `camera-policy.ts` owns renderer-independent responsive zoom and player/vehicle follow decisions.
+- `CameraPresentationController` owns Phaser target identity, following, damage feedback, resize binding, and teardown.
 - `DebugSnapshotSubscription` installs the snapshot handler before opting in, and owns unsubscribe/listener teardown.
 - `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
 - `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
