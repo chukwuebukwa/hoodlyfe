@@ -17,6 +17,7 @@ export type InteractionAffordanceKind =
   | 'ammunition'
   | 'repair'
   | 'hospital'
+  | 'clothing'
   | 'exit-vehicle'
   | 'enter-vehicle'
   | 'hijack-vehicle'
@@ -47,6 +48,15 @@ export function projectInteractionAffordance(
   if (!player?.alive || player.action) return hiddenAffordance();
   const service = nearestUsableService(state, player);
   if (service) {
+    if (service.kind === 'clothing') {
+      return {
+        visible: true,
+        kind: 'clothing',
+        label: 'BROWSE LOOKS',
+        touchLabel: 'STYLE',
+        ariaLabel: `${service.label}, open wardrobe`
+      };
+    }
     const quote = serviceQuote(state, player, service);
     const label = service.kind === 'repair'
       ? `REPAIR $${quote}`
@@ -113,8 +123,12 @@ function nearestUsableService(
       if (player.vehicleId || ammunitionRestockQuote(player) <= 0) continue;
       const distance = Math.hypot(player.x - service.x, player.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
-    } else {
+    } else if (service.kind === 'hospital') {
       if (player.vehicleId || medicalTreatmentQuote(player.health) <= 0) continue;
+      const distance = Math.hypot(player.x - service.x, player.y - service.y);
+      if (distance <= service.radius) candidates.push({service, distance});
+    } else {
+      if (player.vehicleId) continue;
       const distance = Math.hypot(player.x - service.x, player.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
     }
@@ -133,6 +147,7 @@ function serviceQuote(
     return vehicleRepairQuote(state.vehicles.get(player.vehicleId) as NetworkVehicle);
   }
   if (service.kind === 'hospital') return medicalTreatmentQuote(player.health);
+  if (service.kind === 'clothing') return 0;
   return ammunitionRestockQuote(player);
 }
 

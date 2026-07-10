@@ -57,3 +57,15 @@ Wardrobe ownership begins only after medical care is checkpointed. It needs priv
 - Automated coverage includes facility selection, duplicate debit protection, insufficient funds, treatment gates, public ammo preservation, trauma refill, damage immunity, firing cancellation, service projection, real two-client regression, and production build.
 - Live Holdout QA reproduced death, showed the two care choices, respawned at full health, and allowed attackers to kill again only after the bounded protection period. A settled reload produced no fresh warning/error logs.
 - Desktop controls measured 232 px wide with no overflow. The in-app viewport override reported 1280x720 after a requested 390x844 pass, so a true mobile breakpoint measurement remains a QA follow-up rather than a claimed pass; the fixed 232 px control width is below the target viewport.
+
+## Wardrobe Checkpoint Result
+
+- A finite shared catalog maps hair, headwear, top, bottom, and shoe styles to namespaced gameplay IDs independent of filenames, GTA2 identifiers, prices, or future chain records.
+- `WardrobeInventoryController` owns private per-player sets, mandatory baseline items, all-item development grants, missing-item checks, grants, owner-scoped snapshots, and disconnect cleanup.
+- `PlayerAppearanceController` validates both catalog shape and ownership before any public mutation. Unowned rejection is atomic and does not consume the update cadence.
+- Inventory is absent from public Colyseus schema. A client requests its own targeted snapshot; the real two-client test proves the other client receives no wardrobe state.
+- Appearance apply now has an explicit server result. The client disables duplicate submission and persists/closes only after `applied`; rejected state remains a draft and is not falsely saved.
+- A collision-safe `Threads` service sits 100-120 px from spawn, outside its 76 px action radius so it cannot steal the spawn vehicle interaction. It rejects wanted players and occupants, then sends an owner snapshot and opens the existing creator in `WARDROBE` mode. The global development `LOOK` path remains available as requested.
+- `WardrobeClientSession` owns room subscriptions, owner inventory, store-open validation, one in-flight apply, and result delivery independently from the DOM/form controller.
+- Live QA applied a direct creator look and a store look, reopened both to verify authoritative state, observed every development option enabled, and measured a 680x523 nonoverflowing panel. The first at-spawn store placement exposed vehicle-action starvation in the full integration test; the final near-spawn placement restores vehicle priority and passes the real two-client flow.
+- Current grants are intentionally free and session-local. Saved outfits, purchase rollback, pricing, original authored items, durable ownership, and monetization remain future persistence/economy work.

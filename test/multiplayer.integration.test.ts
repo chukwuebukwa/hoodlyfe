@@ -15,7 +15,17 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
-import {APPEARANCE_UPDATE_MESSAGE} from '../shared/protocol/appearance.ts';
+import {
+  APPEARANCE_RESULT_MESSAGE,
+  APPEARANCE_UPDATE_MESSAGE,
+  type AppearanceResultMessage
+} from '../shared/protocol/appearance.ts';
+import {
+  WARDROBE_REQUEST_MESSAGE,
+  WARDROBE_STATE_MESSAGE,
+  type WardrobeStateMessage
+} from '../shared/protocol/wardrobe.ts';
+import {DEVELOPMENT_WARDROBE_GRANTS} from '../shared/content/wardrobe-catalog.ts';
 import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
@@ -43,8 +53,23 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   });
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
   const debugSnapshots: DebugSnapshot[] = [];
+  const appearanceResults: AppearanceResultMessage[] = [];
+  const firstWardrobeStates: WardrobeStateMessage[] = [];
+  const secondWardrobeStates: WardrobeStateMessage[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
+  first.onMessage<AppearanceResultMessage>(
+    APPEARANCE_RESULT_MESSAGE,
+    (result) => appearanceResults.push(result)
+  );
+  first.onMessage<WardrobeStateMessage>(
+    WARDROBE_STATE_MESSAGE,
+    (state) => firstWardrobeStates.push(state)
+  );
+  second.onMessage<WardrobeStateMessage>(
+    WARDROBE_STATE_MESSAGE,
+    (state) => secondWardrobeStates.push(state)
+  );
   await delay(250);
   assert.equal(debugSnapshots.length, 0, 'Debug snapshots require an explicit client subscription.');
   first.send(DEBUG_SUBSCRIBE_MESSAGE);
@@ -58,9 +83,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, 11);
-  assert.equal(first.state.services.size, 4);
+  assert.equal(first.state.services.size, 5);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
+    'clothing',
     'hospital',
     'hospital',
     'repair'
@@ -74,8 +100,16 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Night Run');
   assert.equal(second.state.players.get(first.sessionId)?.appearance.topColor, 'red');
+  first.send(WARDROBE_REQUEST_MESSAGE);
+  await waitUntil(() => firstWardrobeStates.length === 1);
+  await delay(60);
+  assert.equal(secondWardrobeStates.length, 0, 'Wardrobe state must be private to its requester.');
+  assert.deepEqual(firstWardrobeStates[0].ownedItemIds, DEVELOPMENT_WARDROBE_GRANTS);
+  assert.equal(firstWardrobeStates[0].developmentGrants, true);
   const updatedAppearance = {...joinedAppearance, outfitName: 'Blue Shift', topColor: 'blue' as const};
   first.send(APPEARANCE_UPDATE_MESSAGE, updatedAppearance);
+  await waitUntil(() => appearanceResults.length === 1);
+  assert.equal(appearanceResults[0].status, 'applied');
   await waitUntil(() => second.state.players.get(first.sessionId)?.appearance.topColor === 'blue');
   assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Blue Shift');
   assert.equal(first.state.players.get(first.sessionId)?.weapon, 'pistol');

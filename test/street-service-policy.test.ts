@@ -73,6 +73,21 @@ test('interaction projection gives usable services priority over vehicle actions
   });
   player.health = 100;
 
+  state.services.set('clothing', createService({
+    id: 'clothing',
+    kind: 'clothing',
+    label: 'Threads',
+    radius: 76
+  }));
+  assert.deepEqual(projectInteractionAffordance(state, player.id), {
+    visible: true,
+    kind: 'clothing',
+    label: 'BROWSE LOOKS',
+    touchLabel: 'STYLE',
+    ariaLabel: 'Threads, open wardrobe'
+  });
+  state.services.delete('clothing');
+
   const vehicle = createVehicle({health: 700, x: 0, y: 0, driverId: player.id});
   state.vehicles.set(vehicle.id, vehicle);
   state.services.set('repair', createService({

@@ -18,6 +18,7 @@ interface StreetServiceControllerOptions {
   repairVehicle: (vehicle: VehicleState) => void;
   restockPlayer: (playerId: string) => void;
   medical: Pick<MedicalCareController, 'canTreat' | 'treat'>;
+  openWardrobe: (playerId: string, serviceId: string) => void;
   notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
 }
 
@@ -45,8 +46,17 @@ export class StreetServiceController {
       20,
       2411
     );
+    const clothing = world.openPointNear(
+      world.spawn.x,
+      world.spawn.y,
+      100,
+      120,
+      11,
+      3019
+    );
     this.addService('ammunition-counter', 'ammunition', 'Ammunition', ammunition.x, ammunition.y);
     this.addService('repair-garage', 'repair', 'Repair Garage', repair.x, repair.y);
+    this.addService('clothing-store', 'clothing', 'Threads', clothing.x, clothing.y);
     this.initialized = true;
   }
 
@@ -69,6 +79,9 @@ export class StreetServiceController {
       }
       if (kind === 'hospital' && this.options.medical.canTreat(player)) {
         return this.options.medical.treat(player.id, service.id, nowMs);
+      }
+      if (kind === 'clothing' && !player.vehicleId) {
+        return this.openWardrobe(player, service.id);
       }
     }
     return false;
@@ -131,6 +144,15 @@ export class StreetServiceController {
     }
     this.options.restockPlayer(player.id);
     this.options.notice(player.id, `Ammunition restocked -$${result.transaction?.amount ?? quote}`, 'success');
+    return true;
+  }
+
+  private openWardrobe(player: PlayerState, serviceId: string): boolean {
+    if (player.wanted > 0) {
+      this.options.notice(player.id, 'Lose police heat before entering the clothing store.', 'warning');
+      return true;
+    }
+    this.options.openWardrobe(player.id, serviceId);
     return true;
   }
 

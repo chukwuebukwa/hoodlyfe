@@ -65,8 +65,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
 - **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
 - **Playable** two collision-safe hospitals with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, authoritative living treatment, wanted/vehicle gates, world/minimap markers, and idempotent billing.
+- **Playable** discoverable clothing store that opens the existing creator in Wardrobe mode, with no duplicate renderer or customization path.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
-- **Foundation** street cash remains session-local and non-redeemable; clothing, pickups, risky cash loss, durable ledger, inventory, and ownership remain incomplete.
+- **Foundation** street cash remains session-local and non-redeemable; pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
 
 ### Appearance and Customization
 
@@ -74,7 +75,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** server-validated nested appearance state replicates to local/remote on-foot and passenger presentation with local reload persistence for development.
 - **Playable** one palette renderer powers preview and cached nine-frame world animation; inactive generated textures are bounded and pruned.
 - **Playable** creator modal blocks gameplay input and has verified desktop/390x844 layouts.
-- **Foundation** current procedural compatibility art will be replaced by original authored modular layer sheets; inventory, saved outfits, shops, unlocks, and durable ownership remain incomplete.
+- **Playable** private per-player session wardrobe grants every current item during development, validates owned styles before equip, and sends inventory only to its owning client.
+- **Playable** appearance apply now waits for an authoritative result before local persistence; invalid, rate-limited, or unowned updates cannot partially mutate or falsely save.
+- **Foundation** current procedural compatibility art will be replaced by original authored modular layer sheets; saved outfits, purchases, unlocks, pricing, and durable ownership remain incomplete.
 
 ## Next Implementation Slices
 
@@ -102,7 +105,8 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 - **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
 - **Delivered playable**: ammunition and repair services quote from shared content policy, validate authoritative context, debit once, apply complete domain effects, and replicate world/minimap/action presentation.
 - **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
-- Add a clothing-service entry point and private owned-versus-equipped wardrobe boundary next; keep all development cosmetics granted and free until durable persistence and original content exist.
+- **Delivered playable**: `Threads` is collision-safe and discoverable near spawn without intercepting the spawn vehicle action, opens the shared creator in Wardrobe mode, blocks wanted/vehicle use, and keeps every current item free during development.
+- **Delivered foundation**: inventory uses private namespaced item IDs and targeted snapshots; equipped appearance alone remains public replicated state.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.
 - Add pickups and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.
@@ -133,8 +137,8 @@ Exit gate met: four definitions compose shared objectives and one event-driven c
 - **Delivered playable**: appearance replicates as server-validated stable content IDs and palette values, never asset filenames; cosmetics do not affect gameplay statistics.
 - **Delivered foundation**: one preview/world palette renderer and bounded generated-texture cache cover current walk, aim, weapon, and passenger presentation.
 - Author original modular sprites for walk, run, aim, fire, enter, hijack, passenger lean, hit, and death readability.
-- Add saved outfits, wardrobe/clothing service, item ownership, and pricing only through persistence/economy ports.
-- Next slice: add private session wardrobe grants, server-side equip validation, unowned rejection, and a clothing service that opens the existing preview/apply/cancel creator rather than a second customization path.
+- **Delivered playable**: private session wardrobe grants, server-side owned-item validation, targeted owner-only inventory state, authoritative apply acknowledgement, and one clothing-service open flow reuse the existing preview/apply/cancel creator.
+- Add saved outfits, purchases, pricing, and durable wardrobe ownership only through future persistence/economy ports.
 - Cosmetics never change hitbox, health, speed, aim, weapon damage, vehicle performance, detection, or payout.
 - Saved outfits wait for account persistence; all current options stay unlocked during development.
 

@@ -12,14 +12,23 @@ test('street services initialize once at collision-safe authoritative locations'
   fixture.services.initialize();
   fixture.services.initialize();
 
-  assert.equal(fixture.state.services.size, 2);
+  assert.equal(fixture.state.services.size, 3);
   assert.deepEqual([...fixture.state.services.values()].map((service) => service.id).sort(), [
     'ammunition-counter',
+    'clothing-store',
     'repair-garage'
   ]);
   for (const service of fixture.state.services.values()) {
     assert.equal(fixture.world.canOccupy(service.x, service.y, 11), true);
   }
+  const clothing = fixture.state.services.get('clothing-store');
+  assert.ok(clothing);
+  const clothingDistance = Math.hypot(
+    clothing.x - fixture.world.spawn.x,
+    clothing.y - fixture.world.spawn.y
+  );
+  assert.ok(clothingDistance > clothing.radius);
+  assert.ok(clothingDistance <= 120);
 });
 
 test('repair garage atomically charges and restores an eligible vehicle', () => {
@@ -86,6 +95,29 @@ test('ammunition counter charges the computed quote and restores every weapon re
   assert.equal(fixture.notices.at(-1)?.message, 'Ammunition restocked -$190');
 });
 
+test('clothing store opens only for an on-foot heat-free player without changing cash', () => {
+  const fixture = createFixture();
+  fixture.services.initialize();
+  const store = fixture.state.services.get('clothing-store');
+  assert.ok(store);
+  fixture.player.x = store.x;
+  fixture.player.y = store.y;
+  fixture.player.cash = 400;
+
+  assert.equal(fixture.services.interact(fixture.player.id, 4000), true);
+  assert.deepEqual(fixture.wardrobeOpens, [{playerId: fixture.player.id, serviceId: store.id}]);
+  assert.equal(fixture.player.cash, 400);
+
+  fixture.player.wanted = 1;
+  assert.equal(fixture.services.interact(fixture.player.id, 4001), true);
+  assert.equal(fixture.wardrobeOpens.length, 1);
+  assert.match(fixture.notices.at(-1)?.message ?? '', /Lose police heat/);
+
+  fixture.player.wanted = 0;
+  fixture.player.vehicleId = 'car';
+  assert.equal(fixture.services.interact(fixture.player.id, 4002), false);
+});
+
 function createFixture() {
   const state = new DistrictState();
   const world = CollisionMap.load();
@@ -100,6 +132,7 @@ function createFixture() {
   let repairs = 0;
   let restocks = 0;
   const notices: Array<{playerId: string; message: string; tone: string}> = [];
+  const wardrobeOpens: Array<{playerId: string; serviceId: string}> = [];
   const economy = new StreetEconomyController({state, events, clock: () => ({tick})});
   const services = new StreetServiceController({
     state,
@@ -129,6 +162,7 @@ function createFixture() {
       canTreat: () => false,
       treat: () => false
     },
+    openWardrobe: (playerId, serviceId) => wardrobeOpens.push({playerId, serviceId}),
     notice: (playerId, message, tone) => notices.push({playerId, message, tone})
   });
   return {
@@ -138,6 +172,7 @@ function createFixture() {
     economy,
     services,
     notices,
+    wardrobeOpens,
     repairCount: () => repairs,
     restockCount: () => restocks,
     setTick: (value: number) => { tick = value; }

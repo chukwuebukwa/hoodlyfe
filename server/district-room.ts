@@ -4,9 +4,15 @@ import {
   DEBUG_UNSUBSCRIBE_MESSAGE
 } from '../shared/protocol/debug.ts';
 import {
+  APPEARANCE_RESULT_MESSAGE,
   APPEARANCE_UPDATE_MESSAGE,
   type AppearanceUpdateMessage
 } from '../shared/protocol/appearance.ts';
+import {
+  WARDROBE_OPEN_MESSAGE,
+  WARDROBE_REQUEST_MESSAGE,
+  WARDROBE_STATE_MESSAGE
+} from '../shared/protocol/wardrobe.ts';
 import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
@@ -42,6 +48,7 @@ import {
 } from './game/players/player-control-controller.ts';
 import {PlayerLifecycleController} from './game/players/player-lifecycle-controller.ts';
 import {PlayerAppearanceController} from './game/players/player-appearance-controller.ts';
+import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-controller.ts';
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {
   PedestrianController,
@@ -88,6 +95,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private vehicleSimulation!: VehicleSimulationController;
   private playerControl!: PlayerControlController;
   private appearanceController!: PlayerAppearanceController;
+  private wardrobeController!: WardrobeInventoryController;
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
   private fireControl!: FireControlController;
@@ -119,9 +127,11 @@ export class DistrictRoom extends Room<DistrictState> {
       state: this.state,
       world: this.world
     });
+    this.wardrobeController = new WardrobeInventoryController();
     this.appearanceController = new PlayerAppearanceController({
       state: this.state,
-      clock: () => ({nowMs: this.simulationClock.nowMs})
+      clock: () => ({nowMs: this.simulationClock.nowMs}),
+      wardrobe: this.wardrobeController
     });
     this.trafficController = new TrafficController({
       world: this.world,
@@ -280,6 +290,10 @@ export class DistrictRoom extends Room<DistrictState> {
       events: this.events,
       cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId)
     });
+    const sendWardrobeState = (playerId: string) => {
+      const client = this.clients.find((candidate) => candidate.sessionId === playerId);
+      client?.send(WARDROBE_STATE_MESSAGE, this.wardrobeController.snapshot(playerId));
+    };
     this.serviceController = new StreetServiceController({
       state: this.state,
       world: this.world,
@@ -288,6 +302,11 @@ export class DistrictRoom extends Room<DistrictState> {
       repairVehicle: (vehicle) => this.vehicleSimulation.repair(vehicle),
       restockPlayer: (playerId) => this.fireControl.restock(playerId),
       medical: this.medicalController,
+      openWardrobe: (playerId, serviceId) => {
+        const client = this.clients.find((candidate) => candidate.sessionId === playerId);
+        sendWardrobeState(playerId);
+        client?.send(WARDROBE_OPEN_MESSAGE, {serviceId});
+      },
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     this.interactionController = new PlayerInteractionController({
@@ -404,8 +423,10 @@ export class DistrictRoom extends Room<DistrictState> {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
     this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
-      this.appearanceController.update(client.sessionId, message);
+      const status = this.appearanceController.update(client.sessionId, message);
+      client.send(APPEARANCE_RESULT_MESSAGE, {status});
     });
+    this.onMessage(WARDROBE_REQUEST_MESSAGE, (client) => sendWardrobeState(client.sessionId));
     this.onMessage<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
       if (!isMedicalCareKind(message?.kind)) return;
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
@@ -445,6 +466,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.x = spawn.x;
     player.y = spawn.y;
     player.angle = -Math.PI / 2;
+    this.wardrobeController.initialize(client.sessionId);
     this.appearanceController.initialize(player, options?.appearance);
     this.state.players.set(client.sessionId, player);
     this.playerControl.register(client.sessionId);
@@ -459,6 +481,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.playerControl.unregister(client.sessionId);
     this.playerLifecycle.clearPlayer(client.sessionId);
     this.appearanceController.clearPlayer(client.sessionId);
+    this.wardrobeController.clearPlayer(client.sessionId);
     this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);

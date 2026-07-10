@@ -1,4 +1,4 @@
-export type StreetServiceKind = 'ammunition' | 'repair' | 'hospital';
+export type StreetServiceKind = 'ammunition' | 'repair' | 'hospital' | 'clothing';
 
 export interface AmmunitionState {
   ammoPistol: number;
@@ -25,7 +25,8 @@ export const AMMUNITION_CAPACITY: Readonly<AmmunitionState> = Object.freeze({
 export const STREET_SERVICE_RADIUS: Readonly<Record<StreetServiceKind, number>> = Object.freeze({
   ammunition: 72,
   repair: 78,
-  hospital: 76
+  hospital: 76,
+  clothing: 76
 });
 
 export function ammunitionRestockQuote(state: AmmunitionState): number {

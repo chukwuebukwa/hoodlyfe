@@ -5,15 +5,18 @@ import {
   type PlayerAppearance
 } from '../../../shared/content/appearance-catalog.ts';
 import type {DistrictState, PlayerAppearanceState, PlayerState} from '../../state.ts';
+import type {AppearanceUpdateStatus} from '../../../shared/protocol/appearance.ts';
+import type {WardrobeInventoryController} from '../appearance/wardrobe-inventory-controller.ts';
 
 const UPDATE_COOLDOWN_MS = 150;
 
 interface PlayerAppearanceControllerOptions {
   state: DistrictState;
   clock: () => {nowMs: number};
+  wardrobe: Pick<WardrobeInventoryController, 'canEquip'>;
 }
 
-export type AppearanceUpdateResult = 'applied' | 'invalid' | 'missing' | 'rate-limited';
+export type AppearanceUpdateResult = AppearanceUpdateStatus;
 
 export class PlayerAppearanceController {
   private readonly nextUpdateAt = new Map<string, number>();
@@ -21,7 +24,10 @@ export class PlayerAppearanceController {
   constructor(private readonly options: PlayerAppearanceControllerOptions) {}
 
   initialize(player: PlayerState, rawAppearance: unknown): PlayerAppearance {
-    const appearance = validateAppearance(rawAppearance) ?? cloneAppearance(DEFAULT_APPEARANCE);
+    const requested = validateAppearance(rawAppearance);
+    const appearance = requested && this.options.wardrobe.canEquip(player.id, requested)
+      ? requested
+      : cloneAppearance(DEFAULT_APPEARANCE);
     assignAppearance(player.appearance, appearance);
     return appearance;
   }
@@ -31,6 +37,7 @@ export class PlayerAppearanceController {
     if (!player) return 'missing';
     const appearance = validateAppearance(rawAppearance);
     if (!appearance) return 'invalid';
+    if (!this.options.wardrobe.canEquip(playerId, appearance)) return 'unowned';
     const nowMs = this.options.clock().nowMs;
     if (nowMs < (this.nextUpdateAt.get(playerId) ?? Number.NEGATIVE_INFINITY)) {
       return 'rate-limited';

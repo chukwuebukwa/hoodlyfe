@@ -629,6 +629,16 @@ canvas {
   cursor: pointer;
 }
 
+#appearance-form option:disabled {
+  color: #6f777a;
+}
+
+#appearance-creator > footer button:disabled {
+  color: #8c9496;
+  cursor: wait;
+  opacity: 0.72;
+}
+
 #appearance-creator > footer > div {
   display: flex;
   gap: 8px;

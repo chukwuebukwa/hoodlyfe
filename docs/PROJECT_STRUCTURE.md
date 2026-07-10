@@ -199,7 +199,8 @@ The first room-facing facades are now live:
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
 - `MedicalCareController` owns registered hospitals, private admission/care choice, nearest-facility selection, living treatment, and idempotent economy coordination.
 - `PlayerLifecycleController` owns death/respawn mutation and bounded spawn protection independently of combat and the room; it delegates facility, timing, ammunition, and care policy to medical care.
-- `PlayerAppearanceController` owns join fallback, full-update validation, public schema mutation, rate limiting, and disconnect cleanup; the shared appearance catalog owns finite content IDs and palette values.
+- `WardrobeInventoryController` owns private namespaced item grants, owner-scoped snapshots, and equip entitlement checks; wardrobe inventory never enters public Colyseus schema state.
+- `PlayerAppearanceController` owns join fallback, full-update validation, owned-item gating, public equipped-state mutation, rate limiting, and disconnect cleanup; the shared appearance/wardrobe catalogs own finite content IDs and palette values.
 - `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `PedestrianReactionSystem` owns staged civilian orient/respond/recover transitions; synchronized NPC action is presentation intent, not a client-side gameplay decision.
 - `PedestrianCombatSystem` converts a mission-owned target assignment into line-of-sight pursuit/fire intent; pedestrian navigation, locomotion, fire control, projectiles, and damage retain execution ownership.
@@ -211,7 +212,7 @@ The first room-facing facades are now live:
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
-Client appearance remains split as well: `AppearanceCreatorController` owns modal draft/apply/storage behavior, the canvas policy owns palette/style rendering, `PlayerAppearanceTextureFactory` owns bounded Phaser texture/animation caching, and `PlayerRenderer` only selects the current presentation.
+Client appearance remains split as well: `AppearanceCreatorController` owns modal draft/form/preview/storage presentation, `WardrobeClientSession` owns targeted inventory/store-open subscriptions plus in-flight apply acknowledgement, the canvas policy owns palette/style rendering, `PlayerAppearanceTextureFactory` owns bounded Phaser texture/animation caching, and `PlayerRenderer` only selects the current equipped presentation.
 
 ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. The room now contains transport lifecycle, dependency wiring, explicit schedule order, and spatial projection. The first client coordinator extraction and the pedestrian perception/behavior/navigation/locomotion split are complete; dynamic population policy and deeper event-driven behavior remain domain work.
 

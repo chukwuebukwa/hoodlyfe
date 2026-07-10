@@ -5,6 +5,7 @@ import {
   cloneAppearance
 } from '../shared/content/appearance-catalog.ts';
 import {PlayerAppearanceController} from '../server/game/players/player-appearance-controller.ts';
+import {WardrobeInventoryController} from '../server/game/appearance/wardrobe-inventory-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
 
 test('appearance controller defaults invalid join data and applies valid public state', () => {
@@ -13,7 +14,13 @@ test('appearance controller defaults invalid join data and applies valid public 
   player.id = 'driver';
   state.players.set(player.id, player);
   let nowMs = 100;
-  const controller = new PlayerAppearanceController({state, clock: () => ({nowMs})});
+  const wardrobe = new WardrobeInventoryController();
+  wardrobe.initialize(player.id);
+  const controller = new PlayerAppearanceController({
+    state,
+    clock: () => ({nowMs}),
+    wardrobe
+  });
 
   assert.deepEqual(controller.initialize(player, {bodyType: 'invalid'}), DEFAULT_APPEARANCE);
   const update = {...cloneAppearance(), outfitName: 'Night Run', topColor: 'red' as const};
@@ -36,10 +43,38 @@ test('appearance controller rejects hostile IDs without partial mutation', () =>
   const player = new PlayerState();
   player.id = 'driver';
   state.players.set(player.id, player);
-  const controller = new PlayerAppearanceController({state, clock: () => ({nowMs: 100})});
+  const wardrobe = new WardrobeInventoryController();
+  wardrobe.initialize(player.id);
+  const controller = new PlayerAppearanceController({
+    state,
+    clock: () => ({nowMs: 100}),
+    wardrobe
+  });
   controller.initialize(player, cloneAppearance());
   const before = player.appearance.topColor;
   assert.equal(controller.update(player.id, {...cloneAppearance(), topColor: 'javascript:test'}), 'invalid');
   assert.equal(player.appearance.topColor, before);
   assert.equal(controller.update('missing', cloneAppearance()), 'missing');
+});
+
+test('appearance controller rejects unowned items without mutation or consuming update cadence', () => {
+  const state = new DistrictState();
+  const player = new PlayerState();
+  player.id = 'driver';
+  state.players.set(player.id, player);
+  const wardrobe = new WardrobeInventoryController();
+  wardrobe.initialize(player.id, []);
+  const controller = new PlayerAppearanceController({
+    state,
+    clock: () => ({nowMs: 100}),
+    wardrobe
+  });
+  controller.initialize(player, cloneAppearance());
+  const hoodie = {...cloneAppearance(), topStyle: 'hoodie' as const};
+
+  assert.equal(controller.update(player.id, hoodie), 'unowned');
+  assert.equal(player.appearance.topStyle, 'jacket');
+  wardrobe.grant(player.id, 'top:hoodie');
+  assert.equal(controller.update(player.id, hoodie), 'applied');
+  assert.equal(player.appearance.topStyle, 'hoodie');
 });

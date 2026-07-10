@@ -16,18 +16,23 @@ import {
   type AppearanceOption,
   type PlayerAppearance
 } from '../../../shared/content/appearance-catalog.ts';
-import {APPEARANCE_UPDATE_MESSAGE} from '../../../shared/protocol/appearance.ts';
+import {
+  wardrobeItemForField,
+  type WardrobeItemId
+} from '../../../shared/content/wardrobe-catalog.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {saveAppearance} from './appearance-storage.ts';
 import {
   appearanceSpritePresentation,
   renderAppearanceSheet
 } from './appearance-render-policy.ts';
+import {WardrobeClientSession} from './wardrobe-client-session.ts';
 
 type ColorField = 'hairColor' | 'topColor' | 'accentColor' | 'bottomColor' | 'shoeColor';
 
 export class AppearanceCreatorController {
   private readonly modal: HTMLElement | null;
+  private readonly title: Element | null;
   private readonly toggle: HTMLButtonElement | null;
   private readonly closeButton: HTMLButtonElement | null;
   private readonly cancelButton: HTMLButtonElement | null;
@@ -41,6 +46,7 @@ export class AppearanceCreatorController {
   private readonly preview: HTMLCanvasElement | null;
   private readonly previewSheet = document.createElement('canvas');
   private readonly previewSource = new Image();
+  private readonly wardrobeSession: WardrobeClientSession;
   private readonly selects: Record<string, HTMLSelectElement | null>;
   private state?: DistrictNetworkState;
   private draft?: PlayerAppearance;
@@ -53,6 +59,7 @@ export class AppearanceCreatorController {
     private readonly root: Document = document
   ) {
     this.modal = root.querySelector<HTMLElement>('#appearance-modal');
+    this.title = root.querySelector('#appearance-title');
     this.toggle = root.querySelector<HTMLButtonElement>('#appearance-toggle');
     this.closeButton = root.querySelector<HTMLButtonElement>('#appearance-close');
     this.cancelButton = root.querySelector<HTMLButtonElement>('#appearance-cancel');
@@ -75,13 +82,20 @@ export class AppearanceCreatorController {
     };
     populateSelect(this.selects.bodyType, BODY_OPTIONS);
     populateSelect(this.selects.skinTone, SKIN_OPTIONS);
-    populateSelect(this.selects.hairStyle, HAIR_OPTIONS);
-    populateSelect(this.selects.headwear, HEADWEAR_OPTIONS);
-    populateSelect(this.selects.topStyle, TOP_OPTIONS);
-    populateSelect(this.selects.bottomStyle, BOTTOM_OPTIONS);
-    populateSelect(this.selects.shoeStyle, SHOE_OPTIONS);
+    populateSelect(this.selects.hairStyle, HAIR_OPTIONS, 'hairStyle');
+    populateSelect(this.selects.headwear, HEADWEAR_OPTIONS, 'headwear');
+    populateSelect(this.selects.topStyle, TOP_OPTIONS, 'topStyle');
+    populateSelect(this.selects.bottomStyle, BOTTOM_OPTIONS, 'bottomStyle');
+    populateSelect(this.selects.shoeStyle, SHOE_OPTIONS, 'shoeStyle');
     this.createSwatches();
     this.bindEvents();
+    this.wardrobeSession = new WardrobeClientSession({
+      room,
+      onInventory: this.renderOwnership,
+      onOpen: () => this.openWithMode('wardrobe'),
+      onApplyResult: this.handleAppearanceResult
+    });
+    this.wardrobeSession.start();
     this.previewSource.addEventListener('load', this.renderPreview);
     this.previewSource.src = '/assets/original/sprites/player-base.png';
   }
@@ -112,6 +126,7 @@ export class AppearanceCreatorController {
     this.modal?.removeEventListener('click', this.closeFromBackdrop);
     this.root.removeEventListener('keydown', this.handleKeydown);
     this.previewSource.removeEventListener('load', this.renderPreview);
+    this.wardrobeSession.destroy();
     this.state = undefined;
     this.draft = undefined;
   }
@@ -146,15 +161,20 @@ export class AppearanceCreatorController {
 
   private readonly open = (event?: Event): void => {
     event?.stopPropagation();
+    this.openWithMode('creator');
+  };
+
+  private openWithMode(mode: 'creator' | 'wardrobe'): void {
     const player = this.state?.players.get(this.localPlayerId);
     if (!player?.alive) return;
     this.draft = cloneAppearance(player.appearance);
     this.openState = true;
+    if (this.title) this.title.textContent = mode === 'wardrobe' ? 'WARDROBE' : 'CHARACTER CREATOR';
     this.room.send('input', {x: 0, y: 0});
     this.modal?.classList.remove('hidden');
     this.renderForm();
     this.outfitName?.focus();
-  };
+  }
 
   private readonly close = (event?: Event): void => {
     event?.stopPropagation();
@@ -214,15 +234,15 @@ export class AppearanceCreatorController {
       outfitName: 'Custom Fit',
       bodyType: randomOption(BODY_OPTIONS),
       skinTone: randomOption(SKIN_OPTIONS),
-      hairStyle: randomOption(HAIR_OPTIONS),
+      hairStyle: randomOwnedOption('hairStyle', HAIR_OPTIONS, this.wardrobeSession.ownedItems()),
       hairColor: randomOption(COLOR_OPTIONS),
-      headwear: randomOption(HEADWEAR_OPTIONS),
-      topStyle: randomOption(TOP_OPTIONS),
+      headwear: randomOwnedOption('headwear', HEADWEAR_OPTIONS, this.wardrobeSession.ownedItems()),
+      topStyle: randomOwnedOption('topStyle', TOP_OPTIONS, this.wardrobeSession.ownedItems()),
       topColor: randomOption(COLOR_OPTIONS),
       accentColor: randomOption(COLOR_OPTIONS),
-      bottomStyle: randomOption(BOTTOM_OPTIONS),
+      bottomStyle: randomOwnedOption('bottomStyle', BOTTOM_OPTIONS, this.wardrobeSession.ownedItems()),
       bottomColor: randomOption(COLOR_OPTIONS),
-      shoeStyle: randomOption(SHOE_OPTIONS),
+      shoeStyle: randomOwnedOption('shoeStyle', SHOE_OPTIONS, this.wardrobeSession.ownedItems()),
       shoeColor: randomOption(COLOR_OPTIONS)
     };
     this.renderForm();
@@ -230,13 +250,31 @@ export class AppearanceCreatorController {
 
   private readonly apply = (event: Event): void => {
     event.stopPropagation();
+    if (this.wardrobeSession.isApplying()) return;
     this.readForm();
     if (!this.draft) return;
     const appearance = validateAppearance(this.draft);
     if (!appearance) return;
-    this.room.send(APPEARANCE_UPDATE_MESSAGE, appearance);
-    saveAppearance(appearance);
-    this.close();
+    if (this.wardrobeSession.submit(appearance)) this.setApplyBusy(true);
+  };
+
+  private readonly handleAppearanceResult = (
+    status: 'applied' | 'invalid' | 'missing' | 'rate-limited' | 'unowned',
+    pending: PlayerAppearance
+  ): void => {
+    this.setApplyBusy(false);
+    if (status === 'applied') {
+      saveAppearance(pending);
+      this.close();
+      return;
+    }
+    if (this.outfitLabel) {
+      this.outfitLabel.textContent = status === 'unowned'
+        ? 'ITEM NOT OWNED'
+        : status === 'rate-limited'
+          ? 'TRY AGAIN'
+          : 'LOOK REJECTED';
+    }
   };
 
   private renderForm(): void {
@@ -245,6 +283,7 @@ export class AppearanceCreatorController {
     for (const [field, select] of Object.entries(this.selects)) {
       if (select) select.value = String(this.draft[field as keyof PlayerAppearance]);
     }
+    this.renderOwnership();
     this.renderColorSelection();
     this.renderAppearance();
   }
@@ -263,6 +302,23 @@ export class AppearanceCreatorController {
     if (!this.draft) return;
     if (this.outfitLabel) this.outfitLabel.textContent = this.draft.outfitName.toUpperCase();
     this.renderPreview();
+  }
+
+  private readonly renderOwnership = (): void => {
+    const ownedItemIds = this.wardrobeSession.ownedItems();
+    if (ownedItemIds.size === 0) return;
+    for (const select of Object.values(this.selects)) {
+      for (const option of select?.options ?? []) {
+        const itemId = option.dataset.wardrobeItem;
+        option.disabled = Boolean(itemId && !ownedItemIds.has(itemId as WardrobeItemId));
+      }
+    }
+  };
+
+  private setApplyBusy(busy: boolean): void {
+    if (!this.applyButton) return;
+    this.applyButton.disabled = busy;
+    this.applyButton.textContent = busy ? 'APPLYING' : 'APPLY LOOK';
   }
 
   private readonly renderPreview = (): void => {
@@ -290,19 +346,36 @@ export class AppearanceCreatorController {
 
 function populateSelect<T extends string>(
   select: HTMLSelectElement | null,
-  options: readonly AppearanceOption<T>[]
+  options: readonly AppearanceOption<T>[],
+  field?: keyof PlayerAppearance
 ): void {
   if (!select) return;
   select.replaceChildren(...options.map((option) => {
     const element = document.createElement('option');
     element.value = option.id;
     element.textContent = option.label;
+    const itemId = field ? wardrobeItemForField(field, option.id) : undefined;
+    if (itemId) element.dataset.wardrobeItem = itemId;
     return element;
   }));
 }
 
 function randomOption<T extends string>(options: readonly AppearanceOption<T>[]): T {
   return options[Math.floor(Math.random() * options.length)].id;
+}
+
+function randomOwnedOption<T extends string>(
+  field: keyof PlayerAppearance,
+  options: readonly AppearanceOption<T>[],
+  ownedItemIds: ReadonlySet<WardrobeItemId>
+): T {
+  const owned = ownedItemIds.size === 0
+    ? options
+    : options.filter((option) => {
+      const itemId = wardrobeItemForField(field, option.id);
+      return !itemId || ownedItemIds.has(itemId);
+    });
+  return randomOption(owned.length > 0 ? owned : options);
 }
 
 function isColorField(value: unknown): value is ColorField {
