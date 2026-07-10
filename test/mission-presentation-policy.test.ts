@@ -24,6 +24,9 @@ test('mission HUD projects street contact and deterministic nearby crew joining'
   assert.equal(getaway.title, 'Getaway Run');
   assert.equal(getaway.templateSelectorVisible, true);
   assert.match(getaway.objective, /route/);
+  const rush = projectMissionHud(state, 'local', 'checkpoint-rush');
+  assert.equal(rush.title, 'Crew Checkpoint Rush');
+  assert.match(rush.objective, /crew vehicle/);
 
   const leader = createPlayer({id: 'leader', name: 'Leader', x: 100, y: 0});
   state.players.set('leader', leader);
@@ -93,6 +96,42 @@ test('mission world and minimap share target and delivery phase projection', () 
   assert.equal(
     missionMinimapPoints(state, 'local').find((point) => point.id.includes('checkpoint'))?.x,
     320
+  );
+});
+
+test('target-free checkpoint HUD and world projection expose only the shared route', () => {
+  const state = createState();
+  const mission = createMission({
+    templateId: 'checkpoint-rush',
+    phase: 'checkpoints',
+    objectiveId: 'run-crew-route',
+    objectiveKind: 'crew-checkpoints',
+    objectiveCount: 1,
+    targetVehicleId: '',
+    checkpointIndex: 2,
+    checkpointCount: 5,
+    checkpointX: 420,
+    checkpointY: 220,
+    checkpointRadius: 82,
+    projectedReward: 900
+  });
+  const local = state.players.get('local');
+  assert.ok(local);
+  mission.participants.set('local', participant(local, 'leader'));
+  state.missions.set(mission.id, mission);
+
+  const hud = projectMissionHud(state, 'local');
+  assert.equal(hud.title, 'Crew Checkpoint Rush');
+  assert.equal(hud.objective, 'Get any crew vehicle through checkpoint 3 of 5.');
+  assert.equal(projectMissionWorld(state, 'local').target, undefined);
+  assert.deepEqual(projectMissionWorld(state, 'local').checkpoint, {
+    x: 420,
+    y: 220,
+    radius: 82
+  });
+  assert.deepEqual(
+    missionMinimapPoints(state, 'local').map((point) => point.id),
+    ['freemode-contact', `${mission.id}:checkpoint:2`]
   );
 });
 

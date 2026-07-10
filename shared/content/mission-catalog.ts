@@ -1,9 +1,26 @@
-export const MISSION_TEMPLATE_IDS = ['boost-and-deliver', 'getaway-run'] as const;
+export const MISSION_TEMPLATE_IDS = [
+  'boost-and-deliver',
+  'getaway-run',
+  'checkpoint-rush'
+] as const;
 export type MissionTemplateId = typeof MISSION_TEMPLATE_IDS[number];
+
+export type MissionTargetMode = 'reserved-traffic-vehicle' | 'crew-members';
+export type MissionRewardPolicy = 'vehicle-condition' | 'fixed';
+
+export const MISSION_TARGET_MODES: readonly MissionTargetMode[] = Object.freeze([
+  'reserved-traffic-vehicle',
+  'crew-members'
+]);
+export const MISSION_REWARD_POLICIES: readonly MissionRewardPolicy[] = Object.freeze([
+  'vehicle-condition',
+  'fixed'
+]);
 
 export type MissionObjectiveKind =
   | 'acquire-vehicle'
   | 'vehicle-checkpoints'
+  | 'crew-checkpoints'
   | 'clear-wanted'
   | 'deliver-vehicle';
 
@@ -26,6 +43,8 @@ export interface MissionTemplateDefinition {
   durationMs: number;
   formationDurationMs: number;
   maximumParticipants: number;
+  targetMode: MissionTargetMode;
+  rewardPolicy: MissionRewardPolicy;
   objectives: readonly MissionObjectiveDefinition[];
 }
 
@@ -41,6 +60,8 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       durationMs: 180_000,
       formationDurationMs: 15_000,
       maximumParticipants: 4,
+      targetMode: 'reserved-traffic-vehicle',
+      rewardPolicy: 'vehicle-condition',
       objectives: Object.freeze([
         Object.freeze({id: 'acquire-target', kind: 'acquire-vehicle', phase: 'steal'}),
         Object.freeze({id: 'clear-heat', kind: 'clear-wanted', phase: 'lose-heat'}),
@@ -61,6 +82,8 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       durationMs: 210_000,
       formationDurationMs: 15_000,
       maximumParticipants: 4,
+      targetMode: 'reserved-traffic-vehicle',
+      rewardPolicy: 'vehicle-condition',
       objectives: Object.freeze([
         Object.freeze({id: 'acquire-target', kind: 'acquire-vehicle', phase: 'steal'}),
         Object.freeze({
@@ -76,6 +99,25 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
           phase: 'deliver',
           maximumSpeed: 32,
           wantedGate: true
+        })
+      ])
+    }),
+    'checkpoint-rush': Object.freeze({
+      id: 'checkpoint-rush',
+      label: 'Crew Checkpoint Rush',
+      summary: 'Get any crew vehicle through the shared checkpoint route before time runs out.',
+      baseReward: 900,
+      durationMs: 150_000,
+      formationDurationMs: 15_000,
+      maximumParticipants: 4,
+      targetMode: 'crew-members',
+      rewardPolicy: 'fixed',
+      objectives: Object.freeze([
+        Object.freeze({
+          id: 'run-crew-route',
+          kind: 'crew-checkpoints',
+          phase: 'checkpoints',
+          checkpointCount: 5
         })
       ])
     })

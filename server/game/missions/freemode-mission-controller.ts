@@ -59,26 +59,30 @@ export class FreemodeMissionController {
       this.options.notice(playerId, 'Meet the orange contact to start work.', 'warning');
       return;
     }
-    const target = [...state.vehicles.values()]
-      .filter((vehicle) => (
-        vehicle.traffic &&
-        !vehicle.destroyed &&
-        !vehicle.hijackBy &&
-        !this.system.isTargetReserved(vehicle.id)
-      ))
-      .sort((left, right) => (
-        Math.hypot(left.x - player.x, left.y - player.y) -
-        Math.hypot(right.x - player.x, right.y - player.y) ||
-        left.id.localeCompare(right.id)
-      ))[0];
-    if (!target) {
-      this.options.notice(playerId, 'No suitable traffic vehicle is available.', 'warning');
-      return;
-    }
     const clock = this.options.clock();
-    const delivery = this.deliveryPoint(target, clock.nowMs);
+    let target: VehicleState | undefined;
+    let delivery: {x: number; y: number} | undefined;
+    if (definition.targetMode === 'reserved-traffic-vehicle') {
+      target = [...state.vehicles.values()]
+        .filter((vehicle) => (
+          vehicle.traffic &&
+          !vehicle.destroyed &&
+          !vehicle.hijackBy &&
+          !this.system.isTargetReserved(vehicle.id)
+        ))
+        .sort((left, right) => (
+          Math.hypot(left.x - player.x, left.y - player.y) -
+          Math.hypot(right.x - player.x, right.y - player.y) ||
+          left.id.localeCompare(right.id)
+        ))[0];
+      if (!target) {
+        this.options.notice(playerId, 'No suitable traffic vehicle is available.', 'warning');
+        return;
+      }
+      delivery = this.deliveryPoint(target, clock.nowMs);
+    }
     const checkpoints = this.checkpointRoute(
-      target,
+      target ?? player,
       delivery,
       clock.nowMs,
       missionCheckpointCount(templateId)
@@ -86,11 +90,11 @@ export class FreemodeMissionController {
     const result = this.system.start({
       leaderId: playerId,
       templateId,
-      targetVehicleId: target.id,
-      deliveryX: delivery.x,
-      deliveryY: delivery.y,
+      targetVehicleId: target?.id,
+      deliveryX: delivery?.x,
+      deliveryY: delivery?.y,
       checkpoints,
-      nowMs: clock.nowMs,
+      nowMs: clock.nowMs
     });
     if (!result.ok) {
       const message = result.reason === 'participant-active'
@@ -99,12 +103,14 @@ export class FreemodeMissionController {
       this.options.notice(playerId, message, 'warning');
       return;
     }
-    this.entities.track({
-      missionId: result.mission.id,
-      kind: 'vehicle',
-      entityId: target.id,
-      disposition: 'release'
-    });
+    if (target) {
+      this.entities.track({
+        missionId: result.mission.id,
+        kind: 'vehicle',
+        entityId: target.id,
+        disposition: 'release'
+      });
+    }
     projectMissionState(state.missions, result.mission, state.players, clock.nowMs);
     this.options.notice(
       playerId,
@@ -172,17 +178,23 @@ export class FreemodeMissionController {
   update(nowMs: number): void {
     const {state} = this.options;
     for (const mission of this.system.list()) {
-      const target = state.vehicles.get(mission.targetVehicleId);
+      const definition = missionTemplate(mission.templateId);
+      const target = definition.targetMode === 'reserved-traffic-vehicle'
+        ? state.vehicles.get(mission.targetVehicleId)
+        : undefined;
       const transitions = this.system.update(mission.id, {
         nowMs,
         participants: mission.participants.map((participant) => {
           const player = state.players.get(participant.playerId);
+          const vehicle = player?.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
           return {
             playerId: participant.playerId,
             exists: Boolean(player),
             alive: player?.alive ?? false,
-            vehicleId: player?.vehicleId ?? '',
-            wantedLevel: player?.wanted ?? 0
+            vehicleId: vehicle?.id ?? '',
+            wantedLevel: player?.wanted ?? 0,
+            x: vehicle?.x ?? player?.x ?? 0,
+            y: vehicle?.y ?? player?.y ?? 0
           };
         }),
         targetExists: Boolean(target),
@@ -224,13 +236,13 @@ export class FreemodeMissionController {
   }
 
   private checkpointRoute(
-    target: VehicleState,
-    delivery: {x: number; y: number},
+    start: {x: number; y: number},
+    delivery: {x: number; y: number} | undefined,
     nowMs: number,
     count: number
   ): MissionCheckpoint[] {
     const checkpoints: MissionCheckpoint[] = [];
-    let previous = {x: target.x, y: target.y};
+    let previous = {x: start.x, y: start.y};
     for (let index = 0; index < count; index++) {
       let selected = this.options.world.trafficSpawn(nowMs + 1_301 + index * 211, VEHICLE_RADIUS);
       let selectedScore = Number.NEGATIVE_INFINITY;
@@ -240,7 +252,9 @@ export class FreemodeMissionController {
           VEHICLE_RADIUS
         );
         const previousDistance = Math.hypot(candidate.x - previous.x, candidate.y - previous.y);
-        const deliveryDistance = Math.hypot(candidate.x - delivery.x, candidate.y - delivery.y);
+        const deliveryDistance = delivery
+          ? Math.hypot(candidate.x - delivery.x, candidate.y - delivery.y)
+          : Number.POSITIVE_INFINITY;
         const routeDistance = checkpoints.reduce((minimum, checkpoint) => Math.min(
           minimum,
           Math.hypot(candidate.x - checkpoint.x, candidate.y - checkpoint.y)
@@ -250,7 +264,11 @@ export class FreemodeMissionController {
           selected = candidate;
           selectedScore = score;
         }
-        if (previousDistance >= 360 && deliveryDistance >= 280 && routeDistance >= 300) break;
+        if (
+          previousDistance >= 360 &&
+          (!delivery || deliveryDistance >= 280) &&
+          routeDistance >= 300
+        ) break;
       }
       const checkpoint = {
         id: `checkpoint-${index + 1}`,
@@ -280,7 +298,7 @@ export class FreemodeMissionController {
           previousPhase: transition.previousPhase,
           phase: transition.phase
         });
-        this.broadcast(mission, phaseNotice(transition.phase), 'info');
+        this.broadcast(mission, phaseNotice(transition.phase, mission.objectiveKind), 'info');
       } else if (transition.type === 'leader-transferred') {
         const leaderName = this.options.state.players.get(transition.leaderId)?.name ?? transition.leaderId;
         this.broadcast(mission, `${leaderName} is now crew leader.`, 'warning');
@@ -347,8 +365,11 @@ export class FreemodeMissionController {
   }
 }
 
-function phaseNotice(phase: string): string {
+function phaseNotice(phase: string, objectiveKind: string): string {
   if (phase === 'steal') return 'Job launched. Steal the marked vehicle.';
+  if (phase === 'checkpoints' && objectiveKind === 'crew-checkpoints') {
+    return 'Get any crew vehicle through every marked checkpoint.';
+  }
   if (phase === 'checkpoints') return 'Drive the target through every marked checkpoint.';
   if (phase === 'lose-heat') return 'Lose the crew\'s police heat.';
   if (phase === 'deliver') return 'Deliver the vehicle to the marked garage.';

@@ -74,9 +74,9 @@ export interface FreemodeMission {
 export interface StartMissionInput {
   leaderId: string;
   templateId?: MissionTemplateId;
-  targetVehicleId: string;
-  deliveryX: number;
-  deliveryY: number;
+  targetVehicleId?: string;
+  deliveryX?: number;
+  deliveryY?: number;
   checkpoints?: readonly MissionCheckpoint[];
   nowMs: number;
   formationDurationMs?: number;
@@ -106,18 +106,20 @@ export interface MissionParticipantSnapshot {
   alive: boolean;
   vehicleId: string;
   wantedLevel: number;
+  x: number;
+  y: number;
 }
 
 export interface MissionWorldSnapshot {
   nowMs: number;
   participants: MissionParticipantSnapshot[];
-  targetExists: boolean;
-  targetDestroyed: boolean;
-  targetHealth: number;
-  targetMaxHealth: number;
-  targetX: number;
-  targetY: number;
-  targetSpeed: number;
+  targetExists?: boolean;
+  targetDestroyed?: boolean;
+  targetHealth?: number;
+  targetMaxHealth?: number;
+  targetX?: number;
+  targetY?: number;
+  targetSpeed?: number;
 }
 
 export type MissionTransition =
@@ -168,21 +170,28 @@ export class MissionSystem {
     const templateId = input.templateId ?? DEFAULT_MISSION_TEMPLATE_ID;
     if (
       !input.leaderId ||
-      !input.targetVehicleId ||
       !isMissionTemplateId(templateId) ||
-      !Number.isFinite(input.nowMs) ||
-      !Number.isFinite(input.deliveryX) ||
-      !Number.isFinite(input.deliveryY)
+      !Number.isFinite(input.nowMs)
     ) {
       return {ok: false, reason: 'invalid'};
     }
     const definition = missionTemplate(templateId);
+    const targetVehicleId = String(input.targetVehicleId ?? '');
+    const deliveryX = input.deliveryX ?? 0;
+    const deliveryY = input.deliveryY ?? 0;
+    if (
+      !Number.isFinite(deliveryX) ||
+      !Number.isFinite(deliveryY) ||
+      (definition.targetMode === 'reserved-traffic-vehicle' && !targetVehicleId)
+    ) {
+      return {ok: false, reason: 'invalid'};
+    }
     const checkpoints = validateCheckpoints(input.checkpoints ?? [], missionCheckpointCount(templateId));
     if (!checkpoints) return {ok: false, reason: 'invalid'};
     if (this.participantMissions.has(input.leaderId)) {
       return {ok: false, reason: 'participant-active'};
     }
-    if (this.reservedTargets.has(input.targetVehicleId)) {
+    if (targetVehicleId && this.reservedTargets.has(targetVehicleId)) {
       return {ok: false, reason: 'target-reserved'};
     }
     const id = `mission-${this.nextMissionId++}`;
@@ -206,7 +215,7 @@ export class MissionSystem {
       rosterVersion: 1,
       rosterLockedAt: 0,
       maximumParticipants,
-      targetVehicleId: input.targetVehicleId,
+      targetVehicleId,
       phase: 'forming',
       objectiveId: firstObjective.id,
       objectiveKind: firstObjective.kind,
@@ -221,8 +230,8 @@ export class MissionSystem {
       terminalAt: 0,
       lastUpdatedAt: input.nowMs,
       durationMs,
-      deliveryX: input.deliveryX,
-      deliveryY: input.deliveryY,
+      deliveryX,
+      deliveryY,
       deliveryRadius: 72,
       baseReward,
       projectedReward: baseReward,
@@ -232,7 +241,7 @@ export class MissionSystem {
     };
     this.missions.set(id, mission);
     this.participantMissions.set(input.leaderId, id);
-    this.reservedTargets.set(input.targetVehicleId, id);
+    if (targetVehicleId) this.reservedTargets.set(targetVehicleId, id);
     return {ok: true, mission: cloneMission(mission)};
   }
 
@@ -293,7 +302,11 @@ export class MissionSystem {
       if (world.nowMs >= mission.formationEndsAt) transitions.push(this.lockRoster(mission, world.nowMs));
       else return transitions;
     }
-    if (!world.targetExists || world.targetDestroyed) {
+    const definition = missionTemplate(mission.templateId);
+    if (
+      definition.targetMode === 'reserved-traffic-vehicle' &&
+      (!world.targetExists || world.targetDestroyed)
+    ) {
       transitions.push(this.fail(mission, 'target-destroyed', world.nowMs));
       return transitions;
     }
@@ -302,11 +315,16 @@ export class MissionSystem {
       return transitions;
     }
 
-    const condition = vehicleCondition(world.targetHealth, world.targetMaxHealth);
-    mission.projectedReward = conditionReward(mission.baseReward, condition);
+    const condition = definition.rewardPolicy === 'vehicle-condition'
+      ? vehicleCondition(world.targetHealth ?? 0, world.targetMaxHealth ?? 1)
+      : 1;
+    mission.projectedReward = definition.rewardPolicy === 'vehicle-condition'
+      ? conditionReward(mission.baseReward, condition)
+      : mission.baseReward;
     const participantSnapshots = new Map(world.participants.map((entry) => [entry.playerId, entry]));
     const targetOccupiedByCrew = mission.participants.some((participant) => (
       participant.connected &&
+      Boolean(mission.targetVehicleId) &&
       participantSnapshots.get(participant.playerId)?.vehicleId === mission.targetVehicleId
     ));
     const teamWantedLevel = mission.participants.reduce((maximum, participant) => {
@@ -315,14 +333,25 @@ export class MissionSystem {
     }, 0);
     const previousPhase = mission.phase;
     const progress = advanceMissionObjectives(
-      missionTemplate(mission.templateId),
+      definition,
       {objectiveIndex: mission.objectiveIndex, checkpointIndex: mission.checkpointIndex},
       {
+        participants: mission.participants.map((participant) => {
+          const snapshot = participantSnapshots.get(participant.playerId);
+          return {
+            playerId: participant.playerId,
+            connected: participant.connected,
+            alive: participant.alive,
+            vehicleId: snapshot?.vehicleId ?? '',
+            x: snapshot?.x ?? 0,
+            y: snapshot?.y ?? 0
+          };
+        }),
         targetOccupiedByCrew,
         teamWantedLevel,
-        targetX: world.targetX,
-        targetY: world.targetY,
-        targetSpeed: world.targetSpeed,
+        targetX: world.targetX ?? 0,
+        targetY: world.targetY ?? 0,
+        targetSpeed: world.targetSpeed ?? 0,
         deliveryX: mission.deliveryX,
         deliveryY: mission.deliveryY,
         deliveryRadius: mission.deliveryRadius,

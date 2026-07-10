@@ -11,7 +11,17 @@ export interface MissionCheckpoint {
   radius: number;
 }
 
+export interface MissionObjectiveParticipant {
+  playerId: string;
+  connected: boolean;
+  alive: boolean;
+  vehicleId: string;
+  x: number;
+  y: number;
+}
+
 export interface MissionObjectiveContext {
+  participants: readonly MissionObjectiveParticipant[];
   targetOccupiedByCrew: boolean;
   teamWantedLevel: number;
   targetX: number;
@@ -105,6 +115,28 @@ export function evaluateMissionObjective(
       context.targetX - checkpoint.x,
       context.targetY - checkpoint.y
     ) <= checkpoint.radius;
+    const nextCheckpointIndex = reached ? checkpointIndex + 1 : checkpointIndex;
+    return {
+      status: nextCheckpointIndex >= requiredCount ? 'completed' : 'active',
+      phase: objective.phase,
+      checkpointIndex: nextCheckpointIndex
+    };
+  }
+  if (objective.kind === 'crew-checkpoints') {
+    const requiredCount = Math.min(
+      context.checkpoints.length,
+      Math.max(0, Math.floor(objective.checkpointCount ?? context.checkpoints.length))
+    );
+    if (checkpointIndex >= requiredCount) {
+      return {status: 'completed', phase: objective.phase, checkpointIndex};
+    }
+    const checkpoint = context.checkpoints[checkpointIndex];
+    const reached = Boolean(checkpoint) && context.participants.some((participant) => (
+      participant.connected &&
+      participant.alive &&
+      Boolean(participant.vehicleId) &&
+      Math.hypot(participant.x - checkpoint.x, participant.y - checkpoint.y) <= checkpoint.radius
+    ));
     const nextCheckpointIndex = reached ? checkpointIndex + 1 : checkpointIndex;
     return {
       status: nextCheckpointIndex >= requiredCount ? 'completed' : 'active',

@@ -12,7 +12,16 @@ function player(
   playerId: string,
   overrides: Partial<MissionParticipantSnapshot> = {}
 ): MissionParticipantSnapshot {
-  return {playerId, exists: true, alive: true, vehicleId: '', wantedLevel: 0, ...overrides};
+  return {
+    playerId,
+    exists: true,
+    alive: true,
+    vehicleId: '',
+    wantedLevel: 0,
+    x: 0,
+    y: 0,
+    ...overrides
+  };
 }
 
 function world(overrides: Partial<MissionWorldSnapshot> = {}): MissionWorldSnapshot {
@@ -233,6 +242,56 @@ test('Getaway Run composes acquire, ordered checkpoints, heat escape, and delive
   }));
   assert.equal(complete[0]?.type, 'completed');
   assert.equal(missions.get(start.mission.id)?.finalReward, 1_100);
+});
+
+test('Crew Checkpoint Rush advances from any living crew driver without a reserved target', () => {
+  const missions = new MissionSystem();
+  const checkpoints = [100, 200, 300, 400, 500].map((coordinate, index) => ({
+    id: `route-${index + 1}`,
+    x: coordinate,
+    y: coordinate,
+    radius: 50
+  }));
+  const start = missions.start({
+    leaderId: 'leader',
+    templateId: 'checkpoint-rush',
+    checkpoints,
+    nowMs: 0
+  });
+  assert.equal(start.ok, true);
+  if (!start.ok) return;
+  assert.equal(start.mission.targetVehicleId, '');
+  assert.equal(missions.join(start.mission.id, 'support', 50).ok, true);
+  missions.launch(start.mission.id, 'leader', 100);
+
+  missions.update(start.mission.id, world({
+    nowMs: 200,
+    targetExists: false,
+    targetDestroyed: true,
+    participants: [
+      player('leader', {x: 100, y: 100}),
+      player('support', {vehicleId: 'car', alive: false, x: 100, y: 100})
+    ]
+  }));
+  assert.equal(missions.get(start.mission.id)?.checkpointIndex, 0);
+
+  for (const [index, coordinate] of [100, 200, 300, 400, 500].entries()) {
+    const transitions = missions.update(start.mission.id, world({
+      nowMs: 300 + index * 100,
+      targetExists: false,
+      targetDestroyed: true,
+      participants: [
+        player('leader'),
+        player('support', {vehicleId: 'car', x: coordinate, y: coordinate})
+      ]
+    }));
+    if (index < 4) assert.deepEqual(transitions, []);
+  }
+  const completed = missions.get(start.mission.id);
+  assert.equal(completed?.phase, 'completed');
+  assert.equal(completed?.finalReward, 900);
+  assert.equal(completed?.payouts.length, 2);
+  assert.equal(missions.isTargetReserved(''), false);
 });
 
 test('removal releases every participant and the reserved target', () => {

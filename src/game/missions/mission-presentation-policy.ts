@@ -117,7 +117,7 @@ export function missionMinimapPoints(
   localPlayerId: string
 ): MinimapPointInput[] {
   const points: MinimapPointInput[] = [{
-    id: 'boost-contact',
+    id: 'freemode-contact',
     kind: 'contact',
     x: state.missionContactX,
     y: state.missionContactY
@@ -202,7 +202,10 @@ function missionObjective(
   }
   if (mission.phase === 'steal') return 'Steal the marked traffic vehicle.';
   if (mission.phase === 'checkpoints') {
-    return `Drive through checkpoint ${Math.min(
+    const prefix = mission.objectiveKind === 'crew-checkpoints'
+      ? 'Get any crew vehicle through checkpoint'
+      : 'Drive the target through checkpoint';
+    return `${prefix} ${Math.min(
       mission.checkpointIndex + 1,
       mission.checkpointCount
     )} of ${mission.checkpointCount}.`;

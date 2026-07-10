@@ -180,6 +180,68 @@ test('district mission adapter generates and completes an authoritative Getaway 
   assert.equal(leader.cash, 1_100);
 });
 
+test('district mission adapter runs a target-free shared checkpoint job with any crew vehicle', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+  attachTestTrafficController(room);
+  attachTestVehicleAccess(room);
+  attachTestVehicleSimulation(room);
+  room.state.missionContactX = room.world.spawn.x;
+  room.state.missionContactY = room.world.spawn.y;
+  room.economyController = new StreetEconomyController({
+    state: room.state,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick})
+  });
+  room.missionController = new FreemodeMissionController({
+    state: room.state,
+    world: room.world,
+    events: room.events,
+    economy: room.economyController,
+    clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
+    notice: () => undefined,
+    releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => (
+      room.vehicleSimulation.returnToTraffic(vehicle, nowMs)
+    )
+  });
+
+  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  room.state.players.set(leader.id, leader);
+  room.playerControl.register(leader.id);
+  room.missionController.start(leader.id, 'checkpoint-rush');
+  const schema = [...room.state.missions.values()][0];
+  const runtime = schema ? room.missionController.get(schema.id) : undefined;
+  assert.ok(schema);
+  assert.ok(runtime);
+  assert.equal(schema.templateId, 'checkpoint-rush');
+  assert.equal(schema.targetVehicleId, '');
+  assert.equal(schema.objectiveKind, 'crew-checkpoints');
+  assert.equal(schema.checkpointCount, 5);
+  assert.equal(new Set(runtime.checkpoints.map((checkpoint: {x: number; y: number}) => (
+    `${checkpoint.x}:${checkpoint.y}`
+  ))).size, 5);
+  assert.ok(runtime.checkpoints.every((checkpoint: {x: number; y: number}) => (
+    room.world.canOccupy(checkpoint.x, checkpoint.y, 20)
+  )));
+
+  const crewCar = new VehicleState();
+  crewCar.id = 'crew-car';
+  crewCar.driverId = leader.id;
+  room.state.vehicles.set(crewCar.id, crewCar);
+  leader.vehicleId = crewCar.id;
+  leader.vehicleSeat = 0;
+  room.missionController.launch(leader.id, schema.id);
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'checkpoints');
+  for (const [index, checkpoint] of runtime.checkpoints.entries()) {
+    crewCar.x = checkpoint.x;
+    crewCar.y = checkpoint.y;
+    room.missionController.update(100 + index * 100);
+  }
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'completed');
+  assert.equal(leader.cash, 900);
+});
+
 function createPlayer(id: string, x: number, y: number): PlayerState {
   const player = new PlayerState();
   player.id = id;

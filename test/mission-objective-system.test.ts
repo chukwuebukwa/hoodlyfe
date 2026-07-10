@@ -61,6 +61,52 @@ test('checkpoint objective advances only the occupied target through ordered zon
   assert.deepEqual(final, {status: 'completed', phase: 'checkpoints', checkpointIndex: 3});
 });
 
+test('crew checkpoint objective accepts any connected living participant in a vehicle', () => {
+  const objective = missionTemplate('checkpoint-rush').objectives[0];
+  const checkpoints = [
+    {id: 'one', x: 100, y: 0, radius: 40},
+    {id: 'two', x: 200, y: 0, radius: 40},
+    {id: 'three', x: 300, y: 0, radius: 40},
+    {id: 'four', x: 400, y: 0, radius: 40},
+    {id: 'five', x: 500, y: 0, radius: 40}
+  ];
+  const participant = {
+    playerId: 'support',
+    connected: true,
+    alive: true,
+    vehicleId: '',
+    x: 100,
+    y: 0
+  };
+  const walking = evaluateMissionObjective(
+    objective,
+    context({checkpoints, participants: [participant]}),
+    0
+  );
+  assert.equal(walking.checkpointIndex, 0);
+  const driving = evaluateMissionObjective(
+    objective,
+    context({checkpoints, participants: [{...participant, vehicleId: 'car'}]}),
+    0
+  );
+  assert.equal(driving.checkpointIndex, 1);
+  const outOfOrder = evaluateMissionObjective(
+    objective,
+    context({checkpoints, participants: [{...participant, vehicleId: 'car', x: 500}]}),
+    1
+  );
+  assert.equal(outOfOrder.checkpointIndex, 1);
+  const disconnected = evaluateMissionObjective(
+    objective,
+    context({
+      checkpoints,
+      participants: [{...participant, connected: false, vehicleId: 'car', x: 200}]
+    }),
+    1
+  );
+  assert.equal(disconnected.checkpointIndex, 1);
+});
+
 test('delivery enforces target occupancy, heat gate, zone, and maximum speed', () => {
   const objective = missionTemplate('boost-and-deliver').objectives[2];
   assert.equal(evaluateMissionObjective(
@@ -82,6 +128,7 @@ test('delivery enforces target occupancy, heat gate, zone, and maximum speed', (
 
 function context(overrides: Partial<MissionObjectiveContext> = {}): MissionObjectiveContext {
   return {
+    participants: [],
     targetOccupiedByCrew: false,
     teamWantedLevel: 0,
     targetX: 0,
