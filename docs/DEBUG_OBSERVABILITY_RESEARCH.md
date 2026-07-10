@@ -36,6 +36,8 @@ The reference is used to study boundaries only. NOCK0 remains an original TypeSc
 
 `DistrictRoom` drains the event stream and passes the immutable frame events to this projector. It no longer formats events, retains debug history, shapes debug protocol records, or decides debug cadence.
 
+Snapshot transport is opt-in. `DebugSnapshotSubscription` installs the browser handler before sending `debug.subscribe`, and removes the handler after sending `debug.unsubscribe`. `DistrictRoom` publishes only to subscribed session IDs and removes subscriptions on leave. This prevents early-message warnings and avoids paying per-client debug bandwidth for clients that never open the developer surface. Authentication and production role authorization remain required before debug can be enabled outside local development.
+
 ## Required Production Nuance
 
 - Developer snapshots, structured logs, metrics, traces, audit records, anti-cheat evidence, analytics, and deterministic replays are separate products with different retention and privacy policies.

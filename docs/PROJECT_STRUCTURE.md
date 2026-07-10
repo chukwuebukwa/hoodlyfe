@@ -415,6 +415,7 @@ The first client extractions are live under `src/game/input/` and `src/game/rend
 - `client-input-policy.ts` contains framework-independent movement normalization, replicated-state weapon gating, and movement/aim/fire/weapon command cadence.
 - `ClientInputController` binds Phaser keyboard/pointer/wheel plus DOM/touch controls, publishes intent commands, reports aim/movement intent for local presentation, and removes every listener on scene shutdown.
 - `TouchControls` now owns cleanup for media queries, buttons, and pointer listeners.
+- `DebugSnapshotSubscription` owns the explicit developer-snapshot subscribe/unsubscribe lifecycle, including handler-first ordering and teardown.
 - `interpolation-policy.ts` contains framework-independent snap/blend correction and shortest-path angle interpolation.
 - `PedestrianRenderer` owns NPC render-object lifecycle, replicated targets, visibility, animation, interpolation, and depth.
 - `ProjectileRenderer` owns projectile render-object lifecycle, weapon/police visual policy, interpolation, and muzzle flashes while reporting creation through a narrow callback for player recoil presentation.

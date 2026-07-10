@@ -1,14 +1,12 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
-import {
-  DEBUG_SNAPSHOT_MESSAGE,
-  type DebugSnapshot
-} from '../../shared/protocol/debug.ts';
+import type {DebugSnapshot} from '../../shared/protocol/debug.ts';
 import {
   MISSION_NOTICE_MESSAGE,
   type MissionNotice
 } from '../../shared/protocol/missions.ts';
 import {ClientInputController} from './input/client-input-controller.ts';
+import {DebugSnapshotSubscription} from './debug/debug-snapshot-subscription.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import type {MinimapPointInput} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
@@ -61,6 +59,7 @@ export class DistrictScene extends Phaser.Scene {
   private readonly vehicles = new Map<string, RenderVehicle>();
   private pedestrianRenderer!: PedestrianRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private debugSubscription!: DebugSnapshotSubscription;
   private inputController!: ClientInputController;
   private debugKey!: Phaser.Input.Keyboard.Key;
   private tilemap!: Phaser.Tilemaps.Tilemap;
@@ -182,10 +181,19 @@ export class DistrictScene extends Phaser.Scene {
     this.debugGraphics = this.add.graphics().setDepth(980_000);
     this.missionGraphics = this.add.graphics().setDepth(870_000);
     this.crosshair = this.add.graphics().setScrollFactor(0).setDepth(1_000_000);
-    this.room.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => {
-      this.latestDebugSnapshot = snapshot;
-      this.updateDebugPanel();
+    this.debugSubscription = new DebugSnapshotSubscription({
+      room: this.room,
+      onSnapshot: (snapshot) => {
+        this.latestDebugSnapshot = snapshot;
+        this.updateDebugPanel();
+      }
     });
+    this.debugSubscription.start();
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.debugSubscription.destroy,
+      this.debugSubscription
+    );
     this.room.onMessage<MissionNotice>(MISSION_NOTICE_MESSAGE, (notice) => {
       this.showToast(notice.message, notice.tone);
     });

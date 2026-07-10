@@ -6,6 +6,7 @@ import test from 'node:test';
 import {Client, type Room} from 'colyseus.js';
 import {
   DEBUG_SNAPSHOT_MESSAGE,
+  DEBUG_SUBSCRIBE_MESSAGE,
   type DebugSnapshot
 } from '../shared/protocol/debug.ts';
 import {
@@ -36,6 +37,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const debugSnapshots: DebugSnapshot[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
+  await delay(250);
+  assert.equal(debugSnapshots.length, 0, 'Debug snapshots require an explicit client subscription.');
+  first.send(DEBUG_SUBSCRIBE_MESSAGE);
+  second.send(DEBUG_SUBSCRIBE_MESSAGE);
   first.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
   second.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {

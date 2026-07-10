@@ -1,5 +1,9 @@
 import {type Client, Room} from '@colyseus/core';
 import {
+  DEBUG_SUBSCRIBE_MESSAGE,
+  DEBUG_UNSUBSCRIBE_MESSAGE
+} from '../shared/protocol/debug.ts';
+import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
@@ -57,6 +61,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
+  private readonly debugSubscribers = new Set<string>();
   private debugProjection!: DebugSnapshotController;
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
@@ -77,6 +82,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
+    this.debugSubscribers.clear();
     const requestedSeed = Number(options?.seed);
     this.random = new DeterministicRandom(
       Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
@@ -117,7 +123,11 @@ export class DistrictRoom extends Room<DistrictState> {
       deferredSize: () => this.lifecycle.size,
       incidents: () => this.crimeController.incidentSnapshot(),
       pursuits: () => this.crimeController.pursuitSnapshot(),
-      publish: (messageType, snapshot) => this.broadcast(messageType, snapshot)
+      publish: (messageType, snapshot) => {
+        for (const client of this.clients) {
+          if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
+        }
+      }
     });
     this.vehicleAccess = new VehicleAccessController({
       state: this.state,
@@ -307,6 +317,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<MissionIdMessage>(MISSION_ABANDON_MESSAGE, (client, message) => {
       this.missionController.abandon(client.sessionId, message?.missionId);
     });
+    this.onMessage(DEBUG_SUBSCRIBE_MESSAGE, (client) => {
+      this.debugSubscribers.add(client.sessionId);
+    });
+    this.onMessage(DEBUG_UNSUBSCRIBE_MESSAGE, (client) => {
+      this.debugSubscribers.delete(client.sessionId);
+    });
   }
 
   onJoin(client: Client, options: {name?: string}): void {
@@ -323,6 +339,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   onLeave(client: Client): void {
+    this.debugSubscribers.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);

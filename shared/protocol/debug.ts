@@ -1,4 +1,6 @@
 export const DEBUG_SNAPSHOT_MESSAGE = 'debug.snapshot';
+export const DEBUG_SUBSCRIBE_MESSAGE = 'debug.subscribe';
+export const DEBUG_UNSUBSCRIBE_MESSAGE = 'debug.unsubscribe';
 
 export interface DebugEventEntry {
   tick: number;

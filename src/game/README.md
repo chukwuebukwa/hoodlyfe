@@ -25,6 +25,8 @@ Rules:
 
 ```text
 game/
+  debug/
+    debug-snapshot-subscription.ts
   input/
     client-input-controller.ts
     client-input-policy.ts
@@ -40,6 +42,7 @@ game/
 ```
 
 - `client-input-policy.ts` owns framework-independent movement normalization, gameplay-state gates, and independent command cadence.
+- `DebugSnapshotSubscription` installs the snapshot handler before opting in, and owns unsubscribe/listener teardown.
 - `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
 - `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
 - `interpolation-policy.ts` owns framework-independent render correction and wrapped-angle interpolation.
