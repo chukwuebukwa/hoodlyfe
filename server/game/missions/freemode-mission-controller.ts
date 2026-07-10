@@ -1,5 +1,6 @@
 import type {MissionNotice} from '../../../shared/protocol/missions.ts';
 import type {GameEventStream} from '../events/game-events.ts';
+import type {StreetEconomyPort} from '../economy/street-economy-controller.ts';
 import type {DistrictState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {MissionEntityScope} from './mission-entity-scope.ts';
@@ -24,6 +25,7 @@ interface FreemodeMissionControllerOptions {
   state: DistrictState;
   world: CollisionMap;
   events: GameEventStream;
+  economy: StreetEconomyPort;
   clock: () => MissionClock;
   notice: (playerId: string, message: string, tone: MissionNotice['tone']) => void;
   releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => void;
@@ -33,7 +35,6 @@ export class FreemodeMissionController {
   private readonly system = new MissionSystem();
   private readonly entities = new MissionEntityScope();
   private readonly cleanupAt = new Map<string, number>();
-  private readonly processedPayouts = new Set<string>();
 
   constructor(private readonly options: FreemodeMissionControllerOptions) {}
 
@@ -220,10 +221,14 @@ export class FreemodeMissionController {
         this.broadcast(mission, `${leaderName} is now crew leader.`, 'warning');
       } else if (transition.type === 'completed') {
         for (const payout of transition.payouts) {
-          if (this.processedPayouts.has(payout.idempotencyKey)) continue;
-          this.processedPayouts.add(payout.idempotencyKey);
-          const player = this.options.state.players.get(payout.playerId);
-          if (player) player.cash += payout.amount;
+          const result = this.options.economy.credit(
+            payout.playerId,
+            payout.amount,
+            'mission-payout',
+            payout.idempotencyKey,
+            clock.nowMs
+          );
+          if (result.status !== 'applied') continue;
           this.options.events.publish({
             type: 'mission.payout',
             tick: clock.tick,

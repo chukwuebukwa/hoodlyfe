@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {FreemodeMissionController} from '../server/game/missions/freemode-mission-controller.ts';
+import {StreetEconomyController} from '../server/game/economy/street-economy-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
@@ -17,10 +18,16 @@ test('district mission adapter completes shared work, pays once, and releases it
   attachTestVehicleSimulation(room);
   room.state.missionContactX = room.world.spawn.x;
   room.state.missionContactY = room.world.spawn.y;
+  room.economyController = new StreetEconomyController({
+    state: room.state,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick})
+  });
   room.missionController = new FreemodeMissionController({
     state: room.state,
     world: room.world,
     events: room.events,
+    economy: room.economyController,
     clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
     notice: () => undefined,
     releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => room.vehicleSimulation.returnToTraffic(

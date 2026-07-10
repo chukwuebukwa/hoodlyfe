@@ -138,6 +138,9 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.missionId} paid ${event.playerId} $${event.amount}`;
     case 'mission.failed':
       return `${event.missionId} failed: ${event.reason}`;
+    case 'economy.changed':
+      return `${event.playerId} ${event.direction === 'credit' ? '+' : '-'}$${event.amount} ` +
+        `(${event.reason}) => $${event.balance}`;
   }
 }
 

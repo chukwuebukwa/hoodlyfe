@@ -120,6 +120,17 @@ export interface MissionFailedEvent extends EventMetadata {
   reason: string;
 }
 
+export interface StreetEconomyChangedEvent extends EventMetadata {
+  type: 'economy.changed';
+  transactionId: string;
+  playerId: string;
+  direction: 'credit' | 'debit';
+  reason: string;
+  requestedAmount: number;
+  amount: number;
+  balance: number;
+}
+
 export type GameEvent =
   | WeaponFiredEvent
   | DamageAppliedEvent
@@ -134,7 +145,8 @@ export type GameEvent =
   | PlayerRespawnedEvent
   | MissionPhaseChangedEvent
   | MissionPayoutEvent
-  | MissionFailedEvent;
+  | MissionFailedEvent
+  | StreetEconomyChangedEvent;
 
 export class GameEventStream {
   private readonly pending: GameEvent[] = [];

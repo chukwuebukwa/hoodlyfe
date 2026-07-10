@@ -14,6 +14,7 @@ import {
 } from '../shared/protocol/missions.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
+import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
@@ -63,6 +64,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly events = new GameEventStream();
   private readonly debugSubscribers = new Set<string>();
   private debugProjection!: DebugSnapshotController;
+  private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
   private vehicleAccess!: VehicleAccessController;
@@ -89,6 +91,11 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.economyController = new StreetEconomyController({
+      state: this.state,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick})
+    });
     this.playerControl = new PlayerControlController({
       state: this.state,
       world: this.world
@@ -164,8 +171,8 @@ export class DistrictRoom extends Room<DistrictState> {
       resetInput: (playerId) => this.playerControl.reset(playerId)
     });
     this.damageController = new DamageController({
-      state: this.state,
       events: this.events,
+      economy: this.economyController,
       crime: this.crimeController,
       playerLifecycle: this.playerLifecycle,
       clock: () => ({tick: this.simulationClock.tick}),
@@ -285,6 +292,7 @@ export class DistrictRoom extends Room<DistrictState> {
       state: this.state,
       world: this.world,
       events: this.events,
+      economy: this.economyController,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone),
       releaseDeliveredVehicle: (vehicle, nowMs) => this.vehicleSimulation.returnToTraffic(

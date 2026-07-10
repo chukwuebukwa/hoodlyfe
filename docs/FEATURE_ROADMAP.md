@@ -73,8 +73,9 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 
 ### 2. Street Services and Closed Economy Loop
 
-**Next after vehicle depth**
+**Foundation in progress**
 
+- **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
 - Ammunition shop, repair garage, hospital fee, and clothing preview as explicit cash sinks.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.

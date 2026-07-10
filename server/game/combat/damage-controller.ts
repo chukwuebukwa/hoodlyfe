@@ -2,11 +2,12 @@ import type {GameEventStream} from '../events/game-events.ts';
 import type {CrimeKind} from '../incidents/crime-policy.ts';
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
 import type {PlayerLifecycleController} from '../players/player-lifecycle-controller.ts';
-import type {DistrictState, NpcState, PlayerState} from '../../state.ts';
+import type {StreetEconomyPort} from '../economy/street-economy-controller.ts';
+import type {NpcState, PlayerState} from '../../state.ts';
 
 interface DamageControllerOptions {
-  state: DistrictState;
   events: GameEventStream;
+  economy: StreetEconomyPort;
   crime: CrimeResponseController;
   playerLifecycle: PlayerLifecycleController;
   clock: () => {tick: number};
@@ -43,8 +44,13 @@ export class DamageController {
     if (target.health > 0) return;
 
     if (attackerId) {
-      const attacker = this.options.state.players.get(attackerId);
-      if (attacker) attacker.cash += 100;
+      this.options.economy.credit(
+        attackerId,
+        100,
+        'player-kill',
+        `kill:player:${target.id}:${this.options.clock().tick}`,
+        nowMs
+      );
       this.options.crime.record(attackerId, 'murder', nowMs, target.id, target.x, target.y);
     }
     this.options.playerLifecycle.kill(target, nowMs, attackerId);
@@ -86,8 +92,15 @@ export class DamageController {
       attackerId
     });
     this.options.scheduleNpcRespawn(target.id, nowMs + 5500);
-    const attacker = this.options.state.players.get(attackerId);
-    if (attacker) attacker.cash += target.kind === 'police' ? 200 : 50;
+    if (attackerId) {
+      this.options.economy.credit(
+        attackerId,
+        target.kind === 'police' ? 200 : 50,
+        target.kind === 'police' ? 'police-kill' : 'civilian-kill',
+        `kill:npc:${target.id}:${this.options.clock().tick}`,
+        nowMs
+      );
+    }
     if (attackerId) {
       this.options.crime.record(
         attackerId,
