@@ -132,16 +132,78 @@ defineTypes(VehicleState, {
   hijackBy: 'string'
 });
 
+export class MissionParticipantState extends Schema {
+  playerId = '';
+  name = '';
+  role = 'support';
+  connected = true;
+  alive = true;
+  deaths = 0;
+  activeMs = 0;
+}
+
+defineTypes(MissionParticipantState, {
+  playerId: 'string',
+  name: 'string',
+  role: 'string',
+  connected: 'boolean',
+  alive: 'boolean',
+  deaths: 'number',
+  activeMs: 'number'
+});
+
+export class MissionState extends Schema {
+  id = '';
+  templateId = '';
+  leaderId = '';
+  phase = '';
+  targetVehicleId = '';
+  deliveryX = 0;
+  deliveryY = 0;
+  deliveryRadius = 0;
+  maximumParticipants = 4;
+  rosterLockedAt = 0;
+  remainingMs = 0;
+  projectedReward = 0;
+  finalReward = 0;
+  failureReason = '';
+  participants = new MapSchema<MissionParticipantState>();
+}
+
+defineTypes(MissionState, {
+  id: 'string',
+  templateId: 'string',
+  leaderId: 'string',
+  phase: 'string',
+  targetVehicleId: 'string',
+  deliveryX: 'number',
+  deliveryY: 'number',
+  deliveryRadius: 'number',
+  maximumParticipants: 'number',
+  rosterLockedAt: 'number',
+  remainingMs: 'number',
+  projectedReward: 'number',
+  finalReward: 'number',
+  failureReason: 'string',
+  participants: {map: MissionParticipantState}
+});
+
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
+  missions = new MapSchema<MissionState>();
+  missionContactX = 0;
+  missionContactY = 0;
 }
 
 defineTypes(DistrictState, {
   players: {map: PlayerState},
   bullets: {map: BulletState},
   npcs: {map: NpcState},
-  vehicles: {map: VehicleState}
+  vehicles: {map: VehicleState},
+  missions: {map: MissionState},
+  missionContactX: 'number',
+  missionContactY: 'number'
 });

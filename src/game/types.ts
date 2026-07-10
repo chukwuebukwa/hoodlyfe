@@ -64,9 +64,40 @@ export interface NetworkVehicle {
   hijackBy: string;
 }
 
+export interface NetworkMissionParticipant {
+  playerId: string;
+  name: string;
+  role: 'leader' | 'support';
+  connected: boolean;
+  alive: boolean;
+  deaths: number;
+  activeMs: number;
+}
+
+export interface NetworkMission {
+  id: string;
+  templateId: 'boost-and-deliver';
+  leaderId: string;
+  phase: 'forming' | 'steal' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  targetVehicleId: string;
+  deliveryX: number;
+  deliveryY: number;
+  deliveryRadius: number;
+  maximumParticipants: number;
+  rosterLockedAt: number;
+  remainingMs: number;
+  projectedReward: number;
+  finalReward: number;
+  failureReason: string;
+  participants: Map<string, NetworkMissionParticipant>;
+}
+
 export interface DistrictNetworkState {
   players: Map<string, NetworkPlayer>;
   bullets: Map<string, NetworkBullet>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
+  missions: Map<string, NetworkMission>;
+  missionContactX: number;
+  missionContactY: number;
 }

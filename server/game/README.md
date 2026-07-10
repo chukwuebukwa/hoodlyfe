@@ -34,8 +34,14 @@ game/
     incident-registry.ts
     witness-system.ts
   police/
+    crime-response-controller.ts
     dispatch-system.ts
     pursuit-memory.ts
+  missions/
+    freemode-mission-controller.ts
+    mission-entity-scope.ts
+    mission-state-projector.ts
+    mission-system.ts
   wanted/
     wanted-system.ts
   vehicles/
@@ -56,22 +62,27 @@ The current compatibility order is:
 1. rebuild spatial memberships from authoritative state;
 2. update vehicles and traffic;
 3. update players and actions;
-4. resolve due witness reports and dispatch assignments;
+4. resolve due witness reports and district dispatch assignments through `CrimeResponseController`;
 5. update pedestrians and police pursuit/search behavior;
 6. move and resolve projectiles;
-7. expire incidents and flush deferred lifecycle commands;
-8. drain the tick's typed events for downstream consumers.
+7. advance shared Freemode mission instances through `FreemodeMissionController`;
+8. expire incidents and flush deferred lifecycle commands;
+9. drain the tick's typed events for downstream consumers.
 
 As systems are extracted, retain an explicit order in `DistrictRoom` and queue structural mutations until the lifecycle phase.
 
 ## Extraction Status
 
-The first gameplay domain extraction is active:
+Extracted domain policies and room adapters now include:
 
 - `incident-registry.ts` for bounded, expiring world incidents;
 - `witness-system.ts` for perception and reporting;
 - `wanted-system.ts` for per-suspect heat and response tiers;
 - `police/dispatch-system.ts` for district capacity and assignments.
 - `pursuit-memory.ts` for visible pursuit and last-known-position search state.
+- `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, dispatch, and pursuit modules;
+- `mission-system.ts` for plain deterministic group mission state and transitions;
+- `freemode-mission-controller.ts` for target selection, schema projection, typed events, reward idempotency, and cleanup;
+- `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 
-`DistrictRoom` currently adapts schema entities into these plain-data APIs. Vehicle collision and damage math now lives in `game/vehicles/`; destruction, occupant ejection, and state projection remain room adapters until lifecycle extraction has another concrete consumer. Pedestrian behavior/perception and mission scope are the next server domains. New features should not add another unrelated behavior block to the room.
+`DistrictRoom` now calls the crime and Freemode controller facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, or mission cleanup. Vehicle/traffic, combat/projectile, player lifecycle, and pedestrian adapters remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.

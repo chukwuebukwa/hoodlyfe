@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
+import {CrimeResponseController} from '../server/game/police/crime-response-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
@@ -8,6 +9,21 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  room.crimeController = new CrimeResponseController({
+    state: room.state,
+    world: room.world,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
+    queryNpcs: (x, y, radius) => [...room.state.npcs.values()].filter((npc) => (
+      Math.hypot(npc.x - x, npc.y - y) <= radius
+    )),
+    panicWitness: (witnessId, suspectId, untilMs) => {
+      const runtime = room.runtimeNpcs.get(witnessId);
+      if (!runtime) return;
+      runtime.panicUntil = untilMs;
+      runtime.threatId = suspectId;
+    }
+  });
 
   const spawn = room.world.trafficSpawn(91, 20);
   const player = new PlayerState();
@@ -52,7 +68,7 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   assert.equal(vehicle.traffic, false);
   assert.equal(room.state.npcs.size, 1);
   assert.equal(player.wanted, 0);
-  room.processIncidentReports(Date.now() + 3000);
+  room.crimeController.processReports(Date.now() + 3000);
   assert.equal(player.wanted, 1);
   assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
     'crime.committed',

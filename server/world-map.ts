@@ -175,8 +175,9 @@ export class CollisionMap {
   }
 
   trafficSpawn(index: number, radius: number): TrafficSpawn {
+    const normalizedIndex = Number.isFinite(index) ? Math.trunc(index) : 0;
     if (this.roadCells.length === 0) {
-      const fallback = this.openPoint(index, radius);
+      const fallback = this.openPoint(normalizedIndex, radius);
       return {
         ...fallback,
         column: Math.floor(fallback.x / this.tileWidth),
@@ -187,7 +188,7 @@ export class CollisionMap {
       };
     }
 
-    const start = Math.abs(index * 131) % this.roadCells.length;
+    const start = Math.abs(normalizedIndex * 131) % this.roadCells.length;
     for (let step = 0; step < this.roadCells.length; step++) {
       const cell = this.roadCells[(start + step * 53) % this.roadCells.length];
       const x = (cell.column + 0.5) * this.tileWidth;
@@ -206,7 +207,7 @@ export class CollisionMap {
       });
       const choices = straight.length > 0 ? straight : neighbors;
       if (choices.length === 0) continue;
-      const target = choices[index % choices.length];
+      const target = choices[Math.abs(normalizedIndex) % choices.length];
       return {
         x,
         y,

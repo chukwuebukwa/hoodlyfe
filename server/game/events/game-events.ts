@@ -88,6 +88,29 @@ export interface PlayerRespawnedEvent extends EventMetadata {
   y: number;
 }
 
+export interface MissionPhaseChangedEvent extends EventMetadata {
+  type: 'mission.phase-changed';
+  missionId: string;
+  leaderId: string;
+  previousPhase: string;
+  phase: string;
+}
+
+export interface MissionPayoutEvent extends EventMetadata {
+  type: 'mission.payout';
+  missionId: string;
+  playerId: string;
+  amount: number;
+  idempotencyKey: string;
+}
+
+export interface MissionFailedEvent extends EventMetadata {
+  type: 'mission.failed';
+  missionId: string;
+  leaderId: string;
+  reason: string;
+}
+
 export type GameEvent =
   | DamageAppliedEvent
   | EntityKilledEvent
@@ -98,7 +121,10 @@ export type GameEvent =
   | VehicleIgnitedEvent
   | VehicleDestroyedEvent
   | VehicleRestoredEvent
-  | PlayerRespawnedEvent;
+  | PlayerRespawnedEvent
+  | MissionPhaseChangedEvent
+  | MissionPayoutEvent
+  | MissionFailedEvent;
 
 export class GameEventStream {
   private readonly pending: GameEvent[] = [];

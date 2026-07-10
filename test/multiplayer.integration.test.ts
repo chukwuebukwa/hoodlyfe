@@ -8,6 +8,12 @@ import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugSnapshot
 } from '../shared/protocol/debug.ts';
+import {
+  MISSION_JOIN_MESSAGE,
+  MISSION_LAUNCH_MESSAGE,
+  MISSION_NOTICE_MESSAGE,
+  MISSION_START_MESSAGE
+} from '../shared/protocol/missions.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
@@ -30,6 +36,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const debugSnapshots: DebugSnapshot[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
+  first.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
+  second.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {
     await Promise.allSettled([first.leave(), second.leave()]);
   });
@@ -51,6 +59,21 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     debugSnapshot.players + debugSnapshot.npcs + debugSnapshot.vehicles
   );
   assert.equal(debugSnapshot.deferredCommands, 0);
+
+  first.send(MISSION_START_MESSAGE);
+  await waitUntil(() => first.state.missions.size === 1 && second.state.missions.size === 1);
+  const mission = [...first.state.missions.values()][0];
+  assert.equal(mission.phase, 'forming');
+  assert.equal(mission.leaderId, first.sessionId);
+  assert.ok(first.state.vehicles.has(mission.targetVehicleId));
+  assert.equal(mission.participants.size, 1);
+  second.send(MISSION_JOIN_MESSAGE, {missionId: mission.id});
+  await waitUntil(() => first.state.missions.get(mission.id)?.participants.size === 2);
+  assert.equal(second.state.missions.get(mission.id)?.participants.has(second.sessionId), true);
+  first.send(MISSION_LAUNCH_MESSAGE, {missionId: mission.id});
+  await waitUntil(() => first.state.missions.get(mission.id)?.phase === 'steal');
+  assert.equal(second.state.missions.get(mission.id)?.phase, 'steal');
+  assert.ok((first.state.missions.get(mission.id)?.remainingMs ?? 0) > 170_000);
 
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'smg');

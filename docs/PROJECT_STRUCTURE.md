@@ -183,6 +183,16 @@ After extraction, `DistrictRoom` should only:
 
 It should not contain weapon math, pedestrian decisions, vehicle steering, mission rules, or police tactics.
 
+### Implemented Boundary
+
+The first room-facing facades are now live:
+
+- `FreemodeMissionController` composes the pure mission state machine, entity scope, state projection, notices, rewards, and cleanup.
+- `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
+- `DistrictRoom` invokes both from the fixed schedule and maps network commands to the mission controller.
+
+ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. Vehicle, traffic, combat, pedestrians, player lifecycle, and projection remain explicit extraction debt.
+
 ## Fixed Simulation Order
 
 The order must be explicit because GTA-like systems interact heavily. A recommended starting order is:

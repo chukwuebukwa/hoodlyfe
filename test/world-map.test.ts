@@ -24,3 +24,14 @@ test('generated district exposes a safe spawn and collision boundary', {skip: !h
     assert.equal(world.canOccupy(27.5 * world.tileWidth, (row + 0.5) * world.tileHeight, 11), true);
   }
 });
+
+test('traffic spawns normalize fractional and non-finite deterministic seeds', {skip: !hasLocalAssets}, () => {
+  const world = CollisionMap.load();
+  for (const seed of [123.75, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const spawn = world.trafficSpawn(seed, 20);
+    assert.equal(Number.isFinite(spawn.x), true);
+    assert.equal(Number.isFinite(spawn.y), true);
+    assert.equal(world.canOccupy(spawn.x, spawn.y, 20), true);
+    assert.equal(world.isRoadAt(spawn.x, spawn.y), true);
+  }
+});

@@ -300,7 +300,7 @@ export class MissionSystem {
       mission.terminalAt = world.nowMs;
       mission.finalReward = mission.projectedReward;
       mission.payouts = mission.participants
-        .filter((participant) => participant.payoutEligible)
+        .filter((participant) => participant.payoutEligible && participant.connected)
         .map((participant) => ({
           playerId: participant.playerId,
           amount: mission.finalReward,

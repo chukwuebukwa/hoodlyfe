@@ -80,6 +80,7 @@ test('any roster member can steal the target and team heat controls delivery', (
   assert.equal(start.ok, true);
   if (!start.ok) return;
   missions.join(start.mission.id, 'support', 100);
+  missions.join(start.mission.id, 'disconnected', 150);
   missions.launch(start.mission.id, 'leader', 200);
 
   assert.deepEqual(missions.update(start.mission.id, world({
