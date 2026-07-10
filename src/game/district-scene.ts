@@ -404,10 +404,9 @@ export class DistrictScene extends Phaser.Scene {
     rendered.localDriver = localDriver;
     rendered.localOccupant = localOccupant;
     rendered.sprite.setFrame(vehicleFrame(vehicle.kind));
-    const maxHealth = vehicle.kind === 'police' ? 120 : (vehicle.kind === 'taxi' ? 105 : 100);
-    const healthRatio = clamp(vehicle.health / maxHealth, 0, 1);
-    rendered.smoke.setVisible(vehicle.destroyed || healthRatio < 0.48);
-    rendered.fire.setVisible(vehicle.destroyed || healthRatio < 0.2);
+    const healthRatio = clamp(vehicle.health / Math.max(1, vehicle.maxHealth), 0, 1);
+    rendered.smoke.setVisible(vehicle.destroyed || vehicle.engineDamage >= 100);
+    rendered.fire.setVisible(vehicle.destroyed || vehicle.onFire);
     rendered.sprite.setAlpha(vehicle.destroyed ? 0.68 : 1);
     if (vehicle.destroyed) rendered.sprite.setTint(0x4f4f4f);
     else if (healthRatio < 0.35) rendered.sprite.setTint(0xc77b68);
@@ -864,7 +863,9 @@ export class DistrictScene extends Phaser.Scene {
         vehicle.angle,
         0x9d8bff,
         key,
-        `${vehicleId} ${mode} hp:${vehicle.health} v:${Math.round(vehicle.speed)}${vehicle.destroyed ? ' WRECK' : ''}`,
+        `${vehicleId} ${mode} hp:${vehicle.health}/${vehicle.maxHealth} eng:${vehicle.engineDamage} ` +
+          `d:${vehicle.damageFront}/${vehicle.damageRear}/${vehicle.damageLeft}/${vehicle.damageRight} ` +
+          `v:${Math.round(vehicle.speed)}${vehicle.onFire ? ' FIRE' : ''}${vehicle.destroyed ? ' WRECK' : ''}`,
         presentLabels,
         vehicle.health > 0
       );
@@ -1027,8 +1028,11 @@ export class DistrictScene extends Phaser.Scene {
     }
     if (speedValue) speedValue.textContent = String(Math.round(Math.abs(vehicle?.speed ?? 0) * 0.55)).padStart(3, '0');
     if (vehicleCondition) {
-      const maxHealth = vehicle?.kind === 'police' ? 120 : (vehicle?.kind === 'taxi' ? 105 : 100);
-      vehicleCondition.style.width = `${clamp((vehicle?.health ?? 0) / maxHealth * 100, 0, 100)}%`;
+      vehicleCondition.style.width = `${clamp(
+        (vehicle?.health ?? 0) / Math.max(1, vehicle?.maxHealth ?? 1) * 100,
+        0,
+        100
+      )}%`;
     }
     vehicleConditionTrack?.setAttribute('aria-label', `Vehicle condition ${vehicle?.health ?? 0}`);
     if (shell) {

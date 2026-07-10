@@ -16,11 +16,15 @@ export interface VehicleCollisionResult {
   primaryY: number;
   primarySpeed: number;
   primaryDamage: number;
+  primaryZone: VehicleDamageZone;
   otherX: number;
   otherY: number;
   otherSpeed: number;
   otherDamage: number;
+  otherZone: VehicleDamageZone;
 }
+
+export type VehicleDamageZone = 'front' | 'rear' | 'left' | 'right';
 
 export class VehicleCollisionSystem {
   resolve(primary: VehicleCollisionBody, other: VehicleCollisionBody): VehicleCollisionResult {
@@ -60,7 +64,7 @@ export class VehicleCollisionSystem {
       nextOtherVelocityY += impulse * inverseOtherMass * normalY;
     }
 
-    const baseDamage = Math.max(0, (closingSpeed - 55) * 0.18);
+    const baseDamage = Math.max(0, (closingSpeed - 55) * 0.65);
     return {
       collided: true,
       closingSpeed,
@@ -68,10 +72,12 @@ export class VehicleCollisionSystem {
       primaryY: primary.y - normalY * primaryCorrection,
       primarySpeed: projectSpeed(nextPrimaryVelocityX, nextPrimaryVelocityY, primary.angle),
       primaryDamage: Math.round(baseDamage * other.mass * primary.damageScale),
+      primaryZone: classifyImpactZone(primary.angle, normalX, normalY),
       otherX: other.x + normalX * otherCorrection,
       otherY: other.y + normalY * otherCorrection,
       otherSpeed: projectSpeed(nextOtherVelocityX, nextOtherVelocityY, other.angle),
-      otherDamage: Math.round(baseDamage * primary.mass * other.damageScale)
+      otherDamage: Math.round(baseDamage * primary.mass * other.damageScale),
+      otherZone: classifyImpactZone(other.angle, -normalX, -normalY)
     };
   }
 }
@@ -91,9 +97,26 @@ function noCollision(
     primaryY: primary.y,
     primarySpeed: primary.speed,
     primaryDamage: 0,
+    primaryZone: 'front',
     otherX: other.x,
     otherY: other.y,
     otherSpeed: other.speed,
-    otherDamage: 0
+    otherDamage: 0,
+    otherZone: 'front'
   };
+}
+
+export function classifyImpactZone(
+  vehicleAngle: number,
+  impactDirectionX: number,
+  impactDirectionY: number
+): VehicleDamageZone {
+  const impactAngle = Math.atan2(impactDirectionY, impactDirectionX);
+  const relative = Math.atan2(
+    Math.sin(impactAngle - vehicleAngle),
+    Math.cos(impactAngle - vehicleAngle)
+  );
+  if (Math.abs(relative) <= Math.PI / 4) return 'front';
+  if (Math.abs(relative) >= Math.PI * 3 / 4) return 'rear';
+  return relative > 0 ? 'left' : 'right';
 }

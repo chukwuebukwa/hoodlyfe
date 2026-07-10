@@ -67,6 +67,14 @@ export interface VehicleDestroyedEvent extends EventMetadata {
   sourceKind: VehicleDamageSource;
 }
 
+export interface VehicleIgnitedEvent extends EventMetadata {
+  type: 'vehicle.ignited';
+  vehicleId: string;
+  sourceId: string;
+  sourceKind: VehicleDamageSource;
+  explodesAt: number;
+}
+
 export interface VehicleRestoredEvent extends EventMetadata {
   type: 'vehicle.restored';
   vehicleId: string;
@@ -87,6 +95,7 @@ export type GameEvent =
   | IncidentReportedEvent
   | PursuitChangedEvent
   | VehicleDamagedEvent
+  | VehicleIgnitedEvent
   | VehicleDestroyedEvent
   | VehicleRestoredEvent
   | PlayerRespawnedEvent;

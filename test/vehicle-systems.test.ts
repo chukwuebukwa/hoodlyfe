@@ -32,8 +32,10 @@ test('vehicle collision separates overlaps and transfers forward momentum', () =
   assert.ok(collision.otherX > 35);
   assert.ok(collision.primarySpeed < 240);
   assert.ok(collision.otherSpeed > 0);
-  assert.ok(collision.primaryDamage >= 30);
+  assert.ok(collision.primaryDamage >= 100);
   assert.equal(collision.primaryDamage, collision.otherDamage);
+  assert.equal(collision.primaryZone, 'front');
+  assert.equal(collision.otherZone, 'rear');
 });
 
 test('overlapping vehicles moving apart separate without taking impact damage', () => {
@@ -63,15 +65,33 @@ test('overlapping vehicles moving apart separate without taking impact damage', 
   assert.equal(collision.otherDamage, 0);
 });
 
-test('vehicle damage clamps health, reports destruction once, and limits damaged speed', () => {
+test('vehicle damage tracks components, ignition, delayed explosion, and weapon lethality', () => {
   const damage = new VehicleDamageSystem();
-  assert.deepEqual(damage.apply(30, 12), {appliedDamage: 12, health: 18, destroyed: false});
-  assert.deepEqual(damage.apply(18, 99), {appliedDamage: 18, health: 0, destroyed: true});
-  assert.deepEqual(damage.apply(0, 99), {appliedDamage: 0, health: 0, destroyed: false});
+  const healthy = damage.reset(1000);
+  const frontHit = damage.apply(healthy, 120, 'vehicle', 'front', 1000);
+  assert.equal(frontHit.health, 880);
+  assert.equal(frontHit.damageFront, 120);
+  assert.equal(frontHit.damageRear, 0);
+  assert.ok(frontHit.engineDamage > 0);
+  assert.equal(frontHit.onFire, false);
+
+  const burning = damage.apply({...frontHit, health: 200}, 400, 'vehicle', 'rear', 2000);
+  assert.equal(burning.health, 1);
+  assert.equal(burning.destroyed, false);
+  assert.equal(burning.ignited, true);
+  assert.equal(burning.onFire, true);
+  assert.equal(burning.engineDamage, 225);
+  assert.equal(damage.shouldExplode(burning, 6999), false);
+  assert.equal(damage.shouldExplode(burning, 7000), true);
+
+  const weaponKill = damage.apply(healthy, 1200, 'weapon', 'left', 1000);
+  assert.equal(weaponKill.health, 0);
+  assert.equal(weaponKill.destroyed, true);
   assert.equal(damage.wallImpactDamage(60), 0);
-  assert.ok(damage.wallImpactDamage(400) >= 25);
-  assert.equal(damage.speedMultiplier(0, 100), 0);
-  assert.ok(damage.speedMultiplier(25, 100) < damage.speedMultiplier(100, 100));
+  assert.ok(damage.wallImpactDamage(400) >= 100);
+  assert.equal(damage.speedMultiplier(0, false), 1);
+  assert.ok(damage.speedMultiplier(250, false) < damage.speedMultiplier(100, false));
+  assert.equal(damage.speedMultiplier(250, true), 0.58);
 });
 
 test('district adapter applies collision movement and damage to both authoritative cars', () => {
@@ -96,8 +116,8 @@ test('district adapter applies collision movement and damage to both authoritati
   room.handleVehicleCollision(moving, 1000);
   assert.ok(moving.x < 100);
   assert.ok(parked.x > 135);
-  assert.ok(moving.health < 100);
-  assert.ok(parked.health < 100);
+  assert.ok(moving.health < 1000);
+  assert.ok(parked.health < 1000);
   assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
     'vehicle.damaged',
     'vehicle.damaged'
@@ -126,7 +146,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
 
   room.moveBullet(bullet, bullet.id, 0.05, 50);
   room.lifecycle.flush();
-  assert.equal(vehicle.health, 89);
+  assert.equal(vehicle.health, 975);
   assert.equal(room.state.bullets.has(bullet.id), false);
   assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
     'vehicle.damaged'

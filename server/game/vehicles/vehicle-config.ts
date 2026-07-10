@@ -5,15 +5,15 @@ export interface VehicleConfig {
 }
 
 const DEFAULT_CONFIG: VehicleConfig = {
-  maxHealth: 100,
+  maxHealth: 1000,
   mass: 1,
   collisionDamageScale: 1
 };
 
 const VEHICLE_CONFIGS: Readonly<Record<string, VehicleConfig>> = {
   sedan: DEFAULT_CONFIG,
-  taxi: {maxHealth: 105, mass: 1.05, collisionDamageScale: 0.95},
-  police: {maxHealth: 120, mass: 1.12, collisionDamageScale: 0.9}
+  taxi: {maxHealth: 1000, mass: 1.05, collisionDamageScale: 0.95},
+  police: {maxHealth: 1000, mass: 1.12, collisionDamageScale: 0.82}
 };
 
 export function vehicleConfig(kind: string): VehicleConfig {

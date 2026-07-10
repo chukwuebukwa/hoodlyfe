@@ -93,7 +93,15 @@ export class VehicleState extends Schema {
   y = 0;
   angle = 0;
   speed = 0;
-  health = 100;
+  health = 1000;
+  maxHealth = 1000;
+  engineDamage = 0;
+  damageFront = 0;
+  damageRear = 0;
+  damageLeft = 0;
+  damageRight = 0;
+  onFire = false;
+  fireStartedAt = 0;
   destroyed = false;
   respawnAt = 0;
   driverId = '';
@@ -109,6 +117,14 @@ defineTypes(VehicleState, {
   angle: 'number',
   speed: 'number',
   health: 'number',
+  maxHealth: 'number',
+  engineDamage: 'number',
+  damageFront: 'number',
+  damageRear: 'number',
+  damageLeft: 'number',
+  damageRight: 'number',
+  onFire: 'boolean',
+  fireStartedAt: 'number',
   destroyed: 'boolean',
   respawnAt: 'number',
   driverId: 'string',

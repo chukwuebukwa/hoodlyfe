@@ -49,6 +49,14 @@ export interface NetworkVehicle {
   angle: number;
   speed: number;
   health: number;
+  maxHealth: number;
+  engineDamage: number;
+  damageFront: number;
+  damageRear: number;
+  damageLeft: number;
+  damageRight: number;
+  onFire: boolean;
+  fireStartedAt: number;
   destroyed: boolean;
   respawnAt: number;
   driverId: string;

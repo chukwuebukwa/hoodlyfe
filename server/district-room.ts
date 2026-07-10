@@ -14,7 +14,11 @@ import {IncidentRegistry, type Incident} from './game/incidents/incident-registr
 import {WitnessSystem, type WitnessCandidate} from './game/incidents/witness-system.ts';
 import {DispatchSystem} from './game/police/dispatch-system.ts';
 import {PursuitMemory} from './game/police/pursuit-memory.ts';
-import {VehicleCollisionSystem} from './game/vehicles/vehicle-collision-system.ts';
+import {
+  classifyImpactZone,
+  VehicleCollisionSystem,
+  type VehicleDamageZone
+} from './game/vehicles/vehicle-collision-system.ts';
 import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
 import {VehicleDamageSystem} from './game/vehicles/vehicle-damage-system.ts';
 import {WantedSystem} from './game/wanted/wanted-system.ts';
@@ -109,6 +113,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly vehicleCollisions = new VehicleCollisionSystem();
   private readonly vehicleDamage = new VehicleDamageSystem();
   private readonly vehicleCollisionPairsThisTick = new Set<string>();
+  private readonly vehicleFireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly reportedSuspectLocations = new Map<string, {x: number; y: number}>();
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
@@ -128,6 +133,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.dispatch.clear();
     this.pursuitMemory.clear();
     this.vehicleCollisionPairsThisTick.clear();
+    this.vehicleFireSources.clear();
     this.reportedSuspectLocations.clear();
     this.recentDebugEvents.length = 0;
     this.lastDebugBroadcastTick = 0;
@@ -230,7 +236,8 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.x = position.x;
       vehicle.y = position.y;
       vehicle.angle = index === 0 ? starterAngle : (index % 2 === 0 ? -Math.PI / 2 : 0);
-      vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
+      vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
+      vehicle.health = vehicle.maxHealth;
       this.state.vehicles.set(vehicle.id, vehicle);
     }
 
@@ -243,7 +250,8 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.y = spawn.y;
       vehicle.angle = spawn.angle;
       vehicle.speed = 90 + index * 4;
-      vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
+      vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
+      vehicle.health = vehicle.maxHealth;
       vehicle.traffic = true;
       this.state.vehicles.set(vehicle.id, vehicle);
       this.runtimeTraffic.set(vehicle.id, {
@@ -343,6 +351,10 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateVehicle(vehicle: VehicleState, deltaSeconds: number, now: number): void {
+    if (!vehicle.destroyed && this.vehicleDamage.shouldExplode(vehicle, now)) {
+      const source = this.vehicleFireSources.get(vehicle.id) ?? {sourceId: '', sourceKind: 'world' as const};
+      this.destroyVehicle(vehicle, source.sourceId, source.sourceKind, now);
+    }
     if (vehicle.destroyed) {
       this.updateDestroyedVehicle(vehicle, now);
       this.syncVehicleOccupants(vehicle);
@@ -366,8 +378,8 @@ export class DistrictRoom extends Room<DistrictState> {
         vehicle.speed = approach(vehicle.speed, 0, 150 * deltaSeconds);
       }
       const speedMultiplier = this.vehicleDamage.speedMultiplier(
-        vehicle.health,
-        vehicleConfig(vehicle.kind).maxHealth
+        vehicle.engineDamage,
+        vehicle.onFire
       );
       vehicle.speed = clamp(vehicle.speed, -115 * speedMultiplier, 410 * speedMultiplier);
 
@@ -390,7 +402,8 @@ export class DistrictRoom extends Room<DistrictState> {
           this.vehicleDamage.wallImpactDamage(vehicle.speed),
           '',
           'world',
-          now
+          now,
+          vehicle.speed >= 0 ? 'front' : 'rear'
         );
         vehicle.speed *= -0.2;
       }
@@ -594,8 +607,22 @@ export class DistrictRoom extends Room<DistrictState> {
       }
       if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
       if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
-      this.applyVehicleDamage(vehicle, result.primaryDamage, other.driverId, 'vehicle', now);
-      this.applyVehicleDamage(other, result.otherDamage, vehicle.driverId, 'vehicle', now);
+      this.applyVehicleDamage(
+        vehicle,
+        result.primaryDamage,
+        other.driverId,
+        'vehicle',
+        now,
+        result.primaryZone
+      );
+      this.applyVehicleDamage(
+        other,
+        result.otherDamage,
+        vehicle.driverId,
+        'vehicle',
+        now,
+        result.otherZone
+      );
       this.syncVehicleOccupants(other);
       return;
     }
@@ -606,12 +633,20 @@ export class DistrictRoom extends Room<DistrictState> {
     damage: number,
     sourceId: string,
     sourceKind: VehicleDamageSource,
-    now: number
+    now: number,
+    zone: VehicleDamageZone = 'front'
   ): void {
     if (vehicle.destroyed || damage <= 0) return;
-    const result = this.vehicleDamage.apply(vehicle.health, damage);
+    const result = this.vehicleDamage.apply(vehicle, damage, sourceKind, zone, now);
     if (result.appliedDamage <= 0) return;
     vehicle.health = result.health;
+    vehicle.engineDamage = result.engineDamage;
+    vehicle.damageFront = result.damageFront;
+    vehicle.damageRear = result.damageRear;
+    vehicle.damageLeft = result.damageLeft;
+    vehicle.damageRight = result.damageRight;
+    vehicle.onFire = result.onFire;
+    vehicle.fireStartedAt = result.fireStartedAt;
     this.events.publish({
       type: 'vehicle.damaged',
       tick: this.simulationClock.tick,
@@ -622,6 +657,18 @@ export class DistrictRoom extends Room<DistrictState> {
       amount: result.appliedDamage,
       remainingHealth: result.health
     });
+    if (result.ignited) {
+      this.vehicleFireSources.set(vehicle.id, {sourceId, sourceKind});
+      this.events.publish({
+        type: 'vehicle.ignited',
+        tick: this.simulationClock.tick,
+        nowMs: now,
+        vehicleId: vehicle.id,
+        sourceId,
+        sourceKind,
+        explodesAt: result.fireStartedAt + 5000
+      });
+    }
     if (result.destroyed) this.destroyVehicle(vehicle, sourceId, sourceKind, now);
   }
 
@@ -636,6 +683,9 @@ export class DistrictRoom extends Room<DistrictState> {
     vehicle.speed = 0;
     vehicle.traffic = false;
     vehicle.hijackBy = '';
+    vehicle.onFire = false;
+    vehicle.fireStartedAt = 0;
+    this.vehicleFireSources.delete(vehicle.id);
     const occupants = this.vehicleOccupants(vehicle.id);
     vehicle.driverId = '';
     for (let index = 0; index < occupants.length; index++) {
@@ -678,7 +728,16 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     vehicle.x = position.x;
     vehicle.y = position.y;
-    vehicle.health = vehicleConfig(vehicle.kind).maxHealth;
+    const restored = this.vehicleDamage.reset(vehicleConfig(vehicle.kind).maxHealth);
+    vehicle.health = restored.health;
+    vehicle.maxHealth = restored.maxHealth;
+    vehicle.engineDamage = restored.engineDamage;
+    vehicle.damageFront = restored.damageFront;
+    vehicle.damageRear = restored.damageRear;
+    vehicle.damageLeft = restored.damageLeft;
+    vehicle.damageRight = restored.damageRight;
+    vehicle.onFire = restored.onFire;
+    vehicle.fireStartedAt = restored.fireStartedAt;
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
     vehicle.traffic = this.runtimeTraffic.has(vehicle.id);
@@ -1092,10 +1151,15 @@ export class DistrictRoom extends Room<DistrictState> {
       ) continue;
       this.applyVehicleDamage(
         target,
-        this.vehicleDamage.weaponDamage(weapon.damage, weapon.pellets),
+        this.vehicleDamage.weaponDamage(weapon.damage),
         bullet.ownerId,
         'weapon',
-        now
+        now,
+        classifyImpactZone(
+          target.angle,
+          -Math.cos(bullet.angle),
+          -Math.sin(bullet.angle)
+        )
       );
       this.deferBulletRemoval(bulletId);
       return;
@@ -1510,6 +1574,8 @@ function summarizeGameEvent(event: GameEvent): string {
         : `${event.officerId} cleared from ${event.previousSuspectId}`;
     case 'vehicle.damaged':
       return `${event.vehicleId} -${event.amount} hp (${event.sourceKind})`;
+    case 'vehicle.ignited':
+      return `${event.vehicleId} ignited; explosion fuse armed`;
     case 'vehicle.destroyed':
       return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
     case 'vehicle.restored':
