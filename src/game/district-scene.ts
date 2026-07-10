@@ -11,7 +11,9 @@ import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import type {MinimapPointInput} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
+import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
+import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import type {
   DistrictNetworkState,
   NetworkMission,
@@ -19,46 +21,18 @@ import type {
   NetworkVehicle
 } from './types.ts';
 
-const PLAYER_SPEED = 190;
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const SPATIAL_CELL_SIZE = 256;
 const DEBUG_DRAW_INTERVAL = 100;
 
-interface RenderPlayer {
-  sprite: Phaser.GameObjects.Sprite;
-  passengerSprite: Phaser.GameObjects.Sprite;
-  label: Phaser.GameObjects.Text;
-  weaponSprite: Phaser.GameObjects.Image;
-  weapon: NetworkPlayer['weapon'];
-  targetX: number;
-  targetY: number;
-  targetAngle: number;
-  isLocal: boolean;
-  peekRecoilUntil: number;
-}
-
-interface RenderVehicle {
-  container: Phaser.GameObjects.Container;
-  sprite: Phaser.GameObjects.Sprite;
-  smoke: Phaser.GameObjects.Arc;
-  fire: Phaser.GameObjects.Arc;
-  redLight?: Phaser.GameObjects.Arc;
-  blueLight?: Phaser.GameObjects.Arc;
-  targetX: number;
-  targetY: number;
-  targetAngle: number;
-  localDriver: boolean;
-  localOccupant: boolean;
-}
-
 export class DistrictScene extends Phaser.Scene {
   private readonly room: Room<DistrictNetworkState>;
-  private readonly players = new Map<string, RenderPlayer>();
-  private readonly vehicles = new Map<string, RenderVehicle>();
   private pedestrianRenderer!: PedestrianRenderer;
+  private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private vehicleRenderer!: VehicleRenderer;
   private debugSubscription!: DebugSnapshotSubscription;
   private inputController!: ClientInputController;
   private debugKey!: Phaser.Input.Keyboard.Key;
@@ -69,7 +43,6 @@ export class DistrictScene extends Phaser.Scene {
   private missionGraphics!: Phaser.GameObjects.Graphics;
   private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
   private minimap?: MinimapRenderer;
-  private lastLocalHealth = 100;
   private lastWanted = 0;
   private lastCash = 0;
   private lastLocalAction = '';
@@ -135,13 +108,33 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
     this.pedestrianRenderer = new PedestrianRenderer(this);
+    this.vehicleRenderer = new VehicleRenderer(this, {
+      onLocalOccupant: (vehicleId, container) => {
+        if (this.cameraTargetId === `vehicle:${vehicleId}`) return;
+        this.cameras.main.startFollow(container, true, 0.12, 0.12);
+        this.cameraTargetId = `vehicle:${vehicleId}`;
+      }
+    });
+    this.playerRenderer = new PlayerRenderer(this, {
+      localPlayerId: this.room.sessionId,
+      vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
+      canOccupy: (x, y) => this.canOccupy(x, y),
+      onLocalState: (playerId, player, sprite, damaged) => {
+        this.updateHud(player);
+        if (!player.vehicleId && this.cameraTargetId !== `player:${playerId}`) {
+          this.cameras.main.startFollow(sprite, true, 0.14, 0.14);
+          this.cameras.main.centerOn(player.x, player.y);
+          this.cameraTargetId = `player:${playerId}`;
+        }
+        if (damaged) {
+          this.cameras.main.shake(110, 0.004);
+          this.cameras.main.flash(90, 150, 20, 20, false);
+        }
+      }
+    });
     this.projectileRenderer = new ProjectileRenderer(this, {
       onCreated: (bullet) => {
-        const shooter = this.players.get(bullet.ownerId);
-        const shooterState = this.latestState?.players?.get(bullet.ownerId);
-        if (shooter && shooterState?.vehicleId && shooterState.vehicleSeat > 0) {
-          shooter.peekRecoilUntil = this.time.now + 140;
-        }
+        this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
       }
     });
 
@@ -161,16 +154,8 @@ export class DistrictScene extends Phaser.Scene {
       scene: this,
       room: this.room,
       getPlayer: () => this.latestState?.players?.get(this.room.sessionId),
-      getAimOrigin: () => {
-        const local = this.players.get(this.room.sessionId);
-        return local ? {x: local.sprite.x, y: local.sprite.y} : undefined;
-      },
-      onAim: (angle) => {
-        const local = this.players.get(this.room.sessionId);
-        if (!local) return;
-        local.sprite.rotation = angle - Math.PI / 2;
-        local.targetAngle = angle;
-      }
+      getAimOrigin: () => this.playerRenderer.aimOrigin(this.room.sessionId),
+      onAim: (angle) => this.playerRenderer.setAim(this.room.sessionId, angle)
     });
     this.inputController.start();
     document.querySelector('#debug-toggle')?.addEventListener('click', (event) => {
@@ -211,7 +196,7 @@ export class DistrictScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     const input = this.inputController.update(time);
-    this.predictLocalMovement(input.x, input.y, delta / 1000);
+    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
     this.interpolateEntities(time);
     this.updateDebugView(time);
     this.updateMinimap(time);
@@ -229,33 +214,10 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   private synchronizeState(state: DistrictNetworkState): void {
-    const presentPlayers = new Set<string>();
-    state.players?.forEach((player, playerId) => {
-      presentPlayers.add(playerId);
-      this.synchronizePlayer(playerId, player);
-    });
-    for (const [playerId, rendered] of this.players) {
-      if (presentPlayers.has(playerId)) continue;
-      rendered.sprite.destroy();
-      rendered.passengerSprite.destroy();
-      rendered.label.destroy();
-      rendered.weaponSprite.destroy();
-      this.players.delete(playerId);
-    }
-
+    this.playerRenderer.synchronize(state.players);
     this.pedestrianRenderer.synchronize(state.npcs);
-
-    const presentVehicles = new Set<string>();
-    state.vehicles?.forEach((vehicle, vehicleId) => {
-      presentVehicles.add(vehicleId);
-      this.synchronizeVehicle(vehicleId, vehicle);
-    });
-    for (const [vehicleId, rendered] of this.vehicles) {
-      if (presentVehicles.has(vehicleId)) continue;
-      rendered.container.destroy(true);
-      this.vehicles.delete(vehicleId);
-    }
-
+    const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
+    this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
     this.projectileRenderer.synchronize(state.bullets);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
@@ -266,148 +228,6 @@ export class DistrictScene extends Phaser.Scene {
     this.updateVehicleActionButton();
     this.updateMissionHud();
     this.updateDebugPanel();
-  }
-
-  private synchronizePlayer(playerId: string, player: NetworkPlayer): void {
-    let rendered = this.players.get(playerId);
-    const isLocal = playerId === this.room.sessionId;
-    if (!rendered) {
-      const sprite = this.add.sprite(player.x, player.y, 'driver', 0)
-        .setDisplaySize(72, 72)
-        .setOrigin(0.5)
-        .setDepth(Math.round(player.y) + 100);
-      const label = this.add.text(player.x, player.y - 31, player.name, {
-        color: '#ffffff',
-        fontFamily: 'Inter, Arial, sans-serif',
-        fontSize: '10px',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-      }).setOrigin(0.5, 1).setDepth(950_000);
-      const weaponSprite = this.add.image(player.x, player.y, weaponTexture(player.weapon))
-        .setOrigin(0.16, 0.5)
-        .setDepth(Math.round(player.y) + 101);
-      sizeWeaponSprite(weaponSprite, player.weapon);
-      const passengerSprite = this.add.sprite(player.x, player.y, 'driver', 0)
-        .setOrigin(0.5)
-        .setScale(0.58)
-        .setVisible(false)
-        .setDepth(Math.round(player.y) + 101);
-      rendered = {
-        sprite,
-        passengerSprite,
-        label,
-        weaponSprite,
-        weapon: player.weapon,
-        targetX: player.x,
-        targetY: player.y,
-        targetAngle: player.angle,
-        isLocal,
-        peekRecoilUntil: 0
-      };
-      this.players.set(playerId, rendered);
-    }
-
-    rendered.targetX = player.x;
-    rendered.targetY = player.y;
-    rendered.targetAngle = player.angle;
-    const visibleOnFoot = player.alive && !player.vehicleId;
-    const visiblePassengerWeapon = player.alive && Boolean(player.vehicleId) && player.vehicleSeat > 0;
-    rendered.sprite.setVisible(visibleOnFoot);
-    rendered.passengerSprite.setVisible(visiblePassengerWeapon && !player.action);
-    rendered.label.setVisible(player.alive).setText(player.name);
-    rendered.weaponSprite.setVisible((visibleOnFoot || visiblePassengerWeapon) && !player.action);
-    if (rendered.weapon !== player.weapon) {
-      rendered.weapon = player.weapon;
-      rendered.weaponSprite.setTexture(weaponTexture(player.weapon));
-      sizeWeaponSprite(rendered.weaponSprite, player.weapon);
-    }
-
-    if (isLocal) {
-      this.updateHud(player);
-      if (!player.vehicleId && this.cameraTargetId !== `player:${playerId}`) {
-        this.cameras.main.startFollow(rendered.sprite, true, 0.14, 0.14);
-        this.cameras.main.centerOn(player.x, player.y);
-        this.cameraTargetId = `player:${playerId}`;
-      }
-      if (player.health < this.lastLocalHealth) {
-        this.cameras.main.shake(110, 0.004);
-        this.cameras.main.flash(90, 150, 20, 20, false);
-      }
-      this.lastLocalHealth = player.health;
-    }
-  }
-
-  private synchronizeVehicle(vehicleId: string, vehicle: NetworkVehicle): void {
-    let rendered = this.vehicles.get(vehicleId);
-    const localDriver = vehicle.driverId === this.room.sessionId;
-    const localOccupant = this.latestState?.players?.get(this.room.sessionId)?.vehicleId === vehicleId;
-    if (!rendered) {
-      const sprite = this.add.sprite(0, 0, 'vehicles', vehicleFrame(vehicle.kind)).setDisplaySize(96, 96);
-      const smoke = this.add.circle(0, -17, 6, 0x2d3436, 0.75).setStrokeStyle(2, 0x9aa2a4, 0.5);
-      const fire = this.add.circle(0, -14, 4, 0xff8c24, 0.95).setStrokeStyle(2, 0xffd34d, 0.9);
-      smoke.setVisible(false);
-      fire.setVisible(false);
-      const children: Phaser.GameObjects.GameObject[] = [sprite, smoke, fire];
-      let redLight: Phaser.GameObjects.Arc | undefined;
-      let blueLight: Phaser.GameObjects.Arc | undefined;
-      if (vehicle.kind === 'police') {
-        redLight = this.add.circle(-8, 0, 2.6, 0xff3030, 1)
-          .setStrokeStyle(1.5, 0xff8a8a, 0.7);
-        blueLight = this.add.circle(8, 0, 2.6, 0x3c73ff, 1)
-          .setStrokeStyle(1.5, 0x8eb0ff, 0.7);
-        children.push(redLight, blueLight);
-      }
-      const container = this.add.container(vehicle.x, vehicle.y, children)
-        .setDepth(Math.round(vehicle.y) + 90);
-      rendered = {
-        container,
-        sprite,
-        smoke,
-        fire,
-        redLight,
-        blueLight,
-        targetX: vehicle.x,
-        targetY: vehicle.y,
-        targetAngle: vehicle.angle,
-        localDriver,
-        localOccupant
-      };
-      this.vehicles.set(vehicleId, rendered);
-    }
-    rendered.targetX = vehicle.x;
-    rendered.targetY = vehicle.y;
-    rendered.targetAngle = vehicle.angle;
-    rendered.localDriver = localDriver;
-    rendered.localOccupant = localOccupant;
-    rendered.sprite.setFrame(vehicleFrame(vehicle.kind));
-    const healthRatio = clamp(vehicle.health / Math.max(1, vehicle.maxHealth), 0, 1);
-    rendered.smoke.setVisible(vehicle.destroyed || vehicle.engineDamage >= 100);
-    rendered.fire.setVisible(vehicle.destroyed || vehicle.onFire);
-    rendered.sprite.setAlpha(vehicle.destroyed ? 0.68 : 1);
-    if (vehicle.destroyed) rendered.sprite.setTint(0x4f4f4f);
-    else if (healthRatio < 0.35) rendered.sprite.setTint(0xc77b68);
-    else rendered.sprite.clearTint();
-    if (localOccupant && this.cameraTargetId !== `vehicle:${vehicleId}`) {
-      this.cameras.main.startFollow(rendered.container, true, 0.12, 0.12);
-      this.cameraTargetId = `vehicle:${vehicleId}`;
-    }
-  }
-
-  private predictLocalMovement(x: number, y: number, deltaSeconds: number): void {
-    const localState = this.latestState?.players?.get(this.room.sessionId);
-    const local = this.players.get(this.room.sessionId);
-    if (!local || !localState?.alive || localState.vehicleId || localState.action) return;
-    const distance = PLAYER_SPEED * Math.min(deltaSeconds, 0.05);
-    if (x !== 0 || y !== 0) {
-      local.sprite.play('driver-walk', true);
-    } else if (local.sprite.anims.isPlaying) {
-      local.sprite.stop().setFrame(0);
-    }
-    const nextX = local.sprite.x + x * distance;
-    if (this.canOccupy(nextX, local.sprite.y)) local.sprite.x = nextX;
-    const nextY = local.sprite.y + y * distance;
-    if (this.canOccupy(local.sprite.x, nextY)) local.sprite.y = nextY;
   }
 
   private updateVehicleActionButton(): void {
@@ -441,149 +261,10 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   private interpolateEntities(time: number): void {
-    for (const [playerId, rendered] of this.players) {
-      const playerState = this.latestState?.players?.get(playerId);
-      const distance = Phaser.Math.Distance.Between(
-        rendered.sprite.x,
-        rendered.sprite.y,
-        rendered.targetX,
-        rendered.targetY
-      );
-      if (distance > 120) {
-        rendered.sprite.setPosition(rendered.targetX, rendered.targetY);
-      } else {
-        const correction = rendered.isLocal ? 0.08 : 0.24;
-        rendered.sprite.x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, correction);
-        rendered.sprite.y = Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, correction);
-      }
-      if (!rendered.isLocal) {
-        rendered.sprite.rotation = Phaser.Math.Angle.RotateTo(
-          rendered.sprite.rotation,
-          rendered.targetAngle - Math.PI / 2,
-          0.16
-        );
-        this.updateWalkAnimation(rendered.sprite, 'driver-walk', distance);
-      }
-      rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 100);
-      if (playerState?.action) {
-        const pulse = 1 + Math.sin(time / 58) * 0.08;
-        rendered.sprite.setScale(pulse);
-        rendered.sprite.rotation = rendered.targetAngle - Math.PI / 2 + Math.sin(time / 42) * 0.16;
-      } else {
-        rendered.sprite.setScale(1);
-      }
-      const aimAngle = rendered.isLocal ? rendered.targetAngle : rendered.sprite.rotation + Math.PI / 2;
-      let weaponBaseX = rendered.sprite.x;
-      let weaponBaseY = rendered.sprite.y;
-      if (playerState?.vehicleId && playerState.vehicleSeat > 0) {
-        const vehicle = this.vehicles.get(playerState.vehicleId);
-        if (vehicle) {
-          const forwardOffset = playerState.vehicleSeat === 3 ? -11 : 5;
-          const sideOffset = playerState.vehicleSeat === 1 ? 15 : (playerState.vehicleSeat === 2 ? -15 : 0);
-          const sideAngle = vehicle.targetAngle + Math.PI / 2;
-          weaponBaseX = vehicle.container.x + Math.cos(vehicle.targetAngle) * forwardOffset +
-            Math.cos(sideAngle) * sideOffset;
-          weaponBaseY = vehicle.container.y + Math.sin(vehicle.targetAngle) * forwardOffset +
-            Math.sin(sideAngle) * sideOffset;
-          const recoil = time < rendered.peekRecoilUntil ? 4 : 0;
-          const peek = 3 + Math.sin(time / 95 + playerState.vehicleSeat) * 1.4;
-          const peekAngle = playerState.vehicleSeat === 3
-            ? vehicle.targetAngle + Math.PI
-            : sideAngle + (sideOffset < 0 ? Math.PI : 0);
-          rendered.passengerSprite
-            .setPosition(
-              weaponBaseX + Math.cos(peekAngle) * peek - Math.cos(aimAngle) * recoil,
-              weaponBaseY + Math.sin(peekAngle) * peek - Math.sin(aimAngle) * recoil
-            )
-            .setRotation(aimAngle - Math.PI / 2)
-            .setScale(time < rendered.peekRecoilUntil ? 0.64 : 0.58)
-            .setDepth(Math.round(weaponBaseY) + 101);
-        }
-      }
-      rendered.weaponSprite
-        .setPosition(
-          weaponBaseX + Math.cos(aimAngle) * 7,
-          weaponBaseY + Math.sin(aimAngle) * 7
-        )
-        .setRotation(aimAngle)
-        .setDepth(Math.round(weaponBaseY) + 102);
-      if (playerState?.vehicleId) {
-        const vehicle = this.vehicles.get(playerState.vehicleId);
-        if (vehicle) {
-          rendered.label.setPosition(
-            vehicle.container.x,
-            vehicle.container.y - 34 - Math.max(0, playerState.vehicleSeat) * 12
-          );
-        }
-      } else {
-        rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 31);
-      }
-    }
-    this.resolveNameplateOverlaps();
-
+    this.vehicleRenderer.interpolate(time);
+    this.playerRenderer.interpolate(time);
     this.pedestrianRenderer.interpolate();
-
-    for (const rendered of this.vehicles.values()) {
-      const distance = Phaser.Math.Distance.Between(
-        rendered.container.x,
-        rendered.container.y,
-        rendered.targetX,
-        rendered.targetY
-      );
-      const correction = rendered.localOccupant ? 0.34 : 0.25;
-      if (distance > 180) {
-        rendered.container.setPosition(rendered.targetX, rendered.targetY);
-      } else {
-        rendered.container.x = Phaser.Math.Linear(rendered.container.x, rendered.targetX, correction);
-        rendered.container.y = Phaser.Math.Linear(rendered.container.y, rendered.targetY, correction);
-      }
-      rendered.container.rotation = Phaser.Math.Angle.RotateTo(
-        rendered.container.rotation,
-        rendered.targetAngle + Math.PI / 2,
-        0.2
-      );
-      rendered.container.setDepth(Math.round(rendered.container.y) + 90);
-      if (rendered.redLight && rendered.blueLight) {
-        const phase = Math.floor(time / 120) % 2;
-        rendered.redLight.alpha = phase === 0 ? 1 : 0.22;
-        rendered.blueLight.alpha = phase === 1 ? 1 : 0.22;
-      }
-      if (rendered.smoke.visible) {
-        rendered.smoke.setPosition(Math.sin(time / 180) * 2.5, -17 - Math.sin(time / 110) * 3);
-        rendered.smoke.setScale(0.85 + (Math.sin(time / 140) + 1) * 0.18);
-        rendered.smoke.alpha = 0.45 + (Math.sin(time / 170) + 1) * 0.16;
-      }
-      if (rendered.fire.visible) {
-        rendered.fire.setScale(0.78 + (Math.sin(time / 52) + 1) * 0.22);
-      }
-    }
-
     this.projectileRenderer.interpolate();
-  }
-
-  private updateWalkAnimation(sprite: Phaser.GameObjects.Sprite, key: string, distance: number): void {
-    if (!sprite.visible) return;
-    if (distance > 0.75) {
-      sprite.play(key, true);
-    } else if (sprite.anims.isPlaying) {
-      sprite.stop().setFrame(0);
-    }
-  }
-
-  private resolveNameplateOverlaps(): void {
-    const placed: Array<{x: number; y: number}> = [];
-    const labels = [...this.players.values()]
-      .map((rendered) => rendered.label)
-      .filter((label) => label.visible)
-      .sort((left, right) => left.y - right.y || left.x - right.x);
-    for (const label of labels) {
-      let y = label.y;
-      while (placed.some((position) => Math.abs(position.x - label.x) < 54 && Math.abs(position.y - y) < 11)) {
-        y -= 12;
-      }
-      label.y = y;
-      placed.push({x: label.x, y});
-    }
   }
 
   private canOccupy(x: number, y: number): boolean {
@@ -1089,22 +770,6 @@ export class DistrictScene extends Phaser.Scene {
     element.textContent = online ? 'Online' : 'Disconnected';
     element.classList.toggle('offline', !online);
   }
-}
-
-function vehicleFrame(kind: NetworkVehicle['kind']): number {
-  if (kind === 'police') return 1;
-  if (kind === 'taxi') return 2;
-  return 0;
-}
-
-function weaponTexture(weapon: NetworkPlayer['weapon']): string {
-  return `weapon-${weapon}`;
-}
-
-function sizeWeaponSprite(sprite: Phaser.GameObjects.Image, weapon: NetworkPlayer['weapon']): void {
-  if (weapon === 'shotgun') sprite.setDisplaySize(42, 10);
-  else if (weapon === 'smg') sprite.setDisplaySize(33, 11);
-  else sprite.setDisplaySize(25, 9);
 }
 
 function weaponLabel(weapon: NetworkPlayer['weapon']): string {

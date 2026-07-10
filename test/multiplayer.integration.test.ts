@@ -104,12 +104,20 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   }), 4000);
 
   first.send('interact');
-  await waitUntil(() => Boolean(first.state.players.get(first.sessionId)?.vehicleId));
+  await waitUntil(() => {
+    const player = first.state.players.get(first.sessionId);
+    return Boolean(player?.vehicleId) && player?.vehicleSeat === 0;
+  });
   const vehicleId = first.state.players.get(first.sessionId)?.vehicleId;
   assert.ok(vehicleId);
   assert.equal(first.state.players.get(first.sessionId)?.vehicleSeat, 0);
   second.send('interact');
-  await waitUntil(() => second.state.players.get(second.sessionId)?.vehicleId === vehicleId);
+  await waitUntil(() => {
+    const localPassenger = second.state.players.get(second.sessionId);
+    const remotePassenger = first.state.players.get(second.sessionId);
+    return localPassenger?.vehicleId === vehicleId && localPassenger.vehicleSeat === 1 &&
+      remotePassenger?.vehicleId === vehicleId && remotePassenger.vehicleSeat === 1;
+  });
   assert.equal(first.state.players.get(second.sessionId)?.vehicleSeat, 1);
   second.send('cycleWeapon', {direction: 1});
   await waitUntil(() => second.state.players.get(second.sessionId)?.weapon === 'smg');
@@ -168,9 +176,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const revengeShooter = second.state.players.get(second.sessionId);
   const wantedTarget = second.state.players.get(first.sessionId);
   assert.ok(revengeShooter && wantedTarget);
-  const revengeDistance = await moveNear(second, second.sessionId, first.sessionId, 280);
-  assert.ok(revengeDistance <= 300, `Revenge shooter stopped ${Math.round(revengeDistance)} units away.`);
-  for (let shot = 0; shot < 12 && second.state.players.get(first.sessionId)?.alive; shot++) {
+  const revengeDistance = await moveNear(second, second.sessionId, first.sessionId, 120);
+  assert.ok(revengeDistance <= 150, `Revenge shooter stopped ${Math.round(revengeDistance)} units away.`);
+  for (let shot = 0; shot < 16 && second.state.players.get(first.sessionId)?.alive; shot++) {
     const currentShooter = second.state.players.get(second.sessionId);
     const currentTarget = second.state.players.get(first.sessionId);
     assert.ok(currentShooter && currentTarget);
@@ -181,7 +189,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     second.send('shoot');
     await delay(220);
   }
-  await waitUntil(() => second.state.players.get(first.sessionId)?.alive === false, 5000);
+  await waitUntil(() => second.state.players.get(first.sessionId)?.alive === false, 5000).catch(() => {
+    const shooter = second.state.players.get(second.sessionId);
+    const target = second.state.players.get(first.sessionId);
+    const distance = shooter && target ? Math.hypot(target.x - shooter.x, target.y - shooter.y) : -1;
+    throw new Error(
+      `Revenge fire did not kill target: health=${target?.health}, distance=${Math.round(distance)}.`
+    );
+  });
   await waitUntil(() => second.state.players.get(first.sessionId)?.alive === true, 5000);
   assert.equal(second.state.players.get(first.sessionId)?.wanted, 0);
 });

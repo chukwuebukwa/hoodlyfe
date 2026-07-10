@@ -5,7 +5,12 @@ import {
   rotateTowards
 } from '../src/game/rendering/interpolation-policy.ts';
 import {projectileStyle} from '../src/game/rendering/projectile-render-policy.ts';
-import type {NetworkBullet} from '../src/game/types.ts';
+import {
+  passengerPresentation,
+  weaponPresentation
+} from '../src/game/rendering/player-render-policy.ts';
+import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
+import type {NetworkBullet, NetworkVehicle} from '../src/game/types.ts';
 
 test('render interpolation blends ordinary correction and snaps large divergence', () => {
   assert.deepEqual(interpolatePosition(0, 0, 100, 50, 0.2, 200), {
@@ -42,6 +47,47 @@ test('projectile presentation preserves weapon style and police override', () =>
   });
 });
 
+test('player weapon models and passenger seats preserve stable presentation anchors', () => {
+  assert.deepEqual(weaponPresentation('pistol'), {
+    texture: 'weapon-pistol', width: 25, height: 9
+  });
+  assert.deepEqual(weaponPresentation('smg'), {
+    texture: 'weapon-smg', width: 33, height: 11
+  });
+  assert.deepEqual(weaponPresentation('shotgun'), {
+    texture: 'weapon-shotgun', width: 42, height: 10
+  });
+  const vehicle = {x: 100, y: 200, angle: 0};
+  const frontRight = passengerPresentation(vehicle, 1, 0, 0, false);
+  const rearLeft = passengerPresentation(vehicle, 2, 0, 0, false);
+  const rear = passengerPresentation(vehicle, 3, 0, 0, false);
+  assert.deepEqual({x: frontRight.baseX, y: frontRight.baseY}, {x: 105, y: 215});
+  assert.deepEqual({x: rearLeft.baseX, y: rearLeft.baseY}, {x: 105, y: 185});
+  assert.deepEqual({x: rear.baseX, y: rear.baseY}, {x: 89, y: 200});
+  const recoil = passengerPresentation(vehicle, 1, 0, 0, true);
+  assert.equal(recoil.spriteX, frontRight.spriteX - 4);
+  assert.equal(recoil.scale, 0.64);
+});
+
+test('vehicle presentation stages model, component damage, fire, and destruction', () => {
+  assert.deepEqual(vehicleVisualState(createVehicle()), {
+    frame: 0, stage: 'healthy', smoke: false, fire: false, alpha: 1
+  });
+  assert.equal(vehicleVisualState(createVehicle({kind: 'police'})).frame, 1);
+  assert.equal(vehicleVisualState(createVehicle({kind: 'taxi'})).frame, 2);
+  assert.equal(vehicleVisualState(createVehicle({health: 300})).stage, 'damaged');
+  assert.equal(vehicleVisualState(createVehicle({engineDamage: 100})).stage, 'smoking');
+  assert.equal(vehicleVisualState(createVehicle({onFire: true})).stage, 'burning');
+  assert.deepEqual(vehicleVisualState(createVehicle({destroyed: true})), {
+    frame: 0,
+    stage: 'wrecked',
+    smoke: true,
+    fire: true,
+    alpha: 0.68,
+    tint: 0x4f4f4f
+  });
+});
+
 function createBullet(weapon: NetworkBullet['weapon']): NetworkBullet {
   return {
     id: 'bullet',
@@ -52,5 +98,31 @@ function createBullet(weapon: NetworkBullet['weapon']): NetworkBullet {
     angle: 0,
     createdAt: 0,
     weapon
+  };
+}
+
+function createVehicle(overrides: Partial<NetworkVehicle> = {}): NetworkVehicle {
+  return {
+    id: 'vehicle',
+    kind: 'sedan',
+    x: 0,
+    y: 0,
+    angle: 0,
+    speed: 0,
+    health: 1000,
+    maxHealth: 1000,
+    engineDamage: 0,
+    damageFront: 0,
+    damageRear: 0,
+    damageLeft: 0,
+    damageRight: 0,
+    onFire: false,
+    fireStartedAt: 0,
+    destroyed: false,
+    respawnAt: 0,
+    driverId: '',
+    traffic: false,
+    hijackBy: '',
+    ...overrides
   };
 }

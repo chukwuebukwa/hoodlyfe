@@ -33,8 +33,13 @@ game/
   rendering/
     interpolation-policy.ts
     pedestrian-renderer.ts
+    player-render-policy.ts
+    player-renderer.ts
     projectile-render-policy.ts
     projectile-renderer.ts
+    render-types.ts
+    vehicle-render-policy.ts
+    vehicle-renderer.ts
   minimap-marker-policy.ts
   minimap-renderer.ts
   touch-controls.ts
@@ -47,6 +52,8 @@ game/
 - `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
 - `interpolation-policy.ts` owns framework-independent render correction and wrapped-angle interpolation.
 - `PedestrianRenderer` owns NPC render-object creation, synchronization, animation, interpolation, visibility, depth, removal, and teardown.
+- `PlayerRenderer` owns player/weapon/passenger/nameplate render objects, prediction, interpolation, seat composition, recoil, and teardown.
 - `projectile-render-policy.ts` owns weapon/police projectile presentation data.
 - `ProjectileRenderer` owns bullet render-object creation, synchronization, interpolation, muzzle flashes, removal, and teardown.
-- `DistrictScene` still owns world setup, player and vehicle renderers, mission presentation, debug rendering, HUD, and crosshair/minimap coordination. Those are the next extraction targets.
+- `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
+- `DistrictScene` still owns world setup, mission presentation, debug rendering, HUD, camera callbacks, and crosshair/minimap coordination. Those are the next extraction targets.
