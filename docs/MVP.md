@@ -8,7 +8,7 @@ Deliver a browser-first top-down crime sandbox that feels like an action game im
 
 - Custom Phaser client with no MMORPG shell or account lobby.
 - One authoritative Colyseus district for up to 32 connected players.
-- Local GTA2 map, pedestrian animation, palette, and vehicle conversion.
+- Local GTA2 map and vehicle conversion with original pedestrian animation sheets.
 - Server-owned movement, collision, weapon inventory, ammunition, shooting cadence, damage, and rewards.
 - Pistol, SMG, and shotgun with distinct held models, spread, range, and projectile presentation.
 - Replicated nameplates for connected human players.

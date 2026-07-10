@@ -7,14 +7,14 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 ## Playable Slice
 
 - A converted 64-by-64 GTA2 Industrial District crop with layered roofs, roads, and collision.
-- GTA2 pedestrian idle and eight-frame walk animations.
+- Original player, civilian, and police idle/walk sprite sheets.
 - Automatic guest sessions with up to 32 players in one district.
 - Server-authoritative walking, aiming, weapon cycling, ammunition, bullets, damage, cash, death, and respawn.
 - Pistol, SMG, and shotgun slots with distinct held models, fire rates, spread, range, and projectile visuals.
 - Nameplates over every connected human player.
 - Wandering civilians that flee when attacked.
 - Police that pursue and shoot players with wanted heat.
-- Three locally extracted GTA2 vehicles, including an enterable starter car.
+- Three original vehicle sprites: a civilian sedan, police cruiser, and taxi.
 - Eight road-following civilian traffic cars that can strike pedestrians and be stolen.
 - Four-seat multiplayer cars with occupant nameplates, automatic driver promotion, and passenger shooting.
 - Passengers visibly lean out with their equipped weapon and recoil when firing.
@@ -60,8 +60,8 @@ Open `http://127.0.0.1:5173`. The WebSocket game server listens on port `2567`.
 - `test/` boots an isolated server and verifies two-client movement, driving, combat, death, and respawn.
 - `scripts/export-gta2-assets.sh` runs the OpenGTA2 web exporter into ignored local asset paths.
 
-See [`docs/ENGINEERING_REPORT.md`](docs/ENGINEERING_REPORT.md) for the implementation report and staged production-scaling plan. See [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for the domain organization and extraction blueprint for pedestrian AI, driving AI, police, missions, economy, and other GTA-like systems.
+See [`docs/ENGINEERING_REPORT.md`](docs/ENGINEERING_REPORT.md) for the implementation report and staged production-scaling plan. See [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for the domain organization and extraction blueprint for pedestrian AI, driving AI, police, missions, economy, and other GTA-like systems. See [`docs/ONCHAIN_INTEGRATION.md`](docs/ONCHAIN_INTEGRATION.md) for the Robinhood Chain settlement-layer design, wallet identity plan, and the gates that precede any real-value mechanic.
 
 ## Asset Boundary
 
-All files generated from GTA2 are ignored by git. The repository does not grant permission to redistribute Rockstar assets. See `docs/ASSETS.md` before publishing or deploying the project.
+All files generated from GTA2 are ignored by git. The pedestrian and vehicle sheets under `public/assets/original` are original replacements. The repository does not grant permission to redistribute the remaining Rockstar-derived map assets. See `docs/ASSETS.md` before publishing or deploying the project.

@@ -1,0 +1,60 @@
+{
+  "source": "nock0-original-semantic-v1",
+  "tileSize": 64,
+  "origin": {
+    "x": 96,
+    "y": 97
+  },
+  "size": {
+    "width": 64,
+    "height": 64
+  },
+  "spawn": {
+    "x": 2080,
+    "y": 2080
+  },
+  "walkableCells": 3313,
+  "roadCells": 1861,
+  "elevatedPassageCells": 677,
+  "visualPipeline": {
+    "renderer": "scripts/render-original-district.py",
+    "materials": [
+      "asphalt",
+      "sidewalk",
+      "grass",
+      "brick",
+      "gravel",
+      "metal",
+      "tar",
+      "concrete"
+    ],
+    "props": [
+      "curbs",
+      "crosswalks",
+      "lane-paint",
+      "parking-bays",
+      "manholes",
+      "cracks",
+      "parapets",
+      "hvac-fans",
+      "skylights",
+      "vents",
+      "solar-panels",
+      "roof-tanks",
+      "planters",
+      "dumpsters",
+      "stairs",
+      "fences",
+      "streetlights",
+      "utility-boxes",
+      "traffic-barriers",
+      "utility-lines",
+      "antennas",
+      "pipework",
+      "roof-exhausts",
+      "gantries",
+      "trusses",
+      "crane"
+    ]
+  }
+}
