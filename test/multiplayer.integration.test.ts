@@ -163,7 +163,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const revengeShooter = second.state.players.get(second.sessionId);
   const wantedTarget = second.state.players.get(first.sessionId);
   assert.ok(revengeShooter && wantedTarget);
-  await moveNear(second, second.sessionId, first.sessionId, 280);
+  const revengeDistance = await moveNear(second, second.sessionId, first.sessionId, 280);
+  assert.ok(revengeDistance <= 300, `Revenge shooter stopped ${Math.round(revengeDistance)} units away.`);
   for (let shot = 0; shot < 12 && second.state.players.get(first.sessionId)?.alive; shot++) {
     const currentShooter = second.state.players.get(second.sessionId);
     const currentTarget = second.state.players.get(first.sessionId);
@@ -206,8 +207,12 @@ async function moveNear(
   moverId: string,
   targetId: string,
   targetDistance: number
-): Promise<void> {
-  for (let step = 0; step < 30; step++) {
+): Promise<number> {
+  let previousDistance = Number.POSITIVE_INFINITY;
+  let stagnantSteps = 0;
+  let detourSteps = 0;
+  let detourDirection = 1;
+  for (let step = 0; step < 45; step++) {
     const mover = room.state.players.get(moverId);
     const target = room.state.players.get(targetId);
     if (!mover || !target) break;
@@ -215,10 +220,25 @@ async function moveNear(
     const deltaY = target.y - mover.y;
     const distance = Math.hypot(deltaX, deltaY);
     if (distance <= targetDistance) break;
-    room.send('input', {x: deltaX / distance, y: deltaY / distance});
+    if (distance >= previousDistance - 1) stagnantSteps++;
+    else stagnantSteps = 0;
+    if (stagnantSteps >= 4) {
+      detourSteps = 6;
+      detourDirection *= -1;
+      stagnantSteps = 0;
+    }
+    const input = detourSteps > 0
+      ? {x: -deltaY / distance * detourDirection, y: deltaX / distance * detourDirection}
+      : {x: deltaX / distance, y: deltaY / distance};
+    if (detourSteps > 0) detourSteps--;
+    room.send('input', input);
+    previousDistance = distance;
     await delay(100);
   }
   room.send('input', {x: 0, y: 0});
+  const mover = room.state.players.get(moverId);
+  const target = room.state.players.get(targetId);
+  return mover && target ? Math.hypot(target.x - mover.x, target.y - mover.y) : Number.POSITIVE_INFINITY;
 }
 
 function delay(milliseconds: number): Promise<void> {

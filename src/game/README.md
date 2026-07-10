@@ -28,6 +28,11 @@ game/
   input/
     client-input-controller.ts
     client-input-policy.ts
+  rendering/
+    interpolation-policy.ts
+    pedestrian-renderer.ts
+    projectile-render-policy.ts
+    projectile-renderer.ts
   minimap-marker-policy.ts
   minimap-renderer.ts
   touch-controls.ts
@@ -37,4 +42,8 @@ game/
 - `client-input-policy.ts` owns framework-independent movement normalization, gameplay-state gates, and independent command cadence.
 - `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
 - `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
-- `DistrictScene` still owns world setup, replicated entity factories, prediction/interpolation, mission presentation, debug rendering, HUD, and crosshair/minimap coordination. Those are the next extraction targets.
+- `interpolation-policy.ts` owns framework-independent render correction and wrapped-angle interpolation.
+- `PedestrianRenderer` owns NPC render-object creation, synchronization, animation, interpolation, visibility, depth, removal, and teardown.
+- `projectile-render-policy.ts` owns weapon/police projectile presentation data.
+- `ProjectileRenderer` owns bullet render-object creation, synchronization, interpolation, muzzle flashes, removal, and teardown.
+- `DistrictScene` still owns world setup, player and vehicle renderers, mission presentation, debug rendering, HUD, and crosshair/minimap coordination. Those are the next extraction targets.

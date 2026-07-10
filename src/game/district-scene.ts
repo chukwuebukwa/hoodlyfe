@@ -12,10 +12,10 @@ import {ClientInputController} from './input/client-input-controller.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import type {MinimapPointInput} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
+import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
+import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
 import type {
   DistrictNetworkState,
-  NetworkBullet,
-  NetworkNpc,
   NetworkMission,
   NetworkPlayer,
   NetworkVehicle
@@ -41,13 +41,6 @@ interface RenderPlayer {
   peekRecoilUntil: number;
 }
 
-interface RenderNpc {
-  sprite: Phaser.GameObjects.Sprite;
-  targetX: number;
-  targetY: number;
-  targetAngle: number;
-}
-
 interface RenderVehicle {
   container: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Sprite;
@@ -62,18 +55,12 @@ interface RenderVehicle {
   localOccupant: boolean;
 }
 
-interface RenderBullet {
-  circle: Phaser.GameObjects.Arc;
-  targetX: number;
-  targetY: number;
-}
-
 export class DistrictScene extends Phaser.Scene {
   private readonly room: Room<DistrictNetworkState>;
   private readonly players = new Map<string, RenderPlayer>();
-  private readonly npcs = new Map<string, RenderNpc>();
   private readonly vehicles = new Map<string, RenderVehicle>();
-  private readonly bullets = new Map<string, RenderBullet>();
+  private pedestrianRenderer!: PedestrianRenderer;
+  private projectileRenderer!: ProjectileRenderer;
   private inputController!: ClientInputController;
   private debugKey!: Phaser.Input.Keyboard.Key;
   private tilemap!: Phaser.Tilemaps.Tilemap;
@@ -148,6 +135,16 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('driver-walk', 'driver');
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
+    this.pedestrianRenderer = new PedestrianRenderer(this);
+    this.projectileRenderer = new ProjectileRenderer(this, {
+      onCreated: (bullet) => {
+        const shooter = this.players.get(bullet.ownerId);
+        const shooterState = this.latestState?.players?.get(bullet.ownerId);
+        if (shooter && shooterState?.vehicleId && shooterState.vehicleSeat > 0) {
+          shooter.peekRecoilUntil = this.time.now + 140;
+        }
+      }
+    });
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (minimapCanvas) {
@@ -238,16 +235,7 @@ export class DistrictScene extends Phaser.Scene {
       this.players.delete(playerId);
     }
 
-    const presentNpcs = new Set<string>();
-    state.npcs?.forEach((npc, npcId) => {
-      presentNpcs.add(npcId);
-      this.synchronizeNpc(npcId, npc);
-    });
-    for (const [npcId, rendered] of this.npcs) {
-      if (presentNpcs.has(npcId)) continue;
-      rendered.sprite.destroy();
-      this.npcs.delete(npcId);
-    }
+    this.pedestrianRenderer.synchronize(state.npcs);
 
     const presentVehicles = new Set<string>();
     state.vehicles?.forEach((vehicle, vehicleId) => {
@@ -260,16 +248,7 @@ export class DistrictScene extends Phaser.Scene {
       this.vehicles.delete(vehicleId);
     }
 
-    const presentBullets = new Set<string>();
-    state.bullets?.forEach((bullet, bulletId) => {
-      presentBullets.add(bulletId);
-      this.synchronizeBullet(bulletId, bullet);
-    });
-    for (const [bulletId, rendered] of this.bullets) {
-      if (presentBullets.has(bulletId)) continue;
-      rendered.circle.destroy();
-      this.bullets.delete(bulletId);
-    }
+    this.projectileRenderer.synchronize(state.bullets);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
       shell.dataset.players = String(state.players?.size ?? 0);
@@ -351,22 +330,6 @@ export class DistrictScene extends Phaser.Scene {
     }
   }
 
-  private synchronizeNpc(npcId: string, npc: NetworkNpc): void {
-    let rendered = this.npcs.get(npcId);
-    if (!rendered) {
-      const sprite = this.add.sprite(npc.x, npc.y, npc.kind, 0)
-        .setDisplaySize(72, 72)
-        .setOrigin(0.5)
-        .setDepth(Math.round(npc.y) + 95);
-      rendered = {sprite, targetX: npc.x, targetY: npc.y, targetAngle: npc.angle};
-      this.npcs.set(npcId, rendered);
-    }
-    rendered.targetX = npc.x;
-    rendered.targetY = npc.y;
-    rendered.targetAngle = npc.angle;
-    rendered.sprite.setVisible(npc.alive);
-  }
-
   private synchronizeVehicle(vehicleId: string, vehicle: NetworkVehicle): void {
     let rendered = this.vehicles.get(vehicleId);
     const localDriver = vehicle.driverId === this.room.sessionId;
@@ -421,28 +384,6 @@ export class DistrictScene extends Phaser.Scene {
       this.cameras.main.startFollow(rendered.container, true, 0.12, 0.12);
       this.cameraTargetId = `vehicle:${vehicleId}`;
     }
-  }
-
-  private synchronizeBullet(bulletId: string, bullet: NetworkBullet): void {
-    let rendered = this.bullets.get(bulletId);
-    if (!rendered) {
-      const style = bulletStyle(bullet);
-      const color = bullet.ownerKind === 'police' ? 0xff6262 : style.color;
-      const circle = this.add.circle(bullet.x, bullet.y, style.radius, color, 1)
-        .setStrokeStyle(1, 0xffffff, 0.8)
-        .setDepth(900_000);
-      rendered = {circle, targetX: bullet.x, targetY: bullet.y};
-      this.bullets.set(bulletId, rendered);
-      const shooter = this.players.get(bullet.ownerId);
-      const shooterState = this.latestState?.players?.get(bullet.ownerId);
-      if (shooter && shooterState?.vehicleId && shooterState.vehicleSeat > 0) {
-        shooter.peekRecoilUntil = this.time.now + 140;
-      }
-      const flash = this.add.circle(bullet.x, bullet.y, 9, color, 0.68).setDepth(899_999);
-      this.tweens.add({targets: flash, alpha: 0, scale: 1.8, duration: 90, onComplete: () => flash.destroy()});
-    }
-    rendered.targetX = bullet.x;
-    rendered.targetY = bullet.y;
   }
 
   private predictLocalMovement(x: number, y: number, deltaSeconds: number): void {
@@ -572,27 +513,7 @@ export class DistrictScene extends Phaser.Scene {
     }
     this.resolveNameplateOverlaps();
 
-    for (const rendered of this.npcs.values()) {
-      const distance = Phaser.Math.Distance.Between(
-        rendered.sprite.x,
-        rendered.sprite.y,
-        rendered.targetX,
-        rendered.targetY
-      );
-      if (distance > 120) {
-        rendered.sprite.setPosition(rendered.targetX, rendered.targetY);
-      } else {
-        rendered.sprite.x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, 0.22);
-        rendered.sprite.y = Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, 0.22);
-      }
-      rendered.sprite.rotation = Phaser.Math.Angle.RotateTo(
-        rendered.sprite.rotation,
-        rendered.targetAngle - Math.PI / 2,
-        0.14
-      );
-      this.updateWalkAnimation(rendered.sprite, `${rendered.sprite.texture.key}-walk`, distance);
-      rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 95);
-    }
+    this.pedestrianRenderer.interpolate();
 
     for (const rendered of this.vehicles.values()) {
       const distance = Phaser.Math.Distance.Between(
@@ -629,10 +550,7 @@ export class DistrictScene extends Phaser.Scene {
       }
     }
 
-    for (const rendered of this.bullets.values()) {
-      rendered.circle.x = Phaser.Math.Linear(rendered.circle.x, rendered.targetX, 0.62);
-      rendered.circle.y = Phaser.Math.Linear(rendered.circle.y, rendered.targetY, 0.62);
-    }
+    this.projectileRenderer.interpolate();
   }
 
   private updateWalkAnimation(sprite: Phaser.GameObjects.Sprite, key: string, distance: number): void {
@@ -1189,12 +1107,6 @@ function playerAmmo(player: NetworkPlayer): number {
   if (player.weapon === 'smg') return player.ammoSmg;
   if (player.weapon === 'shotgun') return player.ammoShotgun;
   return player.ammoPistol;
-}
-
-function bulletStyle(bullet: NetworkBullet): {color: number; radius: number} {
-  if (bullet.weapon === 'smg') return {color: 0xff9f43, radius: 2.5};
-  if (bullet.weapon === 'shotgun') return {color: 0xffe8a3, radius: 3.5};
-  return {color: 0xffdc55, radius: 3.2};
 }
 
 function clamp(value: number, min: number, max: number): number {
