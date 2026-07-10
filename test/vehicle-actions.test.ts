@@ -6,6 +6,7 @@ import {VehicleAccessController} from '../server/game/vehicles/vehicle-access-co
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
+import {attachTestPedestrianController} from './support/pedestrian-controller.ts';
 import {attachTestTrafficController} from './support/traffic-controller.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
@@ -22,20 +23,20 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
     queryNpcs: (x, y, radius) => [...room.state.npcs.values()].filter((npc) => (
       Math.hypot(npc.x - x, npc.y - y) <= radius
     )),
-    panicWitness: (witnessId, suspectId, untilMs) => {
-      const runtime = room.runtimeNpcs.get(witnessId);
-      if (!runtime) return;
-      runtime.panicUntil = untilMs;
-      runtime.threatId = suspectId;
-    }
+    panicWitness: (witnessId, suspectId, untilMs) => room.pedestrians.panic(
+      witnessId,
+      suspectId,
+      untilMs
+    )
   });
+  attachTestPedestrianController(room);
   room.vehicleAccess = new VehicleAccessController({
     state: room.state,
     world: room.world,
     nearbyVehicles: (x, y, radius) => [...room.state.vehicles.values()].filter((vehicle) => (
       Math.hypot(vehicle.x - x, vehicle.y - y) <= radius
     )),
-    createEjectedDriver: (vehicle, hijacker, nowMs) => room.spawnEjectedDriver(
+    createEjectedDriver: (vehicle, hijacker, nowMs) => room.pedestrians.spawnEjectedDriver(
       vehicle,
       hijacker,
       nowMs

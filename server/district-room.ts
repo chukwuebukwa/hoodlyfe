@@ -24,6 +24,10 @@ import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {PlayerLifecycleController} from './game/players/player-lifecycle-controller.ts';
+import {
+  PedestrianController,
+  PEDESTRIAN_RADIUS
+} from './game/pedestrians/pedestrian-controller.ts';
 import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
@@ -36,9 +40,7 @@ import {CollisionMap} from './world-map.ts';
 
 const PLAYER_RADIUS = 11;
 const PLAYER_SPEED = 190;
-const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
-const POLICE_FIRE_COOLDOWN_MS = 680;
 const TRAFFIC_VEHICLE_COUNT = 8;
 
 interface InputMessage {
@@ -65,22 +67,12 @@ interface RuntimePlayer {
   inputY: number;
 }
 
-interface RuntimeNpc {
-  wanderAngle: number;
-  nextThinkAt: number;
-  lastShotAt: number;
-  panicUntil: number;
-  threatId: string;
-  respawnAt: number;
-}
-
 export class DistrictRoom extends Room<DistrictState> {
   maxClients = 32;
   autoDispose = false;
   patchRate = 50;
 
   private readonly runtimePlayers = new Map<string, RuntimePlayer>();
-  private readonly runtimeNpcs = new Map<string, RuntimeNpc>();
   private readonly simulationClock = new FixedStepClock();
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
@@ -94,13 +86,13 @@ export class DistrictRoom extends Room<DistrictState> {
   private damageController!: DamageController;
   private fireControl!: FireControlController;
   private projectileController!: ProjectileController;
+  private pedestrians!: PedestrianController;
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
   private random = new DeterministicRandom('industrial-district:v1');
   private lastTickEvents: GameEvent[] = [];
   private lastDebugBroadcastTick = 0;
   private world!: CollisionMap;
-  private nextEjectedDriverId = 1;
 
   onCreate(options?: DistrictRoomOptions): void {
     this.simulationClock.reset();
@@ -128,12 +120,11 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {kinds: ['npc']})
         .map((record) => this.state.npcs.get(record.id))
         .filter((npc): npc is NpcState => Boolean(npc)),
-      panicWitness: (witnessId, suspectId, untilMs) => {
-        const runtime = this.runtimeNpcs.get(witnessId);
-        if (!runtime) return;
-        runtime.panicUntil = Math.max(runtime.panicUntil, untilMs);
-        runtime.threatId = suspectId;
-      }
+      panicWitness: (witnessId, suspectId, untilMs) => this.pedestrians.panic(
+        witnessId,
+        suspectId,
+        untilMs
+      )
     });
     this.vehicleAccess = new VehicleAccessController({
       state: this.state,
@@ -142,7 +133,7 @@ export class DistrictRoom extends Room<DistrictState> {
         kinds: ['vehicle']
       }).map((record) => this.state.vehicles.get(record.id))
         .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
-      createEjectedDriver: (vehicle, hijacker, nowMs) => this.spawnEjectedDriver(
+      createEjectedDriver: (vehicle, hijacker, nowMs) => this.pedestrians.spawnEjectedDriver(
         vehicle,
         hijacker,
         nowMs
@@ -177,16 +168,15 @@ export class DistrictRoom extends Room<DistrictState> {
       crime: this.crimeController,
       playerLifecycle: this.playerLifecycle,
       clock: () => ({tick: this.simulationClock.tick}),
-      panicNpc: (npcId, attackerId, untilMs) => {
-        const runtime = this.runtimeNpcs.get(npcId);
-        if (!runtime) return;
-        runtime.panicUntil = untilMs;
-        runtime.threatId = attackerId;
-      },
-      scheduleNpcRespawn: (npcId, respawnAt) => {
-        const runtime = this.runtimeNpcs.get(npcId);
-        if (runtime) runtime.respawnAt = respawnAt;
-      }
+      panicNpc: (npcId, attackerId, untilMs) => this.pedestrians.panic(
+        npcId,
+        attackerId,
+        untilMs
+      ),
+      scheduleNpcRespawn: (npcId, respawnAt) => this.pedestrians.scheduleRespawn(
+        npcId,
+        respawnAt
+      )
     });
     const nearbyPlayers = (x: number, y: number, radius: number) => this.spatialIndex.queryCircle(
       x,
@@ -236,6 +226,17 @@ export class DistrictRoom extends Room<DistrictState> {
       state: this.state,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs})
+    });
+    this.pedestrians = new PedestrianController({
+      state: this.state,
+      world: this.world,
+      random: this.random,
+      clock: () => ({tick: this.simulationClock.tick}),
+      policeTarget: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
+      requestPoliceFire: (officerId, x, y, angle, nowMs) => {
+        this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
+      },
+      onSpawned: (npc) => this.indexNpc(npc)
     });
     this.projectileController = new ProjectileController({
       state: this.state,
@@ -360,10 +361,10 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private spawnDistrictPopulation(): void {
     for (let index = 0; index < 10; index++) {
-      this.spawnNpc(`civilian-${index + 1}`, 'civilian', index, 130, 760);
+      this.pedestrians.spawn(`civilian-${index + 1}`, 'civilian', index, 130, 760);
     }
     for (let index = 0; index < 3; index++) {
-      this.spawnNpc(`police-${index + 1}`, 'police', index + 30, 420, 900);
+      this.pedestrians.spawn(`police-${index + 1}`, 'police', index + 30, 420, 900);
     }
 
     const kinds = ['sedan', 'police', 'taxi'];
@@ -418,39 +419,6 @@ export class DistrictRoom extends Room<DistrictState> {
     }
   }
 
-  private spawnNpc(
-    id: string,
-    kind: 'civilian' | 'police',
-    seed: number,
-    minDistance: number,
-    maxDistance: number
-  ): void {
-    const position = this.world.openPointNear(
-      this.world.spawn.x,
-      this.world.spawn.y,
-      minDistance,
-      maxDistance,
-      NPC_RADIUS,
-      seed
-    );
-    const npc = new NpcState();
-    npc.id = id;
-    npc.kind = kind;
-    npc.x = position.x;
-    npc.y = position.y;
-    npc.angle = this.random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
-    npc.health = kind === 'police' ? 100 : 50;
-    this.state.npcs.set(id, npc);
-    this.runtimeNpcs.set(id, {
-      wanderAngle: npc.angle,
-      nextThinkAt: 0,
-      lastShotAt: 0,
-      panicUntil: 0,
-      threatId: '',
-      respawnAt: 0
-    });
-  }
-
   private advanceSimulation(deltaTime: number): void {
     this.simulationClock.advance(deltaTime, (frame) => {
       this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
@@ -482,7 +450,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.crimeController.processReports(now);
     this.crimeController.updateDispatch(now);
     this.state.npcs.forEach((npc) => {
-      this.updateNpc(npc, deltaSeconds, now);
+      this.pedestrians.update(npc, deltaSeconds, now);
       this.indexNpc(npc);
     });
     this.state.bullets.forEach((bullet, bulletId) => {
@@ -503,121 +471,6 @@ export class DistrictRoom extends Room<DistrictState> {
     if (this.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
     const nextY = player.y + moveY;
     if (this.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
-  }
-
-  private updateNpc(npc: NpcState, deltaSeconds: number, now: number): void {
-    const runtime = this.runtimeNpcs.get(npc.id);
-    if (!runtime) return;
-    if (!npc.alive) {
-      if (now >= runtime.respawnAt) {
-        const position = this.world.openPointNear(
-          this.world.spawn.x,
-          this.world.spawn.y,
-          npc.kind === 'police' ? 420 : 180,
-          npc.kind === 'police' ? 900 : 800,
-          NPC_RADIUS,
-          now + npc.id.length
-        );
-        npc.x = position.x;
-        npc.y = position.y;
-        npc.health = npc.kind === 'police' ? 100 : 50;
-        npc.alive = true;
-      }
-      return;
-    }
-
-    if (npc.kind === 'police') {
-      const response = this.crimeController.policeTarget(npc, now);
-      if (response) {
-        const {player: target, pursuit, canSeeTarget, targetDistance} = response;
-        if (!pursuit) {
-          // An assigned officer without a sighting patrols until the suspect re-enters view.
-        } else {
-          const angle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
-          const distance = Math.hypot(pursuit.lastKnownX - npc.x, pursuit.lastKnownY - npc.y);
-          npc.angle = angle;
-          if (distance > (pursuit.mode === 'pursuit' ? 165 : 28)) {
-            this.moveNpc(npc, angle, pursuit.mode === 'pursuit' ? 158 : 132, deltaSeconds);
-          }
-          if (
-            canSeeTarget &&
-            targetDistance < 430 &&
-            now - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS
-          ) {
-            runtime.lastShotAt = now;
-            this.fireControl.createNpcBullet(npc.id, npc.x, npc.y, angle, now, 'pistol');
-          }
-          return;
-        }
-      }
-    }
-
-    if (runtime.panicUntil > now) {
-      const threat = this.state.players.get(runtime.threatId);
-      if (threat) {
-        runtime.wanderAngle = Math.atan2(npc.y - threat.y, npc.x - threat.x);
-      }
-    } else if (now >= runtime.nextThinkAt) {
-      const key = `${npc.id}:${this.simulationClock.tick}`;
-      runtime.wanderAngle += (this.random.unit('npc-wander-turn', key) - 0.5) * Math.PI * 1.6;
-      runtime.nextThinkAt = now + this.random.range('npc-think-delay', key, 1200, 3800);
-    }
-
-    const speed = runtime.panicUntil > now ? 175 : (npc.kind === 'police' ? 78 : 62);
-    npc.angle = runtime.wanderAngle;
-    if (!this.moveNpc(npc, runtime.wanderAngle, speed, deltaSeconds)) {
-      runtime.wanderAngle = normalizeAngle(
-        runtime.wanderAngle + Math.PI * this.random.range(
-          'npc-collision-turn',
-          `${npc.id}:${this.simulationClock.tick}`,
-          0.55,
-          1.55
-        )
-      );
-      runtime.nextThinkAt = now + 250;
-    }
-  }
-
-  private moveNpc(npc: NpcState, angle: number, speed: number, deltaSeconds: number): boolean {
-    const nextX = npc.x + Math.cos(angle) * speed * deltaSeconds;
-    const nextY = npc.y + Math.sin(angle) * speed * deltaSeconds;
-    let moved = false;
-    if (this.world.canOccupy(nextX, npc.y, NPC_RADIUS)) {
-      npc.x = nextX;
-      moved = true;
-    }
-    if (this.world.canOccupy(npc.x, nextY, NPC_RADIUS)) {
-      npc.y = nextY;
-      moved = true;
-    }
-    return moved;
-  }
-
-  private spawnEjectedDriver(vehicle: VehicleState, hijacker: PlayerState, now: number): string {
-    const id = `ejected-driver-${this.nextEjectedDriverId++}`;
-    const sideAngle = vehicle.angle - Math.PI / 2;
-    const preferredX = vehicle.x + Math.cos(sideAngle) * 48;
-    const preferredY = vehicle.y + Math.sin(sideAngle) * 48;
-    const position = this.world.canOccupy(preferredX, preferredY, NPC_RADIUS)
-      ? {x: preferredX, y: preferredY}
-      : this.world.openPointNear(vehicle.x, vehicle.y, 38, 86, NPC_RADIUS, now);
-    const npc = new NpcState();
-    npc.id = id;
-    npc.kind = 'civilian';
-    npc.x = position.x;
-    npc.y = position.y;
-    npc.angle = Math.atan2(position.y - vehicle.y, position.x - vehicle.x);
-    this.state.npcs.set(id, npc);
-    this.runtimeNpcs.set(id, {
-      wanderAngle: npc.angle,
-      nextThinkAt: now + 1100,
-      lastShotAt: 0,
-      panicUntil: now + 4500,
-      threatId: hijacker.id,
-      respawnAt: 0
-    });
-    this.indexNpc(npc);
-    return id;
   }
 
   private rebuildSpatialIndex(): void {
@@ -651,7 +504,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private npcSpatialRecord(npc: NpcState): SpatialRecord<WorldEntityKind> {
-    return {id: npc.id, kind: 'npc', x: npc.x, y: npc.y, radius: NPC_RADIUS};
+    return {id: npc.id, kind: 'npc', x: npc.x, y: npc.y, radius: PEDESTRIAN_RADIUS};
   }
 
   private vehicleSpatialRecord(vehicle: VehicleState): SpatialRecord<WorldEntityKind> {

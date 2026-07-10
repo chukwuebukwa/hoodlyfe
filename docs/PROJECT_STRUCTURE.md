@@ -194,9 +194,10 @@ The first room-facing facades are now live:
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
 - `PlayerLifecycleController` owns death and respawn independently of combat and the room.
+- `PedestrianController` owns pedestrian spawn/runtime memory, panic, deterministic ambient movement, police pursuit consumption, police fire requests, respawn, and ejected drivers.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
-ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. Vehicle, traffic, combat, pedestrians, player lifecycle, and projection remain explicit extraction debt.
+ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. Player movement/input, district population assembly, state/debug projection, and client presentation remain explicit extraction debt. The pedestrian facade must next split into population policy, perception, behavior, navigation, and locomotion modules as those behaviors deepen.
 
 ## Fixed Simulation Order
 

@@ -50,6 +50,8 @@ game/
     mission-entity-scope.ts
     mission-state-projector.ts
     mission-system.ts
+  pedestrians/
+    pedestrian-controller.ts
   wanted/
     wanted-system.ts
   vehicles/
@@ -101,5 +103,6 @@ Extracted domain policies and room adapters now include:
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.
+- `pedestrian-controller.ts` for pedestrian population creation, private runtime memory, deterministic wander, panic/threat response, police pursuit consumption, rate-limited police fire requests, collision-safe locomotion, death/respawn, and ejected-driver creation.
 
-`DistrictRoom` now calls the crime and Freemode controller facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, or mission cleanup. Vehicle/traffic, combat/projectile, player lifecycle, and pedestrian adapters remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
+`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player lifecycle, or pedestrian runtime and behavior. Player movement/input, district population assembly, state/debug projection, and client presentation remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
