@@ -1,10 +1,5 @@
 import {type Client, Room} from '@colyseus/core';
 import {
-  DEBUG_SNAPSHOT_MESSAGE,
-  type DebugEventEntry,
-  type DebugSnapshot
-} from '../shared/protocol/debug.ts';
-import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
@@ -13,10 +8,8 @@ import {
   type MissionIdMessage,
   type MissionNotice
 } from '../shared/protocol/missions.ts';
-import {
-  GameEventStream,
-  type GameEvent
-} from './game/events/game-events.ts';
+import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
+import {GameEventStream} from './game/events/game-events.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
@@ -64,6 +57,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
+  private debugProjection!: DebugSnapshotController;
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
   private vehicleAccess!: VehicleAccessController;
@@ -76,19 +70,13 @@ export class DistrictRoom extends Room<DistrictState> {
   private projectileController!: ProjectileController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
-  private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
-  private readonly recentDebugEvents: DebugEventEntry[] = [];
   private random = new DeterministicRandom('industrial-district:v1');
-  private lastTickEvents: GameEvent[] = [];
-  private lastDebugBroadcastTick = 0;
   private world!: CollisionMap;
 
   onCreate(options?: DistrictRoomOptions): void {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
-    this.recentDebugEvents.length = 0;
-    this.lastDebugBroadcastTick = 0;
     const requestedSeed = Number(options?.seed);
     this.random = new DeterministicRandom(
       Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
@@ -116,6 +104,20 @@ export class DistrictRoom extends Room<DistrictState> {
         suspectId,
         untilMs
       )
+    });
+    this.debugProjection = new DebugSnapshotController({
+      enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
+      state: this.state,
+      clock: () => ({
+        tick: this.simulationClock.tick,
+        nowMs: this.simulationClock.nowMs,
+        droppedMs: this.simulationClock.droppedMs
+      }),
+      spatialSize: () => this.spatialIndex.size,
+      deferredSize: () => this.lifecycle.size,
+      incidents: () => this.crimeController.incidentSnapshot(),
+      pursuits: () => this.crimeController.pursuitSnapshot(),
+      publish: (messageType, snapshot) => this.broadcast(messageType, snapshot)
     });
     this.vehicleAccess = new VehicleAccessController({
       state: this.state,
@@ -343,9 +345,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.advance(deltaTime, (frame) => {
       this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
     });
-    this.lastTickEvents = this.events.drain();
-    this.captureDebugEvents(this.lastTickEvents);
-    this.broadcastDebugSnapshot();
+    this.debugProjection.update(this.events.drain());
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
@@ -417,87 +417,6 @@ export class DistrictRoom extends Room<DistrictState> {
     return {id: vehicle.id, kind: 'vehicle', x: vehicle.x, y: vehicle.y, radius: VEHICLE_RADIUS};
   }
 
-  private captureDebugEvents(events: readonly GameEvent[]): void {
-    if (!this.debugEnabled) return;
-    for (const event of events) {
-      this.recentDebugEvents.push({
-        tick: event.tick,
-        type: event.type,
-        summary: summarizeGameEvent(event)
-      });
-    }
-    if (this.recentDebugEvents.length > 8) {
-      this.recentDebugEvents.splice(0, this.recentDebugEvents.length - 8);
-    }
-  }
-
-  private broadcastDebugSnapshot(): void {
-    if (!this.debugEnabled || this.simulationClock.tick - this.lastDebugBroadcastTick < 6) return;
-    this.lastDebugBroadcastTick = this.simulationClock.tick;
-    const snapshot: DebugSnapshot = {
-      tick: this.simulationClock.tick,
-      nowMs: this.simulationClock.nowMs,
-      droppedMs: this.simulationClock.droppedMs,
-      spatialEntities: this.spatialIndex.size,
-      deferredCommands: this.lifecycle.size,
-      eventsThisTick: this.lastTickEvents.length,
-      players: this.state.players.size,
-      npcs: this.state.npcs.size,
-      vehicles: this.state.vehicles.size,
-      bullets: this.state.bullets.size,
-      incidents: this.crimeController.incidentSnapshot().map((incident) => ({
-        id: incident.id,
-        kind: incident.kind,
-        suspectId: incident.suspectId,
-        witnessId: incident.witnessId,
-        status: incident.status,
-        x: incident.x,
-        y: incident.y
-      })),
-      pursuits: this.crimeController.pursuitSnapshot().map((pursuit) => ({
-        officerId: pursuit.officerId,
-        suspectId: pursuit.suspectId,
-        lastKnownX: pursuit.lastKnownX,
-        lastKnownY: pursuit.lastKnownY,
-        mode: pursuit.mode
-      })),
-      events: [...this.recentDebugEvents]
-    };
-    this.broadcast(DEBUG_SNAPSHOT_MESSAGE, snapshot);
-  }
-}
-
-function summarizeGameEvent(event: GameEvent): string {
-  switch (event.type) {
-    case 'damage.applied':
-      return `${event.attackerId || 'world'} -> ${event.targetKind}:${event.targetId} -${event.amount}`;
-    case 'entity.killed':
-      return `${event.entityKind}:${event.entityId} killed by ${event.attackerId || 'world'}`;
-    case 'crime.committed':
-      return `${event.suspectId} committed ${event.crimeKind} (${event.incidentId})`;
-    case 'incident.reported':
-      return `${event.witnessId} reported ${event.suspectId} => heat ${event.wantedLevel}`;
-    case 'pursuit.changed':
-      return event.suspectId
-        ? `${event.officerId} dispatched to ${event.suspectId}`
-        : `${event.officerId} cleared from ${event.previousSuspectId}`;
-    case 'vehicle.damaged':
-      return `${event.vehicleId} -${event.amount} hp (${event.sourceKind})`;
-    case 'vehicle.ignited':
-      return `${event.vehicleId} ignited; explosion fuse armed`;
-    case 'vehicle.destroyed':
-      return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
-    case 'vehicle.restored':
-      return `${event.vehicleId} restored to ${event.health} hp`;
-    case 'player.respawned':
-      return `${event.playerId} respawned`;
-    case 'mission.phase-changed':
-      return `${event.missionId} ${event.previousPhase} -> ${event.phase}`;
-    case 'mission.payout':
-      return `${event.missionId} paid ${event.playerId} $${event.amount}`;
-    case 'mission.failed':
-      return `${event.missionId} failed: ${event.reason}`;
-  }
 }
 
 function sanitizeName(value: unknown, fallbackNumber: number): string {
