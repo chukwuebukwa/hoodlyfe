@@ -35,9 +35,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** four-seat vehicles, driver/passenger entry, exit, passenger promotion, multiplayer occupancy, and occupant nameplates.
 - **Playable** hijacking of ambient traffic, ejected driver creation, authoritative entry timing, and visible action presentation.
 - **Playable** moving ambient traffic with deterministic road following/turn selection, ahead-corridor vehicle following, pedestrian stopping, asymmetric braking/acceleration, and blocked-route recovery.
+- **Playable** two authored signalized intersections with replicated phases, stop-line braking, cross-axis occupancy holds, emergency bypass, wreck awareness, and F3 queue diagnostics.
+- **Playable** deterministic stopped-car recovery with legitimate-stop suppression, bounded reverse, collision/road clearance probes, left/right passing, route merge, and retry cooldown.
 - **Playable** car-to-car separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
-- **Foundation** the original sprite selection remains small; additional vehicle classes, lane behavior, traffic signals, emergency response driving, and parking remain incomplete. A functional repair garage is playable.
+- **Foundation** the original sprite selection remains small; additional vehicle classes, authored lane centerlines/turn connectors, siren yielding, dynamic traffic population, and parking remain incomplete. A functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
@@ -87,14 +89,16 @@ These are ordered by how much of the city loop they improve and by their depende
 
 ### 1. Vehicle and Traffic Depth
 
-**In progress**
+**Playable foundation; lane authoring explicitly deferred**
 
 - **Delivered foundation**: stable shared content catalog for current Sedan, Taxi, and Police Cruiser; separated mass, footprint, health, acceleration, braking, grip, steering, reverse speed, seats, traffic tuning, and presentation ID.
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
+- **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
+- **Delivered playable**: 16 ambient traffic vehicles use separated deterministic spawns; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal/pedestrian queues as deadlocks.
 - **Delivered playable**: one police cruiser consumes reported suspect facts without traffic/wanted coupling, uses bounded deterministic A*, searches last-known positions, intercepts visible targets, scales speed with heat, and permits occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
-- Add explicit lane/intersection ownership, stop lines, signals, parking points, and local disabled-car avoidance.
+- **Deferred note**: author lane centerlines, legal turn connectors, parking points, and lane-based overtaking later. The compatibility road mask is too broad to infer these safely, and this work is not the next selected feature slice.
 - Add multiple police units, coordinated block/intercept positions, siren yielding, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
