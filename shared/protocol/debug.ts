@@ -55,6 +55,17 @@ export interface DebugStimulusEntry {
   expiresAt: number;
 }
 
+export interface DebugTrafficAiEntry {
+  vehicleId: string;
+  cruiseSpeed: number;
+  desiredSpeed: number;
+  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'blocked' | 'hijack';
+  obstacleId: string;
+  obstacleDistance: number;
+  blockedSince: number;
+  recoveryCount: number;
+}
+
 export interface DebugSnapshot {
   tick: number;
   nowMs: number;
@@ -70,5 +81,6 @@ export interface DebugSnapshot {
   pursuits: DebugPursuitEntry[];
   pedestrianAi?: DebugPedestrianAiEntry[];
   stimuli?: DebugStimulusEntry[];
+  trafficAi?: DebugTrafficAiEntry[];
   events: DebugEventEntry[];
 }

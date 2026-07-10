@@ -33,9 +33,10 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 - **Playable** four-seat vehicles, driver/passenger entry, exit, passenger promotion, multiplayer occupancy, and occupant nameplates.
 - **Playable** hijacking of ambient traffic, ejected driver creation, authoritative entry timing, and visible action presentation.
-- **Playable** moving ambient traffic with deterministic road following and turn selection.
+- **Playable** moving ambient traffic with deterministic road following/turn selection, ahead-corridor vehicle following, pedestrian stopping, asymmetric braking/acceleration, and blocked-route recovery.
 - **Playable** car-to-car separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
-- **Foundation** one shared handling family and a small development sprite selection exist; varied vehicle classes, lane behavior, traffic signals, emergency response vehicles, parking, and repair shops remain incomplete.
+- **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
+- **Foundation** the original sprite selection remains small; additional vehicle classes, lane behavior, traffic signals, emergency response driving, parking, and repair shops remain incomplete.
 
 ### Crime, Police, and Pedestrians
 
@@ -59,11 +60,12 @@ These are ordered by how much of the city loop they improve and by their depende
 
 ### 1. Vehicle and Traffic Depth
 
-**Next**
+**In progress**
 
-- Add a stable vehicle content catalog with compact, sedan, sports, taxi, van, truck, bus, motorcycle, police, ambulance, and special development profiles.
-- Separate mass, footprint, health, acceleration, braking, grip, steering response, reverse speed, passenger capacity, damage thresholds, engine placement, and presentation ID.
-- Make traffic agents brake for vehicles and pedestrians, preserve following distance, recover from jams, and use explicit intersection/lane ownership.
+- **Delivered foundation**: stable shared content catalog for current Sedan, Taxi, and Police Cruiser; separated mass, footprint, health, acceleration, braking, grip, steering, reverse speed, seats, traffic tuning, and presentation ID.
+- **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
+- Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
+- Add explicit lane/intersection ownership, stop lines, signals, parking points, and local disabled-car avoidance.
 - Add police vehicles and a first road pursuit without giving traffic AI direct access to wanted state.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 

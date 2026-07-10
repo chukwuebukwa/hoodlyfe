@@ -3,6 +3,7 @@ import type {GameEventStream, VehicleDamageSource} from '../events/game-events.t
 import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {TrafficController} from '../traffic/traffic-controller.ts';
+import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
 import {classifyImpactZone, VehicleCollisionSystem, type VehicleDamageZone} from './vehicle-collision-system.ts';
 import {vehicleConfig} from './vehicle-config.ts';
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
@@ -63,6 +64,7 @@ export class VehicleSimulationController {
   }
 
   update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
+    const configuration = vehicleConfig(vehicle.kind);
     if (!vehicle.destroyed && this.damageSystem.shouldExplode(vehicle, nowMs)) {
       const source = this.fireSources.get(vehicle.id) ?? {sourceId: '', sourceKind: 'world' as const};
       this.destroy(vehicle, source.sourceId, source.sourceKind, nowMs);
@@ -73,7 +75,9 @@ export class VehicleSimulationController {
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
-      if (this.options.traffic.update(vehicle, deltaSeconds, nowMs)) {
+      if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
+        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead)
+      })) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }
       this.handleCollision(vehicle, nowMs);
@@ -86,18 +90,43 @@ export class VehicleSimulationController {
     if (driver?.alive && input) {
       const throttle = -input.inputY;
       if (throttle !== 0) {
-        vehicle.speed += throttle * (throttle > 0 ? 390 : 270) * deltaSeconds;
+        const changingDirection = vehicle.speed !== 0 && Math.sign(vehicle.speed) !== Math.sign(throttle);
+        if (changingDirection) {
+          vehicle.speed = approach(
+            vehicle.speed,
+            0,
+            configuration.handling.brakeDeceleration * deltaSeconds
+          );
+        } else {
+          const acceleration = throttle > 0
+            ? configuration.handling.forwardAcceleration
+            : configuration.handling.reverseAcceleration;
+          vehicle.speed += throttle * acceleration * deltaSeconds;
+        }
       } else {
-        vehicle.speed = approach(vehicle.speed, 0, 150 * deltaSeconds);
+        vehicle.speed = approach(
+          vehicle.speed,
+          0,
+          configuration.handling.coastDeceleration * deltaSeconds
+        );
       }
       const speedMultiplier = this.damageSystem.speedMultiplier(vehicle.engineDamage, vehicle.onFire);
-      vehicle.speed = clamp(vehicle.speed, -115 * speedMultiplier, 410 * speedMultiplier);
+      vehicle.speed = clamp(
+        vehicle.speed,
+        -configuration.handling.maximumReverseSpeed * speedMultiplier,
+        configuration.handling.maximumForwardSpeed * speedMultiplier
+      );
 
       if (Math.abs(vehicle.speed) > 4 && input.inputX !== 0) {
-        const grip = clamp(Math.abs(vehicle.speed) / 120, 0.22, 1);
+        const grip = clamp(
+          Math.abs(vehicle.speed) / configuration.handling.steeringGripSpeed,
+          configuration.handling.steeringGripFloor,
+          1
+        );
         const direction = vehicle.speed >= 0 ? 1 : -1;
         vehicle.angle = normalizeAngle(
-          vehicle.angle + input.inputX * 2.35 * grip * direction * deltaSeconds
+          vehicle.angle + input.inputX * configuration.handling.steeringRate *
+            grip * direction * deltaSeconds
         );
       }
 
@@ -130,6 +159,7 @@ export class VehicleSimulationController {
   }
 
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
+    const configuration = vehicleConfig(vehicle.kind);
     for (const occupant of this.options.access.occupants(vehicle.id)) {
       this.options.access.removePlayer(occupant);
     }
@@ -145,7 +175,7 @@ export class VehicleSimulationController {
     vehicle.hijackBy = '';
     vehicle.traffic = true;
     this.fireSources.delete(vehicle.id);
-    this.options.traffic.register(vehicle.id, spawn, 118);
+    this.options.traffic.register(vehicle.id, spawn, configuration.traffic.cruiseSpeed);
   }
 
   damage(
@@ -239,6 +269,39 @@ export class VehicleSimulationController {
 
   weaponDamage(baseDamage: number): number {
     return this.damageSystem.weaponDamage(baseDamage);
+  }
+
+  private trafficObstacles(vehicle: VehicleState, lookAhead: number): TrafficObstacle[] {
+    const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
+      .filter((candidate) => candidate.id !== vehicle.id && !candidate.destroyed)
+      .map((candidate): TrafficObstacle => ({
+        id: candidate.id,
+        kind: 'vehicle',
+        x: candidate.x,
+        y: candidate.y,
+        radius: VEHICLE_RADIUS,
+        speed: candidate.speed,
+        angle: candidate.angle
+      }));
+    const players = this.options.nearbyPlayers(vehicle.x, vehicle.y, lookAhead)
+      .filter((candidate) => candidate.alive && !candidate.vehicleId)
+      .map((candidate): TrafficObstacle => ({
+        id: `player:${candidate.id}`,
+        kind: 'pedestrian',
+        x: candidate.x,
+        y: candidate.y,
+        radius: PLAYER_RADIUS
+      }));
+    const npcs = this.options.nearbyNpcs(vehicle.x, vehicle.y, lookAhead)
+      .filter((candidate) => candidate.alive)
+      .map((candidate): TrafficObstacle => ({
+        id: `npc:${candidate.id}`,
+        kind: 'pedestrian',
+        x: candidate.x,
+        y: candidate.y,
+        radius: NPC_RADIUS
+      }));
+    return [...vehicles, ...players, ...npcs];
   }
 
   private handleTrafficImpacts(vehicle: VehicleState, nowMs: number): void {

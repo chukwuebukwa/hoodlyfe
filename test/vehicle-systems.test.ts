@@ -3,7 +3,7 @@ import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {VehicleCollisionSystem} from '../server/game/vehicles/vehicle-collision-system.ts';
 import {VehicleDamageSystem} from '../server/game/vehicles/vehicle-damage-system.ts';
-import {BulletState, DistrictState, VehicleState} from '../server/state.ts';
+import {BulletState, DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 import {attachTestProjectileController} from './support/projectile-controller.ts';
@@ -97,6 +97,24 @@ test('vehicle damage tracks components, ignition, delayed explosion, and weapon 
   assert.equal(damage.speedMultiplier(250, true), 0.58);
 });
 
+test('player driving consumes distinct model acceleration from the shared catalog', () => {
+  assert.deepEqual([
+    drivenSpeed('taxi'),
+    drivenSpeed('sedan'),
+    drivenSpeed('police')
+  ], [360, 390, 440]);
+});
+
+test('opposite throttle brakes to zero before changing direction', () => {
+  const {room, vehicle, player} = drivingFixture('sedan');
+  room.playerControl.setMove(player.id, {x: 0, y: -1});
+  room.vehicleSimulation.update(vehicle, 0.1, 100);
+  assert.equal(vehicle.speed, 39);
+  room.playerControl.setMove(player.id, {x: 0, y: 1});
+  room.vehicleSimulation.update(vehicle, 1, 1100);
+  assert.equal(vehicle.speed, 0);
+});
+
 test('district adapter applies collision movement and damage to both authoritative cars', () => {
   const room = new DistrictRoom() as any;
   room.world = {canOccupy: () => true};
@@ -159,3 +177,29 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
     'vehicle.damaged'
   ]);
 });
+
+function drivenSpeed(kind: string): number {
+  const {room, vehicle, player} = drivingFixture(kind);
+  room.playerControl.setMove(player.id, {x: 0, y: -1});
+  room.vehicleSimulation.update(vehicle, 1, 1000);
+  return vehicle.speed;
+}
+
+function drivingFixture(kind: string) {
+  const room = new DistrictRoom() as any;
+  room.world = {canOccupy: () => true};
+  room.setState(new DistrictState());
+  const player = new PlayerState();
+  player.id = `driver-${kind}`;
+  player.vehicleId = `vehicle-${kind}`;
+  player.vehicleSeat = 0;
+  room.state.players.set(player.id, player);
+  const vehicle = new VehicleState();
+  vehicle.id = player.vehicleId;
+  vehicle.kind = kind;
+  vehicle.driverId = player.id;
+  room.state.vehicles.set(vehicle.id, vehicle);
+  attachTestVehicleSimulation(room);
+  room.playerControl.register(player.id);
+  return {room, vehicle, player};
+}

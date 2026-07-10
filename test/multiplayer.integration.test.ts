@@ -17,6 +17,7 @@ import {
 } from '../shared/protocol/missions.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -51,9 +52,11 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, 11);
-  assert.ok([...first.state.vehicles.values()].every((vehicle) => (
-    vehicle.health === 1000 && vehicle.maxHealth === 1000 && vehicle.engineDamage === 0
-  )));
+  assert.ok([...first.state.vehicles.values()].every((vehicle) => {
+    const maximumHealth = vehicleConfig(vehicle.kind).maxHealth;
+    return vehicle.health === maximumHealth && vehicle.maxHealth === maximumHealth &&
+      vehicle.engineDamage === 0;
+  }));
   assert.equal(first.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.weapon, 'pistol');

@@ -1,3 +1,5 @@
+import type {VehicleKind} from '../../shared/content/vehicle-catalog.ts';
+
 export interface NetworkPlayer {
   id: string;
   name: string;
@@ -44,7 +46,7 @@ export interface NetworkNpc {
 
 export interface NetworkVehicle {
   id: string;
-  kind: 'sedan' | 'police' | 'taxi';
+  kind: VehicleKind;
   x: number;
   y: number;
   angle: number;

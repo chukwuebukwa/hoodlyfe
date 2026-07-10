@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {DebugSnapshot} from '../shared/protocol/debug.ts';
+import type {DebugSnapshot, DebugTrafficAiEntry} from '../shared/protocol/debug.ts';
 import {
   DebugSnapshotController,
   summarizeGameEvent
@@ -49,17 +49,20 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
+  assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
   fixture.pedestrian.objective = 'wander';
   fixture.pedestrian.waypoints[0].x = 999;
   fixture.stimulus.kind = 'impact';
+  fixture.traffic.speedReason = 'cruise';
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.pedestrianAi?.[0].waypoints[0].x, 150);
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
+  assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -147,6 +150,16 @@ function createFixture(enabled: boolean) {
     occurredAt: 100,
     expiresAt: 1500
   };
+  const traffic: DebugTrafficAiEntry = {
+    vehicleId: 'traffic-1',
+    cruiseSpeed: 118,
+    desiredSpeed: 42,
+    speedReason: 'vehicle',
+    obstacleId: 'traffic-2',
+    obstacleDistance: 44,
+    blockedSince: 0,
+    recoveryCount: 0
+  };
   const controller = new DebugSnapshotController({
     enabled,
     state,
@@ -157,9 +170,10 @@ function createFixture(enabled: boolean) {
     pursuits: () => [pursuit],
     pedestrians: () => [pedestrian],
     stimuli: () => [stimulus],
+    traffic: () => [traffic],
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
-  return {controller, state, clock, incident, pursuit, pedestrian, stimulus, published};
+  return {controller, state, clock, incident, pursuit, pedestrian, stimulus, traffic, published};
 }
 
 function addEntities(state: DistrictState): void {

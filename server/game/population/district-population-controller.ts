@@ -90,7 +90,7 @@ export class DistrictPopulationController {
       vehicle.speed = 90 + index * 4;
       vehicle.traffic = true;
       this.options.state.vehicles.set(vehicle.id, vehicle);
-      this.options.traffic.register(vehicle.id, spawn, 105 + (index % 4) * 14);
+      this.options.traffic.register(vehicle.id, spawn, vehicleConfig(vehicle.kind).traffic.cruiseSpeed);
       this.options.onVehicleSpawned?.(vehicle);
     }
   }

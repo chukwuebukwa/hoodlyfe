@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type {NetworkVehicle} from '../types.ts';
+import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
 import type {VehicleRenderPose} from './render-types.ts';
 import {vehicleFrame, vehicleVisualState} from './vehicle-render-policy.ts';
@@ -109,8 +110,9 @@ export class VehicleRenderer {
   }
 
   private create(vehicle: NetworkVehicle): RenderVehicle {
+    const definition = vehicleDefinition(vehicle.kind);
     const sprite = this.scene.add.sprite(0, 0, 'vehicles', vehicleFrame(vehicle.kind))
-      .setDisplaySize(96, 96);
+      .setDisplaySize(definition.presentation.width, definition.presentation.height);
     const smoke = this.scene.add.circle(0, -17, 6, 0x2d3436, 0.75)
       .setStrokeStyle(2, 0x9aa2a4, 0.5)
       .setVisible(false);
@@ -120,7 +122,7 @@ export class VehicleRenderer {
     const children: Phaser.GameObjects.GameObject[] = [sprite, smoke, fire];
     let redLight: Phaser.GameObjects.Arc | undefined;
     let blueLight: Phaser.GameObjects.Arc | undefined;
-    if (vehicle.kind === 'police') {
+    if (definition.presentation.emergencyLights) {
       redLight = this.scene.add.circle(-8, 0, 2.6, 0xff3030, 1)
         .setStrokeStyle(1.5, 0xff8a8a, 0.7);
       blueLight = this.scene.add.circle(8, 0, 2.6, 0x3c73ff, 1)

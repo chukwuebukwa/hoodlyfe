@@ -1,8 +1,8 @@
 import type {DistrictState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import {vehicleConfig} from './vehicle-config.ts';
 
 const PLAYER_RADIUS = 11;
-const MAX_OCCUPANTS = 4;
 const ENTER_DURATION_MS = 320;
 const HIJACK_DURATION_MS = 1050;
 
@@ -41,7 +41,10 @@ export class VehicleAccessController {
     let nearest: VehicleState | undefined;
     let nearestDistance = 72;
     for (const vehicle of this.options.nearbyVehicles(player.x, player.y, nearestDistance)) {
-      if (vehicle.destroyed || this.occupants(vehicle.id).length >= MAX_OCCUPANTS) continue;
+      if (
+        vehicle.destroyed ||
+        this.occupants(vehicle.id).length >= vehicleConfig(vehicle.kind).seats
+      ) continue;
       if (vehicle.hijackBy && vehicle.hijackBy !== player.id) continue;
       const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
       if (distance < nearestDistance) {
@@ -151,8 +154,9 @@ export class VehicleAccessController {
   private enter(player: PlayerState, vehicle: VehicleState): void {
     const occupiedSeats = new Set(this.occupants(vehicle.id).map((occupant) => occupant.vehicleSeat));
     let seat = vehicle.driverId ? 1 : 0;
-    while (seat < MAX_OCCUPANTS && occupiedSeats.has(seat)) seat++;
-    if (seat >= MAX_OCCUPANTS) return;
+    const maximumOccupants = vehicleConfig(vehicle.kind).seats;
+    while (seat < maximumOccupants && occupiedSeats.has(seat)) seat++;
+    if (seat >= maximumOccupants) return;
     player.vehicleId = vehicle.id;
     player.vehicleSeat = seat;
     player.x = vehicle.x;

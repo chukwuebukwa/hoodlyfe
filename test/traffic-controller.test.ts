@@ -40,6 +40,126 @@ test('traffic controller follows deterministic road routes and releases hijacked
   assert.deepEqual({x: first.vehicle.x, y: first.vehicle.y, speed: first.vehicle.speed}, released);
 });
 
+test('traffic controller brakes for an ahead obstacle and exposes its speed reason', () => {
+  const world = CollisionMap.load();
+  const fixture = createTraffic(world, 'traffic-aware', 211);
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('traffic-awareness')
+  });
+  controller.register(fixture.vehicle.id, fixture.spawn, 118);
+  const startSpeed = fixture.vehicle.speed;
+  controller.update(fixture.vehicle, 1 / 30, 100, {
+    obstacles: [{
+      id: 'lead',
+      kind: 'vehicle',
+      x: fixture.vehicle.x + Math.cos(fixture.vehicle.angle) * 60,
+      y: fixture.vehicle.y + Math.sin(fixture.vehicle.angle) * 60,
+      radius: 20,
+      speed: 0,
+      angle: fixture.vehicle.angle
+    }]
+  });
+  assert.ok(fixture.vehicle.speed < startSpeed);
+  assert.deepEqual(controller.diagnostics().map((entry) => ({
+    vehicleId: entry.vehicleId,
+    reason: entry.speedReason,
+    obstacleId: entry.obstacleId,
+    desiredSpeed: entry.desiredSpeed
+  })), [{
+    vehicleId: 'traffic-aware',
+    reason: 'vehicle',
+    obstacleId: 'lead',
+    desiredSpeed: 0
+  }]);
+
+  controller.update(fixture.vehicle, 1 / 30, 200);
+  assert.equal(controller.diagnostics()[0].speedReason, 'cruise');
+  assert.ok(controller.diagnostics()[0].desiredSpeed > 0);
+});
+
+test('traffic controller records blocked routes and selects a deterministic recovery edge', () => {
+  const world = {
+    tileWidth: 64,
+    tileHeight: 64,
+    canOccupy: () => false,
+    isRoadAt: () => true,
+    roadNeighbors: () => [
+      {column: 1, row: 0},
+      {column: 0, row: 1}
+    ]
+  } as unknown as CollisionMap;
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('blocked-traffic')
+  });
+  const vehicle = new VehicleState();
+  vehicle.id = 'blocked';
+  vehicle.x = 32;
+  vehicle.y = 32;
+  vehicle.angle = 0;
+  vehicle.speed = 90;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, {
+    x: 32,
+    y: 32,
+    angle: 0,
+    column: 0,
+    row: 0,
+    targetColumn: 1,
+    targetRow: 0
+  }, 118);
+
+  controller.update(vehicle, 1 / 30, 100);
+  assert.equal(controller.diagnostics()[0].speedReason, 'blocked');
+  assert.equal(controller.diagnostics()[0].recoveryCount, 0);
+  controller.update(vehicle, 1 / 30, 1300);
+  assert.equal(controller.diagnostics()[0].recoveryCount, 1);
+  assert.equal(controller.diagnostics()[0].blockedSince, 1300);
+});
+
+test('traffic scans the active route and does not node-snap through a stopping obstacle', () => {
+  const world = {
+    tileWidth: 64,
+    tileHeight: 64,
+    canOccupy: () => true,
+    isRoadAt: () => true,
+    roadNeighbors: () => [{column: 0, row: 2}]
+  } as unknown as CollisionMap;
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('turn-awareness')
+  });
+  const vehicle = new VehicleState();
+  vehicle.id = 'turning';
+  vehicle.x = 32;
+  vehicle.y = 90;
+  vehicle.angle = 0;
+  vehicle.speed = 90;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, {
+    x: 32,
+    y: 90,
+    angle: 0,
+    column: 0,
+    row: 0,
+    targetColumn: 0,
+    targetRow: 1
+  }, 118);
+
+  controller.update(vehicle, 1 / 30, 100, {
+    obstacles: [{
+      id: 'crossing-pedestrian',
+      kind: 'pedestrian',
+      x: 32,
+      y: 125,
+      radius: 11
+    }]
+  });
+  assert.equal(controller.diagnostics()[0].speedReason, 'pedestrian');
+  assert.ok(vehicle.y > 90 && vehicle.y < 96, `Vehicle moved to ${vehicle.y}.`);
+});
+
 function createTraffic(world: CollisionMap, id: string, seed: number) {
   const spawn = world.trafficSpawn(seed, 20);
   const vehicle = new VehicleState();

@@ -1,4 +1,5 @@
 import type {NetworkVehicle} from '../types.ts';
+import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 
 export interface VehicleVisualState {
   frame: number;
@@ -28,7 +29,5 @@ export function vehicleVisualState(vehicle: NetworkVehicle): VehicleVisualState 
 }
 
 export function vehicleFrame(kind: NetworkVehicle['kind']): number {
-  if (kind === 'police') return 1;
-  if (kind === 'taxi') return 2;
-  return 0;
+  return vehicleDefinition(kind).presentation.frame;
 }

@@ -230,6 +230,9 @@ export class DebugPresentationController {
   }
 
   private drawVehicles(present: Set<string>): void {
+    const diagnostics = new Map(
+      (this.snapshot?.trafficAi ?? []).map((entry) => [entry.vehicleId, entry])
+    );
     this.state?.vehicles?.forEach((vehicle, vehicleId) => {
       const mode = vehicle.traffic
         ? 'traffic'
@@ -237,6 +240,14 @@ export class DebugPresentationController {
       const damage = `${vehicle.damageFront}/${vehicle.damageRear}/` +
         `${vehicle.damageLeft}/${vehicle.damageRight}`;
       const status = `${vehicle.onFire ? ' FIRE' : ''}${vehicle.destroyed ? ' WRECK' : ''}`;
+      const diagnostic = diagnostics.get(vehicleId);
+      const traffic = diagnostic
+        ? ` ai:${diagnostic.speedReason} target:${Math.round(diagnostic.desiredSpeed)}` +
+          (diagnostic.obstacleId
+            ? ` gap:${Math.round(diagnostic.obstacleDistance)} ${shortId(diagnostic.obstacleId)}`
+            : '') +
+          (diagnostic.recoveryCount > 0 ? ` recover:${diagnostic.recoveryCount}` : '')
+        : '';
       this.drawEntity(
         vehicle.x,
         vehicle.y,
@@ -245,7 +256,7 @@ export class DebugPresentationController {
         0x9d8bff,
         `vehicle:${vehicleId}`,
         `${vehicleId} ${mode} hp:${vehicle.health}/${vehicle.maxHealth} ` +
-          `eng:${vehicle.engineDamage} d:${damage} v:${Math.round(vehicle.speed)}${status}`,
+          `eng:${vehicle.engineDamage} d:${damage} v:${Math.round(vehicle.speed)}${status}${traffic}`,
         present,
         vehicle.health > 0
       );

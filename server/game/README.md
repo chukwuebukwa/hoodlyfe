@@ -49,6 +49,7 @@ game/
     player-control-controller.ts
     player-lifecycle-controller.ts
   traffic/
+    traffic-awareness-system.ts
     traffic-controller.ts
   missions/
     freemode-mission-controller.ts
@@ -112,8 +113,9 @@ Extracted domain policies and room adapters now include:
 - `freemode-mission-controller.ts` for target selection, schema projection, typed events, reward idempotency, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
-- `traffic-controller.ts` for ambient route state, deterministic turn selection, cruise control, road following, hijack braking, and release.
-- `vehicle-simulation-controller.ts` for authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
+- `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning, following/stopping speed policy, and inspectable limiting obstacles; `traffic-controller.ts` for ambient route state, deterministic turn/recovery selection, model-aware asymmetric cruise/braking, hijack braking, and release.
+- `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.
+- `vehicle-simulation-controller.ts` for catalog-driven authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, spread, pellet count, muzzle origin, and bullet creation.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
