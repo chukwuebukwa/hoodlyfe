@@ -38,6 +38,9 @@ function createState(): DistrictNetworkState {
   return {
     players: new Map([['player', {} as never]]),
     bullets: new Map(),
+    thrownProjectiles: new Map(),
+    explosions: new Map(),
+    weaponPickups: new Map(),
     npcs: new Map(),
     vehicles: new Map([['vehicle', {} as never]]),
     missions: new Map(),

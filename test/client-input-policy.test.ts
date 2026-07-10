@@ -78,6 +78,7 @@ function createPlayer(): NetworkPlayer {
     ammoPistol: 120,
     ammoSmg: 240,
     ammoShotgun: 48,
+    ammoGrenade: 2,
     appearance: cloneAppearance()
   };
 }

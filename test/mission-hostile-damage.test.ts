@@ -50,3 +50,29 @@ test('mission hostile damage emits combat facts without street crime, cash, pani
   assert.deepEqual(credits, []);
   assert.deepEqual(crimes, []);
 });
+
+test('self-inflicted explosive damage never creates crime or kill rewards', () => {
+  const events = new GameEventStream();
+  const credits: unknown[] = [];
+  const crimes: unknown[] = [];
+  const deaths: unknown[] = [];
+  const damage = new DamageController({
+    events,
+    economy: {credit: (...args: unknown[]) => { credits.push(args); return {status: 'applied'}; }} as any,
+    crime: {record: (...args: unknown[]) => crimes.push(args)} as any,
+    playerLifecycle: {kill: (...args: unknown[]) => deaths.push(args)} as any,
+    clock: () => ({tick: 8}),
+    panicNpc: () => undefined,
+    scheduleNpcRespawn: () => undefined
+  });
+  const player = new PlayerState();
+  player.id = 'thrower';
+  player.health = 100;
+
+  damage.player(player, 120, player.id, 1200);
+
+  assert.equal(player.health, 0);
+  assert.equal(deaths.length, 1);
+  assert.deepEqual(credits, []);
+  assert.deepEqual(crimes, []);
+});

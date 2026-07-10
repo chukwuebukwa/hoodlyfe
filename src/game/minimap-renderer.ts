@@ -143,5 +143,6 @@ function markerColor(kind: MinimapMarker['kind'], timeMs: number): string {
   if (kind === 'objective') return '#f2c94c';
   if (kind === 'contact') return '#ff9d3f';
   if (kind === 'shop') return '#63df8a';
+  if (kind === 'pickup') return '#ffd75a';
   return '#d979ff';
 }

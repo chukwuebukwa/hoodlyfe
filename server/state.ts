@@ -54,6 +54,7 @@ export class PlayerState extends Schema {
   ammoPistol = 120;
   ammoSmg = 240;
   ammoShotgun = 48;
+  ammoGrenade = 2;
   appearance = new PlayerAppearanceState();
 }
 
@@ -79,6 +80,7 @@ defineTypes(PlayerState, {
   ammoPistol: 'number',
   ammoSmg: 'number',
   ammoShotgun: 'number',
+  ammoGrenade: 'number',
   appearance: PlayerAppearanceState
 });
 
@@ -102,6 +104,74 @@ defineTypes(BulletState, {
   angle: 'number',
   createdAt: 'number',
   weapon: 'string'
+});
+
+export class ThrownProjectileState extends Schema {
+  id = '';
+  ownerId = '';
+  kind = 'grenade';
+  x = 0;
+  y = 0;
+  height = 0;
+  angle = 0;
+  createdAt = 0;
+  fuseAt = 0;
+}
+
+defineTypes(ThrownProjectileState, {
+  id: 'string',
+  ownerId: 'string',
+  kind: 'string',
+  x: 'number',
+  y: 'number',
+  height: 'number',
+  angle: 'number',
+  createdAt: 'number',
+  fuseAt: 'number'
+});
+
+export class ExplosionState extends Schema {
+  id = '';
+  kind = 'grenade';
+  sourceId = '';
+  sourceKind = 'world';
+  x = 0;
+  y = 0;
+  radius = 0;
+  createdAt = 0;
+  expiresAt = 0;
+}
+
+defineTypes(ExplosionState, {
+  id: 'string',
+  kind: 'string',
+  sourceId: 'string',
+  sourceKind: 'string',
+  x: 'number',
+  y: 'number',
+  radius: 'number',
+  createdAt: 'number',
+  expiresAt: 'number'
+});
+
+export class WeaponPickupState extends Schema {
+  id = '';
+  weapon = 'grenade';
+  x = 0;
+  y = 0;
+  quantity = 0;
+  available = true;
+  respawnAt = 0;
+}
+
+defineTypes(WeaponPickupState, {
+  id: 'string',
+  weapon: 'string',
+  x: 'number',
+  y: 'number',
+  quantity: 'number',
+  available: 'boolean',
+  respawnAt: 'number'
 });
 
 export class NpcState extends Schema {
@@ -291,6 +361,9 @@ defineTypes(MissionState, {
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
+  thrownProjectiles = new MapSchema<ThrownProjectileState>();
+  explosions = new MapSchema<ExplosionState>();
+  weaponPickups = new MapSchema<WeaponPickupState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
   missions = new MapSchema<MissionState>();
@@ -302,6 +375,9 @@ export class DistrictState extends Schema {
 defineTypes(DistrictState, {
   players: {map: PlayerState},
   bullets: {map: BulletState},
+  thrownProjectiles: {map: ThrownProjectileState},
+  explosions: {map: ExplosionState},
+  weaponPickups: {map: WeaponPickupState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
   missions: {map: MissionState},

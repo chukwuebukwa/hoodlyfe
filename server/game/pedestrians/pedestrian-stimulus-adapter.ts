@@ -29,6 +29,12 @@ export class PedestrianStimulusAdapter {
           weaponSeverity(event.weapon), weaponRadius(event.weapon), event.nowMs,
           1400, `gunshot:${event.ownerKind}:${event.ownerId}`, 180
         );
+      case 'explosion.created':
+        return stimulus(
+          'explosion', event.sourceId, event.explosionId, event.x, event.y,
+          1, Math.max(720, event.radius * 5.5), event.nowMs,
+          4200, `explosion:${event.explosionId}`, 1000
+        );
       case 'damage.applied': {
         const position = this.entityPosition(event.targetKind, event.targetId);
         if (!position) return undefined;
@@ -48,7 +54,7 @@ export class PedestrianStimulusAdapter {
         );
       }
       case 'vehicle.damaged': {
-        if (event.sourceKind === 'weapon') return undefined;
+        if (event.sourceKind === 'weapon' || event.sourceKind === 'explosion') return undefined;
         const vehicle = this.options.state.vehicles.get(event.vehicleId);
         if (!vehicle) return undefined;
         return stimulus(
@@ -64,15 +70,6 @@ export class PedestrianStimulusAdapter {
           'fire', event.sourceId, event.vehicleId, vehicle.x, vehicle.y,
           0.9, 440, event.nowMs, 5200,
           `fire:${event.vehicleId}`, 1000
-        );
-      }
-      case 'vehicle.destroyed': {
-        const vehicle = this.options.state.vehicles.get(event.vehicleId);
-        if (!vehicle) return undefined;
-        return stimulus(
-          'explosion', event.sourceId, event.vehicleId, vehicle.x, vehicle.y,
-          1, 720, event.nowMs, 3200,
-          `explosion:${event.vehicleId}`, 1000
         );
       }
       default:

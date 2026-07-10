@@ -40,6 +40,9 @@ import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
+import {ExplosionController} from './game/combat/explosion-controller.ts';
+import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
+import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -101,6 +104,9 @@ export class DistrictRoom extends Room<DistrictState> {
   private fireControl!: FireControlController;
   private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
+  private explosionController!: ExplosionController;
+  private thrownProjectileController!: ThrownProjectileController;
+  private weaponPickupController!: WeaponPickupController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private serviceController!: StreetServiceController;
@@ -252,6 +258,13 @@ export class DistrictRoom extends Room<DistrictState> {
       {kinds: ['npc'], includeRecordRadius: true}
     ).map((record) => this.state.npcs.get(record.id))
       .filter((npc): npc is NpcState => Boolean(npc));
+    const nearbyVehicles = (x: number, y: number, radius: number) => this.spatialIndex.queryCircle(
+      x,
+      y,
+      radius,
+      {kinds: ['vehicle'], includeRecordRadius: true}
+    ).map((record) => this.state.vehicles.get(record.id))
+      .filter((vehicle): vehicle is VehicleState => Boolean(vehicle));
     this.vehicleSimulation = new VehicleSimulationController({
       state: this.state,
       world: this.world,
@@ -263,11 +276,7 @@ export class DistrictRoom extends Room<DistrictState> {
       inputFor: (playerId) => this.playerControl.inputFor(playerId),
       nearbyPlayers,
       nearbyNpcs,
-      nearbyVehicles: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
-        kinds: ['vehicle'],
-        includeRecordRadius: true
-      }).map((record) => this.state.vehicles.get(record.id))
-        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
+      nearbyVehicles,
       damagePlayer: (player, damage, attackerId, nowMs, crimeKind) => this.damageController.player(
         player,
         damage,
@@ -283,12 +292,42 @@ export class DistrictRoom extends Room<DistrictState> {
         crimeKind
       )
     });
+    this.explosionController = new ExplosionController({
+      state: this.state,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      damage: this.damageController,
+      vehicles: this.vehicleSimulation,
+      queryPlayers: nearbyPlayers,
+      queryNpcs: nearbyNpcs,
+      queryVehicles: nearbyVehicles
+    });
+    this.thrownProjectileController = new ThrownProjectileController({
+      state: this.state,
+      world: this.world,
+      detonate: (x, y, ownerId, nowMs) => {
+        this.explosionController.detonate('grenade', x, y, ownerId, 'player', nowMs);
+      },
+      remove: (projectileId) => this.lifecycle.defer(
+        `thrown.remove:${projectileId}`,
+        () => this.state.thrownProjectiles.delete(projectileId)
+      )
+    });
     this.fireControl = new FireControlController({
       state: this.state,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       events: this.events,
-      cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId)
+      cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId),
+      throwExplosive: (input) => this.thrownProjectileController.throw(input)
+    });
+    this.weaponPickupController = new WeaponPickupController({
+      state: this.state,
+      world: this.world,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      nearbyPlayers,
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     const sendWardrobeState = (playerId: string) => {
       const client = this.clients.find((candidate) => candidate.sessionId === playerId);
@@ -406,6 +445,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.serviceController.initialize();
     this.medicalController.initialize();
+    this.weaponPickupController.initialize();
     this.population.populate();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
@@ -501,14 +541,16 @@ export class DistrictRoom extends Room<DistrictState> {
   private advanceSimulation(deltaTime: number): void {
     this.simulationClock.advance(deltaTime, (frame) => {
       this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
+      const events = this.events.drain();
+      this.explosionController.observeEvents(events);
+      this.missionController.observeEvents(events);
+      this.pedestrians.observeEvents(events);
+      this.debugProjection.update(events);
     });
-    const events = this.events.drain();
-    this.missionController.observeEvents(events);
-    this.pedestrians.observeEvents(events);
-    this.debugProjection.update(events);
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.explosionController.update(now);
     this.vehicleSimulation.beginTick();
     this.state.vehicles.forEach((vehicle) => {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);
@@ -537,6 +579,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.state.bullets.forEach((bullet, bulletId) => {
       this.projectileController.update(bullet, bulletId, deltaSeconds, now);
     });
+    this.state.thrownProjectiles.forEach((projectile, projectileId) => {
+      this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
+    });
+    this.weaponPickupController.update(now);
     this.crimeController.expire(now);
     this.missionController.update(now);
     this.lifecycle.flush();

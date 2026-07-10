@@ -31,8 +31,10 @@ game/
     wardrobe-inventory-controller.ts
   combat/
     damage-controller.ts
+    explosion-controller.ts
     fire-control-controller.ts
     projectile-controller.ts
+    thrown-projectile-controller.ts
   debug/
     debug-snapshot-controller.ts
   economy/
@@ -51,6 +53,8 @@ game/
     crime-response-controller.ts
     dispatch-system.ts
     pursuit-memory.ts
+  pickups/
+    weapon-pickup-controller.ts
   population/
     district-population-controller.ts
   services/
@@ -153,5 +157,9 @@ Extracted domain policies and room adapters now include:
 - `pedestrian-reaction-system.ts` for civilian orient/respond/recover transitions and `pedestrian-intent.ts` for the shared output contract consumed by locomotion/presentation projection.
 - `pedestrian-navigation-system.ts` for private route ownership, per-tick request budgets, deterministic blocked recovery, and planner composition; `pedestrian-path-planner.ts` for bounded deterministic collision-grid A* with clearance and smoothing; plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
 - `pedestrian-stimulus-registry.ts` for bounded, expiring, deduplicated sensory facts and `pedestrian-stimulus-adapter.ts` for translating stable cross-domain game events without importing producer systems.
+- `fire-control-controller.ts` for holder, cooldown, ammunition, seat, protection-cancel, and bullet-versus-thrown dispatch gates; `projectile-controller.ts` remains bullet-only.
+- `thrown-projectile-controller.ts` for bounded private grenade velocity, gravity, world/ground bounce, fuse, replicated pose, detonation request, and lifecycle cleanup.
+- `explosion-controller.ts` for one-shot radial player/NPC/vehicle resolution, active-source attribution, transient effects, vehicle-destruction adaptation, occupant exclusion, and bounded chain reactions.
+- `weapon-pickup-controller.ts` for spatial collection candidates, nearest/ID-stable contention, grenade capacity, shared availability, respawn, notices, and events.
 
-`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, explicit simulation scheduling, spatial projection, and client transport. Client presentation remains extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
+`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles/explosions/pickups, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, explicit simulation scheduling, spatial projection, and client transport. Client presentation remains extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.

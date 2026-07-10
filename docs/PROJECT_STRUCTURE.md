@@ -195,7 +195,8 @@ The first room-facing facades are now live:
 - `DistrictPopulationController` owns idempotent map bootstrap, initial archetype budgets, parked/traffic vehicle creation, and registration through domain APIs.
 - `DebugSnapshotController` owns bounded event summaries, sampled simulation diagnostics, domain-to-protocol copies, and developer snapshot publication.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
-- `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
+- `FireControlController`, `ProjectileController`, `ThrownProjectileController`, `ExplosionController`, and `DamageController` separate weapon use, bullets, bounded thrown/fused motion, one-shot radial resolution/vehicle-chain adaptation, and victim response.
+- `WeaponPickupController` owns collision-safe placement, spatial proximity collection, deterministic contention, quantity caps, shared availability, respawn, notices, and pickup events without importing combat presentation or economy mutation.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
 - `MedicalCareController` owns registered hospitals, private admission/care choice, nearest-facility selection, living treatment, and idempotent economy coordination.
 - `PlayerLifecycleController` owns death/respawn mutation and bounded spawn protection independently of combat and the room; it delegates facility, timing, ammunition, and care policy to medical care.

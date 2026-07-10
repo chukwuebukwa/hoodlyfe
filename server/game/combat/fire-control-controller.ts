@@ -17,6 +17,13 @@ interface FireControlControllerOptions {
   clock: () => {tick: number; nowMs: number};
   events?: GameEventStream;
   cancelSpawnProtection?: (playerId: string) => void;
+  throwExplosive?: (input: {
+    ownerId: string;
+    x: number;
+    y: number;
+    angle: number;
+    nowMs: number;
+  }) => boolean;
 }
 
 export class FireControlController {
@@ -31,6 +38,7 @@ export class FireControlController {
     if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
     const weaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
     const weapon = WEAPONS[weaponId];
+    if (player.vehicleId && !weapon.passengerAllowed) return;
     if (
       clock.nowMs - (this.lastShotAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
       ammoFor(player, weaponId) <= 0
@@ -38,10 +46,26 @@ export class FireControlController {
       return;
     }
 
+    const origin = this.shotOrigin(player);
+    if (weapon.fireMode === 'thrown') {
+      const created = this.options.throwExplosive?.({
+        ownerId: playerId,
+        x: origin.x,
+        y: origin.y,
+        angle: player.angle,
+        nowMs: clock.nowMs
+      }) ?? false;
+      if (!created) return;
+      this.lastShotAt.set(playerId, clock.nowMs);
+      this.options.cancelSpawnProtection?.(playerId);
+      setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
+      this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
+      return;
+    }
+
     this.lastShotAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
-    const origin = this.shotOrigin(player);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
       const spread = weapon.pellets === 1
@@ -84,6 +108,7 @@ export class FireControlController {
     weapon: WeaponId = 'pistol',
     ownerKind: 'police' | 'hostile' = 'police'
   ): void {
+    if (WEAPONS[weapon].fireMode !== 'bullet') return;
     this.publishWeaponFired(ownerId, ownerKind, x, y, weapon, {
       tick: this.options.clock().tick,
       nowMs

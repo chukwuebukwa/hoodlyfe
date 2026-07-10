@@ -72,6 +72,9 @@ game/
 - `PlayerRenderer` owns player/weapon/passenger/nameplate render objects, prediction, interpolation, seat composition, recoil, and teardown.
 - `projectile-render-policy.ts` owns weapon/police projectile presentation data.
 - `ProjectileRenderer` owns bullet render-object creation, synchronization, interpolation, muzzle flashes, removal, and teardown.
+- `ThrownProjectileRenderer` owns replicated grenade ground/shadow/height composition, fuse pulse, interpolation, and teardown.
+- `ExplosionRenderer` edge-triggers each replicated explosion ID once and owns blast core/ring/particle/camera feedback lifecycle; it never selects victims.
+- `WeaponPickupRenderer` owns available pickup model/label/pulse lifecycle and pure minimap-point projection.
 - `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
 - `hud-policy.ts` projects player/vehicle facts and edge-triggered notices without DOM access.
 - `LocalHudController` owns cached HUD elements, meters, mode visibility, bounded notices, connection state, timers, and teardown.

@@ -119,6 +119,9 @@ function createState(): DistrictNetworkState {
   return {
     players: new Map([['local', createPlayer()]]),
     bullets: new Map(),
+    thrownProjectiles: new Map(),
+    explosions: new Map(),
+    weaponPickups: new Map(),
     npcs: new Map(),
     vehicles: new Map(),
     missions: new Map(),
@@ -149,6 +152,7 @@ function createPlayer(overrides: Partial<NetworkPlayer> = {}): NetworkPlayer {
     ammoPistol: 120,
     ammoSmg: 240,
     ammoShotgun: 48,
+    ammoGrenade: 2,
     ...overrides,
     appearance: overrides.appearance ?? cloneAppearance()
   };

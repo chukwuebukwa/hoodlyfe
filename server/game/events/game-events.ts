@@ -16,6 +16,25 @@ export interface WeaponFiredEvent extends EventMetadata {
   y: number;
 }
 
+export interface ExplosionCreatedEvent extends EventMetadata {
+  type: 'explosion.created';
+  explosionId: string;
+  kind: 'grenade' | 'vehicle';
+  sourceId: string;
+  sourceKind: 'player' | 'vehicle' | 'world';
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface WeaponPickupCollectedEvent extends EventMetadata {
+  type: 'pickup.collected';
+  pickupId: string;
+  playerId: string;
+  weapon: string;
+  quantity: number;
+}
+
 export interface DamageAppliedEvent extends EventMetadata {
   type: 'damage.applied';
   targetId: string;
@@ -58,7 +77,7 @@ export interface PursuitChangedEvent extends EventMetadata {
   suspectId: string;
 }
 
-export type VehicleDamageSource = 'world' | 'vehicle' | 'weapon';
+export type VehicleDamageSource = 'world' | 'vehicle' | 'weapon' | 'explosion';
 
 export interface VehicleDamagedEvent extends EventMetadata {
   type: 'vehicle.damaged';
@@ -74,6 +93,7 @@ export interface VehicleDestroyedEvent extends EventMetadata {
   vehicleId: string;
   sourceId: string;
   sourceKind: VehicleDamageSource;
+  occupantIds: string[];
 }
 
 export interface VehicleIgnitedEvent extends EventMetadata {
@@ -133,6 +153,8 @@ export interface StreetEconomyChangedEvent extends EventMetadata {
 
 export type GameEvent =
   | WeaponFiredEvent
+  | ExplosionCreatedEvent
+  | WeaponPickupCollectedEvent
   | DamageAppliedEvent
   | EntityKilledEvent
   | CrimeCommittedEvent

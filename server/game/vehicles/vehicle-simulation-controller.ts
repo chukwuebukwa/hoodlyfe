@@ -408,7 +408,7 @@ export class VehicleSimulationController {
       occupant.x = position.x;
       occupant.y = position.y;
       this.options.access.clearAction(occupant);
-      this.options.damagePlayer(occupant, 35, '', nowMs);
+      this.options.damagePlayer(occupant, 35, sourceId, nowMs);
     }
     this.options.events.publish({
       type: 'vehicle.destroyed',
@@ -416,7 +416,8 @@ export class VehicleSimulationController {
       nowMs,
       vehicleId: vehicle.id,
       sourceId,
-      sourceKind
+      sourceKind,
+      occupantIds: occupants.map((occupant) => occupant.id)
     });
   }
 

@@ -43,12 +43,12 @@ export class DamageController {
       amount: previousHealth - target.health,
       remainingHealth: target.health
     });
-    if (attackerId && attackerDisposition === 'player') {
+    if (attackerId && attackerId !== target.id && attackerDisposition === 'player') {
       this.options.crime.record(attackerId, crimeKind, nowMs, target.id, target.x, target.y);
     }
     if (target.health > 0) return;
 
-    if (attackerId && attackerDisposition === 'player') {
+    if (attackerId && attackerId !== target.id && attackerDisposition === 'player') {
       this.options.economy.credit(
         attackerId,
         100,

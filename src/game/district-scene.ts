@@ -13,6 +13,9 @@ import {MedicalCarePresentationController} from './medical/medical-care-presenta
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
+import {ExplosionRenderer} from './rendering/explosion-renderer.ts';
+import {ThrownProjectileRenderer} from './rendering/thrown-projectile-renderer.ts';
+import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
@@ -29,6 +32,9 @@ export class DistrictScene extends Phaser.Scene {
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private explosionRenderer!: ExplosionRenderer;
+  private thrownProjectileRenderer!: ThrownProjectileRenderer;
+  private weaponPickupRenderer!: WeaponPickupRenderer;
   private vehicleRenderer!: VehicleRenderer;
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
@@ -72,6 +78,7 @@ export class DistrictScene extends Phaser.Scene {
     this.load.svg('weapon-pistol', '/assets/original/weapons/pistol.svg');
     this.load.svg('weapon-smg', '/assets/original/weapons/smg.svg');
     this.load.svg('weapon-shotgun', '/assets/original/weapons/shotgun.svg');
+    this.load.svg('weapon-grenade', '/assets/original/weapons/grenade.svg');
   }
 
   create(): void {
@@ -130,6 +137,9 @@ export class DistrictScene extends Phaser.Scene {
         this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
       }
     });
+    this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
+    this.explosionRenderer = new ExplosionRenderer(this);
+    this.weaponPickupRenderer = new WeaponPickupRenderer(this);
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (minimapCanvas) {
@@ -201,11 +211,17 @@ export class DistrictScene extends Phaser.Scene {
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
     this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
     this.projectileRenderer.synchronize(state.bullets);
+    this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
+    this.explosionRenderer.synchronize(state.explosions);
+    this.weaponPickupRenderer.synchronize(state.weaponPickups);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
       shell.dataset.players = String(state.players?.size ?? 0);
       shell.dataset.npcs = String(state.npcs?.size ?? 0);
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
+      shell.dataset.explosives = String(
+        (state.thrownProjectiles?.size ?? 0) + (state.explosions?.size ?? 0)
+      );
     }
     this.interactionController.synchronize(state);
     this.missionController.synchronize(state);
@@ -218,6 +234,8 @@ export class DistrictScene extends Phaser.Scene {
     this.playerRenderer.interpolate(time);
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();
+    this.thrownProjectileRenderer.interpolate();
+    this.weaponPickupRenderer.interpolate();
   }
 
   private canOccupy(x: number, y: number): boolean {
@@ -252,7 +270,8 @@ export class DistrictScene extends Phaser.Scene {
       npcs: this.latestState.npcs?.values() ?? [],
       points: [
         ...this.missionController.minimapPoints(),
-        ...this.interactionController.minimapPoints()
+        ...this.interactionController.minimapPoints(),
+        ...this.weaponPickupRenderer.minimapPoints()
       ]
     });
     if (frame) this.minimap.render(frame, time);

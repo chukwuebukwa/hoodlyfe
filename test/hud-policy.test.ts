@@ -15,6 +15,10 @@ test('local HUD projection covers foot, driver, passenger, damage, and death mod
   assert.equal(foot.showVehicleHud, false);
   assert.equal(foot.weaponName, 'PISTOL');
   assert.equal(foot.weaponAmmo, 120);
+  const grenade = projectLocalHud(createPlayer({weapon: 'grenade', ammoGrenade: 4}), undefined);
+  assert.equal(grenade.weaponName, 'GRENADE');
+  assert.equal(grenade.weaponAmmo, 4);
+  assert.equal(grenade.weaponIcon, '/assets/original/weapons/grenade.svg');
 
   const driver = projectLocalHud(createPlayer({vehicleId: 'car', vehicleSeat: 0}), createVehicle());
   assert.equal(driver.mode, 'vehicle');
@@ -75,6 +79,7 @@ function createPlayer(overrides: Partial<NetworkPlayer> = {}): NetworkPlayer {
     ammoPistol: 120,
     ammoSmg: 240,
     ammoShotgun: 48,
+    ammoGrenade: 2,
     ...overrides,
     appearance: overrides.appearance ?? cloneAppearance()
   };

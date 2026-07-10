@@ -64,6 +64,33 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   assert.ok(passengerBullet);
   assert.ok(Math.hypot(passengerBullet.x - vehicle.x, passengerBullet.y - vehicle.y) < 40);
 
+  player.vehicleId = '';
+  player.vehicleSeat = -1;
+  player.weapon = 'grenade';
+  clock.nowMs += 700;
+  let thrown = 0;
+  const grenadeFire = new FireControlController({
+    state,
+    random: new DeterministicRandom('grenade-fire-test'),
+    clock: () => clock,
+    events,
+    throwExplosive: () => {
+      thrown++;
+      return true;
+    }
+  });
+  grenadeFire.shoot(player.id);
+  assert.equal(thrown, 1);
+  assert.equal(player.ammoGrenade, 1);
+  assert.equal(state.bullets.size, 8);
+  assert.equal(events.drain()[0]?.type, 'weapon.fired');
+  player.vehicleId = vehicle.id;
+  player.vehicleSeat = 1;
+  clock.nowMs += 700;
+  grenadeFire.shoot(player.id);
+  assert.equal(thrown, 1);
+  assert.equal(player.ammoGrenade, 1);
+
   fire.createNpcBullet('hostile', 50, 60, 0, clock.nowMs, 'smg', 'hostile');
   const hostileBullet = [...state.bullets.values()].at(-1);
   assert.equal(hostileBullet?.ownerKind, 'hostile');

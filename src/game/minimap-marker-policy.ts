@@ -6,6 +6,7 @@ export type MinimapMarkerKind =
   | 'objective'
   | 'contact'
   | 'shop'
+  | 'pickup'
   | 'property';
 
 export interface MinimapPlayerInput {
@@ -38,7 +39,7 @@ export interface MinimapNpcInput {
 
 export interface MinimapPointInput {
   id: string;
-  kind: 'objective' | 'contact' | 'shop' | 'property' | 'hostile';
+  kind: 'objective' | 'contact' | 'shop' | 'pickup' | 'property' | 'hostile';
   x: number;
   y: number;
   angle?: number;
@@ -149,7 +150,7 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
       localPosition.x,
       localPosition.y,
       range,
-      point.kind === 'objective' ? 90 : (point.kind === 'hostile' ? 65 : 40)
+      point.kind === 'objective' ? 90 : (point.kind === 'hostile' ? 65 : (point.kind === 'pickup' ? 45 : 40))
     ));
   }
 

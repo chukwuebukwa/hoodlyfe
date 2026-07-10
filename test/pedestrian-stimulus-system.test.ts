@@ -50,7 +50,14 @@ test('event adapter converts combat and vehicle facts without duplicating weapon
     event({type: 'vehicle.damaged', vehicleId: vehicle.id, sourceId: 'wall', sourceKind: 'world', amount: 30, remainingHealth: 500}),
     event({type: 'vehicle.damaged', vehicleId: vehicle.id, sourceId: 'shooter', sourceKind: 'weapon', amount: 30, remainingHealth: 470}),
     event({type: 'vehicle.ignited', vehicleId: vehicle.id, sourceId: 'shooter', sourceKind: 'weapon', explodesAt: 6000}),
-    event({type: 'vehicle.destroyed', vehicleId: vehicle.id, sourceId: 'shooter', sourceKind: 'weapon'})
+    event({
+      type: 'vehicle.destroyed', vehicleId: vehicle.id, sourceId: 'shooter',
+      sourceKind: 'weapon', occupantIds: []
+    }),
+    event({
+      type: 'explosion.created', explosionId: 'explosion-1', kind: 'vehicle',
+      sourceId: 'shooter', sourceKind: 'player', x: vehicle.x, y: vehicle.y, radius: 170
+    })
   ]);
 
   assert.deepEqual(

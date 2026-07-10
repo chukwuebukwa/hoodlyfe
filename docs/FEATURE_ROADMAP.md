@@ -24,10 +24,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 ### Combat and Weapons
 
-- **Playable** pistol, SMG, and shotgun with distinct cooldown, ammunition, pellet/spread, projectile, HUD icon, and held-weapon presentation.
+- **Playable** pistol, SMG, shotgun, and grenade with distinct cooldown, ammunition, fire mode, projectile, HUD icon, and held-weapon presentation.
 - **Playable** server-authoritative aim, firing gates, projectile movement, collision, player/NPC/vehicle damage, kill rewards, and respawn.
 - **Playable** passenger drive-by shooting with seat-specific muzzle origins and a visible passenger lean/peek presentation.
-- **Foundation** weapon-family separation exists; melee, thrown weapons, explosions, fire, pickups, reloads, recoil/accuracy, and weapon shops remain content work.
+- **Playable** bounded thrown-grenade arc/fuse/bounce, production-shaped radial falloff, self damage, player/NPC/vehicle attribution, transient blast presentation, and car chain reactions.
+- **Foundation** weapon-family separation exists; melee, rockets, Molotov/fire, mines, throw charging, reloads, recoil/accuracy, and weapon shops remain content work.
 
 ### Vehicles and Traffic
 
@@ -67,7 +68,8 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** two collision-safe hospitals with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, authoritative living treatment, wanted/vehicle gates, world/minimap markers, and idempotent billing.
 - **Playable** discoverable clothing store that opens the existing creator in Wardrobe mode, with no duplicate renderer or customization path.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
-- **Foundation** street cash remains session-local and non-redeemable; pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
+- **Playable** one shared grenade pickup grants three up to a six-grenade cap, resolves contention authoritatively, projects world/minimap presentation, and respawns after 20 seconds.
+- **Foundation** street cash remains session-local and non-redeemable; money/item pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
 
 ### Appearance and Customization
 
@@ -107,9 +109,10 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 - **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
 - **Delivered playable**: `Threads` is collision-safe and discoverable near spawn without intercepting the spawn vehicle action, opens the shared creator in Wardrobe mode, blocks wanted/vehicle use, and keeps every current item free during development.
 - **Delivered foundation**: inventory uses private namespaced item IDs and targeted snapshots; equipped appearance alone remains public replicated state.
+- **Delivered playable**: a shared grenade cache proves proximity collection, bounded quantity, deterministic contention, transient availability, respawn, notice, event, world model, and minimap projection without entering the service/economy controller.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.
-- Add pickups and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.
+- Extend the proven pickup boundary to money/items and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.
 
 Exit gate: a player can earn from a mission, damage a car, escape police, repair/resupply, and see every debit/reward applied once.
 

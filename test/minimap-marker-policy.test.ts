@@ -60,3 +60,18 @@ test('driving radar range grows continuously with absolute speed and stays bound
   assert.equal(drivingRange(-999), 1100);
   assert.ok(drivingRange(205) > drivingRange(100));
 });
+
+test('available weapon pickup projects a stable nearby minimap marker', () => {
+  const frame = buildMinimapFrame({
+    localPlayerId: 'local',
+    players,
+    vehicles,
+    npcs,
+    points: [{id: 'grenade-cache', kind: 'pickup', x: 180, y: 100}]
+  });
+  const pickup = frame?.markers.find((marker) => marker.id === 'pickup:grenade-cache');
+  assert.ok(pickup);
+  assert.equal(pickup.kind, 'pickup');
+  assert.equal(pickup.priority, 45);
+  assert.equal(pickup.clamped, false);
+});

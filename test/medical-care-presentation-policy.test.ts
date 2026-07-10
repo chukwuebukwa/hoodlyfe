@@ -47,6 +47,7 @@ function createPlayer(): NetworkPlayer {
     ammoPistol: 12,
     ammoSmg: 0,
     ammoShotgun: 0,
+    ammoGrenade: 0,
     appearance: {} as never
   };
 }

@@ -16,6 +16,7 @@ export interface PassengerPresentation {
 }
 
 export function weaponPresentation(weapon: NetworkPlayer['weapon']): WeaponPresentation {
+  if (weapon === 'grenade') return {texture: 'weapon-grenade', width: 15, height: 15};
   if (weapon === 'smg') return {texture: 'weapon-smg', width: 33, height: 11};
   if (weapon === 'shotgun') return {texture: 'weapon-shotgun', width: 42, height: 10};
   return {texture: 'weapon-pistol', width: 25, height: 9};

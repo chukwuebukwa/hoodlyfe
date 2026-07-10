@@ -90,6 +90,7 @@ export function hudTransitionNotices(
 }
 
 function weaponAmmo(player: NetworkPlayer): number {
+  if (player.weapon === 'grenade') return player.ammoGrenade;
   if (player.weapon === 'smg') return player.ammoSmg;
   if (player.weapon === 'shotgun') return player.ammoShotgun;
   return player.ammoPistol;

@@ -11,7 +11,16 @@ import {
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
 import {pedestrianMotionPresentation} from '../src/game/rendering/pedestrian-render-policy.ts';
-import type {NetworkBullet, NetworkVehicle} from '../src/game/types.ts';
+import {thrownProjectilePresentation} from '../src/game/rendering/thrown-projectile-render-policy.ts';
+import {explosionPresentation} from '../src/game/rendering/explosion-render-policy.ts';
+import {weaponPickupMinimapPoints} from '../src/game/rendering/weapon-pickup-render-policy.ts';
+import type {
+  NetworkBullet,
+  NetworkExplosion,
+  NetworkThrownProjectile,
+  NetworkVehicle,
+  NetworkWeaponPickup
+} from '../src/game/types.ts';
 
 test('render interpolation blends ordinary correction and snaps large divergence', () => {
   assert.deepEqual(interpolatePosition(0, 0, 100, 50, 0.2, 200), {
@@ -62,6 +71,9 @@ test('player weapon models and passenger seats preserve stable presentation anch
   assert.deepEqual(weaponPresentation('shotgun'), {
     texture: 'weapon-shotgun', width: 42, height: 10
   });
+  assert.deepEqual(weaponPresentation('grenade'), {
+    texture: 'weapon-grenade', width: 15, height: 15
+  });
   const vehicle = {x: 100, y: 200, angle: 0};
   const frontRight = passengerPresentation(vehicle, 1, 0, 0, false);
   const rearLeft = passengerPresentation(vehicle, 2, 0, 0, false);
@@ -72,6 +84,30 @@ test('player weapon models and passenger seats preserve stable presentation anch
   const recoil = passengerPresentation(vehicle, 1, 0, 0, true);
   assert.equal(recoil.spriteX, frontRight.spriteX - 4);
   assert.equal(recoil.scale, 0.64);
+});
+
+test('explosive and pickup presentation follows replicated height, fuse, kind, and availability', () => {
+  const thrown: NetworkThrownProjectile = {
+    id: 'grenade-1', ownerId: 'driver', kind: 'grenade',
+    x: 10, y: 20, height: 60, angle: 0, createdAt: 0, fuseAt: 2000
+  };
+  const early = thrownProjectilePresentation(thrown, 200);
+  const late = thrownProjectilePresentation(thrown, 1900);
+  assert.equal(early.texture, 'weapon-grenade');
+  assert.equal(early.modelY, -60);
+  assert.ok(early.shadowScale < 1);
+  assert.notEqual(late.modelScale, 0.58);
+
+  const grenadeExplosion = explosionPresentation(explosion('grenade'));
+  const vehicleExplosion = explosionPresentation(explosion('vehicle'));
+  assert.ok(vehicleExplosion.durationMs > grenadeExplosion.durationMs);
+  assert.ok(vehicleExplosion.shakeIntensity > grenadeExplosion.shakeIntensity);
+
+  const available = pickup({id: 'available', available: true});
+  const hidden = pickup({id: 'hidden', available: false});
+  assert.deepEqual(weaponPickupMinimapPoints([hidden, available]), [{
+    id: 'available', kind: 'pickup', x: 100, y: 120
+  }]);
 });
 
 test('vehicle presentation stages model, component damage, fire, and destruction', () => {
@@ -92,6 +128,20 @@ test('vehicle presentation stages model, component damage, fire, and destruction
     tint: 0x4f4f4f
   });
 });
+
+function explosion(kind: NetworkExplosion['kind']): NetworkExplosion {
+  return {
+    id: `explosion-${kind}`, kind, sourceId: 'driver', sourceKind: 'player',
+    x: 0, y: 0, radius: 130, createdAt: 1000, expiresAt: 1650
+  };
+}
+
+function pickup(overrides: Partial<NetworkWeaponPickup> = {}): NetworkWeaponPickup {
+  return {
+    id: 'pickup', weapon: 'grenade', x: 100, y: 120,
+    quantity: 3, available: true, respawnAt: 0, ...overrides
+  };
+}
 
 test('pedestrian presentation differentiates startle, flee, assault, investigation, and recovery', () => {
   assert.deepEqual(pedestrianMotionPresentation('startle', 0), {

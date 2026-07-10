@@ -24,10 +24,11 @@ export interface NetworkPlayer {
   action: '' | 'entering' | 'hijacking';
   actionUntil: number;
   actionVehicleId: string;
-  weapon: 'pistol' | 'smg' | 'shotgun';
+  weapon: 'pistol' | 'smg' | 'shotgun' | 'grenade';
   ammoPistol: number;
   ammoSmg: number;
   ammoShotgun: number;
+  ammoGrenade: number;
   appearance: PlayerAppearance;
 }
 
@@ -40,6 +41,40 @@ export interface NetworkBullet {
   angle: number;
   createdAt: number;
   weapon: 'pistol' | 'smg' | 'shotgun';
+}
+
+export interface NetworkThrownProjectile {
+  id: string;
+  ownerId: string;
+  kind: 'grenade';
+  x: number;
+  y: number;
+  height: number;
+  angle: number;
+  createdAt: number;
+  fuseAt: number;
+}
+
+export interface NetworkExplosion {
+  id: string;
+  kind: 'grenade' | 'vehicle';
+  sourceId: string;
+  sourceKind: 'player' | 'vehicle' | 'world';
+  x: number;
+  y: number;
+  radius: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface NetworkWeaponPickup {
+  id: string;
+  weapon: 'grenade';
+  x: number;
+  y: number;
+  quantity: number;
+  available: boolean;
+  respawnAt: number;
 }
 
 export interface NetworkNpc {
@@ -137,6 +172,9 @@ export interface NetworkMission {
 export interface DistrictNetworkState {
   players: Map<string, NetworkPlayer>;
   bullets: Map<string, NetworkBullet>;
+  thrownProjectiles: Map<string, NetworkThrownProjectile>;
+  explosions: Map<string, NetworkExplosion>;
+  weaponPickups: Map<string, NetworkWeaponPickup>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
   missions: Map<string, NetworkMission>;
