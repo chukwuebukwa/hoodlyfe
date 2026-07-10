@@ -1,11 +1,5 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
-import {
-  MISSION_ABANDON_MESSAGE,
-  MISSION_JOIN_MESSAGE,
-  MISSION_LAUNCH_MESSAGE,
-  MISSION_START_MESSAGE
-} from '../../../shared/protocol/missions.ts';
 import {TouchControls} from '../touch-controls.ts';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
 import {
@@ -66,10 +60,6 @@ export class ClientInputController {
     this.bindClick('#vehicle-action-button', (event) => {
       event.stopPropagation();
       this.options.room.send('interact');
-    });
-    this.bindClick('#mission-action', (event) => {
-      event.stopPropagation();
-      this.activateMissionAction();
     });
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
@@ -145,16 +135,6 @@ export class ClientInputController {
     if (!canUseWeaponControls(this.options.getPlayer())) return;
     if (!this.cadence.shouldCycleWeapon(time)) return;
     this.options.room.send('cycleWeapon', {direction});
-  }
-
-  private activateMissionAction(): void {
-    const button = document.querySelector<HTMLButtonElement>('#mission-action');
-    const action = button?.dataset.action;
-    const missionId = button?.dataset.missionId ?? '';
-    if (action === 'start') this.options.room.send(MISSION_START_MESSAGE);
-    else if (action === 'join') this.options.room.send(MISSION_JOIN_MESSAGE, {missionId});
-    else if (action === 'launch') this.options.room.send(MISSION_LAUNCH_MESSAGE, {missionId});
-    else if (action === 'abandon') this.options.room.send(MISSION_ABANDON_MESSAGE, {missionId});
   }
 
   private bindClick(selector: string, listener: (event: Event) => void): void {

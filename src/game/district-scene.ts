@@ -9,8 +9,8 @@ import {CameraPresentationController} from './camera/camera-presentation-control
 import {ClientInputController} from './input/client-input-controller.ts';
 import {DebugSnapshotSubscription} from './debug/debug-snapshot-subscription.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
-import type {MinimapPointInput} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
+import {MissionPresentationController} from './missions/mission-presentation-controller.ts';
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
@@ -18,7 +18,6 @@ import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {
   DistrictNetworkState,
-  NetworkMission,
   NetworkPlayer,
   NetworkVehicle
 } from './types.ts';
@@ -32,6 +31,7 @@ const DEBUG_DRAW_INTERVAL = 100;
 export class DistrictScene extends Phaser.Scene {
   private readonly room: Room<DistrictNetworkState>;
   private cameraController!: CameraPresentationController;
+  private missionController!: MissionPresentationController;
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
@@ -44,7 +44,6 @@ export class DistrictScene extends Phaser.Scene {
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private debugGraphics!: Phaser.GameObjects.Graphics;
-  private missionGraphics!: Phaser.GameObjects.Graphics;
   private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
   private minimap?: MinimapRenderer;
   private latestState?: DistrictNetworkState;
@@ -99,6 +98,7 @@ export class DistrictScene extends Phaser.Scene {
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
     this.hudController = new LocalHudController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
+    this.missionController = new MissionPresentationController(this, this.room);
     this.input.setDefaultCursor('crosshair');
 
     this.createPedestrianAnimation('driver-walk', 'driver');
@@ -153,7 +153,6 @@ export class DistrictScene extends Phaser.Scene {
     });
 
     this.debugGraphics = this.add.graphics().setDepth(980_000);
-    this.missionGraphics = this.add.graphics().setDepth(870_000);
     this.crosshair = this.add.graphics().setScrollFactor(0).setDepth(1_000_000);
     this.debugSubscription = new DebugSnapshotSubscription({
       room: this.room,
@@ -189,7 +188,7 @@ export class DistrictScene extends Phaser.Scene {
     this.interpolateEntities(time);
     this.updateDebugView(time);
     this.updateMinimap(time);
-    this.drawMissionWorld(time);
+    this.missionController.drawWorld(time);
     this.drawCrosshair();
   }
 
@@ -215,7 +214,7 @@ export class DistrictScene extends Phaser.Scene {
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
     }
     this.updateVehicleActionButton();
-    this.updateMissionHud();
+    this.missionController.synchronize(state);
     this.updateDebugPanel();
   }
 
@@ -295,167 +294,9 @@ export class DistrictScene extends Phaser.Scene {
       players: this.latestState.players?.values() ?? [],
       vehicles: this.latestState.vehicles?.values() ?? [],
       npcs: this.latestState.npcs?.values() ?? [],
-      points: this.missionMinimapPoints()
+      points: this.missionController.minimapPoints()
     });
     if (frame) this.minimap.render(frame, time);
-  }
-
-  private missionMinimapPoints(): MinimapPointInput[] {
-    const state = this.latestState;
-    if (!state) return [];
-    const points: MinimapPointInput[] = [{
-      id: 'boost-contact',
-      kind: 'contact',
-      x: state.missionContactX,
-      y: state.missionContactY
-    }];
-    const mission = this.localMission();
-    if (!mission || mission.phase === 'forming' || mission.phase === 'completed' || mission.phase === 'failed') {
-      return points;
-    }
-    if (mission.phase === 'deliver') {
-      points.push({
-        id: `${mission.id}:delivery`,
-        kind: 'objective',
-        x: mission.deliveryX,
-        y: mission.deliveryY
-      });
-      return points;
-    }
-    const target = state.vehicles?.get(mission.targetVehicleId);
-    if (target) {
-      points.push({
-        id: `${mission.id}:target`,
-        kind: 'objective',
-        x: target.x,
-        y: target.y,
-        angle: target.angle
-      });
-    }
-    return points;
-  }
-
-  private drawMissionWorld(time: number): void {
-    const state = this.latestState;
-    if (!state || !this.missionGraphics) return;
-    const graphics = this.missionGraphics;
-    graphics.clear();
-    const pulse = 0.65 + (Math.sin(time / 180) + 1) * 0.16;
-    graphics.lineStyle(3, 0xff9d3f, pulse);
-    graphics.strokeCircle(state.missionContactX, state.missionContactY, 24);
-    graphics.lineBetween(
-      state.missionContactX,
-      state.missionContactY - 32,
-      state.missionContactX + 8,
-      state.missionContactY - 24
-    );
-    graphics.lineBetween(
-      state.missionContactX + 8,
-      state.missionContactY - 24,
-      state.missionContactX,
-      state.missionContactY - 16
-    );
-    graphics.lineBetween(
-      state.missionContactX,
-      state.missionContactY - 16,
-      state.missionContactX - 8,
-      state.missionContactY - 24
-    );
-    graphics.lineBetween(
-      state.missionContactX - 8,
-      state.missionContactY - 24,
-      state.missionContactX,
-      state.missionContactY - 32
-    );
-
-    const mission = this.localMission();
-    if (!mission || mission.phase === 'forming' || mission.phase === 'completed' || mission.phase === 'failed') return;
-    if (mission.phase === 'deliver') {
-      graphics.fillStyle(0x63df8a, 0.12);
-      graphics.fillCircle(mission.deliveryX, mission.deliveryY, mission.deliveryRadius);
-      graphics.lineStyle(4, 0x63df8a, pulse);
-      graphics.strokeCircle(mission.deliveryX, mission.deliveryY, mission.deliveryRadius);
-    }
-    const target = state.vehicles?.get(mission.targetVehicleId);
-    if (!target) return;
-    graphics.lineStyle(4, 0xf2c94c, pulse);
-    graphics.strokeCircle(target.x, target.y, 34 + Math.sin(time / 130) * 3);
-    graphics.lineBetween(target.x, target.y - 48, target.x - 8, target.y - 38);
-    graphics.lineBetween(target.x, target.y - 48, target.x + 8, target.y - 38);
-  }
-
-  private updateMissionHud(): void {
-    const hud = document.querySelector<HTMLElement>('#mission-hud');
-    const action = document.querySelector<HTMLButtonElement>('#mission-action');
-    const state = this.latestState;
-    const local = state?.players?.get(this.room.sessionId);
-    if (!hud || !action || !state || !local) return;
-
-    const active = this.localMission();
-    const joinable = !active ? this.joinableMission(local) : undefined;
-    const nearContact = Math.hypot(
-      local.x - state.missionContactX,
-      local.y - state.missionContactY
-    ) <= 130;
-    if (!active && !joinable && !nearContact) {
-      hud.classList.add('hidden');
-      return;
-    }
-    hud.classList.remove('hidden');
-    const mission = active ?? joinable;
-    setElementText('#mission-title', mission ? 'BOOST AND DELIVER' : 'STREET CONTACT');
-    setElementText('#mission-timer', mission ? formatMissionTime(mission.remainingMs) : 'AVAILABLE');
-    setElementText('#mission-objective', mission
-      ? missionObjective(mission, active !== undefined, this.room.sessionId)
-      : 'Boost a marked traffic vehicle and deliver it intact.');
-    setElementText('#mission-meta', mission
-      ? `CREW ${mission.participants.size}/${mission.maximumParticipants} | $${mission.projectedReward}`
-      : 'FREEMODE CREW WORK');
-
-    action.classList.remove('hidden', 'warning');
-    action.dataset.missionId = mission?.id ?? '';
-    if (!mission) {
-      action.dataset.action = 'start';
-      action.textContent = 'START JOB';
-    } else if (!active) {
-      action.dataset.action = 'join';
-      action.textContent = 'JOIN CREW';
-    } else if (mission.phase === 'forming' && mission.leaderId === this.room.sessionId) {
-      action.dataset.action = 'launch';
-      action.textContent = 'LAUNCH';
-    } else if (
-      mission.leaderId === this.room.sessionId &&
-      mission.phase !== 'completed' &&
-      mission.phase !== 'failed'
-    ) {
-      action.dataset.action = 'abandon';
-      action.textContent = 'ABANDON';
-      action.classList.add('warning');
-    } else {
-      action.dataset.action = '';
-      action.classList.add('hidden');
-    }
-  }
-
-  private localMission(): NetworkMission | undefined {
-    return [...(this.latestState?.missions?.values() ?? [])].find((mission) => (
-      mission.participants?.has(this.room.sessionId)
-    ));
-  }
-
-  private joinableMission(local: NetworkPlayer): NetworkMission | undefined {
-    const state = this.latestState;
-    if (!state) return undefined;
-    return [...(state.missions?.values() ?? [])]
-      .filter((mission) => (
-        mission.phase === 'forming' &&
-        mission.participants.size < mission.maximumParticipants
-      ))
-      .sort((left, right) => left.id.localeCompare(right.id))
-      .find((mission) => {
-        const leader = state.players?.get(mission.leaderId);
-        return Boolean(leader && Math.hypot(local.x - leader.x, local.y - leader.y) <= 260);
-      });
   }
 
   private setDebugVisible(visible: boolean): void {
@@ -697,38 +538,4 @@ function colorString(color: number): string {
 function setDebugText(selector: string, value: string | number): void {
   const element = document.querySelector(selector);
   if (element) element.textContent = String(value);
-}
-
-function setElementText(selector: string, value: string): void {
-  const element = document.querySelector(selector);
-  if (element) element.textContent = value;
-}
-
-function formatMissionTime(remainingMs: number): string {
-  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
-function missionObjective(
-  mission: NetworkMission,
-  isParticipant: boolean,
-  localPlayerId: string
-): string {
-  if (mission.phase === 'forming') {
-    if (!isParticipant) {
-      const leader = mission.participants.get(mission.leaderId)?.name ?? 'A nearby driver';
-      return `${leader} is forming a crew.`;
-    }
-    return mission.leaderId === localPlayerId
-      ? 'Crew forming. Launch now or wait for nearby drivers.'
-      : 'Crew ready. Waiting for the leader to launch.';
-  }
-  if (mission.phase === 'steal') return 'Steal the marked traffic vehicle.';
-  if (mission.phase === 'lose-heat') return 'Lose all crew police heat.';
-  if (mission.phase === 'deliver') return 'Bring the target into the green delivery zone at low speed.';
-  if (mission.phase === 'completed') return `Job complete. Crew paid $${mission.finalReward} each.`;
-  if (mission.failureReason === 'target-destroyed') return 'Job failed. The target was destroyed.';
-  if (mission.failureReason === 'time-expired') return 'Job failed. Time expired.';
-  if (mission.failureReason === 'all-participants-disconnected') return 'Job failed. The crew disconnected.';
-  return 'Job abandoned.';
 }

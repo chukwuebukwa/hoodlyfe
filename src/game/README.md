@@ -33,6 +33,9 @@ game/
   input/
     client-input-controller.ts
     client-input-policy.ts
+  missions/
+    mission-presentation-policy.ts
+    mission-presentation-controller.ts
   rendering/
     interpolation-policy.ts
     pedestrian-renderer.ts
@@ -57,6 +60,8 @@ game/
 - `CameraPresentationController` owns Phaser target identity, following, damage feedback, resize binding, and teardown.
 - `DebugSnapshotSubscription` installs the snapshot handler before opting in, and owns unsubscribe/listener teardown.
 - `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
+- `mission-presentation-policy.ts` owns active/joinable selection plus HUD, command, minimap, contact, target, and delivery projection.
+- `MissionPresentationController` owns mission DOM, action dispatch, Phaser world markers, replicated-state reference, and teardown.
 - `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
 - `interpolation-policy.ts` owns framework-independent render correction and wrapped-angle interpolation.
 - `PedestrianRenderer` owns NPC render-object creation, synchronization, animation, interpolation, visibility, depth, removal, and teardown.
@@ -66,4 +71,4 @@ game/
 - `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
 - `hud-policy.ts` projects player/vehicle facts and edge-triggered notices without DOM access.
 - `LocalHudController` owns cached HUD elements, meters, mode visibility, bounded notices, connection state, timers, and teardown.
-- `DistrictScene` still owns world setup, mission presentation, debug rendering, and crosshair/minimap coordination. Those are the next extraction targets.
+- `DistrictScene` still owns world setup, debug rendering, and crosshair/minimap coordination. Those are the next extraction targets.
