@@ -1,4 +1,4 @@
-import type {MissionNotice} from '../../../shared/protocol/missions.ts';
+import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 
 export interface LocalHudProjection {
@@ -27,7 +27,7 @@ export interface HudTransitionState {
 
 export interface HudNotice {
   message: string;
-  tone: MissionNotice['tone'];
+  tone: GameNotice['tone'];
 }
 
 export function projectLocalHud(

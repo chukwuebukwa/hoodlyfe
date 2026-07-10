@@ -35,6 +35,8 @@ game/
     debug-snapshot-controller.ts
   economy/
     street-economy-controller.ts
+  interactions/
+    player-interaction-controller.ts
   events/
     game-events.ts
   incidents/
@@ -47,6 +49,8 @@ game/
     pursuit-memory.ts
   population/
     district-population-controller.ts
+  services/
+    street-service-controller.ts
   players/
     player-control-controller.ts
     player-lifecycle-controller.ts
@@ -123,6 +127,8 @@ Extracted domain policies and room adapters now include:
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
 - `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
 - `street-economy-controller.ts` for bounded idempotent session street-cash credits/debits, balance validation/caps, typed audit events, and a replaceable future persistence port.
+- `street-service-controller.ts` for deterministic replicated service placement, authoritative eligibility, shared quotes, debit-before-effect coordination, and player notices.
+- `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.

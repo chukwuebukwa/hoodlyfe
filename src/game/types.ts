@@ -1,4 +1,5 @@
 import type {VehicleKind} from '../../shared/content/vehicle-catalog.ts';
+import type {StreetServiceKind} from '../../shared/content/street-services.ts';
 
 export interface NetworkPlayer {
   id: string;
@@ -77,6 +78,15 @@ export interface NetworkMissionParticipant {
   activeMs: number;
 }
 
+export interface NetworkStreetService {
+  id: string;
+  kind: StreetServiceKind;
+  label: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface NetworkMission {
   id: string;
   templateId: 'boost-and-deliver';
@@ -101,6 +111,7 @@ export interface DistrictNetworkState {
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
   missions: Map<string, NetworkMission>;
+  services: Map<string, NetworkStreetService>;
   missionContactX: number;
   missionContactY: number;
 }

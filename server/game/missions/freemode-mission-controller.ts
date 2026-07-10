@@ -1,4 +1,4 @@
-import type {MissionNotice} from '../../../shared/protocol/missions.ts';
+import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import type {GameEventStream} from '../events/game-events.ts';
 import type {StreetEconomyPort} from '../economy/street-economy-controller.ts';
 import type {DistrictState, VehicleState} from '../../state.ts';
@@ -27,7 +27,7 @@ interface FreemodeMissionControllerOptions {
   events: GameEventStream;
   economy: StreetEconomyPort;
   clock: () => MissionClock;
-  notice: (playerId: string, message: string, tone: MissionNotice['tone']) => void;
+  notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
   releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => void;
 }
 
@@ -274,7 +274,7 @@ export class FreemodeMissionController {
   private broadcast(
     mission: VehicleTheftMission,
     message: string,
-    tone: MissionNotice['tone']
+    tone: GameNotice['tone']
   ): void {
     for (const participant of mission.participants) {
       this.options.notice(participant.playerId, message, tone);

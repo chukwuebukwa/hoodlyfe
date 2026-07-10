@@ -7,14 +7,14 @@ import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
-  MISSION_NOTICE_MESSAGE,
   MISSION_START_MESSAGE,
-  type MissionIdMessage,
-  type MissionNotice
+  type MissionIdMessage
 } from '../shared/protocol/missions.ts';
+import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
+import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
@@ -29,6 +29,7 @@ import {
   type PlayerMoveInput
 } from './game/players/player-control-controller.ts';
 import {PlayerLifecycleController} from './game/players/player-lifecycle-controller.ts';
+import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {
   PedestrianController,
   PEDESTRIAN_RADIUS
@@ -74,9 +75,11 @@ export class DistrictRoom extends Room<DistrictState> {
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
   private fireControl!: FireControlController;
+  private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
+  private serviceController!: StreetServiceController;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -236,6 +239,19 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       events: this.events
     });
+    this.serviceController = new StreetServiceController({
+      state: this.state,
+      world: this.world,
+      economy: this.economyController,
+      clock: () => ({tick: this.simulationClock.tick}),
+      repairVehicle: (vehicle) => this.vehicleSimulation.repair(vehicle),
+      restockPlayer: (playerId) => this.fireControl.restock(playerId),
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+    });
+    this.interactionController = new PlayerInteractionController({
+      services: this.serviceController,
+      vehicles: this.vehicleAccess
+    });
     this.pedestrians = new PedestrianController({
       state: this.state,
       world: this.world,
@@ -300,6 +316,7 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs
       )
     });
+    this.serviceController.initialize();
     this.population.populate();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
@@ -317,7 +334,11 @@ export class DistrictRoom extends Room<DistrictState> {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
     this.onMessage('interact', (client) => {
-      this.vehicleAccess.interact(client.sessionId, this.simulationClock.nowMs);
+      this.interactionController.interact(
+        client.sessionId,
+        this.simulationClock.nowMs,
+        this.simulationClock.tick
+      );
     });
     this.onMessage(MISSION_START_MESSAGE, (client) => this.missionController.start(client.sessionId));
     this.onMessage<MissionIdMessage>(MISSION_JOIN_MESSAGE, (client, message) => {
@@ -356,6 +377,7 @@ export class DistrictRoom extends Room<DistrictState> {
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
+    this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
@@ -364,10 +386,10 @@ export class DistrictRoom extends Room<DistrictState> {
   private noticePlayer(
     playerId: string,
     message: string,
-    tone: MissionNotice['tone']
+    tone: GameNotice['tone']
   ): void {
     const client = this.clients.find((candidate) => candidate.sessionId === playerId);
-    client?.send(MISSION_NOTICE_MESSAGE, {message, tone} satisfies MissionNotice);
+    client?.send(GAME_NOTICE_MESSAGE, {message, tone} satisfies GameNotice);
   }
 
   private advanceSimulation(deltaTime: number): void {

@@ -1,12 +1,10 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
-import {
-  MISSION_NOTICE_MESSAGE,
-  type MissionNotice
-} from '../../shared/protocol/missions.ts';
+import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../shared/protocol/notices.ts';
 import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
 import {DebugPresentationController} from './debug/debug-presentation-controller.ts';
 import {ClientInputController} from './input/client-input-controller.ts';
+import {InteractionPresentationController} from './interactions/interaction-presentation-controller.ts';
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
 import {MissionPresentationController} from './missions/mission-presentation-controller.ts';
@@ -15,10 +13,7 @@ import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
-import type {
-  DistrictNetworkState,
-  NetworkVehicle
-} from './types.ts';
+import type {DistrictNetworkState} from './types.ts';
 
 const PLAYER_RADIUS = 11;
 
@@ -33,6 +28,7 @@ export class DistrictScene extends Phaser.Scene {
   private vehicleRenderer!: VehicleRenderer;
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
+  private interactionController!: InteractionPresentationController;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private minimap?: MinimapRenderer;
@@ -85,6 +81,7 @@ export class DistrictScene extends Phaser.Scene {
     this.hudController = new LocalHudController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
     this.missionController = new MissionPresentationController(this, this.room);
+    this.interactionController = new InteractionPresentationController(this, this.room.sessionId);
     this.input.setDefaultCursor('crosshair');
 
     this.createPedestrianAnimation('driver-walk', 'driver');
@@ -140,7 +137,7 @@ export class DistrictScene extends Phaser.Scene {
     this.inputController.start();
 
     this.crosshair = this.add.graphics().setScrollFactor(0).setDepth(1_000_000);
-    this.room.onMessage<MissionNotice>(MISSION_NOTICE_MESSAGE, (notice) => {
+    this.room.onMessage<GameNotice>(GAME_NOTICE_MESSAGE, (notice) => {
       this.hudController.show(notice.message, notice.tone);
     });
     this.room.onStateChange((state) => {
@@ -162,6 +159,7 @@ export class DistrictScene extends Phaser.Scene {
     this.debugController.update(time);
     this.updateMinimap(time);
     this.missionController.drawWorld(time);
+    this.interactionController.drawWorld(time);
     this.drawCrosshair();
   }
 
@@ -186,39 +184,9 @@ export class DistrictScene extends Phaser.Scene {
       shell.dataset.npcs = String(state.npcs?.size ?? 0);
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
     }
-    this.updateVehicleActionButton();
+    this.interactionController.synchronize(state);
     this.missionController.synchronize(state);
     this.debugController.synchronize(state);
-  }
-
-  private updateVehicleActionButton(): void {
-    const button = document.querySelector<HTMLButtonElement>('#vehicle-action-button');
-    const player = this.latestState?.players?.get(this.room.sessionId);
-    if (!button || !player?.alive || player.action) {
-      button?.classList.add('hidden');
-      return;
-    }
-    if (player.vehicleId) {
-      button.textContent = 'EXIT CAR';
-      button.classList.remove('hidden');
-      return;
-    }
-    let nearest: NetworkVehicle | undefined;
-    let nearestDistance = 82;
-    this.latestState?.vehicles?.forEach((vehicle) => {
-      if (vehicle.destroyed) return;
-      const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
-      if (distance < nearestDistance) {
-        nearest = vehicle;
-        nearestDistance = distance;
-      }
-    });
-    if (!nearest) {
-      button.classList.add('hidden');
-      return;
-    }
-    button.textContent = nearest.traffic ? 'HIJACK CAR' : (nearest.driverId ? 'RIDE ALONG' : 'ENTER CAR');
-    button.classList.remove('hidden');
   }
 
   private interpolateEntities(time: number): void {
@@ -258,7 +226,10 @@ export class DistrictScene extends Phaser.Scene {
       players: this.latestState.players?.values() ?? [],
       vehicles: this.latestState.vehicles?.values() ?? [],
       npcs: this.latestState.npcs?.values() ?? [],
-      points: this.missionController.minimapPoints()
+      points: [
+        ...this.missionController.minimapPoints(),
+        ...this.interactionController.minimapPoints()
+      ]
     });
     if (frame) this.minimap.render(frame, time);
   }

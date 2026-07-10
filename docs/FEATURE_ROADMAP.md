@@ -36,7 +36,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** moving ambient traffic with deterministic road following/turn selection, ahead-corridor vehicle following, pedestrian stopping, asymmetric braking/acceleration, and blocked-route recovery.
 - **Playable** car-to-car separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
-- **Foundation** the original sprite selection remains small; additional vehicle classes, lane behavior, traffic signals, emergency response driving, parking, and repair shops remain incomplete.
+- **Foundation** the original sprite selection remains small; additional vehicle classes, lane behavior, traffic signals, emergency response driving, and parking remain incomplete. A functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
@@ -53,6 +53,14 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** the mission instance/entity-scope boundary can host more objectives; only one complete mission is currently available.
+
+### Street Economy and Services
+
+- **Playable** bounded server-authoritative street cash with idempotent credits/debits, balance limits, typed audit events, mission payouts, and kill rewards.
+- **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
+- **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
+- **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
+- **Foundation** street cash remains session-local and non-redeemable; hospital, clothing, pickups, risky cash loss, durable ledger, inventory, and ownership remain incomplete.
 
 ## Next Implementation Slices
 
@@ -73,10 +81,11 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 
 ### 2. Street Services and Closed Economy Loop
 
-**Foundation in progress**
+**Playable foundation; content expansion next**
 
 - **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
-- Ammunition shop, repair garage, hospital fee, and clothing preview as explicit cash sinks.
+- **Delivered playable**: ammunition and repair services quote from shared content policy, validate authoritative context, debit once, apply complete domain effects, and replicate world/minimap/action presentation.
+- Add hospital fee/respawn choices and clothing preview as the next explicit cash sinks.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.
 - Add pickups and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.

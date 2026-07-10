@@ -12,9 +12,9 @@ import {
 import {
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
-  MISSION_NOTICE_MESSAGE,
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
+import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
@@ -43,8 +43,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(debugSnapshots.length, 0, 'Debug snapshots require an explicit client subscription.');
   first.send(DEBUG_SUBSCRIBE_MESSAGE);
   second.send(DEBUG_SUBSCRIBE_MESSAGE);
-  first.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
-  second.onMessage(MISSION_NOTICE_MESSAGE, () => undefined);
+  first.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
+  second.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {
     await Promise.allSettled([first.leave(), second.leave()]);
   });
@@ -52,6 +52,11 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, 11);
+  assert.equal(first.state.services.size, 2);
+  assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
+    'ammunition',
+    'repair'
+  ]);
   assert.ok([...first.state.vehicles.values()].every((vehicle) => {
     const maximumHealth = vehicleConfig(vehicle.kind).maxHealth;
     return vehicle.health === maximumHealth && vehicle.maxHealth === maximumHealth &&

@@ -1,4 +1,4 @@
-import type {MissionNotice} from '../../../shared/protocol/missions.ts';
+import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 import {
   hudTransitionNotices,
@@ -92,7 +92,7 @@ export class LocalHudController {
     this.previous = current;
   }
 
-  show(message: string, tone: MissionNotice['tone'] = 'info'): void {
+  show(message: string, tone: GameNotice['tone'] = 'info'): void {
     this.showNotice({message, tone});
   }
 

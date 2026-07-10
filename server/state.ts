@@ -144,6 +144,24 @@ export class MissionParticipantState extends Schema {
   activeMs = 0;
 }
 
+export class StreetServiceState extends Schema {
+  id = '';
+  kind = 'ammunition';
+  label = '';
+  x = 0;
+  y = 0;
+  radius = 0;
+}
+
+defineTypes(StreetServiceState, {
+  id: 'string',
+  kind: 'string',
+  label: 'string',
+  x: 'number',
+  y: 'number',
+  radius: 'number'
+});
+
 defineTypes(MissionParticipantState, {
   playerId: 'string',
   name: 'string',
@@ -196,6 +214,7 @@ export class DistrictState extends Schema {
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
   missions = new MapSchema<MissionState>();
+  services = new MapSchema<StreetServiceState>();
   missionContactX = 0;
   missionContactY = 0;
 }
@@ -206,6 +225,7 @@ defineTypes(DistrictState, {
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
   missions: {map: MissionState},
+  services: {map: StreetServiceState},
   missionContactX: 'number',
   missionContactY: 'number'
 });

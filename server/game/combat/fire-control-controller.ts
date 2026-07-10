@@ -9,6 +9,7 @@ import {
 } from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {GameEventStream} from '../events/game-events.ts';
+import {AMMUNITION_CAPACITY} from '../../../shared/content/street-services.ts';
 
 interface FireControlControllerOptions {
   state: DistrictState;
@@ -89,6 +90,14 @@ export class FireControlController {
 
   clearPlayer(playerId: string): void {
     this.lastShotAt.delete(playerId);
+  }
+
+  restock(playerId: string): void {
+    const player = this.options.state.players.get(playerId);
+    if (!player) return;
+    player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
+    player.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
+    player.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
   }
 
   private publishWeaponFired(

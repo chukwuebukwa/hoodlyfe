@@ -271,6 +271,11 @@ export class VehicleSimulationController {
     return this.damageSystem.weaponDamage(baseDamage);
   }
 
+  repair(vehicle: VehicleState): void {
+    Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
+    this.fireSources.delete(vehicle.id);
+  }
+
   private trafficObstacles(vehicle: VehicleState, lookAhead: number): TrafficObstacle[] {
     const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
       .filter((candidate) => candidate.id !== vehicle.id && !candidate.destroyed)

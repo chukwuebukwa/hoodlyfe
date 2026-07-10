@@ -40,6 +40,7 @@ function createState(): DistrictNetworkState {
     npcs: new Map(),
     vehicles: new Map([['vehicle', {} as never]]),
     missions: new Map(),
+    services: new Map(),
     missionContactX: 0,
     missionContactY: 0
   };

@@ -48,7 +48,7 @@ The current `PlayerState.cash` is temporary street cash:
 - Every successful mutation publishes `economy.changed` before applying state, with requested/applied amount, direction, reason, transaction ID, tick, and resulting balance.
 - Snapshot output is bounded and copied for future debug/persistence adapters.
 
-Current reasons cover player/civilian/police kills, mission payouts, ammunition, repair, hospital, and clothing. Only kill rewards and mission payouts are wired in this checkpoint.
+Current reasons cover player/civilian/police kills, mission payouts, ammunition, repair, hospital, and clothing. Kill rewards, mission payouts, ammunition restock, and vehicle repair are wired; hospital and clothing remain future service content.
 
 ## Refactored Producers
 
@@ -56,7 +56,9 @@ Current reasons cover player/civilian/police kills, mission payouts, ammunition,
 - `FreemodeMissionController` requests each participant payout using the mission system's existing participant-specific idempotency key. It emits `mission.payout` and success UI only after the economy mutation applies.
 - F3 recent-event summaries expose economy direction, amount, reason, and resulting balance.
 
-Combat and missions still decide why a reward exists. Economy decides whether and how cash changes. Future services decide eligibility and inventory/vehicle effects but must use the same debit port.
+Combat and missions still decide why a reward exists. Economy decides whether and how cash changes. Current and future services decide eligibility and inventory/vehicle effects but must use the same debit port.
+
+`StreetServiceController` now supplies the first purchase producer. It validates service proximity and player/vehicle conditions, requests the economy debit, and only after an applied result dispatches restoration to the fire-control or vehicle-simulation owner. See `STREET_SERVICES_RESEARCH.md` for the interaction and effect contract.
 
 ## Persistence Replacement
 
