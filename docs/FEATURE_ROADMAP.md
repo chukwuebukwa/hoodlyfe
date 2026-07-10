@@ -63,6 +63,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Foundation** four complete jobs now share objective/encounter modules; item, explicit eliminate-target, escort, placement-scored race, and event-mode objectives remain incomplete.
 - **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
 - **Playable foundation** one seamless same-building single-floor Threads showroom: walk through the east-wall doorway, switch replicated space/collision automatically, see the roof-open interior in the building footprint, and walk back out without a load screen.
+- **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to showroom clients.
 
 ### Street Economy and Services
 
@@ -160,10 +161,12 @@ Exit gate met for current presentation states; authored layer art and durable ou
 - **Delivered foundation** finite shared interior catalog, replicated player `spaceId`, automatic doorway thresholds, axis-resolved floor/wall/fixture collision, same-space player presentation, and street-system isolation.
 - **Delivered playable** Threads Showroom occupies the existing building footprint and keeps the surrounding Three city visible; entering hides street minimap, mission, traffic, and exterior markers while preserving player HUD, controls, and same-space service presentation.
 - **Delivered playable** interior-owned service anchors and replicated service `spaceId` move Threads interaction inside without room-specific rules; server execution, world markers, affordances, and minimap policy all enforce the same player/service space match.
+- **Delivered foundation** `DistrictReplicationController` diffs Colyseus state-view membership per outgoing patch. Interior clients no longer receive street collections, and street peers no longer receive interior players.
 - **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> showroom -> street round trips. It does not expose a server teleport command.
 - Export building/roof triangle ownership and door anchors from the original map pipeline. Roof visibility must toggle by authored interior ID, never by generic height or moving tile deletion.
 - Move ammunition, repair, and later garage/property services into authored interiors only as each building gains collision-safe anchors and appropriate vehicle/actor portal rules.
 - Add interior combat/projectile collision, NPC destinations/schedules, audio zones, lighting, cameras, and multiple floors only after the single-floor space contract is stable.
+- Add street area-of-interest cells with hysteresis, mission relevance, and add/remove budgets before raising room population substantially; space filtering alone does not make the whole street district cheap.
 - Garages must keep the interior physically tied to a building footprint while vehicle spawn/storage records remain separate from transient room vehicles.
 
 Exit gate: two players can independently enter/exit one building, see only same-space actors, collide with authored fixtures, and use an interior service without exterior traffic/combat leaking through walls.

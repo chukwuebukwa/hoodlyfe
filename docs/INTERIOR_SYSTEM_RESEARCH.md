@@ -27,11 +27,12 @@ The exporter must assign an `occluderGroupId` to authored roof triangles and lin
 ## Next Production Steps
 
 1. Export roof group and doorway anchors for Threads Showroom.
-2. Filter private/state-view replication by `spaceId` rather than sending every entity and hiding it client-side.
-3. Add interior projectile/world collision before enabling weapons indoors.
-4. Add interior NPC destinations and perception ownership before spawning pedestrians or police indoors.
-5. Add a garage interior only after vehicle portal width, occupancy, storage record, and spawn clearance are authored.
-6. Add multi-floor `surfaceId` only after one-floor transitions and roof ownership are stable.
+2. Add interior projectile/world collision before enabling weapons indoors.
+3. Add interior NPC destinations and perception ownership before spawning pedestrians or police indoors.
+4. Add a garage interior only after vehicle portal width, occupancy, storage record, and spawn clearance are authored.
+5. Add multi-floor `surfaceId` only after one-floor transitions and roof ownership are stable.
+
+Completed: Colyseus state views now remove street actors, vehicles, combat transients, missions, pickups, signals, and exterior services from an interior client's decoded state. Client-side hiding remains defensive presentation only.
 
 ## QA Contract
 
@@ -39,5 +40,6 @@ The exporter must assign an `occluderGroupId` to authored roof triangles and lin
 - `?renderer=three&qa=1` adds a development-only browser driver that sends ordinary movement input toward the real thresholds.
 - Browser QA completed a street `(2080,2080)` -> showroom `(2120,2112)` -> street `(2231,2112)` round trip.
 - Browser QA also opened the server-authoritative Threads wardrobe inside and proved that the same coordinates on `street` expose neither its marker nor interaction.
+- Real two-client and live browser QA prove the showroom client receives `1/0/0` players/NPCs/vehicles and one interior service while the street peer no longer receives that interior player; exit restores both views.
 - Desktop and `390 x 844` mobile views showed the same building footprint, no page overflow, hidden exterior-only UI, and a full-size Three canvas.
 - Mobile screenshot pixel analysis found 18,463 unique center-crop colors, channel standard deviations above 45, and `0.07%` near-black pixels, rejecting blank/void output.

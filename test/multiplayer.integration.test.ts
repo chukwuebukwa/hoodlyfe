@@ -31,6 +31,7 @@ import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 import {AMBIENT_TRAFFIC_TARGET} from '../server/game/population/district-population-controller.ts';
+import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -84,14 +85,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
-  assert.equal(first.state.services.size, 5);
+  assert.equal(first.state.services.size, 4);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
-    'clothing',
     'hospital',
     'hospital',
     'repair'
   ]);
+  assert.equal(first.state.services.has('clothing-store'), false);
   assert.ok([...first.state.vehicles.values()].every((vehicle) => {
     const maximumHealth = vehicleConfig(vehicle.kind).maxHealth;
     return vehicle.health === maximumHealth && vehicle.maxHealth === maximumHealth &&
@@ -101,6 +102,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Night Run');
   assert.equal(second.state.players.get(first.sessionId)?.appearance.topColor, 'red');
+
   first.send(WARDROBE_REQUEST_MESSAGE);
   await waitUntil(() => firstWardrobeStates.length === 1);
   await delay(60);
@@ -286,6 +288,40 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   });
   await waitUntil(() => second.state.players.get(first.sessionId)?.alive === true, 5000);
   assert.equal(second.state.players.get(first.sessionId)?.wanted, 0);
+
+  const showroom = INTERIORS[0];
+  await driveToSpace(
+    first,
+    showroom.exteriorDoor.x,
+    showroom.exteriorDoor.y,
+    showroom.id
+  );
+  await waitUntil(() => (
+    first.state.players.get(first.sessionId)?.spaceId === showroom.id &&
+    first.state.players.size === 1 &&
+    first.state.npcs.size === 0 &&
+    first.state.vehicles.size === 0 &&
+    first.state.missions.size === 0 &&
+    first.state.services.size === 1 &&
+    first.state.services.has('clothing-store') &&
+    second.state.players.size === 1 &&
+    !second.state.players.has(first.sessionId) &&
+    !second.state.services.has('clothing-store')
+  ));
+  await driveToSpace(
+    first,
+    showroom.exitDoor.maxX,
+    (showroom.exitDoor.minY + showroom.exitDoor.maxY) / 2,
+    STREET_SPACE_ID
+  );
+  await waitUntil(() => (
+    first.state.players.size === 2 &&
+    second.state.players.size === 2 &&
+    first.state.npcs.size === 13 &&
+    first.state.vehicles.size === AMBIENT_TRAFFIC_TARGET + 3 &&
+    first.state.services.size === 4 &&
+    !first.state.services.has('clothing-store')
+  ));
 });
 
 async function waitForServer(port: number, child: ChildProcess, output: () => string): Promise<void> {
@@ -350,6 +386,29 @@ async function moveNear(
   const mover = room.state.players.get(moverId);
   const target = room.state.players.get(targetId);
   return mover && target ? Math.hypot(target.x - mover.x, target.y - mover.y) : Number.POSITIVE_INFINITY;
+}
+
+async function driveToSpace(
+  room: Room<DistrictNetworkState>,
+  x: number,
+  y: number,
+  spaceId: string
+): Promise<void> {
+  for (let step = 0; step < 180; step++) {
+    const player = room.state.players.get(room.sessionId);
+    assert.ok(player, 'Local player must remain replicated during a space transition.');
+    if ((player.spaceId || STREET_SPACE_ID) === spaceId) {
+      room.send('input', {x: 0, y: 0});
+      return;
+    }
+    const deltaX = x - player.x;
+    const deltaY = y - player.y;
+    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+    room.send('input', {x: deltaX / distance, y: deltaY / distance});
+    await delay(40);
+  }
+  room.send('input', {x: 0, y: 0});
+  throw new Error(`Timed out driving client into space: ${spaceId}`);
 }
 
 function delay(milliseconds: number): Promise<void> {

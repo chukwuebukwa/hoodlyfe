@@ -1,4 +1,4 @@
-import {MapSchema, Schema, defineTypes} from '@colyseus/schema';
+import {MapSchema, Schema, defineTypes, view} from '@colyseus/schema';
 
 export class PlayerAppearanceState extends Schema {
   outfitName = 'Street Fit';
@@ -409,3 +409,18 @@ defineTypes(DistrictState, {
   missionContactX: 'number',
   missionContactY: 'number'
 });
+
+for (const field of [
+  'players',
+  'bullets',
+  'thrownProjectiles',
+  'explosions',
+  'weaponPickups',
+  'trafficSignals',
+  'npcs',
+  'vehicles',
+  'missions',
+  'services'
+] as const) {
+  view()(DistrictState.prototype, field);
+}

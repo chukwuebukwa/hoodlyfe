@@ -55,6 +55,7 @@ import {PlayerAppearanceController} from './game/players/player-appearance-contr
 import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-controller.ts';
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {InteriorController} from './game/interiors/interior-controller.ts';
+import {DistrictReplicationController} from './game/replication/district-replication-controller.ts';
 import {
   PedestrianController,
   PEDESTRIAN_RADIUS
@@ -114,6 +115,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private population!: DistrictPopulationController;
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
+  private replicationController!: DistrictReplicationController;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -128,6 +130,7 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.replicationController = new DistrictReplicationController(this.state);
     this.interiorController = new InteriorController();
     this.economyController = new StreetEconomyController({
       state: this.state,
@@ -527,11 +530,13 @@ export class DistrictRoom extends Room<DistrictState> {
     this.wardrobeController.initialize(client.sessionId);
     this.appearanceController.initialize(player, options?.appearance);
     this.state.players.set(client.sessionId, player);
+    client.view = this.replicationController.attach(client.sessionId);
     this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
   }
 
   onLeave(client: Client): void {
+    this.replicationController.detach(client.sessionId);
     this.debugSubscribers.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (player) this.vehicleAccess.removePlayer(player);
@@ -565,6 +570,10 @@ export class DistrictRoom extends Room<DistrictState> {
       this.pedestrians.observeEvents(events);
       this.debugProjection.update(events);
     });
+  }
+
+  onBeforePatch(): void {
+    this.replicationController.synchronize();
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
