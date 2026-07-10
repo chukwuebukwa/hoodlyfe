@@ -198,6 +198,7 @@ The first room-facing facades are now live:
 - `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
 - `PlayerLifecycleController` owns death and respawn independently of combat and the room.
+- `PlayerAppearanceController` owns join fallback, full-update validation, public schema mutation, rate limiting, and disconnect cleanup; the shared appearance catalog owns finite content IDs and palette values.
 - `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `PedestrianReactionSystem` owns staged civilian orient/respond/recover transitions; synchronized NPC action is presentation intent, not a client-side gameplay decision.
 - `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
@@ -207,6 +208,8 @@ The first room-facing facades are now live:
 - `StreetServiceController` owns replicated service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it does not own cash, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
+
+Client appearance remains split as well: `AppearanceCreatorController` owns modal draft/apply/storage behavior, the canvas policy owns palette/style rendering, `PlayerAppearanceTextureFactory` owns bounded Phaser texture/animation caching, and `PlayerRenderer` only selects the current presentation.
 
 ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. The room now contains transport lifecycle, dependency wiring, explicit schedule order, and spatial projection. The first client coordinator extraction and the pedestrian perception/behavior/navigation/locomotion split are complete; dynamic population policy and deeper event-driven behavior remain domain work.
 

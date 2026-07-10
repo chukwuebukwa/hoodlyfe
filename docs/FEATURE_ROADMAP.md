@@ -64,6 +64,14 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
 - **Foundation** street cash remains session-local and non-redeemable; hospital, clothing, pickups, risky cash loss, durable ledger, inventory, and ownership remain incomplete.
 
+### Appearance and Customization
+
+- **Playable** free character creator with body presentation, skin tone, hair, headwear, top, bottoms, shoes, five color channels, ten swatches, outfit name, randomize, cancel, and apply.
+- **Playable** server-validated nested appearance state replicates to local/remote on-foot and passenger presentation with local reload persistence for development.
+- **Playable** one palette renderer powers preview and cached nine-frame world animation; inactive generated textures are bounded and pruned.
+- **Playable** creator modal blocks gameplay input and has verified desktop/390x844 layouts.
+- **Foundation** current procedural compatibility art will be replaced by original authored modular layer sheets; inventory, saved outfits, shops, unlocks, and durable ownership remain incomplete.
+
 ## Next Implementation Slices
 
 These are ordered by how much of the city loop they improve and by their dependencies.
@@ -109,15 +117,17 @@ Exit gate: at least three mission definitions compose shared objective modules w
 
 ### 4. Character Creator and Clothing
 
-**Next after mission framework; art can proceed in parallel**
+**Playable foundation; original art and ownership next**
 
-- Free development creator for skin tone, body/base, hair/headwear, top/jacket, bottoms, shoes, primary/accent colors, and outfit name.
-- Appearance replicates as stable content IDs and palette values, never asset filenames.
-- Original modular sprites must support walk, run, aim, fire, enter, hijack, passenger lean, hit, and death readability.
+- **Delivered playable**: free development creator for skin tone, body presentation, hair/headwear, top, bottoms, shoes, palette colors, and outfit name.
+- **Delivered playable**: appearance replicates as server-validated stable content IDs and palette values, never asset filenames; cosmetics do not affect gameplay statistics.
+- **Delivered foundation**: one preview/world palette renderer and bounded generated-texture cache cover current walk, aim, weapon, and passenger presentation.
+- Author original modular sprites for walk, run, aim, fire, enter, hijack, passenger lean, hit, and death readability.
+- Add saved outfits, wardrobe/clothing service, item ownership, and pricing only through persistence/economy ports.
 - Cosmetics never change hitbox, health, speed, aim, weapon damage, vehicle performance, detection, or payout.
 - Saved outfits wait for account persistence; all current options stay unlocked during development.
 
-Exit gate: two clients see the same customized actor in every current locomotion, combat, and vehicle state.
+Exit gate met for current presentation states; authored layer art and durable outfit ownership remain the next quality/production gates.
 
 ### 5. Durable Identity and Economy
 

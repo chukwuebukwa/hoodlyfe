@@ -1,5 +1,37 @@
 import {MapSchema, Schema, defineTypes} from '@colyseus/schema';
 
+export class PlayerAppearanceState extends Schema {
+  outfitName = 'Street Fit';
+  bodyType = 'standard';
+  skinTone = 'bronze';
+  hairStyle = 'cropped';
+  hairColor = 'charcoal';
+  headwear = 'none';
+  topStyle = 'jacket';
+  topColor = 'charcoal';
+  accentColor = 'amber';
+  bottomStyle = 'jeans';
+  bottomColor = 'denim';
+  shoeStyle = 'runners';
+  shoeColor = 'white';
+}
+
+defineTypes(PlayerAppearanceState, {
+  outfitName: 'string',
+  bodyType: 'string',
+  skinTone: 'string',
+  hairStyle: 'string',
+  hairColor: 'string',
+  headwear: 'string',
+  topStyle: 'string',
+  topColor: 'string',
+  accentColor: 'string',
+  bottomStyle: 'string',
+  bottomColor: 'string',
+  shoeStyle: 'string',
+  shoeColor: 'string'
+});
+
 export class PlayerState extends Schema {
   id = '';
   name = '';
@@ -20,6 +52,7 @@ export class PlayerState extends Schema {
   ammoPistol = 120;
   ammoSmg = 240;
   ammoShotgun = 48;
+  appearance = new PlayerAppearanceState();
 }
 
 defineTypes(PlayerState, {
@@ -41,7 +74,8 @@ defineTypes(PlayerState, {
   weapon: 'string',
   ammoPistol: 'number',
   ammoSmg: 'number',
-  ammoShotgun: 'number'
+  ammoShotgun: 'number',
+  appearance: PlayerAppearanceState
 });
 
 export class BulletState extends Schema {

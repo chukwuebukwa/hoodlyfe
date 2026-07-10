@@ -4,6 +4,10 @@ import {
   DEBUG_UNSUBSCRIBE_MESSAGE
 } from '../shared/protocol/debug.ts';
 import {
+  APPEARANCE_UPDATE_MESSAGE,
+  type AppearanceUpdateMessage
+} from '../shared/protocol/appearance.ts';
+import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
@@ -30,6 +34,7 @@ import {
   type PlayerMoveInput
 } from './game/players/player-control-controller.ts';
 import {PlayerLifecycleController} from './game/players/player-lifecycle-controller.ts';
+import {PlayerAppearanceController} from './game/players/player-appearance-controller.ts';
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {
   PedestrianController,
@@ -73,6 +78,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private trafficController!: TrafficController;
   private vehicleSimulation!: VehicleSimulationController;
   private playerControl!: PlayerControlController;
+  private appearanceController!: PlayerAppearanceController;
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
   private fireControl!: FireControlController;
@@ -103,6 +109,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.playerControl = new PlayerControlController({
       state: this.state,
       world: this.world
+    });
+    this.appearanceController = new PlayerAppearanceController({
+      state: this.state,
+      clock: () => ({nowMs: this.simulationClock.nowMs})
     });
     this.trafficController = new TrafficController({
       world: this.world,
@@ -334,6 +344,9 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<CycleWeaponMessage>('cycleWeapon', (client, message) => {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
+    this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
+      this.appearanceController.update(client.sessionId, message);
+    });
     this.onMessage('interact', (client) => {
       this.interactionController.interact(
         client.sessionId,
@@ -361,7 +374,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
   }
 
-  onJoin(client: Client, options: {name?: string}): void {
+  onJoin(client: Client, options: {name?: string; appearance?: unknown}): void {
     const spawn = this.world.spawnFor(this.state.players.size, PLAYER_RADIUS);
     const player = new PlayerState();
     player.id = client.sessionId;
@@ -369,6 +382,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.x = spawn.x;
     player.y = spawn.y;
     player.angle = -Math.PI / 2;
+    this.appearanceController.initialize(player, options?.appearance);
     this.state.players.set(client.sessionId, player);
     this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
@@ -380,6 +394,7 @@ export class DistrictRoom extends Room<DistrictState> {
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
+    this.appearanceController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);

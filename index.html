@@ -79,7 +79,10 @@
       </footer>
     </aside>
     <footer id="player-hud" class="hud-layer">
-      <span id="driver-name">Driver</span>
+      <div id="player-identity">
+        <span id="driver-name">Driver</span>
+        <button id="appearance-toggle" type="button" aria-label="Edit character appearance">LOOK</button>
+      </div>
       <div id="health-track" aria-label="Health 100"><span id="health-fill"></span></div>
     </footer>
     <aside id="vehicle-hud" class="hud-layer hidden" aria-label="Vehicle speed">
@@ -104,6 +107,49 @@
     <div id="death-screen" class="hidden" aria-live="assertive">
       <strong>WASTED</strong>
       <span>Respawning</span>
+    </div>
+    <div id="appearance-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+      <section id="appearance-creator">
+        <header>
+          <div>
+            <strong id="appearance-title">CHARACTER CREATOR</strong>
+            <span id="appearance-outfit-label">STREET FIT</span>
+          </div>
+          <button id="appearance-close" type="button" aria-label="Close character creator">X</button>
+        </header>
+        <div id="appearance-content">
+          <div id="appearance-preview-wrap">
+            <canvas id="appearance-preview" width="144" height="144" aria-label="Character preview"></canvas>
+          </div>
+          <form id="appearance-form">
+            <label>Outfit name<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
+            <label>Body<select id="appearance-body"></select></label>
+            <label>Skin<select id="appearance-skin"></select></label>
+            <label>Hair<select id="appearance-hair"></select></label>
+            <label>Headwear<select id="appearance-headwear"></select></label>
+            <label>Top<select id="appearance-top"></select></label>
+            <label>Bottoms<select id="appearance-bottom"></select></label>
+            <label>Shoes<select id="appearance-shoes"></select></label>
+          </form>
+        </div>
+        <div id="appearance-colors">
+          <div id="appearance-color-targets" role="tablist" aria-label="Color target">
+            <button type="button" role="tab" data-color-field="hairColor">HAIR</button>
+            <button type="button" role="tab" data-color-field="topColor">TOP</button>
+            <button type="button" role="tab" data-color-field="accentColor">ACCENT</button>
+            <button type="button" role="tab" data-color-field="bottomColor">BOTTOM</button>
+            <button type="button" role="tab" data-color-field="shoeColor">SHOES</button>
+          </div>
+          <div id="appearance-swatches" aria-label="Color palette"></div>
+        </div>
+        <footer>
+          <button id="appearance-randomize" type="button">RANDOMIZE</button>
+          <div>
+            <button id="appearance-cancel" type="button">CANCEL</button>
+            <button id="appearance-apply" type="button">APPLY LOOK</button>
+          </div>
+        </footer>
+      </section>
     </div>
     <div id="touch-controls" aria-label="Touch game controls">
       <div id="move-stick" class="touch-stick" aria-label="Move">

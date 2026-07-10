@@ -52,6 +52,7 @@ game/
   services/
     street-service-controller.ts
   players/
+    player-appearance-controller.ts
     player-control-controller.ts
     player-lifecycle-controller.ts
   traffic/
@@ -135,6 +136,7 @@ Extracted domain policies and room adapters now include:
 - `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
+- `player-appearance-controller.ts` for finite catalog validation, default join fallback, replicated visual-only appearance mutation, update throttling, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.
 - `pedestrian-controller.ts` for pedestrian spawn/ejected-driver/death/respawn lifecycle and room-facing composition.
 - `pedestrian-runtime.ts` for private objectives, threat memory, think/fire/navigation deadlines, and respawn state.

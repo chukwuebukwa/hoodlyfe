@@ -15,6 +15,7 @@ import type {
   NetworkStreetService,
   NetworkVehicle
 } from '../src/game/types.ts';
+import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 
 test('street service quotes charge for missing ammunition and layered vehicle damage', () => {
   assert.equal(ammunitionRestockQuote(AMMUNITION_CAPACITY), 0);
@@ -113,7 +114,8 @@ function createPlayer(overrides: Partial<NetworkPlayer> = {}): NetworkPlayer {
     ammoPistol: 120,
     ammoSmg: 240,
     ammoShotgun: 48,
-    ...overrides
+    ...overrides,
+    appearance: overrides.appearance ?? cloneAppearance()
   };
 }
 

@@ -6,6 +6,7 @@ import {
   normalizeMovement
 } from '../src/game/input/client-input-policy.ts';
 import type {NetworkPlayer} from '../src/game/types.ts';
+import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 
 test('client movement normalization preserves analog magnitude and caps combined input', () => {
   assert.deepEqual(normalizeMovement(0.5, 0), {x: 0.5, y: 0});
@@ -76,6 +77,7 @@ function createPlayer(): NetworkPlayer {
     weapon: 'pistol',
     ammoPistol: 120,
     ammoSmg: 240,
-    ammoShotgun: 48
+    ammoShotgun: 48,
+    appearance: cloneAppearance()
   };
 }

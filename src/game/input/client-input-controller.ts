@@ -15,6 +15,7 @@ interface ClientInputControllerOptions {
   getPlayer: () => NetworkPlayer | undefined;
   getAimOrigin: () => {x: number; y: number} | undefined;
   onAim: (angle: number) => void;
+  isBlocked?: () => boolean;
 }
 
 export class ClientInputController {
@@ -65,6 +66,13 @@ export class ClientInputController {
   }
 
   update(time: number): MovementVector {
+    if (this.options.isBlocked?.()) {
+      const movement = {x: 0, y: 0};
+      if (this.cadence.shouldSendMovement(movement, time)) {
+        this.options.room.send('input', movement);
+      }
+      return movement;
+    }
     const movement = this.readMovement();
     if (this.cadence.shouldSendMovement(movement, time)) {
       this.options.room.send('input', movement);

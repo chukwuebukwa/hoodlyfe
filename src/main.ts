@@ -2,6 +2,7 @@ import {Client, type Room} from 'colyseus.js';
 import Phaser from 'phaser';
 import {DistrictScene} from './game/district-scene.ts';
 import type {DistrictNetworkState} from './game/types.ts';
+import {loadSavedAppearance} from './game/appearance/appearance-storage.ts';
 import './style.css';
 
 const serverProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -16,7 +17,10 @@ if (nameElement) {
 
 try {
   const client = new Client(serverUrl);
-  activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {name: driverName});
+  activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
+    name: driverName,
+    appearance: loadSavedAppearance()
+  });
   activeGame = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

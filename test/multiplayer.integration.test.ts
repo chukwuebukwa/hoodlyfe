@@ -15,6 +15,8 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
+import {APPEARANCE_UPDATE_MESSAGE} from '../shared/protocol/appearance.ts';
+import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
@@ -34,7 +36,11 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   context.after(() => stopServer(server));
   await waitForServer(port, server, () => serverOutput);
 
-  const first = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver One'});
+  const joinedAppearance = {...cloneAppearance(), outfitName: 'Night Run', topColor: 'red' as const};
+  const first = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {
+    name: 'Driver One',
+    appearance: joinedAppearance
+  });
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
   const debugSnapshots: DebugSnapshot[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
@@ -64,6 +70,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   }));
   assert.equal(first.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
+  assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Night Run');
+  assert.equal(second.state.players.get(first.sessionId)?.appearance.topColor, 'red');
+  const updatedAppearance = {...joinedAppearance, outfitName: 'Blue Shift', topColor: 'blue' as const};
+  first.send(APPEARANCE_UPDATE_MESSAGE, updatedAppearance);
+  await waitUntil(() => second.state.players.get(first.sessionId)?.appearance.topColor === 'blue');
+  assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Blue Shift');
   assert.equal(first.state.players.get(first.sessionId)?.weapon, 'pistol');
   await waitUntil(() => debugSnapshots.length > 0);
   const debugSnapshot = debugSnapshots.at(-1);

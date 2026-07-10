@@ -4,6 +4,7 @@ import type {
   MissionObjectiveKind,
   MissionTemplateId
 } from '../../shared/content/mission-catalog.ts';
+import type {PlayerAppearance} from '../../shared/content/appearance-catalog.ts';
 
 export interface NetworkPlayer {
   id: string;
@@ -25,6 +26,7 @@ export interface NetworkPlayer {
   ammoPistol: number;
   ammoSmg: number;
   ammoShotgun: number;
+  appearance: PlayerAppearance;
 }
 
 export interface NetworkBullet {

@@ -2,6 +2,7 @@ import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../shared/protocol/notices.ts';
 import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
+import {AppearanceCreatorController} from './appearance/appearance-creator-controller.ts';
 import {DebugPresentationController} from './debug/debug-presentation-controller.ts';
 import {ClientInputController} from './input/client-input-controller.ts';
 import {InteractionPresentationController} from './interactions/interaction-presentation-controller.ts';
@@ -20,6 +21,7 @@ const PLAYER_RADIUS = 11;
 export class DistrictScene extends Phaser.Scene {
   private readonly room: Room<DistrictNetworkState>;
   private cameraController!: CameraPresentationController;
+  private appearanceController!: AppearanceCreatorController;
   private debugController!: DebugPresentationController;
   private missionController!: MissionPresentationController;
   private pedestrianRenderer!: PedestrianRenderer;
@@ -82,6 +84,12 @@ export class DistrictScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
     this.missionController = new MissionPresentationController(this, this.room);
     this.interactionController = new InteractionPresentationController(this, this.room.sessionId);
+    this.appearanceController = new AppearanceCreatorController(this.room, this.room.sessionId);
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.appearanceController.destroy,
+      this.appearanceController
+    );
     this.input.setDefaultCursor('crosshair');
 
     this.createPedestrianAnimation('driver-walk', 'driver');
@@ -132,7 +140,8 @@ export class DistrictScene extends Phaser.Scene {
       room: this.room,
       getPlayer: () => this.latestState?.players?.get(this.room.sessionId),
       getAimOrigin: () => this.playerRenderer.aimOrigin(this.room.sessionId),
-      onAim: (angle) => this.playerRenderer.setAim(this.room.sessionId, angle)
+      onAim: (angle) => this.playerRenderer.setAim(this.room.sessionId, angle),
+      isBlocked: () => this.appearanceController.isOpen()
     });
     this.inputController.start();
 
@@ -186,6 +195,7 @@ export class DistrictScene extends Phaser.Scene {
     }
     this.interactionController.synchronize(state);
     this.missionController.synchronize(state);
+    this.appearanceController.synchronize(state);
     this.debugController.synchronize(state);
   }
 

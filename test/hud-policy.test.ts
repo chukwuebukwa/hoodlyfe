@@ -6,6 +6,7 @@ import {
   projectLocalHud
 } from '../src/game/ui/hud-policy.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../src/game/types.ts';
+import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 
 test('local HUD projection covers foot, driver, passenger, damage, and death modes', () => {
   const foot = projectLocalHud(createPlayer(), undefined);
@@ -74,7 +75,8 @@ function createPlayer(overrides: Partial<NetworkPlayer> = {}): NetworkPlayer {
     ammoPistol: 120,
     ammoSmg: 240,
     ammoShotgun: 48,
-    ...overrides
+    ...overrides,
+    appearance: overrides.appearance ?? cloneAppearance()
   };
 }
 
