@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="NOCK0 multiplayer city prototype">
+  <title>NOCK0</title>
+</head>
+<body>
+  <main id="game-shell">
+    <div id="game"></div>
+    <div id="loading" role="status">
+      <strong>NOCK0</strong>
+      <span>Connecting to Industrial District</span>
+    </div>
+    <header id="district-label" class="hud-layer">
+      <strong>NOCK0</strong>
+      <span>Industrial District</span>
+    </header>
+    <aside id="status-hud" class="hud-layer" aria-label="Player status">
+      <div id="heat-meter" aria-label="Heat level 0">
+        <span>Heat</span>
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div id="cash">$000000</div>
+    </aside>
+    <footer id="player-hud" class="hud-layer">
+      <span id="driver-name">Driver</span>
+      <div id="health-track" aria-label="Health 100"><span id="health-fill"></span></div>
+    </footer>
+    <aside id="vehicle-hud" class="hud-layer hidden" aria-label="Vehicle speed">
+      <strong id="speed-value">000</strong>
+      <span>KM/H</span>
+    </aside>
+    <aside id="weapon-hud" class="hud-layer" aria-label="Equipped weapon">
+      <button id="weapon-prev" type="button" aria-label="Previous weapon">&lt;</button>
+      <img id="weapon-icon" src="/assets/original/weapons/pistol.svg" alt="pistol">
+      <div>
+        <strong id="weapon-name">PISTOL</strong>
+        <span id="weapon-ammo">120</span>
+      </div>
+      <button id="weapon-next" type="button" aria-label="Next weapon">&gt;</button>
+    </aside>
+    <button id="vehicle-action-button" class="hud-layer hidden" type="button">ENTER CAR</button>
+    <div id="event-toast" class="hud-layer" role="status"></div>
+    <div id="death-screen" class="hidden" aria-live="assertive">
+      <strong>WASTED</strong>
+      <span>Respawning</span>
+    </div>
+    <div id="touch-controls" aria-label="Touch game controls">
+      <div id="move-stick" class="touch-stick" aria-label="Move">
+        <i id="move-thumb"></i>
+      </div>
+      <button id="interact-button" type="button" aria-label="Enter or exit vehicle">CAR</button>
+      <div id="aim-stick" class="touch-stick" aria-label="Aim and fire">
+        <i id="aim-thumb"></i>
+      </div>
+    </div>
+    <div id="connection-state" class="hud-layer">Online</div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
