@@ -5,11 +5,13 @@ import {FreemodeMissionController} from '../server/game/missions/freemode-missio
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
+import {attachTestTrafficController} from './support/traffic-controller.ts';
 
 test('district mission adapter completes shared work, pays once, and releases its target', () => {
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  attachTestTrafficController(room);
   attachTestVehicleAccess(room);
   room.state.missionContactX = room.world.spawn.x;
   room.state.missionContactY = room.world.spawn.y;
@@ -37,13 +39,7 @@ test('district mission adapter completes shared work, pays once, and releases it
   target.angle = trafficSpawn.angle;
   target.traffic = true;
   room.state.vehicles.set(target.id, target);
-  room.runtimeTraffic.set(target.id, {
-    previousColumn: trafficSpawn.column,
-    previousRow: trafficSpawn.row,
-    targetColumn: trafficSpawn.targetColumn,
-    targetRow: trafficSpawn.targetRow,
-    cruiseSpeed: 110
-  });
+  room.trafficController.register(target.id, trafficSpawn, 110);
 
   room.missionController.start(leader.id);
   const missionState = [...room.state.missions.values()][0];

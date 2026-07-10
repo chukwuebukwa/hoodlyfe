@@ -13,7 +13,7 @@ export function attachTestVehicleAccess(room: any): VehicleAccessController {
       nowMs
     ) ?? '',
     recordTheft: () => undefined,
-    releaseTrafficControl: (vehicleId) => room.runtimeTraffic?.delete(vehicleId)
+    releaseTrafficControl: (vehicleId) => room.trafficController?.release(vehicleId)
   });
   room.vehicleAccess = controller;
   return controller;

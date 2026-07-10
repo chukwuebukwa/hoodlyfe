@@ -21,6 +21,7 @@ import {
 import type {CrimeKind} from './game/incidents/crime-policy.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
+import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {
   classifyImpactZone,
   VehicleCollisionSystem,
@@ -43,7 +44,7 @@ import {
   setAmmo,
   type WeaponId
 } from './weapons.ts';
-import {CollisionMap, type RoadNode} from './world-map.ts';
+import {CollisionMap} from './world-map.ts';
 
 const PLAYER_RADIUS = 11;
 const PLAYER_SPEED = 190;
@@ -88,14 +89,6 @@ interface RuntimeNpc {
   respawnAt: number;
 }
 
-interface RuntimeTraffic {
-  previousColumn: number;
-  previousRow: number;
-  targetColumn: number;
-  targetRow: number;
-  cruiseSpeed: number;
-}
-
 export class DistrictRoom extends Room<DistrictState> {
   maxClients = 32;
   autoDispose = false;
@@ -103,7 +96,6 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private readonly runtimePlayers = new Map<string, RuntimePlayer>();
   private readonly runtimeNpcs = new Map<string, RuntimeNpc>();
-  private readonly runtimeTraffic = new Map<string, RuntimeTraffic>();
   private readonly vehicleImpactAt = new Map<string, number>();
   private readonly simulationClock = new FixedStepClock();
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
@@ -114,6 +106,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
   private vehicleAccess!: VehicleAccessController;
+  private trafficController!: TrafficController;
   private readonly vehicleCollisionPairsThisTick = new Set<string>();
   private readonly vehicleFireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
@@ -141,6 +134,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.setState(new DistrictState());
     this.state.missionContactX = this.world.spawn.x;
     this.state.missionContactY = this.world.spawn.y;
+    this.trafficController = new TrafficController({
+      world: this.world,
+      random: this.random,
+      onVehicleMoved: (vehicle, nowMs) => this.handleTrafficImpacts(vehicle, nowMs)
+    });
     this.missionController = new FreemodeMissionController({
       state: this.state,
       world: this.world,
@@ -184,7 +182,7 @@ export class DistrictRoom extends Room<DistrictState> {
         x,
         y
       ),
-      releaseTrafficControl: (vehicleId) => this.runtimeTraffic.delete(vehicleId)
+      releaseTrafficControl: (vehicleId) => this.trafficController.release(vehicleId)
     });
     this.spawnDistrictPopulation();
     this.rebuildSpatialIndex();
@@ -268,13 +266,7 @@ export class DistrictRoom extends Room<DistrictState> {
     vehicle.hijackBy = '';
     vehicle.traffic = true;
     this.vehicleFireSources.delete(vehicle.id);
-    this.runtimeTraffic.set(vehicle.id, {
-      previousColumn: spawn.column,
-      previousRow: spawn.row,
-      targetColumn: spawn.targetColumn,
-      targetRow: spawn.targetRow,
-      cruiseSpeed: 118
-    });
+    this.trafficController.register(vehicle.id, spawn, 118);
   }
 
   private noticePlayer(
@@ -342,13 +334,7 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicle.health = vehicle.maxHealth;
       vehicle.traffic = true;
       this.state.vehicles.set(vehicle.id, vehicle);
-      this.runtimeTraffic.set(vehicle.id, {
-        previousColumn: spawn.column,
-        previousRow: spawn.row,
-        targetColumn: spawn.targetColumn,
-        targetRow: spawn.targetRow,
-        cruiseSpeed: 105 + (index % 4) * 14
-      });
+      this.trafficController.register(vehicle.id, spawn, 105 + (index % 4) * 14);
     }
   }
 
@@ -450,7 +436,7 @@ export class DistrictRoom extends Room<DistrictState> {
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
-      this.updateTrafficVehicle(vehicle, deltaSeconds, now);
+      this.trafficController.update(vehicle, deltaSeconds, now);
       this.handleVehicleCollision(vehicle, now);
       this.syncVehicleOccupants(vehicle);
       return;
@@ -507,69 +493,6 @@ export class DistrictRoom extends Room<DistrictState> {
     }
     this.handleVehicleCollision(vehicle, now);
     this.syncVehicleOccupants(vehicle);
-  }
-
-  private updateTrafficVehicle(vehicle: VehicleState, deltaSeconds: number, now: number): void {
-    const runtime = this.runtimeTraffic.get(vehicle.id);
-    if (!runtime) return;
-    if (vehicle.hijackBy) {
-      vehicle.speed = approach(vehicle.speed, 0, 520 * deltaSeconds);
-      return;
-    }
-
-    const targetX = (runtime.targetColumn + 0.5) * this.world.tileWidth;
-    const targetY = (runtime.targetRow + 0.5) * this.world.tileHeight;
-    const distance = Math.hypot(targetX - vehicle.x, targetY - vehicle.y);
-    if (distance <= Math.max(8, vehicle.speed * deltaSeconds)) {
-      vehicle.x = targetX;
-      vehicle.y = targetY;
-      const current = {column: runtime.targetColumn, row: runtime.targetRow};
-      const next = this.chooseNextRoadNode(current, runtime, now + vehicle.id.length * 37);
-      runtime.previousColumn = current.column;
-      runtime.previousRow = current.row;
-      runtime.targetColumn = next.column;
-      runtime.targetRow = next.row;
-      return;
-    }
-
-    const desiredAngle = Math.atan2(targetY - vehicle.y, targetX - vehicle.x);
-    vehicle.angle = rotateToward(vehicle.angle, desiredAngle, 4.2 * deltaSeconds);
-    vehicle.speed = approach(vehicle.speed, runtime.cruiseSpeed, 85 * deltaSeconds);
-    const movement = Math.min(distance, vehicle.speed * deltaSeconds);
-    const nextX = vehicle.x + Math.cos(desiredAngle) * movement;
-    const nextY = vehicle.y + Math.sin(desiredAngle) * movement;
-    if (this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) && this.world.isRoadAt(nextX, nextY)) {
-      vehicle.x = nextX;
-      vehicle.y = nextY;
-      this.handleTrafficImpacts(vehicle, now);
-    } else {
-      const currentColumn = Math.floor(vehicle.x / this.world.tileWidth);
-      const currentRow = Math.floor(vehicle.y / this.world.tileHeight);
-      const next = this.chooseNextRoadNode(
-        {column: currentColumn, row: currentRow},
-        runtime,
-        now + 911
-      );
-      runtime.targetColumn = next.column;
-      runtime.targetRow = next.row;
-      vehicle.speed *= 0.35;
-    }
-  }
-
-  private chooseNextRoadNode(current: RoadNode, runtime: RuntimeTraffic, seed: number): RoadNode {
-    const neighbors = this.world.roadNeighbors(current.column, current.row);
-    if (neighbors.length === 0) return current;
-    const forwardColumn = current.column + (current.column - runtime.previousColumn);
-    const forwardRow = current.row + (current.row - runtime.previousRow);
-    const forward = neighbors.find((node) => node.column === forwardColumn && node.row === forwardRow);
-    if (forward && (neighbors.length <= 2 || this.random.unit('traffic-forward', seed) < 0.88)) {
-      return forward;
-    }
-    const alternatives = neighbors.filter((node) =>
-      node.column !== runtime.previousColumn || node.row !== runtime.previousRow
-    );
-    const choices = alternatives.length > 0 ? alternatives : neighbors;
-    return choices[this.random.integer('traffic-turn', seed + 17, 0, choices.length)];
   }
 
   private syncVehicleOccupants(vehicle: VehicleState): void {
@@ -829,7 +752,7 @@ export class DistrictRoom extends Room<DistrictState> {
     vehicle.fireStartedAt = restored.fireStartedAt;
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
-    vehicle.traffic = this.runtimeTraffic.has(vehicle.id);
+    vehicle.traffic = this.trafficController.has(vehicle.id);
     this.events.publish({
       type: 'vehicle.restored',
       tick: this.simulationClock.tick,

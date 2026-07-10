@@ -37,6 +37,8 @@ game/
     crime-response-controller.ts
     dispatch-system.ts
     pursuit-memory.ts
+  traffic/
+    traffic-controller.ts
   missions/
     freemode-mission-controller.ts
     mission-entity-scope.ts
@@ -86,5 +88,6 @@ Extracted domain policies and room adapters now include:
 - `freemode-mission-controller.ts` for target selection, schema projection, typed events, reward idempotency, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
+- `traffic-controller.ts` for ambient route state, deterministic turn selection, cruise control, road following, hijack braking, and release.
 
 `DistrictRoom` now calls the crime and Freemode controller facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, or mission cleanup. Vehicle/traffic, combat/projectile, player lifecycle, and pedestrian adapters remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.

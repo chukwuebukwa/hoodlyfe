@@ -6,11 +6,13 @@ import {VehicleAccessController} from '../server/game/vehicles/vehicle-access-co
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
+import {attachTestTrafficController} from './support/traffic-controller.ts';
 
 test('hijacking stops traffic, ejects its driver, and gives the player control', () => {
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  attachTestTrafficController(room);
   room.crimeController = new CrimeResponseController({
     state: room.state,
     world: room.world,
@@ -45,7 +47,7 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
       x,
       y
     ),
-    releaseTrafficControl: (vehicleId) => room.runtimeTraffic.delete(vehicleId)
+    releaseTrafficControl: (vehicleId) => room.trafficController.release(vehicleId)
   });
 
   const spawn = room.world.trafficSpawn(91, 20);
@@ -70,13 +72,7 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   vehicle.angle = spawn.angle;
   vehicle.traffic = true;
   room.state.vehicles.set(vehicle.id, vehicle);
-  room.runtimeTraffic.set(vehicle.id, {
-    previousColumn: spawn.column,
-    previousRow: spawn.row,
-    targetColumn: spawn.targetColumn,
-    targetRow: spawn.targetRow,
-    cruiseSpeed: 110
-  });
+  room.trafficController.register(vehicle.id, spawn, 110);
   room.rebuildSpatialIndex();
 
   room.vehicleAccess.interact(player.id, Date.now());
@@ -103,6 +99,7 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  attachTestTrafficController(room);
   attachTestVehicleAccess(room);
 
   const player = new PlayerState();
