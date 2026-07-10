@@ -37,6 +37,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, 11);
+  assert.ok([...first.state.vehicles.values()].every((vehicle) => (
+    vehicle.health === 1000 && vehicle.maxHealth === 1000 && vehicle.engineDamage === 0
+  )));
   assert.equal(first.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.weapon, 'pistol');

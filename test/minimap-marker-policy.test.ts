@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  buildMinimapFrame,
+  drivingRange,
+  type MinimapNpcInput,
+  type MinimapPlayerInput,
+  type MinimapVehicleInput
+} from '../src/game/minimap-marker-policy.ts';
+
+const players: MinimapPlayerInput[] = [
+  {id: 'local', x: 100, y: 100, angle: 0, alive: true, wanted: 0, vehicleId: ''},
+  {id: 'remote', x: 300, y: 100, angle: 1, alive: true, wanted: 0, vehicleId: 'remote-car'},
+  {id: 'dead', x: 140, y: 100, angle: 0, alive: false, wanted: 0, vehicleId: ''}
+];
+const vehicles: MinimapVehicleInput[] = [
+  {id: 'remote-car', x: 360, y: 120, angle: 2, speed: 180, destroyed: false},
+  {id: 'ambient', x: 130, y: 130, angle: 0, speed: 80, destroyed: false}
+];
+const npcs: MinimapNpcInput[] = [
+  {id: 'police-near', kind: 'police', x: 500, y: 100, angle: 0, alive: true},
+  {id: 'civilian', kind: 'civilian', x: 120, y: 120, angle: 0, alive: true}
+];
+
+test('minimap shows one local marker and remote players at effective vehicle positions', () => {
+  const frame = buildMinimapFrame({localPlayerId: 'local', players, vehicles, npcs});
+  assert.ok(frame);
+  assert.equal(frame.range, 520);
+  assert.deepEqual(frame.markers.map((marker) => marker.id), [
+    'player:remote',
+    'local:local'
+  ]);
+  const remote = frame.markers.find((marker) => marker.id === 'player:remote');
+  assert.deepEqual(remote && {x: remote.x, y: remote.y, angle: remote.angle}, {x: 360, y: 120, angle: 2});
+  assert.equal(frame.markers.some((marker) => marker.id.includes('ambient')), false);
+  assert.equal(frame.markers.some((marker) => marker.id.includes('civilian')), false);
+});
+
+test('police appear only for wanted local players and distant objectives clamp', () => {
+  const wantedPlayers = players.map((player) => player.id === 'local' ? {...player, wanted: 2} : player);
+  const frame = buildMinimapFrame({
+    localPlayerId: 'local',
+    players: wantedPlayers,
+    vehicles,
+    npcs,
+    points: [
+      {id: 'delivery', kind: 'objective', x: 1400, y: 100},
+      {id: 'far-shop', kind: 'shop', x: 1400, y: 100}
+    ]
+  });
+  assert.ok(frame);
+  assert.ok(frame.markers.some((marker) => marker.id === 'police:police-near'));
+  assert.equal(frame.markers.find((marker) => marker.id === 'objective:delivery')?.clamped, true);
+  assert.equal(frame.markers.some((marker) => marker.id === 'shop:far-shop'), false);
+});
+
+test('driving radar range grows continuously with absolute speed and stays bounded', () => {
+  assert.equal(drivingRange(0), 620);
+  assert.equal(drivingRange(410), 1100);
+  assert.equal(drivingRange(-999), 1100);
+  assert.ok(drivingRange(205) > drivingRange(100));
+});

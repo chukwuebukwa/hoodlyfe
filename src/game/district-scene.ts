@@ -5,6 +5,8 @@ import {
   type DebugSnapshot
 } from '../../shared/protocol/debug.ts';
 import {TouchControls} from './touch-controls.ts';
+import {buildMinimapFrame} from './minimap-marker-policy.ts';
+import {MinimapRenderer} from './minimap-renderer.ts';
 import type {
   DistrictNetworkState,
   NetworkBullet,
@@ -83,6 +85,7 @@ export class DistrictScene extends Phaser.Scene {
   private debugGraphics!: Phaser.GameObjects.Graphics;
   private readonly debugLabels = new Map<string, Phaser.GameObjects.Text>();
   private touchControls!: TouchControls;
+  private minimap?: MinimapRenderer;
   private lastInputX = 0;
   private lastInputY = 0;
   private lastInputSentAt = 0;
@@ -99,6 +102,7 @@ export class DistrictScene extends Phaser.Scene {
   private latestDebugSnapshot?: DebugSnapshot;
   private debugVisible = false;
   private lastDebugDrawAt = Number.NEGATIVE_INFINITY;
+  private lastMinimapDrawAt = Number.NEGATIVE_INFINITY;
 
   constructor(room: Room<DistrictNetworkState>) {
     super('district');
@@ -154,6 +158,16 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
 
+    const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
+    if (minimapCanvas) {
+      this.minimap = new MinimapRenderer(
+        minimapCanvas,
+        '/assets/maps/district-preview.png',
+        map.widthInPixels,
+        map.heightInPixels
+      );
+    }
+
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys({
@@ -208,6 +222,7 @@ export class DistrictScene extends Phaser.Scene {
     this.updateWeaponCycling(time);
     this.interpolateEntities(time);
     this.updateDebugView(time);
+    this.updateMinimap(time);
     this.drawCrosshair();
   }
 
@@ -765,6 +780,18 @@ export class DistrictScene extends Phaser.Scene {
     if (!this.debugVisible || time - this.lastDebugDrawAt < DEBUG_DRAW_INTERVAL) return;
     this.lastDebugDrawAt = time;
     this.drawDebugWorld();
+  }
+
+  private updateMinimap(time: number): void {
+    if (!this.minimap || !this.latestState || time - this.lastMinimapDrawAt < 100) return;
+    this.lastMinimapDrawAt = time;
+    const frame = buildMinimapFrame({
+      localPlayerId: this.room.sessionId,
+      players: this.latestState.players?.values() ?? [],
+      vehicles: this.latestState.vehicles?.values() ?? [],
+      npcs: this.latestState.npcs?.values() ?? []
+    });
+    if (frame) this.minimap.render(frame, time);
   }
 
   private setDebugVisible(visible: boolean): void {
