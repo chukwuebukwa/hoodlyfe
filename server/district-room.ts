@@ -27,6 +27,7 @@ import {
   type VehicleDamageZone
 } from './game/vehicles/vehicle-collision-system.ts';
 import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
+import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleDamageSystem} from './game/vehicles/vehicle-damage-system.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
@@ -50,10 +51,7 @@ const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const POLICE_FIRE_COOLDOWN_MS = 680;
 const RESPAWN_DELAY_MS = 3000;
-const MAX_VEHICLE_OCCUPANTS = 4;
 const TRAFFIC_VEHICLE_COUNT = 8;
-const ENTER_VEHICLE_DURATION_MS = 320;
-const HIJACK_DURATION_MS = 1050;
 const VEHICLE_RESPAWN_DELAY_MS = 8000;
 
 interface InputMessage {
@@ -115,6 +113,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly vehicleDamage = new VehicleDamageSystem();
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
+  private vehicleAccess!: VehicleAccessController;
   private readonly vehicleCollisionPairsThisTick = new Set<string>();
   private readonly vehicleFireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
@@ -165,6 +164,28 @@ export class DistrictRoom extends Room<DistrictState> {
         runtime.threatId = suspectId;
       }
     });
+    this.vehicleAccess = new VehicleAccessController({
+      state: this.state,
+      world: this.world,
+      nearbyVehicles: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+        kinds: ['vehicle']
+      }).map((record) => this.state.vehicles.get(record.id))
+        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
+      createEjectedDriver: (vehicle, hijacker, nowMs) => this.spawnEjectedDriver(
+        vehicle,
+        hijacker,
+        nowMs
+      ),
+      recordTheft: (playerId, victimId, x, y, nowMs) => this.crimeController.record(
+        playerId,
+        'vehicle-theft',
+        nowMs,
+        victimId,
+        x,
+        y
+      ),
+      releaseTrafficControl: (vehicleId) => this.runtimeTraffic.delete(vehicleId)
+    });
     this.spawnDistrictPopulation();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
@@ -191,7 +212,9 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<CycleWeaponMessage>('cycleWeapon', (client, message) => {
       this.cycleWeapon(client.sessionId, message?.direction);
     });
-    this.onMessage('interact', (client) => this.interact(client.sessionId));
+    this.onMessage('interact', (client) => {
+      this.vehicleAccess.interact(client.sessionId, this.simulationClock.nowMs);
+    });
     this.onMessage(MISSION_START_MESSAGE, (client) => this.missionController.start(client.sessionId));
     this.onMessage<MissionIdMessage>(MISSION_JOIN_MESSAGE, (client, message) => {
       this.missionController.join(client.sessionId, message?.missionId);
@@ -223,7 +246,7 @@ export class DistrictRoom extends Room<DistrictState> {
 
   onLeave(client: Client): void {
     const player = this.state.players.get(client.sessionId);
-    if (player) this.removePlayerFromVehicle(player);
+    if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.runtimePlayers.delete(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
@@ -231,7 +254,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private returnVehicleToTraffic(vehicle: VehicleState, nowMs: number): void {
-    for (const occupant of this.vehicleOccupants(vehicle.id)) this.removePlayerFromVehicle(occupant);
+    for (const occupant of this.vehicleAccess.occupants(vehicle.id)) this.vehicleAccess.removePlayer(occupant);
     const spawn = this.world.trafficSpawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
     const restored = this.vehicleDamage.reset(vehicleConfig(vehicle.kind).maxHealth);
     Object.assign(vehicle, restored);
@@ -383,7 +406,7 @@ export class DistrictRoom extends Room<DistrictState> {
       if (!player.alive) {
         this.tryRespawnPlayer(player, runtime, now);
       } else if (player.action) {
-        this.updatePlayerAction(player, now);
+        this.vehicleAccess.updateAction(player, now);
       } else {
         if (!player.vehicleId) this.movePlayer(player, runtime, deltaSeconds);
         this.crimeController.decay(player, now);
@@ -478,7 +501,7 @@ export class DistrictRoom extends Room<DistrictState> {
     } else {
       if (vehicle.driverId) {
         vehicle.driverId = '';
-        this.promotePassenger(vehicle);
+        this.vehicleAccess.promotePassenger(vehicle);
       }
       vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
     }
@@ -752,7 +775,7 @@ export class DistrictRoom extends Room<DistrictState> {
     vehicle.onFire = false;
     vehicle.fireStartedAt = 0;
     this.vehicleFireSources.delete(vehicle.id);
-    const occupants = this.vehicleOccupants(vehicle.id);
+    const occupants = this.vehicleAccess.occupants(vehicle.id);
     vehicle.driverId = '';
     for (let index = 0; index < occupants.length; index++) {
       const occupant = occupants[index];
@@ -768,7 +791,7 @@ export class DistrictRoom extends Room<DistrictState> {
       occupant.vehicleSeat = -1;
       occupant.x = position.x;
       occupant.y = position.y;
-      this.clearPlayerAction(occupant);
+      this.vehicleAccess.clearAction(occupant);
       this.damagePlayer(occupant, 35, '', now);
     }
     this.events.publish({
@@ -902,167 +925,6 @@ export class DistrictRoom extends Room<DistrictState> {
       moved = true;
     }
     return moved;
-  }
-
-  private interact(playerId: string): void {
-    const player = this.state.players.get(playerId);
-    if (!player?.alive || player.action) return;
-
-    if (player.vehicleId) {
-      const vehicle = this.state.vehicles.get(player.vehicleId);
-      if (!vehicle) {
-        player.vehicleId = '';
-        player.vehicleSeat = -1;
-        return;
-      }
-      this.exitVehicle(player, vehicle);
-      return;
-    }
-
-    let nearest: VehicleState | undefined;
-    let nearestDistance = 72;
-    const nearbyVehicles = this.spatialIndex.queryCircle(player.x, player.y, nearestDistance, {
-      kinds: ['vehicle']
-    });
-    for (const record of nearbyVehicles) {
-      const vehicle = this.state.vehicles.get(record.id);
-      if (!vehicle) continue;
-      if (vehicle.destroyed) continue;
-      if (this.vehicleOccupants(vehicle.id).length >= MAX_VEHICLE_OCCUPANTS) continue;
-      if (vehicle.hijackBy && vehicle.hijackBy !== player.id) continue;
-      const distance = Math.hypot(vehicle.x - player.x, vehicle.y - player.y);
-      if (distance < nearestDistance) {
-        nearest = vehicle;
-        nearestDistance = distance;
-      }
-    }
-    if (!nearest) return;
-    const action = nearest.traffic && !nearest.driverId ? 'hijacking' : 'entering';
-    this.beginVehicleAction(player, nearest, action, this.simulationClock.nowMs);
-  }
-
-  private beginVehicleAction(
-    player: PlayerState,
-    vehicle: VehicleState,
-    action: 'entering' | 'hijacking',
-    now: number
-  ): void {
-    const sideAngle = vehicle.angle + Math.PI / 2;
-    const sides = [1, -1];
-    sides.sort((left, right) => {
-      const leftDistance = Math.hypot(
-        player.x - (vehicle.x + Math.cos(sideAngle) * 38 * left),
-        player.y - (vehicle.y + Math.sin(sideAngle) * 38 * left)
-      );
-      const rightDistance = Math.hypot(
-        player.x - (vehicle.x + Math.cos(sideAngle) * 38 * right),
-        player.y - (vehicle.y + Math.sin(sideAngle) * 38 * right)
-      );
-      return leftDistance - rightDistance;
-    });
-    for (const side of sides) {
-      const x = vehicle.x + Math.cos(sideAngle) * 38 * side;
-      const y = vehicle.y + Math.sin(sideAngle) * 38 * side;
-      if (!this.world.canOccupy(x, y, PLAYER_RADIUS)) continue;
-      player.x = x;
-      player.y = y;
-      break;
-    }
-    player.angle = vehicle.angle;
-    player.action = action;
-    player.actionVehicleId = vehicle.id;
-    player.actionUntil = now + (action === 'hijacking' ? HIJACK_DURATION_MS : ENTER_VEHICLE_DURATION_MS);
-    if (action === 'hijacking') vehicle.hijackBy = player.id;
-  }
-
-  private updatePlayerAction(player: PlayerState, now: number): void {
-    if (now < player.actionUntil) return;
-    const action = player.action;
-    const vehicle = this.state.vehicles.get(player.actionVehicleId);
-    if (!vehicle || Math.hypot(vehicle.x - player.x, vehicle.y - player.y) > 112) {
-      if (vehicle?.hijackBy === player.id) vehicle.hijackBy = '';
-      this.clearPlayerAction(player);
-      return;
-    }
-
-    if (action === 'hijacking') {
-      if (vehicle.hijackBy !== player.id || !vehicle.traffic) {
-        this.clearPlayerAction(player);
-        return;
-      }
-      vehicle.traffic = false;
-      vehicle.hijackBy = '';
-      vehicle.speed = 0;
-      this.runtimeTraffic.delete(vehicle.id);
-      const victimId = this.spawnEjectedDriver(vehicle, player, now);
-      this.crimeController.record(player.id, 'vehicle-theft', now, victimId, vehicle.x, vehicle.y);
-    }
-
-    this.clearPlayerAction(player);
-    this.enterVehicle(player, vehicle);
-  }
-
-  private enterVehicle(player: PlayerState, vehicle: VehicleState): void {
-    const occupiedSeats = new Set(this.vehicleOccupants(vehicle.id).map((occupant) => occupant.vehicleSeat));
-    let seat = vehicle.driverId ? 1 : 0;
-    while (seat < MAX_VEHICLE_OCCUPANTS && occupiedSeats.has(seat)) seat++;
-    if (seat >= MAX_VEHICLE_OCCUPANTS) return;
-    player.vehicleId = vehicle.id;
-    player.vehicleSeat = seat;
-    player.x = vehicle.x;
-    player.y = vehicle.y;
-    player.angle = vehicle.angle;
-    if (seat === 0) vehicle.driverId = player.id;
-  }
-
-  private exitVehicle(player: PlayerState, vehicle: VehicleState): void {
-    const sideAngle = vehicle.angle + Math.PI / 2;
-    const candidates = [1, -1, 1.55, -1.55];
-    for (const side of candidates) {
-      const x = vehicle.x + Math.cos(sideAngle) * 42 * side;
-      const y = vehicle.y + Math.sin(sideAngle) * 42 * side;
-      if (!this.world.canOccupy(x, y, PLAYER_RADIUS)) continue;
-      player.x = x;
-      player.y = y;
-      this.removePlayerFromVehicle(player);
-      vehicle.speed *= 0.4;
-      return;
-    }
-  }
-
-  private removePlayerFromVehicle(player: PlayerState): void {
-    const vehicle = player.vehicleId ? this.state.vehicles.get(player.vehicleId) : undefined;
-    const wasDriver = vehicle?.driverId === player.id;
-    player.vehicleId = '';
-    player.vehicleSeat = -1;
-    if (vehicle && wasDriver) {
-      vehicle.driverId = '';
-      this.promotePassenger(vehicle);
-    }
-    if (player.actionVehicleId) {
-      const actionVehicle = this.state.vehicles.get(player.actionVehicleId);
-      if (actionVehicle?.hijackBy === player.id) actionVehicle.hijackBy = '';
-    }
-    this.clearPlayerAction(player);
-  }
-
-  private promotePassenger(vehicle: VehicleState): void {
-    const passenger = this.vehicleOccupants(vehicle.id)
-      .filter((occupant) => occupant.alive)
-      .sort((left, right) => left.vehicleSeat - right.vehicleSeat)[0];
-    if (!passenger) return;
-    passenger.vehicleSeat = 0;
-    vehicle.driverId = passenger.id;
-  }
-
-  private vehicleOccupants(vehicleId: string): PlayerState[] {
-    return [...this.state.players.values()].filter((player) => player.vehicleId === vehicleId);
-  }
-
-  private clearPlayerAction(player: PlayerState): void {
-    player.action = '';
-    player.actionUntil = 0;
-    player.actionVehicleId = '';
   }
 
   private spawnEjectedDriver(vehicle: VehicleState, hijacker: PlayerState, now: number): string {
@@ -1200,7 +1062,7 @@ export class DistrictRoom extends Room<DistrictState> {
     for (const record of vehicleCandidates) {
       const target = this.state.vehicles.get(record.id);
       if (!target || target.destroyed) continue;
-      if (this.vehicleOccupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) continue;
+      if (this.vehicleAccess.occupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) continue;
       if (
         pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) >
         VEHICLE_RADIUS + 4
@@ -1338,7 +1200,7 @@ export class DistrictRoom extends Room<DistrictState> {
       runtime.inputY = 0;
     }
     const vehicle = player.vehicleId ? this.state.vehicles.get(player.vehicleId) : undefined;
-    this.removePlayerFromVehicle(player);
+    this.vehicleAccess.removePlayer(player);
     if (vehicle) vehicle.speed *= 0.45;
   }
 
@@ -1361,7 +1223,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.wanted = 0;
     player.vehicleId = '';
     player.vehicleSeat = -1;
-    this.clearPlayerAction(player);
+    this.vehicleAccess.clearAction(player);
     refillAmmo(player);
     this.crimeController.clearSuspect(player.id);
     this.events.publish({

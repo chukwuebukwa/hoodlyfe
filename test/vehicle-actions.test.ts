@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {CrimeResponseController} from '../server/game/police/crime-response-controller.ts';
+import {VehicleAccessController} from '../server/game/vehicles/vehicle-access-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 
 test('hijacking stops traffic, ejects its driver, and gives the player control', () => {
   const room = new DistrictRoom() as any;
@@ -23,6 +25,27 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
       runtime.panicUntil = untilMs;
       runtime.threatId = suspectId;
     }
+  });
+  room.vehicleAccess = new VehicleAccessController({
+    state: room.state,
+    world: room.world,
+    nearbyVehicles: (x, y, radius) => [...room.state.vehicles.values()].filter((vehicle) => (
+      Math.hypot(vehicle.x - x, vehicle.y - y) <= radius
+    )),
+    createEjectedDriver: (vehicle, hijacker, nowMs) => room.spawnEjectedDriver(
+      vehicle,
+      hijacker,
+      nowMs
+    ),
+    recordTheft: (playerId, victimId, x, y, nowMs) => room.crimeController.record(
+      playerId,
+      'vehicle-theft',
+      nowMs,
+      victimId,
+      x,
+      y
+    ),
+    releaseTrafficControl: (vehicleId) => room.runtimeTraffic.delete(vehicleId)
   });
 
   const spawn = room.world.trafficSpawn(91, 20);
@@ -56,11 +79,11 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   });
   room.rebuildSpatialIndex();
 
-  room.interact(player.id);
+  room.vehicleAccess.interact(player.id, Date.now());
   assert.equal(player.action, 'hijacking');
   assert.equal(vehicle.hijackBy, player.id);
 
-  room.updatePlayerAction(player, Date.now() + 2000);
+  room.vehicleAccess.updateAction(player, Date.now() + 2000);
   assert.equal(player.action, '');
   assert.equal(player.vehicleId, vehicle.id);
   assert.equal(player.vehicleSeat, 0);
@@ -80,6 +103,7 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  attachTestVehicleAccess(room);
 
   const player = new PlayerState();
   player.id = 'driver';

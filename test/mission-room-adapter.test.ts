@@ -4,11 +4,13 @@ import {DistrictRoom} from '../server/district-room.ts';
 import {FreemodeMissionController} from '../server/game/missions/freemode-mission-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 
 test('district mission adapter completes shared work, pays once, and releases its target', () => {
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
+  attachTestVehicleAccess(room);
   room.state.missionContactX = room.world.spawn.x;
   room.state.missionContactY = room.world.spawn.y;
   room.missionController = new FreemodeMissionController({

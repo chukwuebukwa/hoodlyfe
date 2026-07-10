@@ -45,6 +45,7 @@ game/
   wanted/
     wanted-system.ts
   vehicles/
+    vehicle-access-controller.ts
     vehicle-collision-system.ts
     vehicle-config.ts
     vehicle-damage-system.ts
@@ -84,5 +85,6 @@ Extracted domain policies and room adapters now include:
 - `mission-system.ts` for plain deterministic group mission state and transitions;
 - `freemode-mission-controller.ts` for target selection, schema projection, typed events, reward idempotency, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
+- `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
 
 `DistrictRoom` now calls the crime and Freemode controller facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, or mission cleanup. Vehicle/traffic, combat/projectile, player lifecycle, and pedestrian adapters remain extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
