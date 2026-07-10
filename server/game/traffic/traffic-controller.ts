@@ -15,7 +15,6 @@ interface TrafficRuntime {
 interface TrafficControllerOptions {
   world: CollisionMap;
   random: DeterministicRandom;
-  onVehicleMoved: (vehicle: VehicleState, nowMs: number) => void;
 }
 
 export class TrafficController {
@@ -41,12 +40,12 @@ export class TrafficController {
     return this.runtime.has(vehicleId);
   }
 
-  update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
+  update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): boolean {
     const runtime = this.runtime.get(vehicle.id);
-    if (!runtime) return;
+    if (!runtime) return false;
     if (vehicle.hijackBy) {
       vehicle.speed = approach(vehicle.speed, 0, 520 * deltaSeconds);
-      return;
+      return false;
     }
 
     const {world} = this.options;
@@ -62,7 +61,7 @@ export class TrafficController {
       runtime.previousRow = current.row;
       runtime.targetColumn = next.column;
       runtime.targetRow = next.row;
-      return;
+      return false;
     }
 
     const desiredAngle = Math.atan2(targetY - vehicle.y, targetX - vehicle.x);
@@ -74,8 +73,7 @@ export class TrafficController {
     if (world.canOccupy(nextX, nextY, VEHICLE_RADIUS) && world.isRoadAt(nextX, nextY)) {
       vehicle.x = nextX;
       vehicle.y = nextY;
-      this.options.onVehicleMoved(vehicle, nowMs);
-      return;
+      return true;
     }
 
     const currentColumn = Math.floor(vehicle.x / world.tileWidth);
@@ -88,6 +86,7 @@ export class TrafficController {
     runtime.targetColumn = next.column;
     runtime.targetRow = next.row;
     vehicle.speed *= 0.35;
+    return false;
   }
 
   private chooseNextRoadNode(

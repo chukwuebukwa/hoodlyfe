@@ -6,6 +6,7 @@ import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestTrafficController} from './support/traffic-controller.ts';
+import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
 test('district mission adapter completes shared work, pays once, and releases its target', () => {
   const room = new DistrictRoom() as any;
@@ -13,6 +14,7 @@ test('district mission adapter completes shared work, pays once, and releases it
   room.setState(new DistrictState());
   attachTestTrafficController(room);
   attachTestVehicleAccess(room);
+  attachTestVehicleSimulation(room);
   room.state.missionContactX = room.world.spawn.x;
   room.state.missionContactY = room.world.spawn.y;
   room.missionController = new FreemodeMissionController({
@@ -21,7 +23,10 @@ test('district mission adapter completes shared work, pays once, and releases it
     events: room.events,
     clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
     notice: () => undefined,
-    releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => room.returnVehicleToTraffic(vehicle, nowMs)
+    releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => room.vehicleSimulation.returnToTraffic(
+      vehicle,
+      nowMs
+    )
   });
 
   const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);

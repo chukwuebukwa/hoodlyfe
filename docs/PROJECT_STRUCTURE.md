@@ -189,6 +189,9 @@ The first room-facing facades are now live:
 
 - `FreemodeMissionController` composes the pure mission state machine, entity scope, state projection, notices, rewards, and cleanup.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
+- `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
+- `TrafficController` owns deterministic ambient routes and driving targets.
+- `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `DistrictRoom` invokes both from the fixed schedule and maps network commands to the mission controller.
 
 ADR 0004 makes this mandatory for future work: adding a gameplay method directly to `DistrictRoom` is not an acceptable implementation shortcut. Vehicle, traffic, combat, pedestrians, player lifecycle, and projection remain explicit extraction debt.

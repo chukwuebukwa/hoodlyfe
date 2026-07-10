@@ -7,6 +7,7 @@ import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestTrafficController} from './support/traffic-controller.ts';
+import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
 test('hijacking stops traffic, ejects its driver, and gives the player control', () => {
   const room = new DistrictRoom() as any;
@@ -101,6 +102,7 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   room.setState(new DistrictState());
   attachTestTrafficController(room);
   attachTestVehicleAccess(room);
+  attachTestVehicleSimulation(room);
 
   const player = new PlayerState();
   player.id = 'driver';
@@ -119,7 +121,7 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   vehicle.health = 200;
   room.state.vehicles.set(vehicle.id, vehicle);
 
-  room.applyVehicleDamage(vehicle, 400, 'attacker', 'vehicle', 1000, 'front');
+  room.vehicleSimulation.damage(vehicle, 400, 'attacker', 'vehicle', 1000, 'front');
   assert.equal(vehicle.destroyed, false);
   assert.equal(vehicle.health, 1);
   assert.equal(vehicle.onFire, true);
@@ -130,9 +132,9 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
     'vehicle.ignited'
   ]);
 
-  room.updateVehicle(vehicle, 1 / 30, 5999);
+  room.vehicleSimulation.update(vehicle, 1 / 30, 5999);
   assert.equal(vehicle.destroyed, false);
-  room.updateVehicle(vehicle, 1 / 30, 6000);
+  room.vehicleSimulation.update(vehicle, 1 / 30, 6000);
   assert.equal(vehicle.destroyed, true);
   assert.equal(vehicle.driverId, '');
   assert.equal(player.vehicleId, '');
@@ -142,9 +144,9 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
     'vehicle.destroyed'
   ]);
 
-  room.updateDestroyedVehicle(vehicle, 13_999);
+  room.vehicleSimulation.update(vehicle, 1 / 30, 13_999);
   assert.equal(vehicle.destroyed, true);
-  room.updateDestroyedVehicle(vehicle, 14_000);
+  room.vehicleSimulation.update(vehicle, 1 / 30, 14_000);
   assert.equal(vehicle.destroyed, false);
   assert.equal(vehicle.health, 1000);
   assert.equal(vehicle.engineDamage, 0);

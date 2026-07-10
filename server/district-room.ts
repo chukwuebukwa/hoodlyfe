@@ -15,8 +15,7 @@ import {
 } from '../shared/protocol/missions.ts';
 import {
   GameEventStream,
-  type GameEvent,
-  type VehicleDamageSource
+  type GameEvent
 } from './game/events/game-events.ts';
 import type {CrimeKind} from './game/incidents/crime-policy.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
@@ -24,12 +23,10 @@ import {CrimeResponseController} from './game/police/crime-response-controller.t
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {
   classifyImpactZone,
-  VehicleCollisionSystem,
-  type VehicleDamageZone
 } from './game/vehicles/vehicle-collision-system.ts';
 import {vehicleConfig} from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
-import {VehicleDamageSystem} from './game/vehicles/vehicle-damage-system.ts';
+import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
@@ -53,7 +50,6 @@ const VEHICLE_RADIUS = 20;
 const POLICE_FIRE_COOLDOWN_MS = 680;
 const RESPAWN_DELAY_MS = 3000;
 const TRAFFIC_VEHICLE_COUNT = 8;
-const VEHICLE_RESPAWN_DELAY_MS = 8000;
 
 interface InputMessage {
   x?: number;
@@ -96,19 +92,15 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private readonly runtimePlayers = new Map<string, RuntimePlayer>();
   private readonly runtimeNpcs = new Map<string, RuntimeNpc>();
-  private readonly vehicleImpactAt = new Map<string, number>();
   private readonly simulationClock = new FixedStepClock();
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
-  private readonly vehicleCollisions = new VehicleCollisionSystem();
-  private readonly vehicleDamage = new VehicleDamageSystem();
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
-  private readonly vehicleCollisionPairsThisTick = new Set<string>();
-  private readonly vehicleFireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
+  private vehicleSimulation!: VehicleSimulationController;
   private readonly debugEnabled = process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production';
   private readonly recentDebugEvents: DebugEventEntry[] = [];
   private random = new DeterministicRandom('industrial-district:v1');
@@ -122,8 +114,6 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
-    this.vehicleCollisionPairsThisTick.clear();
-    this.vehicleFireSources.clear();
     this.recentDebugEvents.length = 0;
     this.lastDebugBroadcastTick = 0;
     const requestedSeed = Number(options?.seed);
@@ -136,16 +126,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.state.missionContactY = this.world.spawn.y;
     this.trafficController = new TrafficController({
       world: this.world,
-      random: this.random,
-      onVehicleMoved: (vehicle, nowMs) => this.handleTrafficImpacts(vehicle, nowMs)
-    });
-    this.missionController = new FreemodeMissionController({
-      state: this.state,
-      world: this.world,
-      events: this.events,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone),
-      releaseDeliveredVehicle: (vehicle, nowMs) => this.returnVehicleToTraffic(vehicle, nowMs)
+      random: this.random
     });
     this.crimeController = new CrimeResponseController({
       state: this.state,
@@ -183,6 +164,61 @@ export class DistrictRoom extends Room<DistrictState> {
         y
       ),
       releaseTrafficControl: (vehicleId) => this.trafficController.release(vehicleId)
+    });
+    const nearbyPlayers = (x: number, y: number, radius: number) => this.spatialIndex.queryCircle(
+      x,
+      y,
+      radius,
+      {kinds: ['player'], includeRecordRadius: true}
+    ).map((record) => this.state.players.get(record.id))
+      .filter((player): player is PlayerState => Boolean(player));
+    const nearbyNpcs = (x: number, y: number, radius: number) => this.spatialIndex.queryCircle(
+      x,
+      y,
+      radius,
+      {kinds: ['npc'], includeRecordRadius: true}
+    ).map((record) => this.state.npcs.get(record.id))
+      .filter((npc): npc is NpcState => Boolean(npc));
+    this.vehicleSimulation = new VehicleSimulationController({
+      state: this.state,
+      world: this.world,
+      events: this.events,
+      access: this.vehicleAccess,
+      traffic: this.trafficController,
+      clock: () => ({tick: this.simulationClock.tick}),
+      inputFor: (playerId) => this.runtimePlayers.get(playerId),
+      nearbyPlayers,
+      nearbyNpcs,
+      nearbyVehicles: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+        kinds: ['vehicle'],
+        includeRecordRadius: true
+      }).map((record) => this.state.vehicles.get(record.id))
+        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
+      damagePlayer: (player, damage, attackerId, nowMs, crimeKind) => this.damagePlayer(
+        player,
+        damage,
+        attackerId,
+        nowMs,
+        crimeKind
+      ),
+      damageNpc: (npc, damage, attackerId, nowMs, crimeKind) => this.damageNpc(
+        npc,
+        damage,
+        attackerId,
+        nowMs,
+        crimeKind
+      )
+    });
+    this.missionController = new FreemodeMissionController({
+      state: this.state,
+      world: this.world,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone),
+      releaseDeliveredVehicle: (vehicle, nowMs) => this.vehicleSimulation.returnToTraffic(
+        vehicle,
+        nowMs
+      )
     });
     this.spawnDistrictPopulation();
     this.rebuildSpatialIndex();
@@ -249,24 +285,6 @@ export class DistrictRoom extends Room<DistrictState> {
     this.runtimePlayers.delete(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
-  }
-
-  private returnVehicleToTraffic(vehicle: VehicleState, nowMs: number): void {
-    for (const occupant of this.vehicleAccess.occupants(vehicle.id)) this.vehicleAccess.removePlayer(occupant);
-    const spawn = this.world.trafficSpawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
-    const restored = this.vehicleDamage.reset(vehicleConfig(vehicle.kind).maxHealth);
-    Object.assign(vehicle, restored);
-    vehicle.x = spawn.x;
-    vehicle.y = spawn.y;
-    vehicle.angle = spawn.angle;
-    vehicle.speed = 90;
-    vehicle.destroyed = false;
-    vehicle.respawnAt = 0;
-    vehicle.driverId = '';
-    vehicle.hijackBy = '';
-    vehicle.traffic = true;
-    this.vehicleFireSources.delete(vehicle.id);
-    this.trafficController.register(vehicle.id, spawn, 118);
   }
 
   private noticePlayer(
@@ -381,9 +399,9 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
-    this.vehicleCollisionPairsThisTick.clear();
+    this.vehicleSimulation.beginTick();
     this.state.vehicles.forEach((vehicle) => {
-      this.updateVehicle(vehicle, deltaSeconds, now);
+      this.vehicleSimulation.update(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
     });
     this.state.players.forEach((player, playerId) => {
@@ -423,343 +441,6 @@ export class DistrictRoom extends Room<DistrictState> {
     if (this.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
     const nextY = player.y + moveY;
     if (this.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
-  }
-
-  private updateVehicle(vehicle: VehicleState, deltaSeconds: number, now: number): void {
-    if (!vehicle.destroyed && this.vehicleDamage.shouldExplode(vehicle, now)) {
-      const source = this.vehicleFireSources.get(vehicle.id) ?? {sourceId: '', sourceKind: 'world' as const};
-      this.destroyVehicle(vehicle, source.sourceId, source.sourceKind, now);
-    }
-    if (vehicle.destroyed) {
-      this.updateDestroyedVehicle(vehicle, now);
-      this.syncVehicleOccupants(vehicle);
-      return;
-    }
-    if (vehicle.traffic && !vehicle.driverId) {
-      this.trafficController.update(vehicle, deltaSeconds, now);
-      this.handleVehicleCollision(vehicle, now);
-      this.syncVehicleOccupants(vehicle);
-      return;
-    }
-
-    const driver = vehicle.driverId ? this.state.players.get(vehicle.driverId) : undefined;
-    const runtime = vehicle.driverId ? this.runtimePlayers.get(vehicle.driverId) : undefined;
-    if (driver?.alive && runtime) {
-      const throttle = -runtime.inputY;
-      if (throttle !== 0) {
-        const acceleration = throttle > 0 ? 390 : 270;
-        vehicle.speed += throttle * acceleration * deltaSeconds;
-      } else {
-        vehicle.speed = approach(vehicle.speed, 0, 150 * deltaSeconds);
-      }
-      const speedMultiplier = this.vehicleDamage.speedMultiplier(
-        vehicle.engineDamage,
-        vehicle.onFire
-      );
-      vehicle.speed = clamp(vehicle.speed, -115 * speedMultiplier, 410 * speedMultiplier);
-
-      if (Math.abs(vehicle.speed) > 4 && runtime.inputX !== 0) {
-        const grip = clamp(Math.abs(vehicle.speed) / 120, 0.22, 1);
-        const direction = vehicle.speed >= 0 ? 1 : -1;
-        vehicle.angle = normalizeAngle(
-          vehicle.angle + runtime.inputX * 2.35 * grip * direction * deltaSeconds
-        );
-      }
-
-      const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
-      const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
-      if (this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS)) {
-        vehicle.x = nextX;
-        vehicle.y = nextY;
-      } else {
-        this.applyVehicleDamage(
-          vehicle,
-          this.vehicleDamage.wallImpactDamage(vehicle.speed),
-          '',
-          'world',
-          now,
-          vehicle.speed >= 0 ? 'front' : 'rear'
-        );
-        vehicle.speed *= -0.2;
-      }
-
-      if (!vehicle.destroyed) this.handleVehicleImpacts(vehicle, driver, now);
-    } else {
-      if (vehicle.driverId) {
-        vehicle.driverId = '';
-        this.vehicleAccess.promotePassenger(vehicle);
-      }
-      vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
-    }
-    this.handleVehicleCollision(vehicle, now);
-    this.syncVehicleOccupants(vehicle);
-  }
-
-  private syncVehicleOccupants(vehicle: VehicleState): void {
-    for (const player of this.state.players.values()) {
-      if (player.vehicleId !== vehicle.id) continue;
-      player.x = vehicle.x;
-      player.y = vehicle.y;
-      if (player.vehicleSeat === 0) player.angle = vehicle.angle;
-    }
-  }
-
-  private handleTrafficImpacts(vehicle: VehicleState, now: number): void {
-    if (vehicle.speed < 70 || now - (this.vehicleImpactAt.get(vehicle.id) ?? 0) < 600) return;
-    const nearbyPlayers = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
-      kinds: ['player'],
-      includeRecordRadius: true
-    });
-    for (const record of nearbyPlayers) {
-      const player = this.state.players.get(record.id);
-      if (!player) continue;
-      if (!player.alive || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.damagePlayer(player, 45, '', now);
-      vehicle.speed *= 0.55;
-      this.vehicleImpactAt.set(vehicle.id, now);
-      return;
-    }
-    const nearbyNpcs = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
-      kinds: ['npc'],
-      includeRecordRadius: true
-    });
-    for (const record of nearbyNpcs) {
-      const npc = this.state.npcs.get(record.id);
-      if (!npc) continue;
-      if (!npc.alive) continue;
-      if (Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
-      this.damageNpc(npc, 100, '', now);
-      vehicle.speed *= 0.62;
-      this.vehicleImpactAt.set(vehicle.id, now);
-      return;
-    }
-  }
-
-  private handleVehicleImpacts(vehicle: VehicleState, driver: PlayerState, now: number): void {
-    if (Math.abs(vehicle.speed) < 90 || now - (this.vehicleImpactAt.get(vehicle.id) ?? 0) < 450) return;
-
-    const nearbyNpcs = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
-      kinds: ['npc'],
-      includeRecordRadius: true
-    });
-    for (const record of nearbyNpcs) {
-      const npc = this.state.npcs.get(record.id);
-      if (!npc) continue;
-      if (!npc.alive || Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
-      this.damageNpc(
-        npc,
-        Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)),
-        driver.id,
-        now,
-        npc.kind === 'police' ? 'hit-and-run-police' : 'hit-and-run'
-      );
-      vehicle.speed *= 0.72;
-      this.vehicleImpactAt.set(vehicle.id, now);
-      return;
-    }
-
-    const nearbyPlayers = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
-      kinds: ['player'],
-      includeRecordRadius: true
-    });
-    for (const record of nearbyPlayers) {
-      const player = this.state.players.get(record.id);
-      if (!player) continue;
-      if (!player.alive || player.id === driver.id || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.damagePlayer(player, 50, driver.id, now, 'hit-and-run');
-      vehicle.speed *= 0.68;
-      this.vehicleImpactAt.set(vehicle.id, now);
-      return;
-    }
-  }
-
-  private handleVehicleCollision(vehicle: VehicleState, now: number): void {
-    const nearbyVehicles = this.spatialIndex.queryCircle(vehicle.x, vehicle.y, VEHICLE_RADIUS, {
-      kinds: ['vehicle'],
-      includeRecordRadius: true
-    });
-    for (const record of nearbyVehicles) {
-      if (record.id === vehicle.id) continue;
-      const other = this.state.vehicles.get(record.id);
-      if (!other) continue;
-      const pairKey = [vehicle.id, other.id].sort().join(':');
-      if (this.vehicleCollisionPairsThisTick.has(pairKey)) continue;
-      const vehicleSettings = vehicleConfig(vehicle.kind);
-      const otherSettings = vehicleConfig(other.kind);
-      const result = this.vehicleCollisions.resolve({
-        id: vehicle.id,
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.speed,
-        radius: VEHICLE_RADIUS,
-        mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
-        damageScale: vehicleSettings.collisionDamageScale
-      }, {
-        id: other.id,
-        x: other.x,
-        y: other.y,
-        angle: other.angle,
-        speed: other.destroyed ? 0 : other.speed,
-        radius: VEHICLE_RADIUS,
-        mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
-        damageScale: otherSettings.collisionDamageScale
-      });
-      if (!result.collided) continue;
-      this.vehicleCollisionPairsThisTick.add(pairKey);
-      if (this.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
-        vehicle.x = result.primaryX;
-        vehicle.y = result.primaryY;
-      }
-      if (this.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
-        other.x = result.otherX;
-        other.y = result.otherY;
-      }
-      if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
-      if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
-      this.applyVehicleDamage(
-        vehicle,
-        result.primaryDamage,
-        other.driverId,
-        'vehicle',
-        now,
-        result.primaryZone
-      );
-      this.applyVehicleDamage(
-        other,
-        result.otherDamage,
-        vehicle.driverId,
-        'vehicle',
-        now,
-        result.otherZone
-      );
-      this.syncVehicleOccupants(other);
-      return;
-    }
-  }
-
-  private applyVehicleDamage(
-    vehicle: VehicleState,
-    damage: number,
-    sourceId: string,
-    sourceKind: VehicleDamageSource,
-    now: number,
-    zone: VehicleDamageZone = 'front'
-  ): void {
-    if (vehicle.destroyed || damage <= 0) return;
-    const result = this.vehicleDamage.apply(vehicle, damage, sourceKind, zone, now);
-    if (result.appliedDamage <= 0) return;
-    vehicle.health = result.health;
-    vehicle.engineDamage = result.engineDamage;
-    vehicle.damageFront = result.damageFront;
-    vehicle.damageRear = result.damageRear;
-    vehicle.damageLeft = result.damageLeft;
-    vehicle.damageRight = result.damageRight;
-    vehicle.onFire = result.onFire;
-    vehicle.fireStartedAt = result.fireStartedAt;
-    this.events.publish({
-      type: 'vehicle.damaged',
-      tick: this.simulationClock.tick,
-      nowMs: now,
-      vehicleId: vehicle.id,
-      sourceId,
-      sourceKind,
-      amount: result.appliedDamage,
-      remainingHealth: result.health
-    });
-    if (result.ignited) {
-      this.vehicleFireSources.set(vehicle.id, {sourceId, sourceKind});
-      this.events.publish({
-        type: 'vehicle.ignited',
-        tick: this.simulationClock.tick,
-        nowMs: now,
-        vehicleId: vehicle.id,
-        sourceId,
-        sourceKind,
-        explodesAt: result.fireStartedAt + 5000
-      });
-    }
-    if (result.destroyed) this.destroyVehicle(vehicle, sourceId, sourceKind, now);
-  }
-
-  private destroyVehicle(
-    vehicle: VehicleState,
-    sourceId: string,
-    sourceKind: VehicleDamageSource,
-    now: number
-  ): void {
-    vehicle.destroyed = true;
-    vehicle.respawnAt = now + VEHICLE_RESPAWN_DELAY_MS;
-    vehicle.speed = 0;
-    vehicle.traffic = false;
-    vehicle.hijackBy = '';
-    vehicle.onFire = false;
-    vehicle.fireStartedAt = 0;
-    this.vehicleFireSources.delete(vehicle.id);
-    const occupants = this.vehicleAccess.occupants(vehicle.id);
-    vehicle.driverId = '';
-    for (let index = 0; index < occupants.length; index++) {
-      const occupant = occupants[index];
-      const position = this.world.openPointNear(
-        vehicle.x,
-        vehicle.y,
-        34,
-        82,
-        PLAYER_RADIUS,
-        now + index * 47 + occupant.id.length
-      );
-      occupant.vehicleId = '';
-      occupant.vehicleSeat = -1;
-      occupant.x = position.x;
-      occupant.y = position.y;
-      this.vehicleAccess.clearAction(occupant);
-      this.damagePlayer(occupant, 35, '', now);
-    }
-    this.events.publish({
-      type: 'vehicle.destroyed',
-      tick: this.simulationClock.tick,
-      nowMs: now,
-      vehicleId: vehicle.id,
-      sourceId,
-      sourceKind
-    });
-  }
-
-  private updateDestroyedVehicle(vehicle: VehicleState, now: number): void {
-    vehicle.speed = 0;
-    if (now < vehicle.respawnAt) return;
-    const position = this.world.openPointNear(
-      vehicle.x,
-      vehicle.y,
-      0,
-      96,
-      VEHICLE_RADIUS,
-      now + vehicle.id.length
-    );
-    vehicle.x = position.x;
-    vehicle.y = position.y;
-    const restored = this.vehicleDamage.reset(vehicleConfig(vehicle.kind).maxHealth);
-    vehicle.health = restored.health;
-    vehicle.maxHealth = restored.maxHealth;
-    vehicle.engineDamage = restored.engineDamage;
-    vehicle.damageFront = restored.damageFront;
-    vehicle.damageRear = restored.damageRear;
-    vehicle.damageLeft = restored.damageLeft;
-    vehicle.damageRight = restored.damageRight;
-    vehicle.onFire = restored.onFire;
-    vehicle.fireStartedAt = restored.fireStartedAt;
-    vehicle.destroyed = false;
-    vehicle.respawnAt = 0;
-    vehicle.traffic = this.trafficController.has(vehicle.id);
-    this.events.publish({
-      type: 'vehicle.restored',
-      tick: this.simulationClock.tick,
-      nowMs: now,
-      vehicleId: vehicle.id,
-      health: vehicle.health
-    });
   }
 
   private updateNpc(npc: NpcState, deltaSeconds: number, now: number): void {
@@ -990,9 +671,9 @@ export class DistrictRoom extends Room<DistrictState> {
         pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) >
         VEHICLE_RADIUS + 4
       ) continue;
-      this.applyVehicleDamage(
+      this.vehicleSimulation.damage(
         target,
-        this.vehicleDamage.weaponDamage(weapon.damage),
+        this.vehicleSimulation.weaponDamage(weapon.damage),
         bullet.ownerId,
         'weapon',
         now,
@@ -1297,17 +978,6 @@ function normalizeAngle(angle: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function approach(value: number, target: number, amount: number): number {
-  if (value < target) return Math.min(target, value + amount);
-  if (value > target) return Math.max(target, value - amount);
-  return value;
-}
-
-function rotateToward(current: number, target: number, amount: number): number {
-  const difference = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-  return normalizeAngle(current + clamp(difference, -amount, amount));
 }
 
 function pointSegmentDistance(

@@ -11,13 +11,11 @@ test('traffic controller follows deterministic road routes and releases hijacked
   const second = createTraffic(world, 'traffic-a', 211);
   const firstController = new TrafficController({
     world,
-    random: new DeterministicRandom('traffic-scenario'),
-    onVehicleMoved: () => undefined
+    random: new DeterministicRandom('traffic-scenario')
   });
   const secondController = new TrafficController({
     world,
-    random: new DeterministicRandom('traffic-scenario'),
-    onVehicleMoved: () => undefined
+    random: new DeterministicRandom('traffic-scenario')
   });
   firstController.register(first.vehicle.id, first.spawn, 118);
   secondController.register(second.vehicle.id, second.spawn, 118);

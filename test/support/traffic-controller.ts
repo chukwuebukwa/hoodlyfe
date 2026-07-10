@@ -4,8 +4,7 @@ import {DeterministicRandom} from '../../server/game/world/deterministic-random.
 export function attachTestTrafficController(room: any): TrafficController {
   const controller = new TrafficController({
     world: room.world,
-    random: room.random ?? new DeterministicRandom('test-traffic'),
-    onVehicleMoved: () => undefined
+    random: room.random ?? new DeterministicRandom('test-traffic')
   });
   room.trafficController = controller;
   return controller;
