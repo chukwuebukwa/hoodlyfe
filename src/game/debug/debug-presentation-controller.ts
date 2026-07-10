@@ -183,8 +183,11 @@ export class DebugPresentationController {
       const memory = diagnostic?.threatId
         ? ` threat:${shortId(diagnostic.threatId)}`
         : (diagnostic?.stimulusKind ? ` mem:${diagnostic.stimulusKind}` : '');
+      const phase = diagnostic?.reactionPhase && diagnostic.reactionPhase !== 'none'
+        ? ` phase:${diagnostic.reactionPhase}`
+        : '';
       const ai = diagnostic
-        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}`
+        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}${phase}`
         : '';
       this.drawEntity(
         npc.x,

@@ -1,17 +1,11 @@
 import type {NpcState} from '../../state.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {PedestrianObservation} from './pedestrian-perception-system.ts';
-import type {PedestrianObjective, PedestrianRuntime} from './pedestrian-runtime.ts';
+import type {PedestrianRuntime} from './pedestrian-runtime.ts';
+import type {PedestrianIntent} from './pedestrian-intent.ts';
+import {PedestrianReactionSystem} from './pedestrian-reaction-system.ts';
 
 const POLICE_FIRE_COOLDOWN_MS = 680;
-
-export interface PedestrianIntent {
-  objective: PedestrianObjective;
-  angle: number;
-  speed: number;
-  fire: boolean;
-  aimAngle: number;
-}
 
 interface PedestrianBehaviorOptions {
   random: DeterministicRandom;
@@ -19,6 +13,8 @@ interface PedestrianBehaviorOptions {
 }
 
 export class PedestrianBehaviorSystem {
+  private readonly reactions = new PedestrianReactionSystem();
+
   constructor(private readonly options: PedestrianBehaviorOptions) {}
 
   decide(
@@ -30,6 +26,9 @@ export class PedestrianBehaviorSystem {
     let intent: PedestrianIntent;
     if (observation.kind === 'police') {
       intent = this.policeIntent(npc, runtime, observation, nowMs);
+    } else if (npc.kind !== 'police') {
+      intent = this.reactions.decide(npc, runtime, observation, nowMs) ??
+        this.wanderIntent(npc, runtime, nowMs);
     } else if (observation.kind === 'threat') {
       intent = this.threatIntent(npc, runtime, observation);
     } else if (observation.kind === 'stimulus') {

@@ -10,6 +10,7 @@ import {
   weaponPresentation
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
+import {pedestrianMotionPresentation} from '../src/game/rendering/pedestrian-render-policy.ts';
 import type {NetworkBullet, NetworkVehicle} from '../src/game/types.ts';
 
 test('render interpolation blends ordinary correction and snaps large divergence', () => {
@@ -86,6 +87,16 @@ test('vehicle presentation stages model, component damage, fire, and destruction
     alpha: 0.68,
     tint: 0x4f4f4f
   });
+});
+
+test('pedestrian presentation differentiates startle, flee, investigation, and recovery', () => {
+  assert.deepEqual(pedestrianMotionPresentation('startle', 0), {
+    animate: false, timeScale: 1, tint: 0xffd6a0, alpha: 1
+  });
+  assert.equal(pedestrianMotionPresentation('flee', 2).timeScale, 1.55);
+  assert.equal(pedestrianMotionPresentation('investigate', 2).timeScale, 0.82);
+  assert.equal(pedestrianMotionPresentation('recover', 0).animate, false);
+  assert.equal(pedestrianMotionPresentation('dead', 0).alpha, 0);
 });
 
 function createBullet(weapon: NetworkBullet['weapon']): NetworkBullet {

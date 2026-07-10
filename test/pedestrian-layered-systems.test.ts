@@ -26,6 +26,9 @@ test('perception retains last-known threat position only for the panic window', 
 
   assert.deepEqual(perception.observe(npc, runtime, 1000), {
     kind: 'threat',
+    sourceId: 'threat',
+    x: -20,
+    y: 0,
     angleAway: 0,
     angleToward: Math.PI,
     distance: 20
@@ -33,6 +36,9 @@ test('perception retains last-known threat position only for the panic window', 
   state.players.delete(threat.id);
   assert.deepEqual(perception.observe(npc, runtime, 4000), {
     kind: 'threat',
+    sourceId: 'threat',
+    x: -20,
+    y: 0,
     angleAway: 0,
     angleToward: Math.PI,
     distance: 20

@@ -36,7 +36,7 @@ test('pedestrian population spawn and wander state are deterministic', () => {
   }
 });
 
-test('panicked civilian faces away from the current player threat', () => {
+test('panicked civilian startles toward a threat before fleeing away', () => {
   const world = CollisionMap.load();
   const {controller, state} = createController(world, 'panic-scenario');
   const civilian = controller.spawn('civilian', 'civilian', 5, 130, 760);
@@ -49,11 +49,17 @@ test('panicked civilian faces away from the current player threat', () => {
   controller.panic(civilian.id, threat.id, 5000);
   controller.update(civilian, 1 / 30, 1000);
 
+  assert.ok(Math.abs(civilian.angle - Math.PI) < 0.0001);
+  assert.equal(civilian.action, 'startle');
+  const startledX = civilian.x;
+  controller.update(civilian, 1 / 30, 1500);
   assert.ok(Math.abs(civilian.angle) < 0.0001);
-  assert.ok(civilian.x >= threat.x + 30);
+  assert.equal(civilian.action, 'flee');
+  assert.ok(civilian.x > startledX);
   const diagnostic = controller.diagnostics().find((entry) => entry.id === civilian.id);
   assert.ok(diagnostic);
   assert.equal(diagnostic.objective, 'flee');
+  assert.equal(diagnostic.reactionPhase, 'respond');
   assert.equal(diagnostic.threatId, threat.id);
   assert.ok(diagnostic.bravery >= 0.22 && diagnostic.bravery <= 0.72);
   assert.equal(diagnostic.stimulusKind, '');

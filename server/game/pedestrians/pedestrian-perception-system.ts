@@ -17,12 +17,25 @@ export interface PedestrianPoliceTarget {
 
 export type PedestrianObservation =
   | {kind: 'ambient'}
-  | {kind: 'threat'; angleAway: number; angleToward: number; distance: number}
+  | {
+    kind: 'threat';
+    sourceId: string;
+    x: number;
+    y: number;
+    angleAway: number;
+    angleToward: number;
+    distance: number;
+  }
   | {
     kind: 'stimulus';
+    stimulusId: string;
     stimulusKind: PedestrianStimulus['kind'];
     sourceId: string;
+    x: number;
+    y: number;
     severity: number;
+    radius: number;
+    expiresAt: number;
     distance: number;
     angleAway: number;
     angleToward: number;
@@ -62,9 +75,14 @@ export class PedestrianPerceptionSystem {
     const angleToward = Math.atan2(runtime.stimulusY - npc.y, runtime.stimulusX - npc.x);
     return {
       kind: 'stimulus',
+      stimulusId: runtime.stimulusId,
       stimulusKind: runtime.stimulusKind,
       sourceId: runtime.stimulusSourceId,
+      x: runtime.stimulusX,
+      y: runtime.stimulusY,
       severity: runtime.stimulusSeverity,
+      radius: runtime.stimulusRadius,
+      expiresAt: runtime.stimulusUntil,
       distance: Math.hypot(runtime.stimulusX - npc.x, runtime.stimulusY - npc.y),
       angleAway: Math.atan2(npc.y - runtime.stimulusY, npc.x - runtime.stimulusX),
       angleToward
@@ -103,6 +121,9 @@ export class PedestrianPerceptionSystem {
     );
     return {
       kind: 'threat',
+      sourceId: runtime.threatId,
+      x: runtime.lastKnownThreatX,
+      y: runtime.lastKnownThreatY,
       angleAway: Math.atan2(
         npc.y - runtime.lastKnownThreatY,
         npc.x - runtime.lastKnownThreatX
@@ -122,6 +143,7 @@ export class PedestrianPerceptionSystem {
     runtime.stimulusX = stimulus.x;
     runtime.stimulusY = stimulus.y;
     runtime.stimulusSeverity = stimulus.severity;
+    runtime.stimulusRadius = stimulus.radius;
     runtime.stimulusUntil = stimulus.expiresAt;
   }
 }

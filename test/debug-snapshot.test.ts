@@ -126,7 +126,8 @@ function createFixture(enabled: boolean) {
     panicUntil: 0,
     stimulusKind: 'gunshot',
     stimulusSourceId: 'driver',
-    stimulusUntil: 1400
+    stimulusUntil: 1400,
+    reactionPhase: 'respond'
   };
   const stimulus = {
     id: 'stimulus-1',

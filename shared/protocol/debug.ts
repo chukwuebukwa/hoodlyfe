@@ -35,6 +35,7 @@ export interface DebugPedestrianAiEntry {
   stimulusKind: string;
   stimulusSourceId: string;
   stimulusUntil: number;
+  reactionPhase: string;
 }
 
 export interface DebugStimulusEntry {

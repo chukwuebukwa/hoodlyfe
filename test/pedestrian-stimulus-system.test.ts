@@ -84,20 +84,22 @@ test('staggered perception drives bravery-scaled civilian and police responses',
   assert.equal(perception.observe(civilian, runtime, 99).kind, 'ambient');
   const impact = perception.observe(civilian, runtime, 100);
   assert.equal(impact.kind, 'stimulus');
-  assert.equal(behavior.decide(civilian, runtime, impact, 100).objective, 'investigate');
+  assert.equal(behavior.decide(civilian, runtime, impact, 100).objective, 'startle');
+  assert.equal(behavior.decide(civilian, runtime, impact, 600).objective, 'investigate');
 
   registry.register(input('gunshot', 'shooter', 20, 0, 0.9, 500, 300, 1200));
-  const gunshot = perception.observe(civilian, runtime, 340);
+  const gunshot = perception.observe(civilian, runtime, 840);
   assert.equal(gunshot.kind, 'stimulus');
-  const civilianIntent = behavior.decide(civilian, runtime, gunshot, 340);
+  assert.equal(behavior.decide(civilian, runtime, gunshot, 840).objective, 'startle');
+  const civilianIntent = behavior.decide(civilian, runtime, gunshot, 1300);
   assert.equal(civilianIntent.objective, 'flee');
   assert.equal(civilianIntent.angle, Math.PI);
 
   const officer = npc('police');
   const policeRuntime = createPedestrianRuntime(0, 0.2);
-  const policeObservation = perception.observe(officer, policeRuntime, 340);
+  const policeObservation = perception.observe(officer, policeRuntime, 840);
   assert.equal(policeObservation.kind, 'stimulus');
-  assert.equal(behavior.decide(officer, policeRuntime, policeObservation, 340).objective, 'investigate');
+  assert.equal(behavior.decide(officer, policeRuntime, policeObservation, 840).objective, 'investigate');
   assert.equal(perception.observe(civilian, runtime, 1500).kind, 'ambient');
 });
 

@@ -55,7 +55,7 @@ Weapon damage does not also become an impact, preventing one shot from producing
 - Add line-of-sight attenuation, wall/indoor layers, vehicle cabin attenuation, and distinct visual versus audible facts.
 - Add archetype awareness, bravery, aggression, faction, and weapon-skill profiles rather than one randomized bravery value.
 - Protect perception work with per-tick budgets as ambient population scales beyond the current district.
-- Later behavior phases should add look-at/turn, call police, take cover, assist, retaliate, arrest, and containment states instead of treating all reactions as movement.
+- The initial look/respond/recover behavior phase is documented in `docs/PEDESTRIAN_REACTION_RESEARCH.md`. Later phases still need call police, take cover, assist, retaliate, arrest, and containment states.
 
 ## Debug Inspection
 

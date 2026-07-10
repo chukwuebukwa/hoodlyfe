@@ -74,6 +74,7 @@ export class NpcState extends Schema {
   angle = 0;
   health = 50;
   alive = true;
+  action = 'wander';
 }
 
 defineTypes(NpcState, {
@@ -83,7 +84,8 @@ defineTypes(NpcState, {
   y: 'number',
   angle: 'number',
   health: 'number',
-  alive: 'boolean'
+  alive: 'boolean',
+  action: 'string'
 });
 
 export class VehicleState extends Schema {

@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import type {NetworkNpc} from '../types.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
+import {pedestrianMotionPresentation} from './pedestrian-render-policy.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
   targetX: number;
   targetY: number;
   targetAngle: number;
+  targetAction: string;
 }
 
 export class PedestrianRenderer {
@@ -45,10 +47,11 @@ export class PedestrianRenderer {
         rendered.targetAngle - Math.PI / 2,
         0.14
       );
-      this.updateWalkAnimation(
+      this.updatePresentation(
         rendered.sprite,
         `${rendered.sprite.texture.key}-walk`,
-        position.distance
+        position.distance,
+        rendered.targetAction
       );
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 95);
     }
@@ -67,22 +70,35 @@ export class PedestrianRenderer {
         .setDisplaySize(72, 72)
         .setOrigin(0.5)
         .setDepth(Math.round(npc.y) + 95);
-      rendered = {sprite, targetX: npc.x, targetY: npc.y, targetAngle: npc.angle};
+      rendered = {
+        sprite,
+        targetX: npc.x,
+        targetY: npc.y,
+        targetAngle: npc.angle,
+        targetAction: npc.action ?? 'wander'
+      };
       this.rendered.set(npcId, rendered);
     }
     rendered.targetX = npc.x;
     rendered.targetY = npc.y;
     rendered.targetAngle = npc.angle;
+    rendered.targetAction = npc.action ?? 'wander';
     rendered.sprite.setVisible(npc.alive);
   }
 
-  private updateWalkAnimation(
+  private updatePresentation(
     sprite: Phaser.GameObjects.Sprite,
     key: string,
-    distance: number
+    distance: number,
+    action: string
   ): void {
     if (!sprite.visible) return;
-    if (distance > 0.75) sprite.play(key, true);
+    const presentation = pedestrianMotionPresentation(action, distance);
+    sprite.setAlpha(presentation.alpha);
+    if (presentation.tint === undefined) sprite.clearTint();
+    else sprite.setTint(presentation.tint);
+    sprite.anims.timeScale = presentation.timeScale;
+    if (presentation.animate) sprite.play(key, true);
     else if (sprite.anims.isPlaying) sprite.stop().setFrame(0);
   }
 }

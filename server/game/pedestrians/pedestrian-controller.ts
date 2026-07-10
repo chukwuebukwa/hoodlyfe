@@ -10,6 +10,8 @@ import {
   type PedestrianPoliceTarget
 } from './pedestrian-perception-system.ts';
 import {
+  clearPedestrianReaction,
+  clearPedestrianStimulus,
   clearPedestrianThreat,
   createPedestrianRuntime,
   type PedestrianRuntime
@@ -31,6 +33,7 @@ export interface PedestrianDiagnostic {
   stimulusKind: string;
   stimulusSourceId: string;
   stimulusUntil: number;
+  reactionPhase: string;
 }
 
 export const PEDESTRIAN_RADIUS = 10;
@@ -105,6 +108,7 @@ export class PedestrianController {
     npc.y = position.y;
     npc.angle = random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
     npc.health = healthFor(kind);
+    npc.action = 'wander';
     state.npcs.set(id, npc);
     this.runtime.set(id, createPedestrianRuntime(
       npc.angle,
@@ -119,12 +123,14 @@ export class PedestrianController {
     const runtime = this.runtime.get(npc.id);
     if (!runtime) return;
     if (!npc.alive) {
+      npc.action = 'dead';
       this.tryRespawn(npc, runtime, nowMs);
       return;
     }
 
     const observation = this.perception.observe(npc, runtime, nowMs);
     const intent = this.behavior.decide(npc, runtime, observation, nowMs);
+    npc.action = intent.objective;
     npc.angle = intent.angle;
     if (!this.locomotion.move(npc, intent.angle, intent.speed, deltaSeconds)) {
       this.navigation.recoverFromBlock(runtime, npc.id, intent.angle, nowMs);
@@ -151,7 +157,8 @@ export class PedestrianController {
       panicUntil: runtime.panicUntil,
       stimulusKind: runtime.stimulusKind,
       stimulusSourceId: runtime.stimulusSourceId,
-      stimulusUntil: runtime.stimulusUntil
+      stimulusUntil: runtime.stimulusUntil,
+      reactionPhase: runtime.reaction.phase
     })).sort((left, right) => left.id.localeCompare(right.id));
   }
 
@@ -192,6 +199,7 @@ export class PedestrianController {
     npc.y = position.y;
     npc.angle = Math.atan2(position.y - vehicle.y, position.x - vehicle.x);
     npc.health = healthFor(npc.kind);
+    npc.action = 'startle';
     this.options.state.npcs.set(id, npc);
     this.runtime.set(id, {
       ...createPedestrianRuntime(
@@ -221,7 +229,10 @@ export class PedestrianController {
     npc.y = position.y;
     npc.health = healthFor(npc.kind);
     npc.alive = true;
+    npc.action = 'wander';
     clearPedestrianThreat(runtime);
+    clearPedestrianStimulus(runtime);
+    clearPedestrianReaction(runtime);
     runtime.objective = 'wander';
     runtime.avoidUntil = 0;
     runtime.respawnAt = 0;

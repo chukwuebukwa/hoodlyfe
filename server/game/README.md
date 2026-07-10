@@ -58,9 +58,11 @@ game/
   pedestrians/
     pedestrian-behavior-system.ts
     pedestrian-controller.ts
+    pedestrian-intent.ts
     pedestrian-locomotion-system.ts
     pedestrian-navigation-system.ts
     pedestrian-perception-system.ts
+    pedestrian-reaction-system.ts
     pedestrian-runtime.ts
     pedestrian-stimulus-adapter.ts
     pedestrian-stimulus-registry.ts
@@ -121,7 +123,8 @@ Extracted domain policies and room adapters now include:
 - `pedestrian-controller.ts` for pedestrian spawn/ejected-driver/death/respawn lifecycle and room-facing composition.
 - `pedestrian-runtime.ts` for private objectives, threat memory, think/fire/navigation deadlines, and respawn state.
 - `pedestrian-perception-system.ts` for police pursuit observations and expiring civilian last-known-threat memory.
-- `pedestrian-behavior-system.ts` for explicit wander/flee/pursue/search intent, independent authoritative aim, and fire cadence.
+- `pedestrian-behavior-system.ts` for explicit ambient/police intent, independent authoritative aim, and fire cadence.
+- `pedestrian-reaction-system.ts` for civilian orient/respond/recover transitions and `pedestrian-intent.ts` for the shared output contract consumed by locomotion/presentation projection.
 - `pedestrian-navigation-system.ts` for deterministic blocked-path recovery, plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
 - `pedestrian-stimulus-registry.ts` for bounded, expiring, deduplicated sensory facts and `pedestrian-stimulus-adapter.ts` for translating stable cross-domain game events without importing producer systems.
 

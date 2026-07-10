@@ -39,6 +39,7 @@ export interface NetworkNpc {
   angle: number;
   health: number;
   alive: boolean;
+  action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'pursue' | 'search' | 'dead';
 }
 
 export interface NetworkVehicle {

@@ -1,6 +1,31 @@
 import type {PedestrianStimulusKind} from './pedestrian-stimulus-registry.ts';
 
-export type PedestrianObjective = 'wander' | 'flee' | 'investigate' | 'pursue' | 'search';
+export type PedestrianObjective =
+  | 'wander'
+  | 'startle'
+  | 'flee'
+  | 'investigate'
+  | 'recover'
+  | 'pursue'
+  | 'search';
+
+export type PedestrianReactionPhase = 'none' | 'orient' | 'respond' | 'recover';
+export type PedestrianReactionResponse = 'flee' | 'investigate';
+
+export interface PedestrianReactionRuntime {
+  phase: PedestrianReactionPhase;
+  cueId: string;
+  cueKind: string;
+  response: PedestrianReactionResponse;
+  x: number;
+  y: number;
+  severity: number;
+  radius: number;
+  startedAt: number;
+  phaseUntil: number;
+  responseUntil: number;
+  safeDistance: number;
+}
 
 export interface PedestrianRuntime {
   objective: PedestrianObjective;
@@ -19,7 +44,9 @@ export interface PedestrianRuntime {
   stimulusX: number;
   stimulusY: number;
   stimulusSeverity: number;
+  stimulusRadius: number;
   stimulusUntil: number;
+  reaction: PedestrianReactionRuntime;
   avoidAngle: number;
   avoidUntil: number;
   respawnAt: number;
@@ -47,11 +74,34 @@ export function createPedestrianRuntime(
     stimulusX: Number.NaN,
     stimulusY: Number.NaN,
     stimulusSeverity: 0,
+    stimulusRadius: 0,
     stimulusUntil: 0,
+    reaction: createPedestrianReactionRuntime(),
     avoidAngle: 0,
     avoidUntil: 0,
     respawnAt: 0
   };
+}
+
+export function createPedestrianReactionRuntime(): PedestrianReactionRuntime {
+  return {
+    phase: 'none',
+    cueId: '',
+    cueKind: '',
+    response: 'flee',
+    x: Number.NaN,
+    y: Number.NaN,
+    severity: 0,
+    radius: 0,
+    startedAt: 0,
+    phaseUntil: 0,
+    responseUntil: 0,
+    safeDistance: 0
+  };
+}
+
+export function clearPedestrianReaction(runtime: PedestrianRuntime): void {
+  runtime.reaction = createPedestrianReactionRuntime();
 }
 
 export function clearPedestrianThreat(runtime: PedestrianRuntime): void {
@@ -68,5 +118,6 @@ export function clearPedestrianStimulus(runtime: PedestrianRuntime): void {
   runtime.stimulusX = Number.NaN;
   runtime.stimulusY = Number.NaN;
   runtime.stimulusSeverity = 0;
+  runtime.stimulusRadius = 0;
   runtime.stimulusUntil = 0;
 }
