@@ -67,6 +67,22 @@ export interface DebugTrafficAiEntry {
   recoveryCount: number;
 }
 
+export interface DebugPoliceVehicleEntry {
+  vehicleId: string;
+  suspectId: string;
+  strategy: 'idle' | 'hijack' | 'search' | 'pursuit' | 'intercept' | 'ram' | 'route-failed';
+  canSeeTarget: boolean;
+  lastKnownX: number;
+  lastKnownY: number;
+  desiredSpeed: number;
+  speedReason: string;
+  obstacleId: string;
+  routeComplete: boolean;
+  routeVisited: number;
+  waypointIndex: number;
+  waypoints: Array<{x: number; y: number}>;
+}
+
 export interface DebugSnapshot {
   tick: number;
   nowMs: number;
@@ -83,5 +99,6 @@ export interface DebugSnapshot {
   pedestrianAi?: DebugPedestrianAiEntry[];
   stimuli?: DebugStimulusEntry[];
   trafficAi?: DebugTrafficAiEntry[];
+  policeVehicles?: DebugPoliceVehicleEntry[];
   events: DebugEventEntry[];
 }

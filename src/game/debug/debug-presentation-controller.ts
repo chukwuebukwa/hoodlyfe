@@ -52,6 +52,7 @@ export class DebugPresentationController {
       eventsThisTick: this.root.querySelector('#debug-event-count'),
       incidents: this.root.querySelector('#debug-incidents'),
       pursuits: this.root.querySelector('#debug-pursuits'),
+      cruisers: this.root.querySelector('#debug-cruisers'),
       stimuli: this.root.querySelector('#debug-stimuli')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
@@ -116,6 +117,7 @@ export class DebugPresentationController {
     this.drawPlayers(presentLabels);
     this.drawNpcs(presentLabels);
     this.drawVehicles(presentLabels);
+    this.drawPoliceVehicleRoutes();
     this.drawBullets();
     this.drawStimuli(presentLabels);
     this.drawIncidents(presentLabels);
@@ -260,6 +262,9 @@ export class DebugPresentationController {
     const diagnostics = new Map(
       (this.snapshot?.trafficAi ?? []).map((entry) => [entry.vehicleId, entry])
     );
+    const policeDiagnostics = new Map(
+      (this.snapshot?.policeVehicles ?? []).map((entry) => [entry.vehicleId, entry])
+    );
     this.state?.vehicles?.forEach((vehicle, vehicleId) => {
       const mode = vehicle.traffic
         ? 'traffic'
@@ -268,12 +273,18 @@ export class DebugPresentationController {
         `${vehicle.damageLeft}/${vehicle.damageRight}`;
       const status = `${vehicle.onFire ? ' FIRE' : ''}${vehicle.destroyed ? ' WRECK' : ''}`;
       const diagnostic = diagnostics.get(vehicleId);
+      const police = policeDiagnostics.get(vehicleId);
       const traffic = diagnostic
         ? ` ai:${diagnostic.speedReason} target:${Math.round(diagnostic.desiredSpeed)}` +
           (diagnostic.obstacleId
             ? ` gap:${Math.round(diagnostic.obstacleDistance)} ${shortId(diagnostic.obstacleId)}`
             : '') +
           (diagnostic.recoveryCount > 0 ? ` recover:${diagnostic.recoveryCount}` : '')
+        : '';
+      const pursuit = police
+        ? ` ai:${police.strategy} target:${shortId(police.suspectId) || '-'} ` +
+          `v:${Math.round(police.desiredSpeed)}${police.canSeeTarget ? ' LOS' : ''}` +
+          (police.obstacleId ? ` blocked:${shortId(police.obstacleId)}` : '')
         : '';
       this.drawEntity(
         vehicle.x,
@@ -283,11 +294,37 @@ export class DebugPresentationController {
         0x9d8bff,
         `vehicle:${vehicleId}`,
         `${vehicleId} ${mode} hp:${vehicle.health}/${vehicle.maxHealth} ` +
-          `eng:${vehicle.engineDamage} d:${damage} v:${Math.round(vehicle.speed)}${status}${traffic}`,
+          `eng:${vehicle.engineDamage} d:${damage} v:${Math.round(vehicle.speed)}${status}` +
+          `${traffic}${pursuit}`,
         present,
         vehicle.health > 0
       );
     });
+  }
+
+  private drawPoliceVehicleRoutes(): void {
+    for (const diagnostic of this.snapshot?.policeVehicles ?? []) {
+      const vehicle = this.state?.vehicles?.get(diagnostic.vehicleId);
+      if (!vehicle || diagnostic.strategy === 'idle' || diagnostic.strategy === 'hijack') continue;
+      const color = diagnostic.strategy === 'ram' ? 0xff5e68 : 0x5bbcff;
+      this.graphics.lineStyle(2, color, 0.72);
+      let previousX = vehicle.x;
+      let previousY = vehicle.y;
+      for (const waypoint of diagnostic.waypoints) {
+        this.graphics.lineBetween(previousX, previousY, waypoint.x, waypoint.y);
+        this.graphics.strokeCircle(waypoint.x, waypoint.y, 3.5);
+        previousX = waypoint.x;
+        previousY = waypoint.y;
+      }
+      if (diagnostic.lastKnownX !== 0 || diagnostic.lastKnownY !== 0) {
+        this.graphics.lineStyle(2, color, diagnostic.canSeeTarget ? 0.95 : 0.58);
+        this.graphics.strokeCircle(
+          diagnostic.lastKnownX,
+          diagnostic.lastKnownY,
+          diagnostic.canSeeTarget ? 11 : 28
+        );
+      }
+    }
   }
 
   private drawBullets(): void {

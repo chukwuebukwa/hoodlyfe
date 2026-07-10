@@ -57,6 +57,9 @@ test('district bootstrap creates deterministic valid population exactly once', (
     assert.equal(vehicle.health, vehicle.maxHealth);
     if (vehicle.traffic) assert.equal(first.world.isRoadAt(vehicle.x, vehicle.y), true);
   }
+  const responseCruiser = first.state.vehicles.get('vehicle-2');
+  assert.equal(responseCruiser?.kind, 'police');
+  assert.equal(first.world.isRoadAt(responseCruiser!.x, responseCruiser!.y), true);
 
   const beforeSecondCall = {
     npcs: first.state.npcs.size,

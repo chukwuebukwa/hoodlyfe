@@ -13,6 +13,7 @@ export interface DebugPanelProjection {
   eventsThisTick: number;
   incidents: number;
   pursuits: number;
+  cruisers: string;
   stimuli: number;
   events: string[];
 }
@@ -34,9 +35,19 @@ export function projectDebugPanel(
     eventsThisTick: snapshot?.eventsThisTick ?? 0,
     incidents: snapshot?.incidents.length ?? 0,
     pursuits: snapshot?.pursuits.length ?? 0,
+    cruisers: policeVehicleSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function policeVehicleSummary(snapshot?: DebugSnapshot): string {
+  const units = snapshot?.policeVehicles ?? [];
+  if (units.length === 0) return '0';
+  const active = units.filter((unit) => unit.strategy !== 'idle' && unit.strategy !== 'hijack');
+  return active.length === 0
+    ? `0/${units.length} idle`
+    : `${active.length}/${units.length} ${active[0].strategy}`;
 }

@@ -62,6 +62,10 @@ export class DistrictPopulationController {
         const starter = this.starterVehiclePosition();
         position = starter.position;
         angle = starter.angle;
+      } else if (kinds[index] === 'police') {
+        const spawn = this.options.world.trafficSpawn(157, VEHICLE_RADIUS);
+        position = {x: spawn.x, y: spawn.y};
+        angle = spawn.angle;
       } else {
         position = this.options.world.openPointNear(
           this.options.world.spawn.x,

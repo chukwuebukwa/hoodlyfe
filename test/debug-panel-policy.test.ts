@@ -28,6 +28,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     eventsThisTick: 2,
     incidents: 1,
     pursuits: 1,
+    cruisers: '1/1 pursuit',
     stimuli: 0,
     events: ['T41 driver committed vehicle-theft']
   });
@@ -73,6 +74,21 @@ function createSnapshot(): DebugSnapshot {
       lastKnownX: 10,
       lastKnownY: 20,
       mode: 'pursuit'
+    }],
+    policeVehicles: [{
+      vehicleId: 'vehicle-2',
+      suspectId: 'driver',
+      strategy: 'pursuit',
+      canSeeTarget: true,
+      lastKnownX: 10,
+      lastKnownY: 20,
+      desiredSpeed: 175,
+      speedReason: 'cruise',
+      obstacleId: '',
+      routeComplete: true,
+      routeVisited: 8,
+      waypointIndex: 1,
+      waypoints: [{x: 20, y: 20}]
     }],
     events: [{tick: 41, type: 'crime.committed', summary: 'driver committed vehicle-theft'}]
   };

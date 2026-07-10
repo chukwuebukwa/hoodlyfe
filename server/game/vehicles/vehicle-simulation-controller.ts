@@ -4,6 +4,7 @@ import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../sta
 import type {CollisionMap} from '../../world-map.ts';
 import type {TrafficController} from '../traffic/traffic-controller.ts';
 import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
+import type {PoliceVehicleController} from '../police/police-vehicle-controller.ts';
 import {classifyImpactZone, VehicleCollisionSystem, type VehicleDamageZone} from './vehicle-collision-system.ts';
 import {vehicleConfig} from './vehicle-config.ts';
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
@@ -29,6 +30,7 @@ interface VehicleSimulationControllerOptions {
   events: GameEventStream;
   access: VehicleAccessController;
   traffic: TrafficController;
+  policeVehicles?: Pick<PoliceVehicleController, 'has' | 'update'>;
   clock: () => SimulationClock;
   inputFor: (playerId: string) => DriverInput | undefined;
   nearbyPlayers: (x: number, y: number, radius: number) => PlayerState[];
@@ -74,6 +76,22 @@ export class VehicleSimulationController {
       this.syncOccupants(vehicle);
       return;
     }
+    if (
+      !vehicle.driverId &&
+      this.options.policeVehicles?.has(vehicle.id)
+    ) {
+      if (this.options.policeVehicles.update(
+        vehicle,
+        deltaSeconds,
+        nowMs,
+        this.trafficObstacles(vehicle, configuration.traffic.lookAhead)
+      )) {
+        this.handleTrafficImpacts(vehicle, nowMs);
+      }
+      this.handleCollision(vehicle, nowMs);
+      this.syncOccupants(vehicle);
+      return;
+    }
     if (vehicle.traffic && !vehicle.driverId) {
       if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
         obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead)
@@ -88,6 +106,7 @@ export class VehicleSimulationController {
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
+      vehicle.siren = false;
       const throttle = -input.inputY;
       if (throttle !== 0) {
         const changingDirection = vehicle.speed !== 0 && Math.sign(vehicle.speed) !== Math.sign(throttle);
@@ -174,6 +193,7 @@ export class VehicleSimulationController {
     vehicle.driverId = '';
     vehicle.hijackBy = '';
     vehicle.traffic = true;
+    vehicle.siren = false;
     this.fireSources.delete(vehicle.id);
     this.options.traffic.register(vehicle.id, spawn, configuration.traffic.cruiseSpeed);
   }
@@ -368,6 +388,7 @@ export class VehicleSimulationController {
     vehicle.traffic = false;
     vehicle.hijackBy = '';
     vehicle.onFire = false;
+    vehicle.siren = false;
     vehicle.fireStartedAt = 0;
     this.fireSources.delete(vehicle.id);
     const occupants = this.options.access.occupants(vehicle.id);

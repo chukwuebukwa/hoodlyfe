@@ -2,6 +2,7 @@ import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
+  type DebugPoliceVehicleEntry,
   type DebugSnapshot,
   type DebugStimulusEntry,
   type DebugTrafficAiEntry
@@ -28,6 +29,7 @@ interface DebugSnapshotControllerOptions {
   pedestrians?: () => ReadonlyArray<DebugPedestrianAiEntry>;
   stimuli?: () => ReadonlyArray<DebugStimulusEntry>;
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
+  policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -101,6 +103,10 @@ export class DebugSnapshotController {
       })),
       stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({...stimulus})),
       trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({...traffic})),
+      policeVehicles: (this.options.policeVehicles?.() ?? []).map((unit) => ({
+        ...unit,
+        waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))
+      })),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }

@@ -174,6 +174,30 @@ export class CollisionMap {
     return candidates.filter((candidate) => this.isRoadCell(candidate.column, candidate.row));
   }
 
+  roadPoint(node: RoadNode): {x: number; y: number} {
+    return {
+      x: (node.column + 0.5) * this.tileWidth,
+      y: (node.row + 0.5) * this.tileHeight
+    };
+  }
+
+  nearestRoadNode(x: number, y: number, radius: number): RoadNode | undefined {
+    let nearest: RoadNode | undefined;
+    let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+    for (const node of this.roadCells) {
+      const point = this.roadPoint(node);
+      const deltaX = point.x - x;
+      const deltaY = point.y - y;
+      const distanceSquared = deltaX * deltaX + deltaY * deltaY;
+      if (distanceSquared >= nearestDistanceSquared || !this.canOccupy(point.x, point.y, radius)) {
+        continue;
+      }
+      nearest = node;
+      nearestDistanceSquared = distanceSquared;
+    }
+    return nearest ? {...nearest} : undefined;
+  }
+
   trafficSpawn(index: number, radius: number): TrafficSpawn {
     const normalizedIndex = Number.isFinite(index) ? Math.trunc(index) : 0;
     if (this.roadCells.length === 0) {

@@ -2,7 +2,7 @@ import type {GameEventStream} from '../events/game-events.ts';
 import type {CrimeKind} from '../incidents/crime-policy.ts';
 import {IncidentRegistry, type Incident} from '../incidents/incident-registry.ts';
 import {WitnessSystem} from '../incidents/witness-system.ts';
-import type {DistrictState, NpcState, PlayerState} from '../../state.ts';
+import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {WantedSystem} from '../wanted/wanted-system.ts';
 import {DispatchSystem} from './dispatch-system.ts';
@@ -19,6 +19,7 @@ interface CrimeResponseControllerOptions {
   events: GameEventStream;
   clock: () => CrimeClock;
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
+  queryVehicles?: (x: number, y: number, radius: number) => VehicleState[];
   panicWitness: (witnessId: string, suspectId: string, untilMs: number) => void;
 }
 
@@ -29,13 +30,29 @@ export interface PoliceTarget {
   targetDistance: number;
 }
 
+export interface PoliceVehicleTargetSnapshot {
+  suspectId: string;
+  wantedLevel: number;
+  reportedX: number;
+  reportedY: number;
+  reportedAt: number;
+  currentX: number;
+  currentY: number;
+  currentAngle: number;
+  currentSpeed: number;
+  targetVehicleId: string;
+}
+
 export class CrimeResponseController {
   private readonly incidents = new IncidentRegistry();
   private readonly witnesses = new WitnessSystem();
   private readonly wanted = new WantedSystem();
   private readonly dispatch = new DispatchSystem();
   private readonly pursuitMemory = new PursuitMemory();
-  private readonly reportedSuspectLocations = new Map<string, {x: number; y: number}>();
+  private readonly reportedSuspectLocations = new Map<
+    string,
+    {x: number; y: number; reportedAt: number}
+  >();
 
   constructor(private readonly options: CrimeResponseControllerOptions) {}
 
@@ -92,7 +109,11 @@ export class CrimeResponseController {
       if (!suspect?.alive) continue;
       const wanted = this.wanted.report(incident.suspectId, incident.severity, nowMs);
       suspect.wanted = wanted.level;
-      this.reportedSuspectLocations.set(incident.suspectId, {x: incident.x, y: incident.y});
+      this.reportedSuspectLocations.set(incident.suspectId, {
+        x: incident.x,
+        y: incident.y,
+        reportedAt: nowMs
+      });
       this.options.events.publish({
         type: 'incident.reported',
         tick: this.options.clock().tick,
@@ -151,8 +172,37 @@ export class CrimeResponseController {
   decay(player: PlayerState, nowMs: number): void {
     if (player.wanted === 0) return;
     const policeNearby = this.options.queryNpcs(player.x, player.y, 430)
-      .some((npc) => npc.kind === 'police' && npc.alive);
+      .some((npc) => npc.kind === 'police' && npc.alive) ||
+      (this.options.queryVehicles?.(player.x, player.y, 520) ?? [])
+        .some((vehicle) => vehicle.kind === 'police' && !vehicle.destroyed && vehicle.siren);
     player.wanted = this.wanted.tryDecay(player.id, nowMs, policeNearby).level;
+  }
+
+  policeVehicleTargets(): PoliceVehicleTargetSnapshot[] {
+    const targets: PoliceVehicleTargetSnapshot[] = [];
+    for (const player of this.options.state.players.values()) {
+      if (!player.alive || player.wanted <= 0) continue;
+      const report = this.reportedSuspectLocations.get(player.id);
+      if (!report) continue;
+      const vehicle = player.vehicleId
+        ? this.options.state.vehicles.get(player.vehicleId)
+        : undefined;
+      targets.push({
+        suspectId: player.id,
+        wantedLevel: player.wanted,
+        reportedX: report.x,
+        reportedY: report.y,
+        reportedAt: report.reportedAt,
+        currentX: player.x,
+        currentY: player.y,
+        currentAngle: vehicle?.angle ?? player.angle,
+        currentSpeed: vehicle?.speed ?? 0,
+        targetVehicleId: vehicle?.id ?? ''
+      });
+    }
+    return targets.sort((left, right) => (
+      right.wantedLevel - left.wantedLevel || left.suspectId.localeCompare(right.suspectId)
+    ));
   }
 
   policeTarget(officer: NpcState, nowMs: number): PoliceTarget | undefined {

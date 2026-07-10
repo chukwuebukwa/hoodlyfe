@@ -1,14 +1,8 @@
 import type {VehicleState} from '../../state.ts';
 import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
-import {vehicleConfig} from '../vehicles/vehicle-config.ts';
-import {
-  TrafficAwarenessSystem,
-  type TrafficObstacle,
-  type TrafficSpeedReason
-} from './traffic-awareness-system.ts';
-
-const VEHICLE_RADIUS = 20;
+import type {TrafficObstacle, TrafficSpeedReason} from './traffic-awareness-system.ts';
+import {RoadDrivingSystem} from './road-driving-system.ts';
 
 interface TrafficRuntime {
   previousColumn: number;
@@ -46,9 +40,11 @@ interface TrafficControllerOptions {
 
 export class TrafficController {
   private readonly runtime = new Map<string, TrafficRuntime>();
-  private readonly awareness = new TrafficAwarenessSystem();
+  private readonly driver: RoadDrivingSystem;
 
-  constructor(private readonly options: TrafficControllerOptions) {}
+  constructor(private readonly options: TrafficControllerOptions) {
+    this.driver = new RoadDrivingSystem(options.world);
+  }
 
   register(vehicleId: string, spawn: TrafficSpawn, cruiseSpeed: number): void {
     this.runtime.set(vehicleId, {
@@ -95,9 +91,8 @@ export class TrafficController {
   ): boolean {
     const runtime = this.runtime.get(vehicle.id);
     if (!runtime) return false;
-    const configuration = vehicleConfig(vehicle.kind).traffic;
     if (vehicle.hijackBy) {
-      vehicle.speed = approach(vehicle.speed, 0, 520 * deltaSeconds);
+      this.driver.brake(vehicle, deltaSeconds);
       runtime.desiredSpeed = 0;
       runtime.speedReason = 'hijack';
       runtime.obstacleId = '';
@@ -108,34 +103,19 @@ export class TrafficController {
     const {world} = this.options;
     const targetX = (runtime.targetColumn + 0.5) * world.tileWidth;
     const targetY = (runtime.targetRow + 0.5) * world.tileHeight;
-    const distance = Math.hypot(targetX - vehicle.x, targetY - vehicle.y);
-    const routeAngle = Math.atan2(targetY - vehicle.y, targetX - vehicle.x);
-    const awareness = this.awareness.evaluate({
-      vehicleId: vehicle.id,
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: routeAngle,
-      speed: vehicle.speed,
-      radius: VEHICLE_RADIUS,
+    const result = this.driver.update(vehicle, {
+      targetX,
+      targetY,
       cruiseSpeed: runtime.cruiseSpeed,
-      brakeDeceleration: configuration.brakeDeceleration,
-      minimumGap: configuration.minimumGap,
-      followingTime: configuration.followingTime,
-      pedestrianGap: configuration.pedestrianGap,
-      lookAhead: configuration.lookAhead,
+      deltaSeconds,
       obstacles: context.obstacles ?? []
     });
-    runtime.desiredSpeed = awareness.desiredSpeed;
-    runtime.speedReason = awareness.reason;
-    runtime.obstacleId = awareness.obstacleId;
-    runtime.obstacleDistance = Number.isFinite(awareness.obstacleDistance)
-      ? awareness.obstacleDistance
-      : -1;
+    runtime.desiredSpeed = result.desiredSpeed;
+    runtime.speedReason = result.speedReason;
+    runtime.obstacleId = result.obstacleId;
+    runtime.obstacleDistance = result.obstacleDistance;
 
-    if (
-      runtime.desiredSpeed > 0 &&
-      distance <= Math.max(8, vehicle.speed * deltaSeconds)
-    ) {
+    if (result.reached) {
       vehicle.x = targetX;
       vehicle.y = targetY;
       const current = {column: runtime.targetColumn, row: runtime.targetRow};
@@ -147,22 +127,9 @@ export class TrafficController {
       return false;
     }
 
-    vehicle.angle = rotateToward(vehicle.angle, routeAngle, 4.2 * deltaSeconds);
-    vehicle.speed = approach(
-      vehicle.speed,
-      runtime.desiredSpeed,
-      (runtime.desiredSpeed < vehicle.speed
-        ? configuration.brakeDeceleration
-        : configuration.acceleration) * deltaSeconds
-    );
-    const movement = Math.min(distance, vehicle.speed * deltaSeconds);
-    const nextX = vehicle.x + Math.cos(routeAngle) * movement;
-    const nextY = vehicle.y + Math.sin(routeAngle) * movement;
-    if (world.canOccupy(nextX, nextY, VEHICLE_RADIUS) && world.isRoadAt(nextX, nextY)) {
-      vehicle.x = nextX;
-      vehicle.y = nextY;
+    if (!result.blocked) {
       runtime.blockedSince = 0;
-      return true;
+      return result.moved;
     }
 
     if (runtime.blockedSince === 0) runtime.blockedSince = nowMs;
@@ -170,7 +137,6 @@ export class TrafficController {
     runtime.speedReason = 'blocked';
     runtime.obstacleId = '';
     runtime.obstacleDistance = 0;
-    vehicle.speed = approach(vehicle.speed, 0, configuration.brakeDeceleration * deltaSeconds);
     const currentColumn = Math.floor(vehicle.x / world.tileWidth);
     const currentRow = Math.floor(vehicle.y / world.tileHeight);
     if (nowMs - runtime.blockedSince >= 1200) {
@@ -222,23 +188,4 @@ export class TrafficController {
     const choices = alternatives.length > 0 ? alternatives : neighbors;
     return choices[this.options.random.integer('traffic-turn', seed + 17, 0, choices.length)];
   }
-}
-
-function approach(value: number, target: number, amount: number): number {
-  if (value < target) return Math.min(target, value + amount);
-  if (value > target) return Math.max(target, value - amount);
-  return value;
-}
-
-function rotateToward(current: number, target: number, amount: number): number {
-  const difference = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-  return normalizeAngle(current + clamp(difference, -amount, amount));
-}
-
-function normalizeAngle(angle: number): number {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

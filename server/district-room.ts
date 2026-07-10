@@ -22,6 +22,7 @@ import {StreetEconomyController} from './game/economy/street-economy-controller.
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
+import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
@@ -74,6 +75,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
   private crimeController!: CrimeResponseController;
+  private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
   private vehicleSimulation!: VehicleSimulationController;
@@ -126,11 +128,22 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {kinds: ['npc']})
         .map((record) => this.state.npcs.get(record.id))
         .filter((npc): npc is NpcState => Boolean(npc)),
+      queryVehicles: (x, y, radius) => this.spatialIndex.queryCircle(
+        x,
+        y,
+        radius,
+        {kinds: ['vehicle']}
+      ).map((record) => this.state.vehicles.get(record.id))
+        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
       panicWitness: (witnessId, suspectId, untilMs) => this.pedestrians.panic(
         witnessId,
         suspectId,
         untilMs
       )
+    });
+    this.policeVehicleController = new PoliceVehicleController({
+      world: this.world,
+      targets: () => this.crimeController.policeVehicleTargets()
     });
     this.debugProjection = new DebugSnapshotController({
       enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
@@ -147,6 +160,7 @@ export class DistrictRoom extends Room<DistrictState> {
       pedestrians: () => this.pedestrians.diagnostics(),
       stimuli: () => this.pedestrians.stimulusSnapshot(),
       traffic: () => this.trafficController.diagnostics(),
+      policeVehicles: () => this.policeVehicleController.diagnostics(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -220,6 +234,7 @@ export class DistrictRoom extends Room<DistrictState> {
       events: this.events,
       access: this.vehicleAccess,
       traffic: this.trafficController,
+      policeVehicles: this.policeVehicleController,
       clock: () => ({tick: this.simulationClock.tick}),
       inputFor: (playerId) => this.playerControl.inputFor(playerId),
       nearbyPlayers,
@@ -283,7 +298,10 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
-      onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle)
+      onVehicleSpawned: (vehicle) => {
+        this.indexVehicle(vehicle);
+        if (vehicle.kind === 'police') this.policeVehicleController.register(vehicle.id);
+      }
     });
     this.projectileController = new ProjectileController({
       state: this.state,

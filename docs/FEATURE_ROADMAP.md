@@ -42,6 +42,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 - **Playable** crimes become bounded incidents; witnesses report after delay; unwitnessed incidents expire.
 - **Playable** wanted heat, response caps, police dispatch assignments, pursuit, last-known-position search, line-of-sight fire, heat decay, and respawn reset.
+- **Playable** first police cruiser response with report-based search, bounded road routing, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, hijack handoff, and F3 route/strategy diagnostics.
 - **Playable** ambient civilian/police population, ejected drivers, event stimuli, bravery, investigation, startle, sustained flee, recovery, death, and respawn.
 - **Playable** bounded deterministic pedestrian paths around large collision obstacles with per-tick work limits and private route memory.
 - **Foundation** detailed arrests, containment, roadblocks, call-police behavior, gangs, cover, crowd propagation, sidewalks/crossings, and population level of detail remain incomplete.
@@ -84,9 +85,11 @@ These are ordered by how much of the city loop they improve and by their depende
 
 - **Delivered foundation**: stable shared content catalog for current Sedan, Taxi, and Police Cruiser; separated mass, footprint, health, acceleration, braking, grip, steering, reverse speed, seats, traffic tuning, and presentation ID.
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
+- **Delivered playable**: one police cruiser consumes reported suspect facts without traffic/wanted coupling, uses bounded deterministic A*, searches last-known positions, intercepts visible targets, scales speed with heat, and permits occupied-vehicle ramming only at heat 3+.
+- **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
 - Add explicit lane/intersection ownership, stop lines, signals, parking points, and local disabled-car avoidance.
-- Add police vehicles and a first road pursuit without giving traffic AI direct access to wanted state.
+- Add multiple police units, coordinated block/intercept positions, siren yielding, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.

@@ -292,6 +292,10 @@ Driving AI needs distinct layers:
 ```text
 traffic/
   traffic-spawn-system.ts
+  road-route-planner.ts
+  road-driving-system.ts
+  traffic-controller.ts
+  traffic-awareness-system.ts
   traffic-route-planner.ts
   lane-graph.ts
   driving-agent.ts
@@ -317,7 +321,7 @@ The map pipeline should validate disconnected lanes, impossible turns, overlappi
 
 ### Route Planning
 
-The route planner selects a destination and a lane-level route. It runs infrequently and under a work budget. Route planning should not happen for every traffic car every simulation tick.
+The current `RoadRoutePlanner` provides deterministic bounded A* over compatibility road cells and returns explicit partial work when capped. A future lane route planner selects a destination and lane-level route. Both run infrequently under a work budget; route planning must not happen for every traffic car every simulation tick.
 
 ### Local Steering
 
@@ -350,6 +354,11 @@ Police should not be implemented as civilians with one target rule. Separate dis
 ```text
 police/
   dispatch-system.ts
+  crime-response-controller.ts
+  pursuit-memory.ts
+  police-vehicle-dispatch-system.ts
+  police-vehicle-policy.ts
+  police-vehicle-controller.ts
   incident-registry.ts
   police-unit-system.ts
   pursuit-coordinator.ts
@@ -363,6 +372,8 @@ police/
 - Wanted heat controls the response budget, not individual officer omniscience.
 - Officers need search behavior after losing sight rather than permanent direct knowledge.
 - Arrest, surrender, jail, death, and respawn are separate outcomes.
+
+The first `PoliceVehicleController` consumes reported suspect snapshots from crime response, composes a dedicated cruiser dispatch module, pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. This preserves the production-style split between dispatch facts, car mission selection, road execution, and impact physics.
 
 ## Combat Organization
 

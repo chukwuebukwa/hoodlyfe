@@ -72,6 +72,7 @@ export interface NetworkVehicle {
   driverId: string;
   traffic: boolean;
   hijackBy: string;
+  siren?: boolean;
 }
 
 export interface NetworkMissionParticipant {

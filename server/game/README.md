@@ -125,6 +125,8 @@ Extracted domain policies and room adapters now include:
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
 - `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning, following/stopping speed policy, and inspectable limiting obstacles; `traffic-controller.ts` for ambient route state, deterministic turn/recovery selection, model-aware asymmetric cruise/braking, hijack braking, and release.
+- `road-driving-system.ts` for shared road-constrained steering/acceleration/awareness execution and `road-route-planner.ts` for deterministic visit-bounded road-cell A* with explicit partial routes.
+- `police-vehicle-dispatch-system.ts` for stable response-capped unit assignments and expired-report suppression; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
 - `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.
 - `vehicle-simulation-controller.ts` for catalog-driven authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, spread, pellet count, muzzle origin, and bullet creation.

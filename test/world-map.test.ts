@@ -19,6 +19,11 @@ test('generated district exposes a safe spawn and collision boundary', {skip: !h
   assert.equal(world.isRoadAt(traffic.x, traffic.y), true);
   assert.equal(world.canOccupy(traffic.x, traffic.y, 20), true);
   assert.ok(world.roadNeighbors(traffic.column, traffic.row).length > 0);
+  const nearestRoad = world.nearestRoadNode(world.spawn.x, world.spawn.y, 20);
+  assert.ok(nearestRoad);
+  const nearestRoadPoint = world.roadPoint(nearestRoad);
+  assert.equal(world.isRoadAt(nearestRoadPoint.x, nearestRoadPoint.y), true);
+  assert.equal(world.canOccupy(nearestRoadPoint.x, nearestRoadPoint.y, 20), true);
 
   for (const row of [36, 40, 44, 48]) {
     assert.equal(world.canOccupy(27.5 * world.tileWidth, (row + 0.5) * world.tileHeight, 11), true);

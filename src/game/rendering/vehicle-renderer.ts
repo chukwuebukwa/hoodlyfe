@@ -104,6 +104,8 @@ export class VehicleRenderer {
     rendered.sprite.setFrame(visual.frame).setAlpha(visual.alpha);
     rendered.smoke.setVisible(visual.smoke);
     rendered.fire.setVisible(visual.fire);
+    rendered.redLight?.setVisible(Boolean(vehicle.siren) && !vehicle.destroyed);
+    rendered.blueLight?.setVisible(Boolean(vehicle.siren) && !vehicle.destroyed);
     if (visual.tint === undefined) rendered.sprite.clearTint();
     else rendered.sprite.setTint(visual.tint);
     if (localOccupant) this.options.onLocalOccupant(vehicleId, rendered.container, vehicle);
@@ -124,9 +126,11 @@ export class VehicleRenderer {
     let blueLight: Phaser.GameObjects.Arc | undefined;
     if (definition.presentation.emergencyLights) {
       redLight = this.scene.add.circle(-8, 0, 2.6, 0xff3030, 1)
-        .setStrokeStyle(1.5, 0xff8a8a, 0.7);
+        .setStrokeStyle(1.5, 0xff8a8a, 0.7)
+        .setVisible(Boolean(vehicle.siren));
       blueLight = this.scene.add.circle(8, 0, 2.6, 0x3c73ff, 1)
-        .setStrokeStyle(1.5, 0x8eb0ff, 0.7);
+        .setStrokeStyle(1.5, 0x8eb0ff, 0.7)
+        .setVisible(Boolean(vehicle.siren));
       children.push(redLight, blueLight);
     }
     const container = this.scene.add.container(vehicle.x, vehicle.y, children)

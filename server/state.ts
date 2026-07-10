@@ -143,6 +143,7 @@ export class VehicleState extends Schema {
   driverId = '';
   traffic = false;
   hijackBy = '';
+  siren = false;
 }
 
 defineTypes(VehicleState, {
@@ -165,7 +166,8 @@ defineTypes(VehicleState, {
   respawnAt: 'number',
   driverId: 'string',
   traffic: 'boolean',
-  hijackBy: 'string'
+  hijackBy: 'string',
+  siren: 'boolean'
 });
 
 export class MissionParticipantState extends Schema {
