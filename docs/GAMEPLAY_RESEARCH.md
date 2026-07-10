@@ -139,7 +139,8 @@ These features fit the current district and improve every later system:
 4. pickups and expanded weapon behavior, starting with melee, automatic fire, explosives, and fire as separate combat families;
 5. one repeatable vehicle-theft delivery mission with solo and cooperative payouts;
 6. ammunition, repair, hospital, and clothing-preview currency sinks;
-7. short freemode Tag and Deathmatch events.
+7. a free character creator with body/sprite, skin tone, hair, top, bottoms, shoes, and color variants backed by original modular art;
+8. short freemode Tag and Deathmatch events.
 
 ### Tier 2: Progression and Social Play
 
@@ -149,7 +150,7 @@ These require stable mission and economy boundaries but not a larger map:
 2. banked versus carried cash;
 3. character stats and interactive entry-level jobs;
 4. crews/clans, crew chat, crew markers, and shared job payouts;
-5. clothing slots and palette-based character variants;
+5. saved character presets, wardrobe slots, outfit changes, and palette-based variants;
 6. garages and temporary personal-vehicle claims;
 7. gang reputation and territory jobs.
 
@@ -164,6 +165,24 @@ These require accounts, a database, original map content, and district/interior 
 5. property-launched mission chains and cooperative heists;
 6. market listings and durable item ownership;
 7. multiple districts, interiors, and safe social venues.
+
+## Character Creator and Cosmetic Policy
+
+The creator should be freely usable while the art set and identity model are being developed. Appearance data must be content IDs and palette values, not sprite filenames, so original art can replace development assets without invalidating saved characters.
+
+Initial slots:
+
+- base/body sprite and skin tone;
+- hair/headwear;
+- top or jacket;
+- bottoms;
+- shoes;
+- primary and accent colors;
+- saved outfit name once persistence exists.
+
+Customization is presentation only. It must not modify hit radius, movement, health, aim, weapon behavior, vehicle performance, police detection, or mission payout.
+
+Later monetization can apply to original cosmetic content and additional wardrobe capacity, never combat power. Real-value or onchain ownership remains gated by original assets, durable identity and persistence, anti-abuse controls, and legal/regulatory review. During development every available appearance remains unlocked so animation compatibility and multiplayer readability can be tested broadly.
 
 ## Immediate Implementation Sequence
 
