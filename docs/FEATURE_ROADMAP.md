@@ -52,10 +52,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** GTA Online-inspired Freemode Boost and Deliver job with opt-in nearby crew, leader launch, shared objective, target reservation, wanted escape, delivery, failure states, and idempotent participant payouts.
 - **Playable** Getaway Run composes the same crew/runtime boundaries with three ordered authoritative road checkpoints, wanted escape, delivery, condition payout, and cleanup.
 - **Playable** Crew Checkpoint Rush adds five ordered road checkpoints carried by any living crew driver, no reserved target, fixed payout, and shared route progress.
-- **Playable** compact job selector, shared immutable mission catalog, template-declared target/reward policy, and reusable acquire-vehicle, target-checkpoint, crew-checkpoint, clear-wanted, and low-speed-delivery objective evaluators.
+- **Playable** Crew Holdout adds three escalating owned hostile waves, line-of-sight combat pursuit, contested hold progress, death tolerance, contribution-gated payout, and explicit actor cleanup.
+- **Playable** compact job selector, shared immutable mission catalog, template-declared target/reward/encounter policy, and reusable acquire-vehicle, target-checkpoint, crew-checkpoint, hold-area, clear-wanted, and low-speed-delivery objective evaluators.
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
-- **Foundation** three complete jobs now share objective modules; item, eliminate, hold-area, escort, placement-scored race, and event-mode objectives remain incomplete.
+- **Foundation** four complete jobs now share objective/encounter modules; item, explicit eliminate-target, escort, placement-scored race, and event-mode objectives remain incomplete.
 
 ### Street Economy and Services
 
@@ -105,18 +106,19 @@ Exit gate: a player can earn from a mission, damage a car, escape police, repair
 
 ### 3. Reusable Freemode Mission Objectives
 
-**Playable three-job foundation; hold-area next**
+**Playable four-job foundation; encounter content depth next**
 
 - **Delivered playable**: shared definitions plus reusable steal vehicle, ordered vehicle checkpoints, escape wanted, and deliver vehicle objectives.
 - **Delivered playable**: Getaway Run is the second composed Freemode job and uses the existing crew, reservation, payout, and cleanup infrastructure.
 - **Delivered playable**: Crew Checkpoint Rush proves target-free missions, fixed rewards, participant-position predicates, shared arbitrary-vehicle progress, and target-optional cleanup.
-- Add reach-zone, acquire-item, eliminate-target, hold-area, escort, and multi-vehicle race objectives.
-- Add a production-referenced Holdout as the fourth job, with authored hostile waves, contested presence, contribution time, respawn-safe rules, and explicit spawn cleanup.
+- **Delivered playable**: Crew Holdout proves event-driven hostile waves, mission-only actors, combat target ports, contested hold time, contribution eligibility, death tolerance, and terminal despawn.
+- Add reach-zone, acquire-item, explicit eliminate-target, escort, and multi-vehicle race objectives.
+- Deepen Holdout with authored tactical spawn sets, per-wave roles, resupply breaks, drops, vehicles, armor/accuracy policy, and roster-scaled difficulty before adding more enemies.
 - Add courier/item work only after an inventory/world-object ownership boundary exists; add competitive race placement only after per-vehicle entrants and finish ordering exist.
 - Preserve GTA Online Freemode rules: optional nearby joining, explicit roster lock, role-friendly shared work, individual death tolerance, leader transfer, bounded payout, and cleanup ownership.
 - Add rotating district events such as GTA2-style Tag and Deathmatch with scores isolated from the street economy.
 
-Exit gate met: three definitions compose shared objective modules without mission code mutating combat, police, or vehicle internals. The next gate is one event-driven combat objective with owned actor cleanup.
+Exit gate met: four definitions compose shared objectives and one event-driven combat encounter without mission code mutating combat, police, or vehicle internals. The next mission gate is authored tactical content and reconnect/late-join policy.
 
 ### 4. Character Creator and Clothing
 

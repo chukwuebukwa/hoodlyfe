@@ -272,7 +272,11 @@ export class DistrictRoom extends Room<DistrictState> {
       requestPoliceFire: (officerId, x, y, angle, nowMs) => {
         this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
       },
-      onSpawned: (npc) => this.indexNpc(npc)
+      requestHostileFire: (actorId, x, y, angle, nowMs, weapon) => {
+        this.fireControl.createNpcBullet(actorId, x, y, angle, nowMs, weapon, 'hostile');
+      },
+      onSpawned: (npc) => this.indexNpc(npc),
+      onDespawned: (npcId) => this.spatialIndex.remove('npc', npcId)
     });
     this.population = new DistrictPopulationController({
       state: this.state,
@@ -322,6 +326,26 @@ export class DistrictRoom extends Room<DistrictState> {
       economy: this.economyController,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone),
+      spawnMissionHostile: (spawn) => {
+        this.pedestrians.spawnMissionHostile(
+          spawn.actorId,
+          spawn.centerX,
+          spawn.centerY,
+          spawn.minDistance,
+          spawn.maxDistance,
+          spawn.health,
+          spawn.weapon,
+          spawn.fireCooldownMs,
+          spawn.seed
+        );
+      },
+      assignHostileTarget: (actorId, playerId) => this.pedestrians.assignCombatTarget(
+        actorId,
+        playerId
+      ),
+      despawnMissionNpc: (actorId) => {
+        this.pedestrians.despawn(actorId);
+      },
       releaseDeliveredVehicle: (vehicle, nowMs) => this.vehicleSimulation.returnToTraffic(
         vehicle,
         nowMs
@@ -415,6 +439,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
     });
     const events = this.events.drain();
+    this.missionController.observeEvents(events);
     this.pedestrians.observeEvents(events);
     this.debugProjection.update(events);
   }

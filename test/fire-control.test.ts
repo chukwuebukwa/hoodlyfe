@@ -59,4 +59,12 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   const passengerBullet = [...state.bullets.values()].at(-1);
   assert.ok(passengerBullet);
   assert.ok(Math.hypot(passengerBullet.x - vehicle.x, passengerBullet.y - vehicle.y) < 40);
+
+  fire.createNpcBullet('hostile', 50, 60, 0, clock.nowMs, 'smg', 'hostile');
+  const hostileBullet = [...state.bullets.values()].at(-1);
+  assert.equal(hostileBullet?.ownerKind, 'hostile');
+  assert.equal(hostileBullet?.weapon, 'smg');
+  const hostileEvent = events.drain()[0];
+  assert.equal(hostileEvent?.type, 'weapon.fired');
+  if (hostileEvent?.type === 'weapon.fired') assert.equal(hostileEvent.ownerKind, 'hostile');
 });

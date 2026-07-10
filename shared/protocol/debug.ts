@@ -31,6 +31,7 @@ export interface DebugPedestrianAiEntry {
   objective: string;
   bravery: number;
   threatId: string;
+  combatTargetId?: string;
   panicUntil: number;
   stimulusKind: string;
   stimulusSourceId: string;

@@ -28,6 +28,16 @@ export function projectMissionState(
   state.checkpointX = checkpoint?.x ?? 0;
   state.checkpointY = checkpoint?.y ?? 0;
   state.checkpointRadius = checkpoint?.radius ?? 0;
+  state.holdX = mission.holdX;
+  state.holdY = mission.holdY;
+  state.holdRadius = mission.holdRadius;
+  state.holdProgressMs = mission.holdProgressMs;
+  state.holdRequiredMs = mission.holdRequiredMs;
+  state.holdContested = mission.holdContested;
+  state.encounterWave = mission.encounterWave;
+  state.encounterWaveCount = mission.encounterWaveCount;
+  state.encounterRemaining = mission.encounterRemaining;
+  state.encounterComplete = mission.encounterComplete;
   state.deliveryX = mission.deliveryX;
   state.deliveryY = mission.deliveryY;
   state.deliveryRadius = mission.deliveryRadius;
@@ -53,6 +63,7 @@ export function projectMissionState(
     participantState.alive = participant.alive;
     participantState.deaths = participant.deaths;
     participantState.activeMs = participant.activeMs;
+    participantState.contributionMs = participant.contributionMs;
   }
   state.participants.forEach((_participant, playerId) => {
     if (!present.has(playerId)) state?.participants.delete(playerId);

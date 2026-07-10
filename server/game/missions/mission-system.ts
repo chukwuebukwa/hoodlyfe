@@ -2,6 +2,7 @@ import {
   DEFAULT_MISSION_TEMPLATE_ID,
   isMissionTemplateId,
   missionCheckpointCount,
+  missionHoldDuration,
   missionTemplate,
   type ActiveMissionPhase,
   type MissionObjectiveKind,
@@ -29,6 +30,7 @@ export interface MissionParticipant {
   alive: boolean;
   deaths: number;
   activeMs: number;
+  contributionMs: number;
   payoutEligible: boolean;
 }
 
@@ -54,6 +56,16 @@ export interface FreemodeMission {
   objectiveCount: number;
   checkpoints: MissionCheckpoint[];
   checkpointIndex: number;
+  holdX: number;
+  holdY: number;
+  holdRadius: number;
+  holdProgressMs: number;
+  holdRequiredMs: number;
+  holdContested: boolean;
+  encounterWave: number;
+  encounterWaveCount: number;
+  encounterRemaining: number;
+  encounterComplete: boolean;
   formedAt: number;
   formationEndsAt: number;
   launchedAt: number;
@@ -78,6 +90,9 @@ export interface StartMissionInput {
   deliveryX?: number;
   deliveryY?: number;
   checkpoints?: readonly MissionCheckpoint[];
+  holdX?: number;
+  holdY?: number;
+  holdRadius?: number;
   nowMs: number;
   formationDurationMs?: number;
   durationMs?: number;
@@ -120,6 +135,15 @@ export interface MissionWorldSnapshot {
   targetX?: number;
   targetY?: number;
   targetSpeed?: number;
+  encounter?: MissionEncounterSnapshot;
+}
+
+export interface MissionEncounterSnapshot {
+  wave: number;
+  waveCount: number;
+  remaining: number;
+  complete: boolean;
+  contested: boolean;
 }
 
 export type MissionTransition =
@@ -176,13 +200,26 @@ export class MissionSystem {
       return {ok: false, reason: 'invalid'};
     }
     const definition = missionTemplate(templateId);
-    const targetVehicleId = String(input.targetVehicleId ?? '');
+    const targetVehicleId = definition.targetMode === 'reserved-traffic-vehicle'
+      ? String(input.targetVehicleId ?? '')
+      : '';
     const deliveryX = input.deliveryX ?? 0;
     const deliveryY = input.deliveryY ?? 0;
+    const holdX = input.holdX ?? 0;
+    const holdY = input.holdY ?? 0;
+    const holdRadius = input.holdRadius ?? 0;
+    const holdRequiredMs = missionHoldDuration(templateId);
     if (
       !Number.isFinite(deliveryX) ||
       !Number.isFinite(deliveryY) ||
-      (definition.targetMode === 'reserved-traffic-vehicle' && !targetVehicleId)
+      (definition.targetMode === 'reserved-traffic-vehicle' && !targetVehicleId) ||
+      (holdRequiredMs > 0 && (
+        !Number.isFinite(holdX) ||
+        !Number.isFinite(holdY) ||
+        !Number.isFinite(holdRadius) ||
+        holdRadius < 48 ||
+        holdRadius > 240
+      ))
     ) {
       return {ok: false, reason: 'invalid'};
     }
@@ -223,6 +260,16 @@ export class MissionSystem {
       objectiveCount: definition.objectives.length,
       checkpoints,
       checkpointIndex: 0,
+      holdX,
+      holdY,
+      holdRadius,
+      holdProgressMs: 0,
+      holdRequiredMs,
+      holdContested: false,
+      encounterWave: 0,
+      encounterWaveCount: definition.encounter?.waves.length ?? 0,
+      encounterRemaining: 0,
+      encounterComplete: !definition.encounter,
       formedAt: input.nowMs,
       formationEndsAt: input.nowMs + formationDurationMs,
       launchedAt: 0,
@@ -292,7 +339,7 @@ export class MissionSystem {
     const mission = this.missions.get(missionId);
     if (!mission || isTerminal(mission.phase)) return [];
     const transitions: MissionTransition[] = [];
-    this.observeParticipants(mission, world);
+    const elapsedMs = this.observeParticipants(mission, world);
     if (!mission.participants.some((participant) => participant.connected)) {
       return [this.fail(mission, 'all-participants-disconnected', world.nowMs)];
     }
@@ -322,6 +369,16 @@ export class MissionSystem {
       ? conditionReward(mission.baseReward, condition)
       : mission.baseReward;
     const participantSnapshots = new Map(world.participants.map((entry) => [entry.playerId, entry]));
+    mission.encounterWave = Math.max(0, Math.floor(world.encounter?.wave ?? 0));
+    mission.encounterWaveCount = Math.max(
+      0,
+      Math.floor(world.encounter?.waveCount ?? definition.encounter?.waves.length ?? 0)
+    );
+    mission.encounterRemaining = Math.max(0, Math.floor(world.encounter?.remaining ?? 0));
+    mission.encounterComplete = definition.encounter
+      ? Boolean(world.encounter?.complete)
+      : true;
+    mission.holdContested = Boolean(world.encounter?.contested);
     const targetOccupiedByCrew = mission.participants.some((participant) => (
       participant.connected &&
       Boolean(mission.targetVehicleId) &&
@@ -334,7 +391,11 @@ export class MissionSystem {
     const previousPhase = mission.phase;
     const progress = advanceMissionObjectives(
       definition,
-      {objectiveIndex: mission.objectiveIndex, checkpointIndex: mission.checkpointIndex},
+      {
+        objectiveIndex: mission.objectiveIndex,
+        checkpointIndex: mission.checkpointIndex,
+        holdProgressMs: mission.holdProgressMs
+      },
       {
         participants: mission.participants.map((participant) => {
           const snapshot = participantSnapshots.get(participant.playerId);
@@ -355,11 +416,18 @@ export class MissionSystem {
         deliveryX: mission.deliveryX,
         deliveryY: mission.deliveryY,
         deliveryRadius: mission.deliveryRadius,
-        checkpoints: mission.checkpoints
+        checkpoints: mission.checkpoints,
+        elapsedMs,
+        holdX: mission.holdX,
+        holdY: mission.holdY,
+        holdRadius: mission.holdRadius,
+        holdContested: mission.holdContested,
+        encounterComplete: mission.encounterComplete
       }
     );
     mission.objectiveIndex = progress.objectiveIndex;
     mission.checkpointIndex = progress.checkpointIndex;
+    mission.holdProgressMs = progress.holdProgressMs;
     if (progress.status === 'completed') {
       transitions.push(this.complete(mission, condition, world.nowMs));
       return transitions;
@@ -427,7 +495,7 @@ export class MissionSystem {
     this.nextMissionId = 1;
   }
 
-  private observeParticipants(mission: FreemodeMission, world: MissionWorldSnapshot): void {
+  private observeParticipants(mission: FreemodeMission, world: MissionWorldSnapshot): number {
     const snapshots = new Map(world.participants.map((entry) => [entry.playerId, entry]));
     const elapsedMs = Math.max(0, Math.min(1_000, world.nowMs - mission.lastUpdatedAt));
     for (const participant of mission.participants) {
@@ -437,8 +505,19 @@ export class MissionSystem {
       participant.alive = participant.connected && (snapshot?.alive ?? false);
       if (wasAlive && participant.connected && !participant.alive) participant.deaths += 1;
       if (participant.connected && participant.alive) participant.activeMs += elapsedMs;
+      if (
+        mission.phase !== 'forming' &&
+        participant.connected &&
+        participant.alive &&
+        snapshot &&
+        mission.holdRadius > 0 &&
+        Math.hypot(snapshot.x - mission.holdX, snapshot.y - mission.holdY) <= mission.holdRadius
+      ) {
+        participant.contributionMs += elapsedMs;
+      }
     }
     mission.lastUpdatedAt = world.nowMs;
+    return elapsedMs;
   }
 
   private lockRoster(
@@ -500,6 +579,11 @@ export class MissionSystem {
     mission.phase = 'completed';
     mission.terminalAt = nowMs;
     mission.finalReward = mission.projectedReward;
+    const minimumContributionMs = missionTemplate(mission.templateId).minimumContributionMs ?? 0;
+    for (const participant of mission.participants) {
+      participant.payoutEligible = minimumContributionMs === 0 ||
+        participant.contributionMs >= minimumContributionMs;
+    }
     mission.payouts = mission.participants
       .filter((participant) => participant.payoutEligible && participant.connected)
       .map((participant) => ({
@@ -543,6 +627,7 @@ function createParticipant(
     alive: true,
     deaths: 0,
     activeMs: 0,
+    contributionMs: 0,
     payoutEligible: true
   };
 }

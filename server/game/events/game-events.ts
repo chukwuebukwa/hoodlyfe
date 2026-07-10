@@ -10,7 +10,7 @@ interface EventMetadata {
 export interface WeaponFiredEvent extends EventMetadata {
   type: 'weapon.fired';
   ownerId: string;
-  ownerKind: 'player' | 'police';
+  ownerKind: 'player' | 'police' | 'hostile';
   weapon: string;
   x: number;
   y: number;

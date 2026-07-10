@@ -23,7 +23,8 @@ export class DamageController {
     damage: number,
     attackerId: string,
     nowMs: number,
-    crimeKind: CrimeKind = 'assault'
+    crimeKind: CrimeKind = 'assault',
+    attackerDisposition: 'player' | 'non-player' = 'player'
   ): void {
     if (!target.alive || damage <= 0) return;
     const previousHealth = target.health;
@@ -38,12 +39,12 @@ export class DamageController {
       amount: previousHealth - target.health,
       remainingHealth: target.health
     });
-    if (attackerId) {
+    if (attackerId && attackerDisposition === 'player') {
       this.options.crime.record(attackerId, crimeKind, nowMs, target.id, target.x, target.y);
     }
     if (target.health > 0) return;
 
-    if (attackerId) {
+    if (attackerId && attackerDisposition === 'player') {
       this.options.economy.credit(
         attackerId,
         100,
@@ -64,6 +65,7 @@ export class DamageController {
     crimeKind: CrimeKind = target.kind === 'police' ? 'assault-police' : 'assault'
   ): void {
     if (!target.alive || damage <= 0) return;
+    const missionHostile = target.kind === 'hostile';
     const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
     this.options.events.publish({
@@ -76,10 +78,10 @@ export class DamageController {
       amount: previousHealth - target.health,
       remainingHealth: target.health
     });
-    if (attackerId) {
+    if (attackerId && !missionHostile) {
       this.options.crime.record(attackerId, crimeKind, nowMs, target.id, target.x, target.y);
     }
-    this.options.panicNpc(target.id, attackerId, nowMs + 4500);
+    if (!missionHostile) this.options.panicNpc(target.id, attackerId, nowMs + 4500);
     if (target.health > 0) return;
 
     target.alive = false;
@@ -91,8 +93,8 @@ export class DamageController {
       entityKind: 'npc',
       attackerId
     });
-    this.options.scheduleNpcRespawn(target.id, nowMs + 5500);
-    if (attackerId) {
+    if (!missionHostile) this.options.scheduleNpcRespawn(target.id, nowMs + 5500);
+    if (attackerId && !missionHostile) {
       this.options.economy.credit(
         attackerId,
         target.kind === 'police' ? 200 : 50,
@@ -101,7 +103,7 @@ export class DamageController {
         nowMs
       );
     }
-    if (attackerId) {
+    if (attackerId && !missionHostile) {
       this.options.crime.record(
         attackerId,
         target.kind === 'police' ? 'murder-police' : 'murder',

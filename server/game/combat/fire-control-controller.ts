@@ -79,13 +79,14 @@ export class FireControlController {
     y: number,
     angle: number,
     nowMs: number,
-    weapon: WeaponId = 'pistol'
+    weapon: WeaponId = 'pistol',
+    ownerKind: 'police' | 'hostile' = 'police'
   ): void {
-    this.publishWeaponFired(ownerId, 'police', x, y, weapon, {
+    this.publishWeaponFired(ownerId, ownerKind, x, y, weapon, {
       tick: this.options.clock().tick,
       nowMs
     });
-    this.createBullet(ownerId, 'police', x, y, angle, nowMs, weapon);
+    this.createBullet(ownerId, ownerKind, x, y, angle, nowMs, weapon);
   }
 
   clearPlayer(playerId: string): void {
@@ -102,7 +103,7 @@ export class FireControlController {
 
   private publishWeaponFired(
     ownerId: string,
-    ownerKind: 'player' | 'police',
+    ownerKind: 'player' | 'police' | 'hostile',
     x: number,
     y: number,
     weapon: WeaponId,
@@ -135,7 +136,7 @@ export class FireControlController {
 
   private createBullet(
     ownerId: string,
-    ownerKind: 'player' | 'police',
+    ownerKind: 'player' | 'police' | 'hostile',
     x: number,
     y: number,
     angle: number,

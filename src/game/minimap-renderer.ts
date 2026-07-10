@@ -118,7 +118,7 @@ function drawMarker(
   } else if (marker.kind === 'objective') {
     context.rotate(Math.PI / 4);
     context.rect(-size * 0.65, -size * 0.65, size * 1.3, size * 1.3);
-  } else if (marker.kind === 'police') {
+  } else if (marker.kind === 'police' || marker.kind === 'hostile') {
     context.rect(-size * 0.72, -size * 0.72, size * 1.44, size * 1.44);
   } else {
     context.arc(0, 0, size * 0.75, 0, Math.PI * 2);
@@ -139,6 +139,7 @@ function markerColor(kind: MinimapMarker['kind'], timeMs: number): string {
   if (kind === 'local-player') return '#ffffff';
   if (kind === 'remote-player') return '#62d7ff';
   if (kind === 'police') return Math.floor(timeMs / 180) % 2 === 0 ? '#ff4455' : '#4d7cff';
+  if (kind === 'hostile') return '#ff5e4d';
   if (kind === 'objective') return '#f2c94c';
   if (kind === 'contact') return '#ff9d3f';
   if (kind === 'shop') return '#63df8a';

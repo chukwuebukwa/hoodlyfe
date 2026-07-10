@@ -3,7 +3,7 @@ import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {FreemodeMissionController} from '../server/game/missions/freemode-mission-controller.ts';
 import {StreetEconomyController} from '../server/game/economy/street-economy-controller.ts';
-import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
+import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestTrafficController} from './support/traffic-controller.ts';
@@ -240,6 +240,97 @@ test('district mission adapter runs a target-free shared checkpoint job with any
   }
   assert.equal(room.state.missions.get(schema.id)?.phase, 'completed');
   assert.equal(leader.cash, 900);
+});
+
+test('district mission adapter owns three hostile waves and completes Crew Holdout', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+  attachTestTrafficController(room);
+  attachTestVehicleAccess(room);
+  attachTestVehicleSimulation(room);
+  room.state.missionContactX = room.world.spawn.x;
+  room.state.missionContactY = room.world.spawn.y;
+  room.economyController = new StreetEconomyController({
+    state: room.state,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick})
+  });
+  const spawned: string[] = [];
+  const targets = new Map<string, string>();
+  room.missionController = new FreemodeMissionController({
+    state: room.state,
+    world: room.world,
+    events: room.events,
+    economy: room.economyController,
+    clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
+    notice: () => undefined,
+    releaseDeliveredVehicle: () => undefined,
+    spawnMissionHostile: (spawn) => {
+      const npc = new NpcState();
+      npc.id = spawn.actorId;
+      npc.kind = 'hostile';
+      npc.x = spawn.centerX + spawn.minDistance;
+      npc.y = spawn.centerY;
+      npc.health = spawn.health;
+      npc.action = 'assault';
+      room.state.npcs.set(npc.id, npc);
+      spawned.push(npc.id);
+    },
+    assignHostileTarget: (actorId, playerId) => targets.set(actorId, playerId),
+    despawnMissionNpc: (actorId) => room.state.npcs.delete(actorId)
+  });
+
+  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  room.state.players.set(leader.id, leader);
+  room.playerControl.register(leader.id);
+  room.missionController.start(leader.id, 'crew-holdout');
+  const schema = [...room.state.missions.values()][0];
+  const runtime = schema ? room.missionController.get(schema.id) : undefined;
+  assert.ok(schema);
+  assert.ok(runtime);
+  assert.equal(schema.templateId, 'crew-holdout');
+  assert.equal(schema.holdRequiredMs, 25_000);
+  leader.x = runtime.holdX;
+  leader.y = runtime.holdY;
+  room.missionController.launch(leader.id, schema.id);
+
+  let nowMs = 100;
+  for (let step = 0; step < 80; step++) {
+    room.missionController.update(nowMs);
+    for (const npc of [...room.state.npcs.values()]) {
+      if (!npc.alive || npc.kind !== 'hostile') continue;
+      assert.equal(targets.get(npc.id), leader.id);
+      npc.alive = false;
+      npc.health = 0;
+      room.events.publish({
+        type: 'entity.killed',
+        tick: step,
+        nowMs,
+        entityId: npc.id,
+        entityKind: 'npc',
+        attackerId: leader.id
+      });
+    }
+    room.missionController.observeEvents(room.events.drain());
+    if (room.missionController.get(schema.id)?.encounterComplete) break;
+    nowMs += 400;
+  }
+  assert.equal(spawned.length, 9);
+  assert.equal(room.missionController.get(schema.id)?.encounterComplete, true);
+
+  for (let step = 0; step < 30; step++) {
+    nowMs += 1_000;
+    room.missionController.update(nowMs);
+    if (room.missionController.get(schema.id)?.phase === 'completed') break;
+  }
+  const completed = room.missionController.get(schema.id);
+  assert.equal(completed?.phase, 'completed');
+  assert.equal(completed?.encounterWave, 3);
+  assert.equal(completed?.encounterRemaining, 0);
+  assert.equal(completed?.holdProgressMs, 25_000);
+  assert.equal(leader.cash, 1_200);
+  assert.equal(room.state.npcs.size, 0);
 });
 
 function createPlayer(id: string, x: number, y: number): PlayerState {

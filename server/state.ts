@@ -176,6 +176,7 @@ export class MissionParticipantState extends Schema {
   alive = true;
   deaths = 0;
   activeMs = 0;
+  contributionMs = 0;
 }
 
 export class StreetServiceState extends Schema {
@@ -203,7 +204,8 @@ defineTypes(MissionParticipantState, {
   connected: 'boolean',
   alive: 'boolean',
   deaths: 'number',
-  activeMs: 'number'
+  activeMs: 'number',
+  contributionMs: 'number'
 });
 
 export class MissionState extends Schema {
@@ -221,6 +223,16 @@ export class MissionState extends Schema {
   checkpointX = 0;
   checkpointY = 0;
   checkpointRadius = 0;
+  holdX = 0;
+  holdY = 0;
+  holdRadius = 0;
+  holdProgressMs = 0;
+  holdRequiredMs = 0;
+  holdContested = false;
+  encounterWave = 0;
+  encounterWaveCount = 0;
+  encounterRemaining = 0;
+  encounterComplete = false;
   deliveryX = 0;
   deliveryY = 0;
   deliveryRadius = 0;
@@ -248,6 +260,16 @@ defineTypes(MissionState, {
   checkpointX: 'number',
   checkpointY: 'number',
   checkpointRadius: 'number',
+  holdX: 'number',
+  holdY: 'number',
+  holdRadius: 'number',
+  holdProgressMs: 'number',
+  holdRequiredMs: 'number',
+  holdContested: 'boolean',
+  encounterWave: 'number',
+  encounterWaveCount: 'number',
+  encounterRemaining: 'number',
+  encounterComplete: 'boolean',
   deliveryX: 'number',
   deliveryY: 'number',
   deliveryRadius: 'number',

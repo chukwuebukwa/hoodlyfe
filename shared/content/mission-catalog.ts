@@ -1,12 +1,14 @@
 export const MISSION_TEMPLATE_IDS = [
   'boost-and-deliver',
   'getaway-run',
-  'checkpoint-rush'
+  'checkpoint-rush',
+  'crew-holdout'
 ] as const;
 export type MissionTemplateId = typeof MISSION_TEMPLATE_IDS[number];
 
 export type MissionTargetMode = 'reserved-traffic-vehicle' | 'crew-members';
 export type MissionRewardPolicy = 'vehicle-condition' | 'fixed';
+export type MissionHostileWeapon = 'pistol' | 'smg';
 
 export const MISSION_TARGET_MODES: readonly MissionTargetMode[] = Object.freeze([
   'reserved-traffic-vehicle',
@@ -21,18 +23,35 @@ export type MissionObjectiveKind =
   | 'acquire-vehicle'
   | 'vehicle-checkpoints'
   | 'crew-checkpoints'
+  | 'hold-area'
   | 'clear-wanted'
   | 'deliver-vehicle';
 
-export type ActiveMissionPhase = 'steal' | 'checkpoints' | 'lose-heat' | 'deliver';
+export type ActiveMissionPhase = 'steal' | 'checkpoints' | 'hold' | 'lose-heat' | 'deliver';
 
 export interface MissionObjectiveDefinition {
   id: string;
   kind: MissionObjectiveKind;
   phase: ActiveMissionPhase;
   checkpointCount?: number;
+  durationMs?: number;
   maximumSpeed?: number;
   wantedGate?: boolean;
+}
+
+export interface MissionEncounterWaveDefinition {
+  count: number;
+  health: number;
+  weapon: MissionHostileWeapon;
+  fireCooldownMs: number;
+}
+
+export interface MissionEncounterDefinition {
+  spawnMinDistance: number;
+  spawnMaxDistance: number;
+  spawnCadenceMs: number;
+  interWaveDelayMs: number;
+  waves: readonly MissionEncounterWaveDefinition[];
 }
 
 export interface MissionTemplateDefinition {
@@ -45,6 +64,8 @@ export interface MissionTemplateDefinition {
   maximumParticipants: number;
   targetMode: MissionTargetMode;
   rewardPolicy: MissionRewardPolicy;
+  minimumContributionMs?: number;
+  encounter?: MissionEncounterDefinition;
   objectives: readonly MissionObjectiveDefinition[];
 }
 
@@ -120,6 +141,37 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
           checkpointCount: 5
         })
       ])
+    }),
+    'crew-holdout': Object.freeze({
+      id: 'crew-holdout',
+      label: 'Crew Holdout',
+      summary: 'Hold the marked block and clear three escalating waves of armed attackers.',
+      baseReward: 1_200,
+      durationMs: 180_000,
+      formationDurationMs: 15_000,
+      maximumParticipants: 4,
+      targetMode: 'crew-members',
+      rewardPolicy: 'fixed',
+      minimumContributionMs: 5_000,
+      encounter: Object.freeze({
+        spawnMinDistance: 190,
+        spawnMaxDistance: 310,
+        spawnCadenceMs: 350,
+        interWaveDelayMs: 1_600,
+        waves: Object.freeze([
+          Object.freeze({count: 2, health: 60, weapon: 'pistol', fireCooldownMs: 980}),
+          Object.freeze({count: 3, health: 75, weapon: 'pistol', fireCooldownMs: 820}),
+          Object.freeze({count: 4, health: 90, weapon: 'smg', fireCooldownMs: 680})
+        ])
+      }),
+      objectives: Object.freeze([
+        Object.freeze({
+          id: 'defend-holdout',
+          kind: 'hold-area',
+          phase: 'hold',
+          durationMs: 25_000
+        })
+      ])
     })
   });
 
@@ -134,6 +186,14 @@ export function missionTemplate(id: MissionTemplateId): MissionTemplateDefinitio
 export function missionCheckpointCount(id: MissionTemplateId): number {
   return missionTemplate(id).objectives.reduce((maximum, objective) => (
     Math.max(maximum, Math.max(0, Math.floor(objective.checkpointCount ?? 0)))
+  ), 0);
+}
+
+export function missionHoldDuration(id: MissionTemplateId): number {
+  return missionTemplate(id).objectives.reduce((maximum, objective) => (
+    objective.kind === 'hold-area'
+      ? Math.max(maximum, Math.max(0, Math.floor(objective.durationMs ?? 0)))
+      : maximum
   ), 0);
 }
 

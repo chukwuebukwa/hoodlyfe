@@ -31,11 +31,18 @@ export interface MissionObjectiveContext {
   deliveryY: number;
   deliveryRadius: number;
   checkpoints: readonly MissionCheckpoint[];
+  elapsedMs: number;
+  holdX: number;
+  holdY: number;
+  holdRadius: number;
+  holdContested: boolean;
+  encounterComplete: boolean;
 }
 
 export interface MissionObjectiveProgress {
   objectiveIndex: number;
   checkpointIndex: number;
+  holdProgressMs?: number;
 }
 
 export type MissionObjectiveAdvance =
@@ -45,17 +52,20 @@ export type MissionObjectiveAdvance =
       phase: ActiveMissionPhase;
       objectiveIndex: number;
       checkpointIndex: number;
+      holdProgressMs: number;
     }
   | {
       status: 'completed';
       objectiveIndex: number;
       checkpointIndex: number;
+      holdProgressMs: number;
     };
 
 interface ObjectiveEvaluation {
   status: 'active' | 'completed';
   phase: ActiveMissionPhase;
   checkpointIndex: number;
+  holdProgressMs?: number;
 }
 
 export function advanceMissionObjectives(
@@ -65,28 +75,37 @@ export function advanceMissionObjectives(
 ): MissionObjectiveAdvance {
   let objectiveIndex = boundedIndex(progress.objectiveIndex, template.objectives.length);
   let checkpointIndex = boundedIndex(progress.checkpointIndex, context.checkpoints.length);
+  let holdProgressMs = boundedDuration(progress.holdProgressMs ?? 0);
   while (objectiveIndex < template.objectives.length) {
     const objective = template.objectives[objectiveIndex];
-    const evaluation = evaluateMissionObjective(objective, context, checkpointIndex);
+    const evaluation = evaluateMissionObjective(
+      objective,
+      context,
+      checkpointIndex,
+      holdProgressMs
+    );
     checkpointIndex = evaluation.checkpointIndex;
+    holdProgressMs = evaluation.holdProgressMs ?? holdProgressMs;
     if (evaluation.status === 'active') {
       return {
         status: 'active',
         objective,
         phase: evaluation.phase,
         objectiveIndex,
-        checkpointIndex
+        checkpointIndex,
+        holdProgressMs
       };
     }
     objectiveIndex += 1;
   }
-  return {status: 'completed', objectiveIndex, checkpointIndex};
+  return {status: 'completed', objectiveIndex, checkpointIndex, holdProgressMs};
 }
 
 export function evaluateMissionObjective(
   objective: MissionObjectiveDefinition,
   context: MissionObjectiveContext,
-  checkpointIndex: number
+  checkpointIndex: number,
+  holdProgressMs = 0
 ): ObjectiveEvaluation {
   if (objective.kind === 'acquire-vehicle') {
     return {
@@ -144,6 +163,27 @@ export function evaluateMissionObjective(
       checkpointIndex: nextCheckpointIndex
     };
   }
+  if (objective.kind === 'hold-area') {
+    const requiredMs = Math.max(1_000, Math.floor(objective.durationMs ?? 1_000));
+    const crewPresent = context.participants.some((participant) => (
+      participant.connected &&
+      participant.alive &&
+      Math.hypot(participant.x - context.holdX, participant.y - context.holdY) <=
+        context.holdRadius
+    ));
+    const elapsedMs = Math.max(0, Math.min(1_000, context.elapsedMs));
+    const nextHoldProgressMs = crewPresent && !context.holdContested
+      ? Math.min(requiredMs, boundedDuration(holdProgressMs) + elapsedMs)
+      : boundedDuration(holdProgressMs);
+    return {
+      status: nextHoldProgressMs >= requiredMs && context.encounterComplete
+        ? 'completed'
+        : 'active',
+      phase: objective.phase,
+      checkpointIndex,
+      holdProgressMs: nextHoldProgressMs
+    };
+  }
   if (objective.wantedGate && context.teamWantedLevel > 0) {
     return {status: 'active', phase: 'lose-heat', checkpointIndex};
   }
@@ -164,4 +204,9 @@ export function evaluateMissionObjective(
 function boundedIndex(value: number, maximum: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(maximum, Math.floor(value)));
+}
+
+function boundedDuration(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
 }

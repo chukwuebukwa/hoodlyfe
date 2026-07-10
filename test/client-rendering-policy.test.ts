@@ -46,6 +46,10 @@ test('projectile presentation preserves weapon style and police override', () =>
     color: 0xff6262,
     radius: 3.5
   });
+  assert.deepEqual(projectileStyle({...createBullet('smg'), ownerKind: 'hostile'}), {
+    color: 0xff9d3f,
+    radius: 2.5
+  });
 });
 
 test('player weapon models and passenger seats preserve stable presentation anchors', () => {
@@ -89,11 +93,12 @@ test('vehicle presentation stages model, component damage, fire, and destruction
   });
 });
 
-test('pedestrian presentation differentiates startle, flee, investigation, and recovery', () => {
+test('pedestrian presentation differentiates startle, flee, assault, investigation, and recovery', () => {
   assert.deepEqual(pedestrianMotionPresentation('startle', 0), {
     animate: false, timeScale: 1, tint: 0xffd6a0, alpha: 1
   });
   assert.equal(pedestrianMotionPresentation('flee', 2).timeScale, 1.55);
+  assert.equal(pedestrianMotionPresentation('assault', 2).tint, 0xff7a66);
   assert.equal(pedestrianMotionPresentation('investigate', 2).timeScale, 0.82);
   assert.equal(pedestrianMotionPresentation('recover', 0).animate, false);
   assert.equal(pedestrianMotionPresentation('dead', 0).alpha, 0);

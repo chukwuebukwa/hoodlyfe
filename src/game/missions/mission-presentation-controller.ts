@@ -111,6 +111,13 @@ export class MissionPresentationController {
         projection.checkpoint.radius
       );
     }
+    if (projection.hold) {
+      const color = projection.hold.contested ? 0xff5e4d : 0x55d6ff;
+      this.graphics.fillStyle(color, 0.12);
+      this.graphics.fillCircle(projection.hold.x, projection.hold.y, projection.hold.radius);
+      this.graphics.lineStyle(4, color, pulse);
+      this.graphics.strokeCircle(projection.hold.x, projection.hold.y, projection.hold.radius);
+    }
     if (!projection.target) return;
     this.graphics.lineStyle(4, 0xf2c94c, pulse);
     this.graphics.strokeCircle(

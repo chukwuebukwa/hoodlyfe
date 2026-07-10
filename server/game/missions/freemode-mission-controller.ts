@@ -3,9 +3,10 @@ import {
   DEFAULT_MISSION_TEMPLATE_ID,
   isMissionTemplateId,
   missionCheckpointCount,
+  missionHoldDuration,
   missionTemplate
 } from '../../../shared/content/mission-catalog.ts';
-import type {GameEventStream} from '../events/game-events.ts';
+import type {GameEvent, GameEventStream} from '../events/game-events.ts';
 import type {StreetEconomyPort} from '../economy/street-economy-controller.ts';
 import type {DistrictState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
@@ -17,6 +18,11 @@ import {
   type MissionTransition
 } from './mission-system.ts';
 import type {MissionCheckpoint} from './mission-objective-system.ts';
+import {
+  MissionEncounterSystem,
+  type MissionEncounterActorSpawn,
+  type MissionEncounterParticipant
+} from './mission-encounter-system.ts';
 
 const VEHICLE_RADIUS = 20;
 const CONTACT_RADIUS = 130;
@@ -36,14 +42,38 @@ interface FreemodeMissionControllerOptions {
   clock: () => MissionClock;
   notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
   releaseDeliveredVehicle: (vehicle: VehicleState, nowMs: number) => void;
+  spawnMissionHostile?: (spawn: MissionEncounterActorSpawn) => void;
+  assignHostileTarget?: (actorId: string, playerId: string) => void;
+  despawnMissionNpc?: (actorId: string) => void;
 }
 
 export class FreemodeMissionController {
   private readonly system = new MissionSystem();
   private readonly entities = new MissionEntityScope();
+  private readonly encounters: MissionEncounterSystem;
   private readonly cleanupAt = new Map<string, number>();
 
-  constructor(private readonly options: FreemodeMissionControllerOptions) {}
+  constructor(private readonly options: FreemodeMissionControllerOptions) {
+    this.encounters = new MissionEncounterSystem({
+      spawnActor: (spawn) => {
+        this.options.spawnMissionHostile?.(spawn);
+        this.entities.track({
+          missionId: spawn.missionId,
+          kind: 'npc',
+          entityId: spawn.actorId,
+          disposition: 'despawn'
+        });
+      },
+      actorState: (actorId) => {
+        const npc = this.options.state.npcs.get(actorId);
+        return npc ? {alive: npc.alive, x: npc.x, y: npc.y} : undefined;
+      },
+      setActorTarget: (actorId, playerId) => this.options.assignHostileTarget?.(
+        actorId,
+        playerId
+      )
+    });
+  }
 
   start(playerId: string, rawTemplateId: unknown = DEFAULT_MISSION_TEMPLATE_ID): void {
     const {state} = this.options;
@@ -55,6 +85,15 @@ export class FreemodeMissionController {
     }
     const templateId = rawTemplateId;
     const definition = missionTemplate(templateId);
+    if (
+      definition.encounter &&
+      (!this.options.spawnMissionHostile ||
+        !this.options.assignHostileTarget ||
+        !this.options.despawnMissionNpc)
+    ) {
+      this.options.notice(playerId, 'That combat job is temporarily unavailable.', 'warning');
+      return;
+    }
     if (Math.hypot(player.x - state.missionContactX, player.y - state.missionContactY) > CONTACT_RADIUS) {
       this.options.notice(playerId, 'Meet the orange contact to start work.', 'warning');
       return;
@@ -81,6 +120,9 @@ export class FreemodeMissionController {
       }
       delivery = this.deliveryPoint(target, clock.nowMs);
     }
+    const holdPoint = missionHoldDuration(templateId) > 0
+      ? this.holdPoint(player, clock.nowMs)
+      : undefined;
     const checkpoints = this.checkpointRoute(
       target ?? player,
       delivery,
@@ -94,6 +136,9 @@ export class FreemodeMissionController {
       deliveryX: delivery?.x,
       deliveryY: delivery?.y,
       checkpoints,
+      holdX: holdPoint?.x,
+      holdY: holdPoint?.y,
+      holdRadius: holdPoint?.radius,
       nowMs: clock.nowMs
     });
     if (!result.ok) {
@@ -182,28 +227,35 @@ export class FreemodeMissionController {
       const target = definition.targetMode === 'reserved-traffic-vehicle'
         ? state.vehicles.get(mission.targetVehicleId)
         : undefined;
+      const participants = this.participantSnapshots(mission);
+      const encounter = definition.encounter
+        ? this.encounters.update(mission.id, participants, nowMs)
+        : undefined;
       const transitions = this.system.update(mission.id, {
         nowMs,
-        participants: mission.participants.map((participant) => {
-          const player = state.players.get(participant.playerId);
-          const vehicle = player?.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
-          return {
-            playerId: participant.playerId,
-            exists: Boolean(player),
-            alive: player?.alive ?? false,
-            vehicleId: vehicle?.id ?? '',
-            wantedLevel: player?.wanted ?? 0,
-            x: vehicle?.x ?? player?.x ?? 0,
-            y: vehicle?.y ?? player?.y ?? 0
-          };
-        }),
+        participants: participants.map((participant) => ({
+          playerId: participant.playerId,
+          exists: participant.connected,
+          alive: participant.alive,
+          vehicleId: participant.vehicleId,
+          wantedLevel: participant.wantedLevel,
+          x: participant.x,
+          y: participant.y
+        })),
         targetExists: Boolean(target),
         targetDestroyed: target?.destroyed ?? true,
         targetHealth: target?.health ?? 0,
         targetMaxHealth: target?.maxHealth ?? 1,
         targetX: target?.x ?? 0,
         targetY: target?.y ?? 0,
-        targetSpeed: target?.speed ?? 0
+        targetSpeed: target?.speed ?? 0,
+        encounter: encounter ? {
+          wave: encounter.wave,
+          waveCount: encounter.waveCount,
+          remaining: encounter.remaining,
+          complete: encounter.complete,
+          contested: encounter.contested
+        } : undefined
       });
       const updated = this.system.get(mission.id);
       if (!updated) continue;
@@ -217,6 +269,10 @@ export class FreemodeMissionController {
 
   get(missionId: string): FreemodeMission | undefined {
     return this.system.get(missionId);
+  }
+
+  observeEvents(events: readonly GameEvent[]): void {
+    this.encounters.observeEvents(events);
   }
 
   private deliveryPoint(target: VehicleState, nowMs: number): {x: number; y: number} {
@@ -233,6 +289,21 @@ export class FreemodeMissionController {
       }
     }
     return fallback;
+  }
+
+  private holdPoint(
+    start: {x: number; y: number},
+    nowMs: number
+  ): {x: number; y: number; radius: number} {
+    const point = this.options.world.openPointNear(
+      start.x,
+      start.y,
+      260,
+      520,
+      VEHICLE_RADIUS,
+      nowMs + 2_909
+    );
+    return {...point, radius: 140};
   }
 
   private checkpointRoute(
@@ -289,6 +360,17 @@ export class FreemodeMissionController {
   ): void {
     for (const transition of transitions) {
       if (transition.type === 'phase') {
+        const definition = missionTemplate(mission.templateId);
+        if (transition.phase === 'hold' && definition.encounter) {
+          this.encounters.start(
+            mission.id,
+            mission.holdX,
+            mission.holdY,
+            mission.holdRadius,
+            definition.encounter,
+            clock.nowMs
+          );
+        }
         this.options.events.publish({
           type: 'mission.phase-changed',
           tick: clock.tick,
@@ -303,6 +385,7 @@ export class FreemodeMissionController {
         const leaderName = this.options.state.players.get(transition.leaderId)?.name ?? transition.leaderId;
         this.broadcast(mission, `${leaderName} is now crew leader.`, 'warning');
       } else if (transition.type === 'completed') {
+        this.stopEncounter(mission.id);
         for (const payout of transition.payouts) {
           const result = this.options.economy.credit(
             payout.playerId,
@@ -325,6 +408,7 @@ export class FreemodeMissionController {
         }
         this.cleanupAt.set(mission.id, clock.nowMs + TERMINAL_RETENTION_MS);
       } else if (transition.type === 'failed') {
+        this.stopEncounter(mission.id);
         this.options.events.publish({
           type: 'mission.failed',
           tick: clock.tick,
@@ -342,11 +426,15 @@ export class FreemodeMissionController {
   private cleanup(missionId: string, nowMs: number): void {
     const mission = this.system.get(missionId);
     if (!mission) return;
+    this.stopEncounter(missionId);
     for (const entity of this.entities.drain(missionId)) {
-      if (entity.kind !== 'vehicle' || entity.disposition !== 'release') continue;
-      const vehicle = this.options.state.vehicles.get(entity.entityId);
-      if (mission.phase === 'completed' && vehicle) {
-        this.options.releaseDeliveredVehicle(vehicle, nowMs);
+      if (entity.kind === 'npc' && entity.disposition === 'despawn') {
+        this.options.despawnMissionNpc?.(entity.entityId);
+      } else if (entity.kind === 'vehicle' && entity.disposition === 'release') {
+        const vehicle = this.options.state.vehicles.get(entity.entityId);
+        if (mission.phase === 'completed' && vehicle) {
+          this.options.releaseDeliveredVehicle(vehicle, nowMs);
+        }
       }
     }
     this.system.remove(missionId);
@@ -363,6 +451,34 @@ export class FreemodeMissionController {
       this.options.notice(participant.playerId, message, tone);
     }
   }
+
+  private participantSnapshots(mission: FreemodeMission): Array<
+    MissionEncounterParticipant & {vehicleId: string; wantedLevel: number}
+  > {
+    return mission.participants.map((participant) => {
+      const player = this.options.state.players.get(participant.playerId);
+      const vehicle = player?.vehicleId
+        ? this.options.state.vehicles.get(player.vehicleId)
+        : undefined;
+      return {
+        playerId: participant.playerId,
+        connected: Boolean(player),
+        alive: player?.alive ?? false,
+        vehicleId: vehicle?.id ?? '',
+        wantedLevel: player?.wanted ?? 0,
+        x: vehicle?.x ?? player?.x ?? 0,
+        y: vehicle?.y ?? player?.y ?? 0
+      };
+    });
+  }
+
+  private stopEncounter(missionId: string): void {
+    for (const actorId of this.encounters.remove(missionId)) {
+      this.options.assignHostileTarget?.(actorId, '');
+      this.options.despawnMissionNpc?.(actorId);
+      this.entities.untrack(missionId, 'npc', actorId);
+    }
+  }
 }
 
 function phaseNotice(phase: string, objectiveKind: string): string {
@@ -371,6 +487,7 @@ function phaseNotice(phase: string, objectiveKind: string): string {
     return 'Get any crew vehicle through every marked checkpoint.';
   }
   if (phase === 'checkpoints') return 'Drive the target through every marked checkpoint.';
+  if (phase === 'hold') return 'Hold the marked block and clear every hostile wave.';
   if (phase === 'lose-heat') return 'Lose the crew\'s police heat.';
   if (phase === 'deliver') return 'Deliver the vehicle to the marked garage.';
   return 'Objective updated.';

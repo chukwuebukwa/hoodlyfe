@@ -294,6 +294,61 @@ test('Crew Checkpoint Rush advances from any living crew driver without a reserv
   assert.equal(missions.isTargetReserved(''), false);
 });
 
+test('Crew Holdout pauses when contested and excludes an idle participant from payout', () => {
+  const missions = new MissionSystem();
+  const start = startMission(missions, {
+    templateId: 'crew-holdout',
+    holdX: 100,
+    holdY: 100,
+    holdRadius: 80
+  });
+  assert.equal(start.ok, true);
+  if (!start.ok) return;
+  missions.join(start.mission.id, 'idle-support', 50);
+  missions.launch(start.mission.id, 'leader', 100);
+  missions.update(start.mission.id, world({
+    nowMs: 1_000,
+    participants: [
+      player('leader', {x: 100, y: 100}),
+      player('idle-support', {x: 500, y: 500})
+    ],
+    encounter: {wave: 1, waveCount: 3, remaining: 2, complete: false, contested: true}
+  }));
+  assert.equal(missions.get(start.mission.id)?.holdProgressMs, 0);
+
+  for (let second = 2; second <= 26; second++) {
+    missions.update(start.mission.id, world({
+      nowMs: second * 1_000,
+      participants: [
+        player('leader', {x: 100, y: 100}),
+        player('idle-support', {x: 500, y: 500})
+      ],
+      encounter: {
+        wave: Math.min(3, Math.ceil(second / 8)),
+        waveCount: 3,
+        remaining: second === 26 ? 0 : 1,
+        complete: second === 26,
+        contested: false
+      }
+    }));
+  }
+  const completed = missions.get(start.mission.id);
+  assert.equal(completed?.phase, 'completed');
+  assert.equal(completed?.holdProgressMs, 25_000);
+  assert.equal(completed?.encounterWave, 3);
+  assert.equal(completed?.finalReward, 1_200);
+  assert.deepEqual(completed?.payouts, [{
+    playerId: 'leader',
+    amount: 1_200,
+    idempotencyKey: `${start.mission.id}:payout:leader`
+  }]);
+  assert.equal(
+    completed?.participants.find((participant) => participant.playerId === 'idle-support')
+      ?.payoutEligible,
+    false
+  );
+});
+
 test('removal releases every participant and the reserved target', () => {
   const missions = new MissionSystem();
   const start = startMission(missions);

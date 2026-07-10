@@ -54,8 +54,10 @@ export class ProjectileController {
       this.options.damage.player(
         target,
         weapon.damage,
-        bullet.ownerKind === 'player' ? bullet.ownerId : '',
-        nowMs
+        bullet.ownerId,
+        nowMs,
+        'assault',
+        bullet.ownerKind === 'player' ? 'player' : 'non-player'
       );
       this.options.remove(bulletId);
       return;

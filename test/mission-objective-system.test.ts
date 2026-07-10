@@ -107,6 +107,80 @@ test('crew checkpoint objective accepts any connected living participant in a ve
   assert.equal(disconnected.checkpointIndex, 1);
 });
 
+test('hold objective accrues only with living crew in an uncontested zone and awaits wave completion', () => {
+  const objective = missionTemplate('crew-holdout').objectives[0];
+  const defender = {
+    playerId: 'leader',
+    connected: true,
+    alive: true,
+    vehicleId: '',
+    x: 100,
+    y: 100
+  };
+  const outside = evaluateMissionObjective(
+    objective,
+    context({elapsedMs: 1_000, holdX: 100, holdY: 100, holdRadius: 80}),
+    0,
+    0
+  );
+  assert.equal(outside.holdProgressMs, 0);
+  const contested = evaluateMissionObjective(
+    objective,
+    context({
+      participants: [defender],
+      elapsedMs: 1_000,
+      holdX: 100,
+      holdY: 100,
+      holdRadius: 80,
+      holdContested: true
+    }),
+    0,
+    0
+  );
+  assert.equal(contested.holdProgressMs, 0);
+  const defended = evaluateMissionObjective(
+    objective,
+    context({
+      participants: [defender],
+      elapsedMs: 1_000,
+      holdX: 100,
+      holdY: 100,
+      holdRadius: 80
+    }),
+    0,
+    0
+  );
+  assert.equal(defended.holdProgressMs, 1_000);
+  const wavesRemain = evaluateMissionObjective(
+    objective,
+    context({
+      participants: [defender],
+      elapsedMs: 1_000,
+      holdX: 100,
+      holdY: 100,
+      holdRadius: 80,
+      encounterComplete: false
+    }),
+    0,
+    24_500
+  );
+  assert.equal(wavesRemain.status, 'active');
+  assert.equal(wavesRemain.holdProgressMs, 25_000);
+  const complete = evaluateMissionObjective(
+    objective,
+    context({
+      participants: [defender],
+      holdX: 100,
+      holdY: 100,
+      holdRadius: 80,
+      encounterComplete: true
+    }),
+    0,
+    25_000
+  );
+  assert.equal(complete.status, 'completed');
+});
+
 test('delivery enforces target occupancy, heat gate, zone, and maximum speed', () => {
   const objective = missionTemplate('boost-and-deliver').objectives[2];
   assert.equal(evaluateMissionObjective(
@@ -138,6 +212,12 @@ function context(overrides: Partial<MissionObjectiveContext> = {}): MissionObjec
     deliveryY: 900,
     deliveryRadius: 72,
     checkpoints: [],
+    elapsedMs: 0,
+    holdX: 0,
+    holdY: 0,
+    holdRadius: 0,
+    holdContested: false,
+    encounterComplete: true,
     ...overrides
   };
 }

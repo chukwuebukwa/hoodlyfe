@@ -59,6 +59,10 @@ export class DistrictScene extends Phaser.Scene {
       frameWidth: 72,
       frameHeight: 72
     });
+    this.load.spritesheet('hostile', '/assets/original/sprites/civilian.png', {
+      frameWidth: 72,
+      frameHeight: 72
+    });
     this.load.spritesheet('vehicles', '/assets/original/sprites/vehicles.png', {
       frameWidth: 96,
       frameHeight: 96
@@ -95,6 +99,7 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('driver-walk', 'driver');
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
+    this.createPedestrianAnimation('hostile-walk', 'hostile');
     this.pedestrianRenderer = new PedestrianRenderer(this);
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {

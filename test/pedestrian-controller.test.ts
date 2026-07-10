@@ -115,6 +115,51 @@ test('dead pedestrians wait for their deadline and restore archetype health', ()
   assert.equal(world.canOccupy(police.x, police.y, 10), true);
 });
 
+test('mission hostile pursues its assigned target, fires, never ambient-respawns, and despawns', () => {
+  const world = CollisionMap.load();
+  const fired: Array<{actorId: string; weapon: string}> = [];
+  const despawned: string[] = [];
+  const {controller, state} = createController(
+    world,
+    'mission-hostile-scenario',
+    () => undefined,
+    () => undefined,
+    () => undefined,
+    (actorId, _x, _y, _angle, _nowMs, weapon) => fired.push({actorId, weapon}),
+    (npcId) => despawned.push(npcId)
+  );
+  const player = new PlayerState();
+  player.id = 'target';
+  player.x = world.spawn.x + 80;
+  player.y = world.spawn.y;
+  state.players.set(player.id, player);
+  const hostile = controller.spawnMissionHostile(
+    'hostile',
+    world.spawn.x,
+    world.spawn.y,
+    0,
+    0,
+    90,
+    'smg',
+    680,
+    1
+  );
+  controller.assignCombatTarget(hostile.id, player.id);
+  controller.update(hostile, 1 / 30, 1_000);
+  assert.equal(hostile.kind, 'hostile');
+  assert.equal(hostile.action, 'assault');
+  assert.deepEqual(fired, [{actorId: hostile.id, weapon: 'smg'}]);
+
+  hostile.alive = false;
+  hostile.health = 0;
+  controller.scheduleRespawn(hostile.id, 1_100);
+  controller.update(hostile, 1 / 30, 5_000);
+  assert.equal(hostile.alive, false);
+  assert.equal(controller.despawn(hostile.id), true);
+  assert.equal(state.npcs.has(hostile.id), false);
+  assert.deepEqual(despawned, [hostile.id]);
+});
+
 test('carjacking creates a panicked ambient driver beside the vehicle', () => {
   const world = CollisionMap.load();
   const spawned: string[] = [];
@@ -159,7 +204,16 @@ function createController(
     angle: number,
     nowMs: number
   ) => void = () => undefined,
-  onSpawned: (npcId: string) => void = () => undefined
+  onSpawned: (npcId: string) => void = () => undefined,
+  requestHostileFire: (
+    actorId: string,
+    x: number,
+    y: number,
+    angle: number,
+    nowMs: number,
+    weapon: 'pistol' | 'smg'
+  ) => void = () => undefined,
+  onDespawned: (npcId: string) => void = () => undefined
 ) {
   const state = new DistrictState();
   let tick = 1;
@@ -170,7 +224,9 @@ function createController(
     clock: () => ({tick: tick++}),
     policeTarget,
     requestPoliceFire,
-    onSpawned: (npc) => onSpawned(npc.id)
+    requestHostileFire,
+    onSpawned: (npc) => onSpawned(npc.id),
+    onDespawned
   });
   return {controller, state};
 }

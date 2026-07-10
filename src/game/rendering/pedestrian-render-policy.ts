@@ -17,6 +17,7 @@ export function pedestrianMotionPresentation(
     return {animate: false, timeScale: 1, tint: 0xdce8e8, alpha: 0.94};
   }
   const animate = distance > 0.75;
+  if (action === 'assault') return {animate, timeScale: 1.3, tint: 0xff7a66, alpha: 1};
   if (action === 'flee') return {animate, timeScale: 1.55, alpha: 1};
   if (action === 'pursue') return {animate, timeScale: 1.28, alpha: 1};
   if (action === 'investigate' || action === 'search') {

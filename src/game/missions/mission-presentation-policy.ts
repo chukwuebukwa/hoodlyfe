@@ -31,6 +31,7 @@ export interface MissionWorldProjection {
   contact: {x: number; y: number};
   target?: {x: number; y: number; angle: number};
   checkpoint?: {x: number; y: number; radius: number};
+  hold?: {x: number; y: number; radius: number; contested: boolean};
   delivery?: {x: number; y: number; radius: number};
 }
 
@@ -59,7 +60,7 @@ export function projectMissionHud(
       ? missionObjective(mission, Boolean(active), localPlayerId)
       : definition.summary,
     meta: mission
-      ? `CREW ${mission.participants.size}/${mission.maximumParticipants} | $${mission.projectedReward}`
+      ? missionMeta(mission)
       : `FREEMODE | $${definition.baseReward}`,
     missionId: mission?.id ?? '',
     templateId,
@@ -107,6 +108,14 @@ export function projectMissionWorld(
       radius: mission.checkpointRadius
     };
   }
+  if (mission.phase === 'hold' && mission.holdRadius > 0) {
+    projection.hold = {
+      x: mission.holdX,
+      y: mission.holdY,
+      radius: mission.holdRadius,
+      contested: mission.holdContested
+    };
+  }
   const target = state.vehicles?.get(mission.targetVehicleId);
   if (target) projection.target = vehiclePoint(target);
   return projection;
@@ -140,6 +149,24 @@ export function missionMinimapPoints(
       x: mission.checkpointX,
       y: mission.checkpointY
     });
+  }
+  if (mission.phase === 'hold' && mission.holdRadius > 0) {
+    points.push({
+      id: `${mission.id}:hold`,
+      kind: 'objective',
+      x: mission.holdX,
+      y: mission.holdY
+    });
+    for (const npc of state.npcs.values()) {
+      if (!npc.alive || npc.kind !== 'hostile') continue;
+      points.push({
+        id: `${mission.id}:hostile:${npc.id}`,
+        kind: 'hostile',
+        x: npc.x,
+        y: npc.y,
+        angle: npc.angle
+      });
+    }
   }
   const target = state.vehicles?.get(mission.targetVehicleId);
   if (target) {
@@ -211,6 +238,17 @@ function missionObjective(
     )} of ${mission.checkpointCount}.`;
   }
   if (mission.phase === 'lose-heat') return 'Lose all crew police heat.';
+  if (mission.phase === 'hold') {
+    const remainingSeconds = Math.max(
+      0,
+      Math.ceil((mission.holdRequiredMs - mission.holdProgressMs) / 1000)
+    );
+    if (mission.holdContested) return 'Zone contested. Clear attackers inside the boundary.';
+    if (mission.encounterComplete && remainingSeconds > 0) {
+      return `Waves cleared. Hold the zone for ${remainingSeconds}s.`;
+    }
+    return `Defend the zone for ${remainingSeconds}s and clear the hostile waves.`;
+  }
   if (mission.phase === 'deliver') {
     return 'Bring the target into the green delivery zone at low speed.';
   }
@@ -228,6 +266,15 @@ function missionObjective(
 function formatMissionTime(remainingMs: number): string {
   const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function missionMeta(mission: NetworkMission): string {
+  if (mission.phase === 'hold') {
+    return `W${Math.max(1, mission.encounterWave)}/${mission.encounterWaveCount} | ` +
+      `${mission.encounterRemaining} LEFT | $${mission.projectedReward}`;
+  }
+  return `CREW ${mission.participants.size}/${mission.maximumParticipants} | ` +
+    `$${mission.projectedReward}`;
 }
 
 function vehiclePoint(vehicle: NetworkVehicle): {x: number; y: number; angle: number} {

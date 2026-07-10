@@ -27,6 +27,9 @@ test('mission HUD projects street contact and deterministic nearby crew joining'
   const rush = projectMissionHud(state, 'local', 'checkpoint-rush');
   assert.equal(rush.title, 'Crew Checkpoint Rush');
   assert.match(rush.objective, /crew vehicle/);
+  const holdout = projectMissionHud(state, 'local', 'crew-holdout');
+  assert.equal(holdout.title, 'Crew Holdout');
+  assert.match(holdout.objective, /three escalating waves/);
 
   const leader = createPlayer({id: 'leader', name: 'Leader', x: 100, y: 0});
   state.players.set('leader', leader);
@@ -135,6 +138,56 @@ test('target-free checkpoint HUD and world projection expose only the shared rou
   );
 });
 
+test('Holdout presentation exposes wave pressure, contested zone, and hostile minimap points', () => {
+  const state = createState();
+  const mission = createMission({
+    templateId: 'crew-holdout',
+    phase: 'hold',
+    objectiveId: 'defend-holdout',
+    objectiveKind: 'hold-area',
+    objectiveCount: 1,
+    targetVehicleId: '',
+    holdX: 300,
+    holdY: 400,
+    holdRadius: 140,
+    holdProgressMs: 8_000,
+    holdRequiredMs: 25_000,
+    holdContested: true,
+    encounterWave: 2,
+    encounterWaveCount: 3,
+    encounterRemaining: 3,
+    encounterComplete: false,
+    projectedReward: 1_200
+  });
+  const local = state.players.get('local');
+  assert.ok(local);
+  mission.participants.set('local', participant(local, 'leader'));
+  state.missions.set(mission.id, mission);
+  state.npcs.set('hostile-1', {
+    id: 'hostile-1',
+    kind: 'hostile',
+    x: 340,
+    y: 400,
+    angle: 0,
+    health: 75,
+    alive: true,
+    action: 'assault'
+  });
+
+  const hud = projectMissionHud(state, 'local');
+  assert.equal(hud.meta, 'W2/3 | 3 LEFT | $1200');
+  assert.match(hud.objective, /Zone contested/);
+  assert.deepEqual(projectMissionWorld(state, 'local').hold, {
+    x: 300,
+    y: 400,
+    radius: 140,
+    contested: true
+  });
+  const points = missionMinimapPoints(state, 'local');
+  assert.equal(points.some((point) => point.id === `${mission.id}:hold`), true);
+  assert.equal(points.some((point) => point.kind === 'hostile' && point.x === 340), true);
+});
+
 function createState(): DistrictNetworkState {
   return {
     players: new Map([['local', createPlayer()]]),
@@ -164,6 +217,16 @@ function createMission(overrides: Partial<NetworkMission> = {}): NetworkMission 
     checkpointX: 0,
     checkpointY: 0,
     checkpointRadius: 0,
+    holdX: 0,
+    holdY: 0,
+    holdRadius: 0,
+    holdProgressMs: 0,
+    holdRequiredMs: 0,
+    holdContested: false,
+    encounterWave: 0,
+    encounterWaveCount: 0,
+    encounterRemaining: 0,
+    encounterComplete: true,
     deliveryX: 500,
     deliveryY: 600,
     deliveryRadius: 70,
@@ -240,6 +303,7 @@ function participant(
     connected: true,
     alive: true,
     deaths: 0,
-    activeMs: 0
+    activeMs: 0,
+    contributionMs: 0
   };
 }

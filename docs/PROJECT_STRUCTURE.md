@@ -188,7 +188,7 @@ It should not contain weapon math, pedestrian decisions, vehicle steering, missi
 The first room-facing facades are now live:
 
 - `FreemodeMissionController` adapts mission templates to district entities, deterministic route generation, state projection, notices, rewards, and cleanup.
-- `MissionSystem` owns Freemode roster/deadline/optional-target/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target and participant predicates; shared mission content owns definitions, target/reward policy, and presentation metadata. Target-free jobs never fabricate a mission entity.
+- `MissionSystem` owns Freemode roster/deadline/optional-target/contribution/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target, participant, and hold predicates; `MissionEncounterSystem` owns bounded wave/actor/kill-contribution runtime through narrow pedestrian ports. Shared mission content owns definitions and target/reward/encounter policy. Target-free jobs never fabricate a mission entity.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` owns deterministic ambient routes and driving targets.
@@ -201,6 +201,7 @@ The first room-facing facades are now live:
 - `PlayerAppearanceController` owns join fallback, full-update validation, public schema mutation, rate limiting, and disconnect cleanup; the shared appearance catalog owns finite content IDs and palette values.
 - `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `PedestrianReactionSystem` owns staged civilian orient/respond/recover transitions; synchronized NPC action is presentation intent, not a client-side gameplay decision.
+- `PedestrianCombatSystem` converts a mission-owned target assignment into line-of-sight pursuit/fire intent; pedestrian navigation, locomotion, fire control, projectiles, and damage retain execution ownership.
 - `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
 - The shared vehicle catalog owns stable model content; vehicle access, player handling, damage/collision, population, traffic, and presentation consume focused portions of the same definition.
 - `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead corridor; `TrafficController` retains route, acceleration/braking, hijack, blockage, and deterministic recovery ownership.

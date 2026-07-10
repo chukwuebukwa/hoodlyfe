@@ -6,6 +6,7 @@ export type PedestrianObjective =
   | 'flee'
   | 'investigate'
   | 'recover'
+  | 'assault'
   | 'pursue'
   | 'search';
 
@@ -39,12 +40,16 @@ export interface PedestrianNavigationRuntime {
 }
 
 export interface PedestrianRuntime {
+  lifecycle: 'ambient' | 'mission';
   objective: PedestrianObjective;
   bravery: number;
   wanderAngle: number;
   nextThinkAt: number;
   nextPerceptionAt: number;
   lastShotAt: number;
+  combatTargetId: string;
+  combatWeapon: 'pistol' | 'smg';
+  combatFireCooldownMs: number;
   panicUntil: number;
   threatId: string;
   lastKnownThreatX: number;
@@ -70,12 +75,16 @@ export function createPedestrianRuntime(
   nextPerceptionAt = 0
 ): PedestrianRuntime {
   return {
+    lifecycle: 'ambient',
     objective: 'wander',
     bravery,
     wanderAngle,
     nextThinkAt: 0,
     nextPerceptionAt,
     lastShotAt: 0,
+    combatTargetId: '',
+    combatWeapon: 'pistol',
+    combatFireCooldownMs: 900,
     panicUntil: 0,
     threatId: '',
     lastKnownThreatX: Number.NaN,

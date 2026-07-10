@@ -111,6 +111,7 @@ export class DebugPresentationController {
     this.drawCollision(view);
     this.drawSpatialGrid(view);
     const presentLabels = new Set<string>();
+    this.drawMissions(presentLabels);
     this.drawPedestrianRoutes();
     this.drawPlayers(presentLabels);
     this.drawNpcs(presentLabels);
@@ -143,6 +144,28 @@ export class DebugPresentationController {
         );
       }
     }
+  }
+
+  private drawMissions(present: Set<string>): void {
+    this.state?.missions?.forEach((mission) => {
+      if (mission.phase !== 'hold' || mission.holdRadius <= 0) return;
+      const color = mission.holdContested ? 0xff5e4d : 0x55d6ff;
+      this.graphics.lineStyle(2, color, 0.85);
+      this.graphics.strokeCircle(mission.holdX, mission.holdY, mission.holdRadius);
+      const key = `mission:${mission.id}`;
+      this.updateLabel(
+        key,
+        mission.holdX,
+        mission.holdY - mission.holdRadius - 12,
+        `${mission.id} hold:${(mission.holdProgressMs / 1000).toFixed(1)}/` +
+          `${(mission.holdRequiredMs / 1000).toFixed(1)}s ` +
+          `wave:${mission.encounterWave}/${mission.encounterWaveCount} ` +
+          `left:${mission.encounterRemaining}${mission.holdContested ? ' CONTESTED' : ''}`,
+        color,
+        1
+      );
+      present.add(key);
+    });
   }
 
   private drawSpatialGrid(view: Phaser.Geom.Rectangle): void {
@@ -179,10 +202,14 @@ export class DebugPresentationController {
       (this.snapshot?.pedestrianAi ?? []).map((entry) => [entry.id, entry])
     );
     this.state?.npcs?.forEach((npc, npcId) => {
-      const color = npc.kind === 'police' ? 0xff5e68 : 0xf4cf55;
+      const color = npc.kind === 'police'
+        ? 0xff5e68
+        : (npc.kind === 'hostile' ? 0xff7a66 : 0xf4cf55);
       const diagnostic = diagnostics.get(npcId);
-      const memory = diagnostic?.threatId
-        ? ` threat:${shortId(diagnostic.threatId)}`
+      const memory = diagnostic?.combatTargetId
+        ? ` target:${shortId(diagnostic.combatTargetId)}`
+        : diagnostic?.threatId
+          ? ` threat:${shortId(diagnostic.threatId)}`
         : (diagnostic?.stimulusKind ? ` mem:${diagnostic.stimulusKind}` : '');
       const phase = diagnostic?.reactionPhase && diagnostic.reactionPhase !== 'none'
         ? ` phase:${diagnostic.reactionPhase}`
@@ -265,7 +292,10 @@ export class DebugPresentationController {
 
   private drawBullets(): void {
     this.state?.bullets?.forEach((bullet) => {
-      this.graphics.lineStyle(1, bullet.ownerKind === 'police' ? 0xff5e68 : 0xffffff, 1);
+      const color = bullet.ownerKind === 'police'
+        ? 0xff5e68
+        : (bullet.ownerKind === 'hostile' ? 0xff9d3f : 0xffffff);
+      this.graphics.lineStyle(1, color, 1);
       this.graphics.strokeCircle(bullet.x, bullet.y, 6);
       this.graphics.lineBetween(
         bullet.x,

@@ -42,13 +42,13 @@ export interface NetworkBullet {
 
 export interface NetworkNpc {
   id: string;
-  kind: 'civilian' | 'police';
+  kind: 'civilian' | 'police' | 'hostile';
   x: number;
   y: number;
   angle: number;
   health: number;
   alive: boolean;
-  action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'pursue' | 'search' | 'dead';
+  action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'assault' | 'pursue' | 'search' | 'dead';
 }
 
 export interface NetworkVehicle {
@@ -82,6 +82,7 @@ export interface NetworkMissionParticipant {
   alive: boolean;
   deaths: number;
   activeMs: number;
+  contributionMs: number;
 }
 
 export interface NetworkStreetService {
@@ -97,7 +98,7 @@ export interface NetworkMission {
   id: string;
   templateId: MissionTemplateId;
   leaderId: string;
-  phase: 'forming' | 'steal' | 'checkpoints' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  phase: 'forming' | 'steal' | 'checkpoints' | 'hold' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
   objectiveId: string;
   objectiveKind: MissionObjectiveKind;
   objectiveIndex: number;
@@ -108,6 +109,16 @@ export interface NetworkMission {
   checkpointX: number;
   checkpointY: number;
   checkpointRadius: number;
+  holdX: number;
+  holdY: number;
+  holdRadius: number;
+  holdProgressMs: number;
+  holdRequiredMs: number;
+  holdContested: boolean;
+  encounterWave: number;
+  encounterWaveCount: number;
+  encounterRemaining: number;
+  encounterComplete: boolean;
   deliveryX: number;
   deliveryY: number;
   deliveryRadius: number;

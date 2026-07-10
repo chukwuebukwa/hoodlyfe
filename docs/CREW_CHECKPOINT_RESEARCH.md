@@ -61,3 +61,5 @@ Only the current checkpoint is replicated. The future route remains server-priva
 ## Next Mission Boundary
 
 Holdout remains next because it proves a different contract: authored hostile-wave ownership, contested presence, survival time, combat-event contribution, respawn tolerance, and explicit wave cleanup. It must subscribe to combat/lifecycle facts rather than polling or mutating damage internals. A passive timer with endlessly respawning ambient police is not an acceptable implementation.
+
+Delivered later the same day in `HOLDOUT_ENCOUNTER_RESEARCH.md` and the Crew Holdout job.
