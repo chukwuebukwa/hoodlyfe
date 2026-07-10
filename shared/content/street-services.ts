@@ -1,4 +1,4 @@
-export type StreetServiceKind = 'ammunition' | 'repair';
+export type StreetServiceKind = 'ammunition' | 'repair' | 'hospital';
 
 export interface AmmunitionState {
   ammoPistol: number;
@@ -24,7 +24,8 @@ export const AMMUNITION_CAPACITY: Readonly<AmmunitionState> = Object.freeze({
 
 export const STREET_SERVICE_RADIUS: Readonly<Record<StreetServiceKind, number>> = Object.freeze({
   ammunition: 72,
-  repair: 78
+  repair: 78,
+  hospital: 76
 });
 
 export function ammunitionRestockQuote(state: AmmunitionState): number {
@@ -43,6 +44,12 @@ export function vehicleRepairQuote(state: VehicleRepairState): number {
   const engineDamage = Math.max(0, finite(state.engineDamage));
   if (missingHealth + bodyDamage + engineDamage === 0) return 0;
   return clamp(Math.ceil(60 + missingHealth * 0.32 + bodyDamage * 0.08 + engineDamage * 0.6), 60, 700);
+}
+
+export function medicalTreatmentQuote(health: number): number {
+  const missingHealth = Math.max(0, 100 - clamp(finite(health), 0, 100));
+  if (missingHealth === 0) return 0;
+  return clamp(Math.ceil(25 + missingHealth * 2.25), 25, 250);
 }
 
 function missingRounds(current: number, capacity: number): number {

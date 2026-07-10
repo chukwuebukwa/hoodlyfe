@@ -68,7 +68,9 @@ export class InteractionPresentationController {
   }
 
   private drawService(service: NetworkStreetService, time: number): void {
-    const color = service.kind === 'repair' ? 0x55d6ff : 0xf2c94c;
+    const color = service.kind === 'repair'
+      ? 0x55d6ff
+      : (service.kind === 'hospital' ? 0x63df8a : 0xf2c94c);
     const pulse = 0.58 + (Math.sin(time / 190 + service.id.length) + 1) * 0.15;
     this.graphics.fillStyle(color, 0.055);
     this.graphics.fillCircle(service.x, service.y, service.radius);
@@ -78,6 +80,9 @@ export class InteractionPresentationController {
     if (service.kind === 'repair') {
       this.graphics.strokeRect(service.x - 8, service.y - 8, 16, 16);
       this.graphics.lineBetween(service.x - 12, service.y, service.x + 12, service.y);
+    } else if (service.kind === 'hospital') {
+      this.graphics.lineBetween(service.x - 11, service.y, service.x + 11, service.y);
+      this.graphics.lineBetween(service.x, service.y - 11, service.x, service.y + 11);
     } else {
       this.graphics.strokeCircle(service.x, service.y, 10);
       this.graphics.lineBetween(service.x - 4, service.y, service.x + 4, service.y);

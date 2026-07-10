@@ -125,6 +125,10 @@ function createFixture() {
       target.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
       target.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
     },
+    medical: {
+      canTreat: () => false,
+      treat: () => false
+    },
     notice: (playerId, message, tone) => notices.push({playerId, message, tone})
   });
   return {

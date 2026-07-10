@@ -12,6 +12,7 @@ interface RenderPlayer {
   passengerSprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
   weaponSprite: Phaser.GameObjects.Image;
+  protectionRing: Phaser.GameObjects.Arc;
   weapon: NetworkPlayer['weapon'];
   appearanceTextureKey: string;
   animationKey: string;
@@ -21,6 +22,7 @@ interface RenderPlayer {
   targetAngle: number;
   isLocal: boolean;
   peekRecoilUntil: number;
+  spawnProtected: boolean;
 }
 
 interface PlayerRendererOptions {
@@ -90,6 +92,7 @@ export class PlayerRenderer {
       this.presentAction(rendered, player, time);
       this.presentWeaponAndPassenger(rendered, player, time);
       this.positionNameplate(rendered, player);
+      this.presentSpawnProtection(rendered, time);
     }
     this.resolveNameplateOverlaps();
   }
@@ -173,6 +176,7 @@ export class PlayerRenderer {
     rendered.passengerSprite.setVisible(visiblePassenger && !player.action);
     rendered.label.setVisible(player.alive).setText(player.name);
     rendered.weaponSprite.setVisible((visibleOnFoot || visiblePassenger) && !player.action);
+    rendered.spawnProtected = Boolean(player.spawnProtected) && visibleOnFoot;
     if (rendered.weapon !== player.weapon) {
       rendered.weapon = player.weapon;
       applyWeaponPresentation(rendered.weaponSprite, player.weapon);
@@ -207,11 +211,16 @@ export class PlayerRenderer {
       .setScale(0.58 * appearance.bodyScaleX, 0.58)
       .setVisible(false)
       .setDepth(Math.round(player.y) + 101);
+    const protectionRing = this.scene.add.circle(player.x, player.y, 20, 0x63dfff, 0.05)
+      .setStrokeStyle(2, 0x63dfff, 0.9)
+      .setVisible(false)
+      .setDepth(Math.round(player.y) + 99);
     return {
       sprite,
       passengerSprite,
       label,
       weaponSprite,
+      protectionRing,
       weapon: player.weapon,
       appearanceTextureKey: appearance.textureKey,
       animationKey: appearance.animationKey,
@@ -220,7 +229,8 @@ export class PlayerRenderer {
       targetY: player.y,
       targetAngle: player.angle,
       isLocal,
-      peekRecoilUntil: 0
+      peekRecoilUntil: 0,
+      spawnProtected: false
     };
   }
 
@@ -281,6 +291,15 @@ export class PlayerRenderer {
     }
   }
 
+  private presentSpawnProtection(rendered: RenderPlayer, time: number): void {
+    const pulse = 0.85 + (Math.sin(time / 130) + 1) * 0.12;
+    rendered.protectionRing
+      .setPosition(rendered.sprite.x, rendered.sprite.y)
+      .setScale(pulse)
+      .setAlpha(0.55 + (Math.sin(time / 105) + 1) * 0.18)
+      .setVisible(rendered.spawnProtected);
+  }
+
   private updateWalkAnimation(rendered: RenderPlayer, distance: number): void {
     if (!rendered.sprite.visible) return;
     if (distance > 0.75) rendered.sprite.play(rendered.animationKey, true);
@@ -319,4 +338,5 @@ function destroyPlayer(rendered: RenderPlayer): void {
   rendered.passengerSprite.destroy();
   rendered.label.destroy();
   rendered.weaponSprite.destroy();
+  rendered.protectionRing.destroy();
 }

@@ -43,6 +43,8 @@ export class PlayerState extends Schema {
   cash = 0;
   alive = true;
   respawnAt = 0;
+  respawnCare = '';
+  spawnProtected = false;
   vehicleId = '';
   vehicleSeat = -1;
   action = '';
@@ -66,6 +68,8 @@ defineTypes(PlayerState, {
   cash: 'number',
   alive: 'boolean',
   respawnAt: 'number',
+  respawnCare: 'string',
+  spawnProtected: 'boolean',
   vehicleId: 'string',
   vehicleSeat: 'number',
   action: 'string',

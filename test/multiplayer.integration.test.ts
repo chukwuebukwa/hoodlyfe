@@ -58,9 +58,11 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, 11);
-  assert.equal(first.state.services.size, 2);
+  assert.equal(first.state.services.size, 4);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
+    'hospital',
+    'hospital',
     'repair'
   ]);
   assert.ok([...first.state.vehicles.values()].every((vehicle) => {

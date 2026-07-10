@@ -9,6 +9,7 @@ import {InteractionPresentationController} from './interactions/interaction-pres
 import {buildMinimapFrame} from './minimap-marker-policy.ts';
 import {MinimapRenderer} from './minimap-renderer.ts';
 import {MissionPresentationController} from './missions/mission-presentation-controller.ts';
+import {MedicalCarePresentationController} from './medical/medical-care-presentation-controller.ts';
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
@@ -24,6 +25,7 @@ export class DistrictScene extends Phaser.Scene {
   private appearanceController!: AppearanceCreatorController;
   private debugController!: DebugPresentationController;
   private missionController!: MissionPresentationController;
+  private medicalController!: MedicalCarePresentationController;
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
@@ -87,6 +89,12 @@ export class DistrictScene extends Phaser.Scene {
     this.hudController = new LocalHudController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
     this.missionController = new MissionPresentationController(this, this.room);
+    this.medicalController = new MedicalCarePresentationController(this.room);
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.medicalController.destroy,
+      this.medicalController
+    );
     this.interactionController = new InteractionPresentationController(this, this.room.sessionId);
     this.appearanceController = new AppearanceCreatorController(this.room, this.room.sessionId);
     this.events.once(
@@ -190,6 +198,7 @@ export class DistrictScene extends Phaser.Scene {
     this.playerRenderer.synchronize(state.players);
     this.pedestrianRenderer.synchronize(state.npcs);
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
+    this.medicalController.synchronize(state.players?.get(this.room.sessionId));
     this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
     this.projectileRenderer.synchronize(state.bullets);
     const shell = document.querySelector<HTMLElement>('#game-shell');

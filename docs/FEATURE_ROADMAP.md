@@ -20,7 +20,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** multiple named players with nameplates on foot and over occupied vehicles.
 - **Playable** keyboard, pointer, weapon buttons, Q/E cycling, mouse wheel, and touch controls.
 - **Playable** remote interpolation, local presentation prediction, responsive camera, HUD, and mobile controls.
-- **Playable** death and clean respawn with health, ammunition, action, vehicle seat, input, and wanted state reset.
+- **Playable** death and nearest-hospital respawn with public/trauma care choice, ammunition policy, action/vehicle/input/wanted cleanup, and bounded attack-cancelable spawn protection.
 
 ### Combat and Weapons
 
@@ -64,8 +64,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** bounded server-authoritative street cash with idempotent credits/debits, balance limits, typed audit events, mission payouts, and kill rewards.
 - **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
 - **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
+- **Playable** two collision-safe hospitals with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, authoritative living treatment, wanted/vehicle gates, world/minimap markers, and idempotent billing.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
-- **Foundation** street cash remains session-local and non-redeemable; hospital, clothing, pickups, risky cash loss, durable ledger, inventory, and ownership remain incomplete.
+- **Foundation** street cash remains session-local and non-redeemable; clothing, pickups, risky cash loss, durable ledger, inventory, and ownership remain incomplete.
 
 ### Appearance and Customization
 
@@ -100,7 +101,8 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 
 - **Delivered foundation**: all current kill and mission rewards pass through one bounded idempotent street-economy port with integer validation, balance caps, typed audit events, and fail-closed capacity.
 - **Delivered playable**: ammunition and repair services quote from shared content policy, validate authoritative context, debit once, apply complete domain effects, and replicate world/minimap/action presentation.
-- Add hospital fee/respawn choices and clothing preview as the next explicit cash sinks.
+- **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
+- Add a clothing-service entry point and private owned-versus-equipped wardrobe boundary next; keep all development cosmetics granted and free until durable persistence and original content exist.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.
 - Add pickups and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.
@@ -132,6 +134,7 @@ Exit gate met: four definitions compose shared objectives and one event-driven c
 - **Delivered foundation**: one preview/world palette renderer and bounded generated-texture cache cover current walk, aim, weapon, and passenger presentation.
 - Author original modular sprites for walk, run, aim, fire, enter, hijack, passenger lean, hit, and death readability.
 - Add saved outfits, wardrobe/clothing service, item ownership, and pricing only through persistence/economy ports.
+- Next slice: add private session wardrobe grants, server-side equip validation, unowned rejection, and a clothing service that opens the existing preview/apply/cancel creator rather than a second customization path.
 - Cosmetics never change hitbox, health, speed, aim, weapon damage, vehicle performance, detection, or payout.
 - Saved outfits wait for account persistence; all current options stay unlocked during development.
 

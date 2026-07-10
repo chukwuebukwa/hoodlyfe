@@ -15,12 +15,18 @@ import {
   type MissionIdMessage,
   type MissionStartMessage
 } from '../shared/protocol/missions.ts';
+import {
+  MEDICAL_CARE_MESSAGE,
+  type MedicalCareMessage
+} from '../shared/protocol/medical-care.ts';
+import {isMedicalCareKind} from '../shared/content/medical-care.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
+import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
@@ -74,6 +80,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private debugProjection!: DebugSnapshotController;
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
+  private medicalController!: MedicalCareController;
   private crimeController!: CrimeResponseController;
   private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
@@ -145,6 +152,13 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       targets: () => this.crimeController.policeVehicleTargets()
     });
+    this.medicalController = new MedicalCareController({
+      state: this.state,
+      world: this.world,
+      economy: this.economyController,
+      clock: () => ({tick: this.simulationClock.tick}),
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+    });
     this.debugProjection = new DebugSnapshotController({
       enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
       state: this.state,
@@ -191,10 +205,10 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.playerLifecycle = new PlayerLifecycleController({
       state: this.state,
-      world: this.world,
       events: this.events,
       access: this.vehicleAccess,
       crime: this.crimeController,
+      medical: this.medicalController,
       clock: () => ({tick: this.simulationClock.tick}),
       resetInput: (playerId) => this.playerControl.reset(playerId)
     });
@@ -263,7 +277,8 @@ export class DistrictRoom extends Room<DistrictState> {
       state: this.state,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      events: this.events
+      events: this.events,
+      cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId)
     });
     this.serviceController = new StreetServiceController({
       state: this.state,
@@ -272,6 +287,7 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: () => ({tick: this.simulationClock.tick}),
       repairVehicle: (vehicle) => this.vehicleSimulation.repair(vehicle),
       restockPlayer: (playerId) => this.fireControl.restock(playerId),
+      medical: this.medicalController,
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     this.interactionController = new PlayerInteractionController({
@@ -370,6 +386,7 @@ export class DistrictRoom extends Room<DistrictState> {
       )
     });
     this.serviceController.initialize();
+    this.medicalController.initialize();
     this.population.populate();
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
@@ -388,6 +405,10 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
       this.appearanceController.update(client.sessionId, message);
+    });
+    this.onMessage<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
+      if (!isMedicalCareKind(message?.kind)) return;
+      this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
     this.onMessage('interact', (client) => {
       this.interactionController.interact(
@@ -436,7 +457,9 @@ export class DistrictRoom extends Room<DistrictState> {
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
+    this.playerLifecycle.clearPlayer(client.sessionId);
     this.appearanceController.clearPlayer(client.sessionId);
+    this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
@@ -472,8 +495,10 @@ export class DistrictRoom extends Room<DistrictState> {
       if (!player.alive) {
         this.playerLifecycle.tryRespawn(player, now);
       } else if (player.action) {
+        this.playerLifecycle.updateProtection(player, now);
         this.vehicleAccess.updateAction(player, now);
       } else {
+        this.playerLifecycle.updateProtection(player, now);
         this.playerControl.updateOnFoot(player, deltaSeconds);
         this.crimeController.decay(player, now);
       }

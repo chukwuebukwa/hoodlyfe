@@ -16,6 +16,7 @@ interface FireControlControllerOptions {
   random: DeterministicRandom;
   clock: () => {tick: number; nowMs: number};
   events?: GameEventStream;
+  cancelSpawnProtection?: (playerId: string) => void;
 }
 
 export class FireControlController {
@@ -38,6 +39,7 @@ export class FireControlController {
     }
 
     this.lastShotAt.set(playerId, clock.nowMs);
+    this.options.cancelSpawnProtection?.(playerId);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     const origin = this.shotOrigin(player);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);

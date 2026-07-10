@@ -17,6 +17,8 @@ export interface NetworkPlayer {
   cash: number;
   alive: boolean;
   respawnAt: number;
+  respawnCare?: '' | 'public' | 'trauma';
+  spawnProtected?: boolean;
   vehicleId: string;
   vehicleSeat: number;
   action: '' | 'entering' | 'hijacking';

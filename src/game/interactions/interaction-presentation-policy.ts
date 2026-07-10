@@ -1,6 +1,7 @@
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {
   ammunitionRestockQuote,
+  medicalTreatmentQuote,
   vehicleRepairQuote
 } from '../../../shared/content/street-services.ts';
 import type {MinimapPointInput} from '../minimap-marker-policy.ts';
@@ -15,6 +16,7 @@ export type InteractionAffordanceKind =
   | 'hidden'
   | 'ammunition'
   | 'repair'
+  | 'hospital'
   | 'exit-vehicle'
   | 'enter-vehicle'
   | 'hijack-vehicle'
@@ -45,15 +47,15 @@ export function projectInteractionAffordance(
   if (!player?.alive || player.action) return hiddenAffordance();
   const service = nearestUsableService(state, player);
   if (service) {
-    const quote = service.kind === 'repair'
-      ? vehicleRepairQuote(state.vehicles.get(player.vehicleId) as NetworkVehicle)
-      : ammunitionRestockQuote(player);
-    const label = service.kind === 'repair' ? `REPAIR $${quote}` : `RESTOCK $${quote}`;
+    const quote = serviceQuote(state, player, service);
+    const label = service.kind === 'repair'
+      ? `REPAIR $${quote}`
+      : (service.kind === 'hospital' ? `TREAT $${quote}` : `RESTOCK $${quote}`);
     return {
       visible: true,
       kind: service.kind,
       label,
-      touchLabel: service.kind === 'repair' ? 'FIX' : 'AMMO',
+      touchLabel: service.kind === 'repair' ? 'FIX' : (service.kind === 'hospital' ? 'CARE' : 'AMMO'),
       ariaLabel: `${service.label}, ${quote} dollars`
     };
   }
@@ -107,8 +109,12 @@ function nearestUsableService(
       if (!vehicle || vehicleRepairQuote(vehicle) <= 0) continue;
       const distance = Math.hypot(vehicle.x - service.x, vehicle.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
-    } else {
+    } else if (service.kind === 'ammunition') {
       if (player.vehicleId || ammunitionRestockQuote(player) <= 0) continue;
+      const distance = Math.hypot(player.x - service.x, player.y - service.y);
+      if (distance <= service.radius) candidates.push({service, distance});
+    } else {
+      if (player.vehicleId || medicalTreatmentQuote(player.health) <= 0) continue;
       const distance = Math.hypot(player.x - service.x, player.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
     }
@@ -116,6 +122,18 @@ function nearestUsableService(
   return candidates.sort((left, right) => (
     left.distance - right.distance || left.service.id.localeCompare(right.service.id)
   ))[0]?.service;
+}
+
+function serviceQuote(
+  state: DistrictNetworkState,
+  player: NetworkPlayer,
+  service: NetworkStreetService
+): number {
+  if (service.kind === 'repair') {
+    return vehicleRepairQuote(state.vehicles.get(player.vehicleId) as NetworkVehicle);
+  }
+  if (service.kind === 'hospital') return medicalTreatmentQuote(player.health);
+  return ammunitionRestockQuote(player);
 }
 
 function nearestEnterableVehicle(

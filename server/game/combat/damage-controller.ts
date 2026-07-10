@@ -26,7 +26,11 @@ export class DamageController {
     crimeKind: CrimeKind = 'assault',
     attackerDisposition: 'player' | 'non-player' = 'player'
   ): void {
-    if (!target.alive || damage <= 0) return;
+    if (
+      !target.alive ||
+      damage <= 0 ||
+      this.options.playerLifecycle.isProtected?.(target.id, nowMs)
+    ) return;
     const previousHealth = target.health;
     target.health = Math.max(0, target.health - damage);
     this.options.events.publish({

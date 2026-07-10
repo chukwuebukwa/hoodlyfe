@@ -107,7 +107,11 @@
     <div id="event-toast" class="hud-layer" role="status"></div>
     <div id="death-screen" class="hidden" aria-live="assertive">
       <strong>WASTED</strong>
-      <span>Respawning</span>
+      <span id="medical-care-status">Public Ward</span>
+      <div id="medical-care-actions" aria-label="Medical care choice">
+        <button id="medical-public" type="button" aria-pressed="true">PUBLIC 4.2S</button>
+        <button id="medical-trauma" type="button" aria-pressed="false">TRAUMA $250</button>
+      </div>
     </div>
     <div id="appearance-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
       <section id="appearance-creator">

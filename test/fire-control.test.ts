@@ -15,19 +15,23 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   state.players.set(player.id, player);
   const clock = {tick: 1, nowMs: 1000};
   const events = new GameEventStream();
+  const cancelledProtection: string[] = [];
   const fire = new FireControlController({
     state,
     random: new DeterministicRandom('fire-control-test'),
     clock: () => clock,
-    events
+    events,
+    cancelSpawnProtection: (playerId) => cancelledProtection.push(playerId)
   });
 
   fire.shoot(player.id);
   assert.equal(player.ammoPistol, 119);
   assert.equal(state.bullets.size, 1);
+  assert.deepEqual(cancelledProtection, ['shooter']);
   assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
   fire.shoot(player.id);
   assert.equal(state.bullets.size, 1);
+  assert.deepEqual(cancelledProtection, ['shooter']);
   assert.equal(events.size, 0);
 
   clock.nowMs += 700;

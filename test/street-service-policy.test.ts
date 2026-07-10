@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   AMMUNITION_CAPACITY,
   ammunitionRestockQuote,
+  medicalTreatmentQuote,
   vehicleRepairQuote
 } from '../shared/content/street-services.ts';
 import {
@@ -21,6 +22,9 @@ test('street service quotes charge for missing ammunition and layered vehicle da
   assert.equal(ammunitionRestockQuote(AMMUNITION_CAPACITY), 0);
   assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoPistol: 119}), 25);
   assert.equal(ammunitionRestockQuote({ammoPistol: 0, ammoSmg: 0, ammoShotgun: 0}), 216);
+  assert.equal(medicalTreatmentQuote(100), 0);
+  assert.equal(medicalTreatmentQuote(50), 138);
+  assert.equal(medicalTreatmentQuote(-1000), 250);
 
   assert.equal(vehicleRepairQuote(createVehicle()), 0);
   assert.equal(vehicleRepairQuote(createVehicle({
@@ -52,6 +56,22 @@ test('interaction projection gives usable services priority over vehicle actions
 
   player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
   assert.equal(projectInteractionAffordance(state, player.id).kind, 'hidden');
+
+  state.services.set('hospital', createService({
+    id: 'hospital',
+    kind: 'hospital',
+    label: 'Mercy Hospital',
+    radius: 76
+  }));
+  player.health = 50;
+  assert.deepEqual(projectInteractionAffordance(state, player.id), {
+    visible: true,
+    kind: 'hospital',
+    label: 'TREAT $138',
+    touchLabel: 'CARE',
+    ariaLabel: 'Mercy Hospital, 138 dollars'
+  });
+  player.health = 100;
 
   const vehicle = createVehicle({health: 700, x: 0, y: 0, driverId: player.id});
   state.vehicles.set(vehicle.id, vehicle);

@@ -197,7 +197,8 @@ The first room-facing facades are now live:
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, and `DamageController` separate weapon use, moving projectiles, and victim response.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
-- `PlayerLifecycleController` owns death and respawn independently of combat and the room.
+- `MedicalCareController` owns registered hospitals, private admission/care choice, nearest-facility selection, living treatment, and idempotent economy coordination.
+- `PlayerLifecycleController` owns death/respawn mutation and bounded spawn protection independently of combat and the room; it delegates facility, timing, ammunition, and care policy to medical care.
 - `PlayerAppearanceController` owns join fallback, full-update validation, public schema mutation, rate limiting, and disconnect cleanup; the shared appearance catalog owns finite content IDs and palette values.
 - `PedestrianController` owns pedestrian spawn/ejected-driver/respawn lifecycle and composes dedicated runtime, perception, behavior, navigation, and locomotion modules.
 - `PedestrianReactionSystem` owns staged civilian orient/respond/recover transitions; synchronized NPC action is presentation intent, not a client-side gameplay decision.
@@ -206,7 +207,7 @@ The first room-facing facades are now live:
 - The shared vehicle catalog owns stable model content; vehicle access, player handling, damage/collision, population, traffic, and presentation consume focused portions of the same definition.
 - `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead corridor; `TrafficController` retains route, acceleration/braking, hijack, blockage, and deterministic recovery ownership.
 - `StreetEconomyController` is the in-memory implementation of the cash mutation port. Combat and missions propose stable idempotent rewards; services propose purchases; persistent account/ledger adapters can replace it without entering simulation domains.
-- `StreetServiceController` owns replicated service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it does not own cash, ammunition, or vehicle damage fields.
+- `StreetServiceController` owns replicated nonmedical service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it delegates hospital interactions and does not own cash, health, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 

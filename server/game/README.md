@@ -37,6 +37,8 @@ game/
     street-economy-controller.ts
   interactions/
     player-interaction-controller.ts
+  medical/
+    medical-care-controller.ts
   events/
     game-events.ts
   incidents/
@@ -135,11 +137,12 @@ Extracted domain policies and room adapters now include:
 - `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
 - `street-economy-controller.ts` for bounded idempotent session street-cash credits/debits, balance validation/caps, typed audit events, and a replaceable future persistence port.
 - `street-service-controller.ts` for deterministic replicated service placement, authoritative eligibility, shared quotes, debit-before-effect coordination, and player notices.
+- `medical-care-controller.ts` for registered safe hospitals, private public/trauma admissions, nearest-facility completion, living treatment, and idempotent economy coordination.
 - `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-appearance-controller.ts` for finite catalog validation, default join fallback, replicated visual-only appearance mutation, update throttling, and disconnect cleanup.
-- `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, respawn timing/location, health, ammunition, and respawn events.
+- `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, delegated medical completion, health/ammunition mutation, bounded attack-cancelable spawn protection, and respawn events.
 - `pedestrian-controller.ts` for pedestrian spawn/ejected-driver/death/respawn lifecycle and room-facing composition.
 - `pedestrian-runtime.ts` for private objectives, threat memory, think/fire/navigation deadlines, and respawn state.
 - `pedestrian-perception-system.ts` for police pursuit observations and expiring civilian last-known-threat memory.

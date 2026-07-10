@@ -8,6 +8,7 @@ import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import {StreetServiceState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
+import type {MedicalCareController} from '../medical/medical-care-controller.ts';
 
 interface StreetServiceControllerOptions {
   state: DistrictState;
@@ -16,6 +17,7 @@ interface StreetServiceControllerOptions {
   clock: () => {tick: number};
   repairVehicle: (vehicle: VehicleState) => void;
   restockPlayer: (playerId: string) => void;
+  medical: Pick<MedicalCareController, 'canTreat' | 'treat'>;
   notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
 }
 
@@ -64,6 +66,9 @@ export class StreetServiceController {
       }
       if (kind === 'ammunition' && this.canOfferAmmunition(player)) {
         return this.restock(player, service, nowMs);
+      }
+      if (kind === 'hospital' && this.options.medical.canTreat(player)) {
+        return this.options.medical.treat(player.id, service.id, nowMs);
       }
     }
     return false;

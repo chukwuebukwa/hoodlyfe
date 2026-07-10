@@ -185,6 +185,7 @@ export class DebugPresentationController {
   private drawPlayers(present: Set<string>): void {
     this.state?.players?.forEach((player, playerId) => {
       const mode = player.vehicleId ? `seat:${player.vehicleSeat}` : 'foot';
+      const protection = player.spawnProtected ? ' SHIELD' : '';
       this.drawEntity(
         player.x,
         player.y,
@@ -192,7 +193,7 @@ export class DebugPresentationController {
         player.angle,
         0x70dcff,
         `player:${playerId}`,
-        `${player.name} p:${shortId(playerId)} ${mode} w:${player.wanted}`,
+        `${player.name} p:${shortId(playerId)} ${mode} w:${player.wanted}${protection}`,
         present,
         player.alive
       );
