@@ -141,7 +141,6 @@ def main() -> int:
     walk.save(out_dir / "player-lpc-walk.png")
     walk_4dir.save(out_dir / "player-lpc-walk-4dir.png")
     actions.save(out_dir / "player-lpc-actions.png")
-    pistol_overlay().save(out_dir / "player-lpc-pistol-8dir.png")
     Image.new("RGBA", walk.size, (0, 0, 0, 0)).save(out_dir / "player-lpc-walk-mask.png")
     Image.new("RGBA", walk_4dir.size, (0, 0, 0, 0)).save(out_dir / "player-lpc-walk-4dir-mask.png")
     Image.new("RGBA", actions.size, (0, 0, 0, 0)).save(out_dir / "player-lpc-actions-mask.png")
@@ -215,70 +214,6 @@ def paste_grid_frame(atlas: Image.Image, column: int, row: int, frame: Image.Ima
     atlas.alpha_composite(frame, (x + 4, y + 4))
 
 
-def pistol_overlay() -> Image.Image:
-    atlas = Image.new("RGBA", (NOCK0_FRAME * 8, NOCK0_FRAME), (0, 0, 0, 0))
-    # Sector order follows server aim radians: east, southeast, south, southwest,
-    # west, northwest, north, northeast.
-    directions = [
-        (1, 0),
-        (1, 1),
-        (0, 1),
-        (-1, 1),
-        (-1, 0),
-        (-1, -1),
-        (0, -1),
-        (1, -1),
-    ]
-    for index, direction in enumerate(directions):
-        frame = Image.new("RGBA", (NOCK0_FRAME, NOCK0_FRAME), (0, 0, 0, 0))
-        draw_pistol_pose(frame, direction)
-        atlas.alpha_composite(frame, (index * NOCK0_FRAME, 0))
-    return atlas
-
-
-def draw_pistol_pose(frame: Image.Image, direction: tuple[int, int]) -> None:
-    from PIL import ImageDraw
-
-    draw = ImageDraw.Draw(frame)
-    dx, dy = direction
-    length = max(1, (dx * dx + dy * dy) ** 0.5)
-    ux = dx / length
-    uy = dy / length
-    # The hand anchor is intentionally near the torso center of the LPC adult.
-    hand = (36 + round(ux * 5), 35 + round(uy * 3))
-    muzzle = (hand[0] + round(ux * 22), hand[1] + round(uy * 22))
-    grip = (hand[0] - round(uy * 4), hand[1] + round(ux * 4))
-    off = (-uy, ux)
-    skin = (216, 160, 124, 255)
-    sleeve = (245, 242, 224, 255)
-    outline = (22, 18, 18, 255)
-    metal = (165, 174, 178, 255)
-    dark = (20, 24, 27, 255)
-    accent = (229, 197, 90, 255)
-
-    arm_start = (36 - round(ux * 5), 36 - round(uy * 4))
-    arm_end = (hand[0] - round(ux * 2), hand[1] - round(uy * 2))
-    draw.line([arm_start, arm_end], fill=outline, width=7)
-    draw.line([arm_start, arm_end], fill=sleeve, width=5)
-    draw.ellipse((hand[0] - 4, hand[1] - 4, hand[0] + 4, hand[1] + 4), fill=outline)
-    draw.ellipse((hand[0] - 3, hand[1] - 3, hand[0] + 3, hand[1] + 3), fill=skin)
-
-    barrel_a = (hand[0] + round(off[0] * 3), hand[1] + round(off[1] * 3))
-    barrel_b = (muzzle[0] + round(off[0] * 3), muzzle[1] + round(off[1] * 3))
-    barrel_c = (muzzle[0] - round(off[0] * 3), muzzle[1] - round(off[1] * 3))
-    barrel_d = (hand[0] - round(off[0] * 3), hand[1] - round(off[1] * 3))
-    draw.polygon([barrel_a, barrel_b, barrel_c, barrel_d], fill=outline)
-    inner_a = (hand[0] + round(off[0] * 1), hand[1] + round(off[1] * 1))
-    inner_b = (muzzle[0] + round(off[0] * 1), muzzle[1] + round(off[1] * 1))
-    inner_c = (muzzle[0] - round(off[0] * 1), muzzle[1] - round(off[1] * 1))
-    inner_d = (hand[0] - round(off[0] * 1), hand[1] - round(off[1] * 1))
-    draw.polygon([inner_a, inner_b, inner_c, inner_d], fill=metal)
-    draw.line([hand, muzzle], fill=dark, width=2)
-    draw.line([hand, grip], fill=outline, width=6)
-    draw.line([hand, grip], fill=dark, width=4)
-    draw.ellipse((muzzle[0] - 2, muzzle[1] - 2, muzzle[0] + 2, muzzle[1] + 2), fill=accent)
-
-
 def metadata() -> dict:
     return {
         "source": "Universal LPC Spritesheet Character Generator",
@@ -300,7 +235,6 @@ def metadata() -> dict:
             "melee": "LPC slash/down columns 0-3 -> NOCK0 action frames 0-3",
             "hitKnockdownDead": "LPC hurt columns 0,1,3,5 -> NOCK0 action frames 4-7",
             "vehicleEnterCarjack": "LPC sit/down columns 0,1,2,2 -> NOCK0 action frames 8-11",
-            "pistolOverlay": "NOCK0-authored 8-sector pistol/hand overlay, not from LPC",
         },
         "gaps": [
             "LPC does not provide NOCK0-style top-down vehicle entry/carjacking frames.",

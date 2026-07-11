@@ -43,7 +43,6 @@ interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   label?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   weapon?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  weaponOverlay?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   smoke?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   fire?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   blood?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -73,7 +72,6 @@ interface EntityTextures {
   policeActions: THREE.Texture;
   vehicleDoors: THREE.Texture;
   blood: THREE.Texture;
-  lpcPistolOverlay: THREE.Texture;
   weapons: Record<NetworkPlayer['weapon'], THREE.Texture>;
 }
 
@@ -108,7 +106,6 @@ const LPC_SPIKE_ATLASES: Readonly<PlayerCharacterSources> = Object.freeze({
   walkMask: '/assets/custom/lpc-spike/player-lpc-walk-4dir-mask.png',
   actionMask: '/assets/custom/lpc-spike/player-lpc-actions-mask.png'
 });
-const LPC_PISTOL_OVERLAY_COLUMNS = 8;
 
 export class ThreeDistrictEntities {
   private readonly rendered = new Map<string, RenderedEntity>();
@@ -129,7 +126,7 @@ export class ThreeDistrictEntities {
     const [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
       civilianActions, policeActions,
-      vehicleDoors, blood, lpcPistolOverlay, fists, bat, pistol, smg, shotgun, rocket, grenade
+      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade
     ] = await Promise.all([
       loader.loadAsync(characterSources.walk),
       loader.loadAsync('/assets/original/sprites/civilian.png'),
@@ -142,7 +139,6 @@ export class ThreeDistrictEntities {
       loader.loadAsync('/assets/custom/actions/police-actions.png'),
       loader.loadAsync('/assets/custom/actions/vehicle-doors.png'),
       loader.loadAsync('/assets/custom/actions/bloodstain.png'),
-      loader.loadAsync('/assets/custom/lpc-spike/player-lpc-pistol-8dir.png'),
       loader.loadAsync('/assets/original/weapons/fists.svg'),
       loader.loadAsync('/assets/original/weapons/bat.svg'),
       loader.loadAsync('/assets/original/weapons/pistol.svg'),
@@ -154,7 +150,7 @@ export class ThreeDistrictEntities {
     for (const texture of [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
       civilianActions, policeActions,
-      vehicleDoors, blood, lpcPistolOverlay, fists, bat, pistol, smg, shotgun, rocket, grenade
+      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade
     ]) {
       configureTexture(texture);
     }
@@ -167,7 +163,7 @@ export class ThreeDistrictEntities {
         playerDirectionalWalk: characterSources.directionalWalk,
         civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
         civilianActions, policeActions,
-        vehicleDoors, blood, lpcPistolOverlay, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade}
+        vehicleDoors, blood, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade}
       },
       surfaceHeightAt
     );
@@ -210,7 +206,6 @@ export class ThreeDistrictEntities {
       this.textures.policeActions,
       this.textures.vehicleDoors,
       this.textures.blood,
-      this.textures.lpcPistolOverlay,
       ...Object.values(this.textures.weapons)
     ]) texture.dispose();
     for (const textures of this.appearances.values()) {
@@ -251,14 +246,6 @@ export class ThreeDistrictEntities {
         ),
         label: nameLabel(player.name),
         weapon,
-        weaponOverlay: spriteMesh(
-          this.textures.lpcPistolOverlay,
-          LPC_PISTOL_OVERLAY_COLUMNS,
-          1,
-          0,
-          58,
-          58
-        ),
         blood: spriteMesh(this.textures.blood, 4, 1, 3, 64, 64),
         appearanceKey: appearance.textureKey
       };
@@ -353,6 +340,9 @@ export class ThreeDistrictEntities {
     rendered.mesh.material.color.setHex(reaction.tint ?? 0xffffff);
     rendered.mesh.visible = !vehicle || player.vehicleSeat > 0;
     if (actionSprite.sprite === 'walk') {
+      const facingDirectionRow = appearanceTextures.directionalWalk && held.visible && player.alive && !vehicle
+        ? lpcAimDirectionRow(player.angle)
+        : undefined;
       updateWalkingFrame(
         rendered.mesh,
         player.x,
@@ -360,33 +350,13 @@ export class ThreeDistrictEntities {
         Boolean(!vehicle && player.alive && !player.action && !melee?.active && !reaction.stopMovement),
         appearanceTextures.walkColumns,
         appearanceTextures.walkRows,
-        appearanceTextures.directionalWalk
+        appearanceTextures.directionalWalk,
+        facingDirectionRow
       );
     }
     if (rendered.blood) {
       rendered.blood.position.set(player.x, serverYToThree(player.y), this.surfaceHeightAt(player.x, player.y) + 2);
       rendered.blood.visible = !player.alive && !vehicle;
-    }
-    if (rendered.weaponOverlay) {
-      const integratedPistol = appearanceTextures.directionalWalk &&
-        player.weapon === 'pistol' &&
-        rendered.mesh.visible &&
-        held.visible &&
-        !reaction.active &&
-        (!player.action || player.action === 'melee');
-      rendered.weaponOverlay.visible = integratedPistol;
-      if (integratedPistol) {
-        rendered.weaponOverlay.position.copy(rendered.mesh.position);
-        rendered.weaponOverlay.position.z += 0.35;
-        rendered.weaponOverlay.rotation.z = 0;
-        rendered.weaponOverlay.scale.copy(rendered.mesh.scale);
-        setSpriteFrame(
-          rendered.weaponOverlay,
-          LPC_PISTOL_OVERLAY_COLUMNS,
-          1,
-          pistolAimSector(player.angle)
-        );
-      }
     }
     if (rendered.weapon) {
       const baseX = passenger?.baseX ?? player.x;
@@ -399,7 +369,7 @@ export class ThreeDistrictEntities {
         z + 2
       );
       rendered.weapon.rotation.z = serverAngleToThree(weaponAngle);
-      rendered.weapon.visible = !rendered.weaponOverlay?.visible && rendered.mesh.visible && held.visible &&
+      rendered.weapon.visible = rendered.mesh.visible && held.visible &&
         !reaction.active &&
         (!player.action || player.action === 'melee');
     }
@@ -547,7 +517,6 @@ export class ThreeDistrictEntities {
     this.scene.add(rendered.mesh);
     if (rendered.label) this.scene.add(rendered.label);
     if (rendered.weapon) this.scene.add(rendered.weapon);
-    if (rendered.weaponOverlay) this.scene.add(rendered.weaponOverlay);
     if (rendered.smoke) this.scene.add(rendered.smoke);
     if (rendered.fire) this.scene.add(rendered.fire);
     if (rendered.blood) this.scene.add(rendered.blood);
@@ -565,7 +534,7 @@ export class ThreeDistrictEntities {
       rendered.label.material.map?.dispose();
       rendered.label.material.dispose();
     }
-    for (const effect of [rendered.weapon, rendered.weaponOverlay, rendered.smoke, rendered.fire, rendered.blood]) {
+    for (const effect of [rendered.weapon, rendered.smoke, rendered.fire, rendered.blood]) {
       if (!effect) continue;
       this.scene.remove(effect);
       effect.geometry.dispose();
@@ -800,16 +769,20 @@ function updateWalkingFrame(
   canWalk: boolean,
   columns = 3,
   rows = 3,
-  directional = false
+  directional = false,
+  directionRowOverride?: number
 ): boolean {
   const now = performance.now();
   const previousX = mesh.userData.networkX as number | undefined;
   const previousY = mesh.userData.networkY as number | undefined;
   const deltaX = previousX === undefined ? 0 : x - previousX;
   const deltaY = previousY === undefined ? 0 : y - previousY;
+  if (directional && directionRowOverride !== undefined) {
+    mesh.userData.walkDirectionRow = directionRowOverride;
+  }
   if (previousX !== undefined && previousY !== undefined && Math.hypot(deltaX, deltaY) > 0.35) {
     mesh.userData.movingUntil = now + 180;
-    if (directional) {
+    if (directional && directionRowOverride === undefined) {
       mesh.userData.walkDirectionRow = lpcDirectionRow(deltaX, deltaY);
     }
   }
@@ -828,10 +801,8 @@ function lpcDirectionRow(deltaX: number, deltaY: number): number {
   return deltaY < 0 ? 0 : 2;
 }
 
-function pistolAimSector(angle: number): number {
-  const fullTurn = Math.PI * 2;
-  const normalized = ((angle % fullTurn) + fullTurn) % fullTurn;
-  return Math.round(normalized / (Math.PI / 4)) % LPC_PISTOL_OVERLAY_COLUMNS;
+function lpcAimDirectionRow(angle: number): number {
+  return lpcDirectionRow(Math.cos(angle), Math.sin(angle));
 }
 
 function configureTexture(texture: THREE.Texture): void {

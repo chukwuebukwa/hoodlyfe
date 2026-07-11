@@ -10,7 +10,7 @@ This is a narrow integration spike, not the final character creator.
 - `?renderer=three&lpc=1` uses the LPC spike in game.
 - `?renderer=three&lpc=0` returns to the current NOCK0 avatar.
 - LPC mode now uses a directional walk atlas for Three: `player-lpc-walk-4dir.png`.
-- LPC pistol mode uses a small NOCK0-authored 8-sector overlay: `player-lpc-pistol-8dir.png`.
+- Armed LPC movement faces the mouse/aim row while movement still advances the walk cycle, so backpedaling and strafing can read better.
 
 ## Mapping
 
@@ -27,7 +27,6 @@ The spike maps:
 - LPC `slash` down frames 0-3 -> NOCK0 melee frames 0-3
 - LPC `hurt` frames 0,1,3,5 -> NOCK0 hit/knockdown/dead frames 4-7
 - LPC `sit` down frames 0,1,2,2 -> NOCK0 vehicle/carjack frames 8-11
-- NOCK0 pistol overlay sectors `east,southeast,south,southwest,west,northwest,north,northeast` -> current mouse aim angle
 
 Some selected LPC clothing layers do not cover every animation. The importer keeps those layers visible by falling back to the same item's walk sheet for missing idle/sit/hurt-style frames.
 
@@ -36,7 +35,7 @@ Some selected LPC clothing layers do not cover every animation. The importer kee
 - LPC is 64px RPG-front/side/back art; NOCK0 currently renders 72px near-overhead action art.
 - LPC walk and slash are usable enough to test scale/readability.
 - LPC standard modular character coverage is cardinal, not reliably 8-directional. Diagonal movement currently selects the nearest cardinal row.
-- LPC does not solve weapon-held poses for this camera/action style. The pistol proof is our overlay, so every real weapon would need its own overlay/pose rules or authored frames.
+- LPC does not solve weapon-held poses for this camera/action style. For now, NOCK0 keeps the existing rotating weapon sprite around the character.
 - LPC does not provide NOCK0-style vehicle entry, carjacking, knockdown, or death animation coverage.
 - Production use needs an explicit license/attribution decision. This recipe pulls from LPC assets with OGA-BY, CC-BY-SA, and GPL-family credits.
 
