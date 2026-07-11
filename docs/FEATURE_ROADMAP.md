@@ -59,6 +59,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 ### World, Navigation, Missions, and Diagnostics
 
 - **Playable** GTA2 compatibility map, corrected collision layers, spawn, roads, labels, overhead props, and minimap.
+- **Playable foundation** server-authoritative 48-minute day/night clock with continuous Three sky/fog/sun/ambient phases, deterministic full-road streetlight coverage, signal-color glow, bounded nearest-light activation, and DBG time controls.
 - **Playable** GTA Online-inspired Freemode Boost and Deliver job with opt-in nearby crew, leader launch, shared objective, target reservation, wanted escape, delivery, failure states, and idempotent participant payouts.
 - **Playable** Getaway Run composes the same crew/runtime boundaries with three ordered authoritative road checkpoints, wanted escape, delivery, condition payout, and cleanup.
 - **Playable** Crew Checkpoint Rush adds five ordered road checkpoints carried by any living crew driver, no reserved target, fixed payout, and shared route progress.
@@ -87,9 +88,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 ### Appearance and Customization
 
-- **Playable** free character creator with body presentation, skin tone, hair, headwear, top, bottoms, shoes, five color channels, ten swatches, outfit name, randomize, cancel, and apply.
-- **Playable** server-validated nested appearance state replicates to local/remote on-foot and passenger presentation with local reload persistence for development.
-- **Playable** one palette renderer powers preview and cached nine-frame world animation; inactive generated textures are bounded and pruned.
+- **Playable** free LPC-backed character creator with authored body, hair, headwear, top, bottoms, footwear, compatible color variants, outfit name, randomize, cancel, and apply.
+- **Playable** server-validated nested appearance state plus stable LPC recipe replicates to local/remote on-foot and passenger presentation with local reload persistence for development.
+- **Playable** synchronized LPC layers compile client-side into runtime animation textures; inactive generated textures remain bounded and pruned.
 - **Playable** creator modal blocks gameplay input and has verified desktop/390x844 layouts.
 - **Playable** private per-player session wardrobe grants every current item during development, validates owned styles before equip, and sends inventory only to its owning client.
 - **Playable** appearance apply now waits for an authoritative result before local persistence; invalid, rate-limited, or unowned updates cannot partially mutate or falsely save.
