@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {Encoder} from '@colyseus/schema';
 import {DistrictReplicationController} from '../server/game/replication/district-replication-controller.ts';
 import {
   DistrictState,
@@ -81,6 +82,32 @@ test('district replication diffs a space transition and newly attached state', (
   controller.synchronize();
   assert.equal(view.has(peer), true);
   assert.equal(view.has(lateVehicle), true);
+});
+
+test('district replication queues a complete snapshot after a newly attached schema is encoded', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  state.players.set(local.id, local);
+  const controller = new DistrictReplicationController(state);
+  const view = controller.attach(local.id);
+  const encoder = new Encoder(state);
+
+  const peer = player('peer', 'street');
+  peer.armor = 25;
+  state.players.set(peer.id, peer);
+  controller.synchronize();
+  assert.equal(view.has(peer), true);
+
+  encoder.encodeView(view, 0, {offset: 0});
+  encoder.discardChanges();
+  controller.synchronize();
+
+  assert.ok(view.changes.size > 0);
+  assert.ok([...view.changes.values()].some((changes) => Object.keys(changes).length > 0));
+
+  state.players.delete(peer.id);
+  controller.synchronize();
+  assert.equal(view.has(peer), false);
 });
 
 function player(id: string, spaceId: string): PlayerState {

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {AMMUNITION_CAPACITY, vehicleRepairQuote} from '../shared/content/street-services.ts';
+import {
+  AMMUNITION_CAPACITY,
+  ARMOR_CAPACITY,
+  vehicleRepairQuote
+} from '../shared/content/street-services.ts';
 import {StreetEconomyController} from '../server/game/economy/street-economy-controller.ts';
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {StreetServiceController} from '../server/game/services/street-service-controller.ts';
@@ -75,10 +79,11 @@ test('repair rejection preserves cash and damage while consuming the interaction
   assert.equal(fixture.economy.size, 0);
 });
 
-test('ammunition counter charges the computed quote and restores every weapon reserve', () => {
+test('combat supply atomically charges for ammunition and armor', () => {
   const fixture = createFixture();
   fixture.services.initialize();
   fixture.player.cash = 1000;
+  fixture.player.armor = 0;
   fixture.player.ammoPistol = 0;
   fixture.player.ammoSmg = 40;
   fixture.player.ammoShotgun = 8;
@@ -88,12 +93,13 @@ test('ammunition counter charges the computed quote and restores every weapon re
   fixture.player.y = counter.y;
 
   assert.equal(fixture.services.interact(fixture.player.id, 3000), true);
-  assert.equal(fixture.player.cash, 810);
+  assert.equal(fixture.player.cash, 660);
   assert.equal(fixture.player.ammoPistol, AMMUNITION_CAPACITY.ammoPistol);
   assert.equal(fixture.player.ammoSmg, AMMUNITION_CAPACITY.ammoSmg);
   assert.equal(fixture.player.ammoShotgun, AMMUNITION_CAPACITY.ammoShotgun);
+  assert.equal(fixture.player.armor, ARMOR_CAPACITY);
   assert.equal(fixture.restockCount(), 1);
-  assert.equal(fixture.notices.at(-1)?.message, 'Ammunition restocked -$190');
+  assert.equal(fixture.notices.at(-1)?.message, 'Combat resupply -$340');
 });
 
 test('clothing store opens only for an on-foot heat-free player without changing cash', () => {
@@ -175,6 +181,7 @@ function createFixture() {
       target.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
       target.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
       target.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
+      target.armor = ARMOR_CAPACITY;
     },
     medical: {
       canTreat: () => false,

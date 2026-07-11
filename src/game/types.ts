@@ -7,6 +7,9 @@ import type {
 import type {PlayerAppearance} from '../../shared/content/appearance-catalog.ts';
 import type {BulletWeaponId, WeaponId} from '../../shared/content/weapon-catalog.ts';
 
+export type CombatReactionKind = '' | 'flinch' | 'stagger' | 'knockdown';
+export type CombatReactionDirection = 'front' | 'left' | 'back' | 'right';
+
 export interface NetworkPlayer {
   id: string;
   name: string;
@@ -15,6 +18,7 @@ export interface NetworkPlayer {
   y: number;
   angle: number;
   health: number;
+  armor?: number;
   wanted: number;
   cash: number;
   alive: boolean;
@@ -23,12 +27,16 @@ export interface NetworkPlayer {
   spawnProtected?: boolean;
   vehicleId: string;
   vehicleSeat: number;
-  action: '' | 'entering' | 'hijacking' | 'melee';
+  action: '' | 'entering' | 'hijacking' | 'melee' | 'hit' | 'knockdown';
   actionUntil: number;
   actionVehicleId: string;
   attackSequence?: number;
   attackCombo?: number;
   attackProgress?: number;
+  reactionSequence?: number;
+  reactionKind?: CombatReactionKind;
+  reactionDirection?: CombatReactionDirection;
+  reactionProgress?: number;
   weapon: WeaponId;
   ammoPistol: number;
   ammoSmg: number;
@@ -98,8 +106,13 @@ export interface NetworkNpc {
   y: number;
   angle: number;
   health: number;
+  armor?: number;
   alive: boolean;
   action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'assault' | 'pursue' | 'search' | 'dead';
+  reactionSequence?: number;
+  reactionKind?: CombatReactionKind;
+  reactionDirection?: CombatReactionDirection;
+  reactionProgress?: number;
 }
 
 export interface NetworkVehicle {

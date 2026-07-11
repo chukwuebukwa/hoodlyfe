@@ -40,6 +40,7 @@ test('mission hostile damage emits combat facts without street crime, cash, pani
   const player = new PlayerState();
   player.id = 'leader';
   player.health = 25;
+  player.armor = 0;
   damage.player(player, 25, hostile.id, 1_100, 'assault', 'non-player');
   const playerEvents = events.drain();
   assert.equal(playerEvents[0]?.type, 'damage.applied');
@@ -68,6 +69,7 @@ test('self-inflicted explosive damage never creates crime or kill rewards', () =
   const player = new PlayerState();
   player.id = 'thrower';
   player.health = 100;
+  player.armor = 0;
 
   damage.player(player, 120, player.id, 1200);
 

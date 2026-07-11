@@ -513,19 +513,36 @@ canvas {
   font-weight: 800;
 }
 
-#health-track {
+#health-track,
+#armor-track {
   width: 150px;
-  height: 8px;
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
-#health-fill {
+#health-track {
+  height: 8px;
+}
+
+#armor-track {
+  height: 6px;
+  border-color: rgba(104, 214, 255, 0.52);
+}
+
+#health-fill,
+#armor-fill {
   display: block;
   width: 100%;
   height: 100%;
-  background: #e14b4b;
   transition: width 120ms linear;
+}
+
+#health-fill {
+  background: #e14b4b;
+}
+
+#armor-fill {
+  background: #3ab8e8;
 }
 
 #appearance-modal {

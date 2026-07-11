@@ -16,6 +16,7 @@ import {
   weaponPresentation
 } from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
+import {combatReactionPresentation} from '../rendering/combat-reaction-render-policy.ts';
 import {rotateTowards} from '../rendering/interpolation-policy.ts';
 import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
 import {
@@ -153,8 +154,9 @@ export class ThreeDistrictEntities {
         rendered.attackCombo = player.attackCombo ?? 0;
       }
     }
+    const reaction = combatReactionPresentation(player);
     const meleeInterrupted = !player.alive || rendered.attackWeapon !== player.weapon ||
-      Boolean(player.action && player.action !== 'melee');
+      Boolean(player.action && player.action !== 'melee') || reaction.active;
     const melee = rendered.attackWeapon
       ? meleeAttackPresentationAtProgress(
         rendered.attackWeapon,
@@ -183,22 +185,25 @@ export class ThreeDistrictEntities {
     const z = this.surfaceHeightAt(x, y) + (passenger ? 8 : 4);
     positionEntity(rendered.mesh, x, y, z, 0.34);
     const bodyRotation = serverPedestrianAngleToThree(player.angle) -
-      (melee?.active ? melee.bodyRotationOffset : 0);
-    rendered.mesh.rotation.z = melee?.active
+      (reaction.active ? reaction.rotationOffset : (melee?.bodyRotationOffset ?? 0));
+    rendered.mesh.rotation.z = reaction.active || melee?.active
       ? bodyRotation
       : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.22);
     const bodyScale = passenger?.scale ?? 1;
+    const bodyScaleX = reaction.active ? reaction.scaleX : (melee?.bodyScaleX ?? 1);
+    const bodyScaleY = reaction.active ? reaction.scaleY : (melee?.bodyScaleY ?? 1);
     rendered.mesh.scale.set(
-      bodyScale * appearance.bodyScaleX * (melee?.bodyScaleX ?? 1),
-      bodyScale * (melee?.bodyScaleY ?? 1),
+      bodyScale * appearance.bodyScaleX * bodyScaleX,
+      bodyScale * bodyScaleY,
       bodyScale
     );
+    rendered.mesh.material.color.setHex(reaction.tint ?? 0xffffff);
     rendered.mesh.visible = player.alive && (!vehicle || player.vehicleSeat > 0);
     updateWalkingFrame(
       rendered.mesh,
       player.x,
       player.y,
-      Boolean(!vehicle && player.alive && !player.action && !melee?.active)
+      Boolean(!vehicle && player.alive && !player.action && !melee?.active && !reaction.stopMovement)
     );
     if (rendered.weapon) {
       const baseX = passenger?.baseX ?? player.x;
@@ -212,6 +217,7 @@ export class ThreeDistrictEntities {
       );
       rendered.weapon.rotation.z = serverAngleToThree(weaponAngle);
       rendered.weapon.visible = rendered.mesh.visible && held.visible &&
+        !reaction.active &&
         (!player.action || player.action === 'melee');
     }
     if (rendered.label) {
@@ -237,16 +243,26 @@ export class ThreeDistrictEntities {
       this.surfaceHeightAt(npc.x, npc.y) + 3,
       0.28
     );
-    rendered.mesh.rotation.z = rotateTowards(
-      rendered.mesh.rotation.z,
-      serverPedestrianAngleToThree(npc.angle),
-      0.18
-    );
+    const reaction = combatReactionPresentation(npc);
+    const bodyRotation = serverPedestrianAngleToThree(npc.angle) - reaction.rotationOffset;
+    rendered.mesh.rotation.z = reaction.active
+      ? bodyRotation
+      : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.18);
+    rendered.mesh.scale.set(reaction.scaleX, reaction.scaleY, 1);
     rendered.mesh.visible = npc.alive;
-    const moving = updateWalkingFrame(rendered.mesh, npc.x, npc.y, npc.alive);
-    const presentation = pedestrianMotionPresentation(npc.action, moving ? 1 : 0);
+    const moving = updateWalkingFrame(
+      rendered.mesh,
+      npc.x,
+      npc.y,
+      npc.alive && !reaction.stopMovement
+    );
+    const presentation = pedestrianMotionPresentation(
+      npc.action,
+      moving ? 1 : 0,
+      reaction.stopMovement
+    );
     rendered.mesh.material.opacity = presentation.alpha;
-    rendered.mesh.material.color.setHex(presentation.tint ?? 0xffffff);
+    rendered.mesh.material.color.setHex(reaction.tint ?? presentation.tint ?? 0xffffff);
   }
 
   private synchronizeVehicle(id: string, vehicle: NetworkVehicle): void {

@@ -1,6 +1,6 @@
 import {
   STREET_SERVICE_RADIUS,
-  ammunitionRestockQuote,
+  combatResupplyQuote,
   vehicleRepairQuote,
   type StreetServiceKind
 } from '../../../shared/content/street-services.ts';
@@ -55,7 +55,7 @@ export class StreetServiceController {
       11,
       3019
     );
-    this.addService('ammunition-counter', 'ammunition', 'Ammunition', ammunition.x, ammunition.y);
+    this.addService('ammunition-counter', 'ammunition', 'Combat Supply', ammunition.x, ammunition.y);
     this.addService('repair-garage', 'repair', 'Repair Garage', repair.x, repair.y);
     this.addService('clothing-store', 'clothing', 'Threads', clothing.x, clothing.y);
     this.initialized = true;
@@ -97,7 +97,7 @@ export class StreetServiceController {
   }
 
   private canOfferAmmunition(player: PlayerState): boolean {
-    return !player.vehicleId && ammunitionRestockQuote(player) > 0;
+    return !player.vehicleId && combatResupplyQuote(player) > 0;
   }
 
   private repair(player: PlayerState, service: StreetServiceState, nowMs: number): boolean {
@@ -133,7 +133,7 @@ export class StreetServiceController {
   }
 
   private restock(player: PlayerState, service: StreetServiceState, nowMs: number): boolean {
-    const quote = ammunitionRestockQuote(player);
+    const quote = combatResupplyQuote(player);
     const result = this.options.economy.debit(
       player.id,
       quote,
@@ -146,7 +146,7 @@ export class StreetServiceController {
       return true;
     }
     this.options.restockPlayer(player.id);
-    this.options.notice(player.id, `Ammunition restocked -$${result.transaction?.amount ?? quote}`, 'success');
+    this.options.notice(player.id, `Combat resupply -$${result.transaction?.amount ?? quote}`, 'success');
     return true;
   }
 

@@ -94,7 +94,7 @@ OpenGTA2 currently exposes no implemented armor or health behavior to reuse, so 
 
 ### First-slice rules
 
-- Maximum player armor is 100 and starts at zero.
+- Maximum player armor is 100. Development players receive a visible 25-point starter vest so the mechanic is immediately testable; death removes it and durable loadouts will replace this temporary grant.
 - All current damage families consume armor before health.
 - Armor-only hits still create damage, reaction, crime, and perception facts.
 - Bullet and light melee hits flinch or stagger; shotgun, bat, blast, and vehicle impacts can knock down.

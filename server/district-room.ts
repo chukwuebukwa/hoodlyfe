@@ -39,6 +39,7 @@ import {DistrictPopulationController} from './game/population/district-populatio
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
+import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
@@ -106,6 +107,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private wardrobeController!: WardrobeInventoryController;
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
+  private combatReactions!: CombatReactionController;
   private fireControl!: FireControlController;
   private meleeCombat!: MeleeCombatController;
   private interactionController!: PlayerInteractionController;
@@ -240,11 +242,20 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: () => ({tick: this.simulationClock.tick}),
       resetInput: (playerId) => this.playerControl.reset(playerId)
     });
+    this.combatReactions = new CombatReactionController({
+      state: this.state,
+      interruptPlayer: (player) => {
+        if (player.action === 'melee') this.meleeCombat?.clearPlayer(player.id);
+        this.vehicleAccess.cancelAction(player);
+        this.playerControl.reset(player.id);
+      }
+    });
     this.damageController = new DamageController({
       events: this.events,
       economy: this.economyController,
       crime: this.crimeController,
       playerLifecycle: this.playerLifecycle,
+      reactions: this.combatReactions,
       clock: () => ({tick: this.simulationClock.tick}),
       panicNpc: (npcId, attackerId, untilMs) => this.pedestrians.panic(
         npcId,
@@ -295,19 +306,22 @@ export class DistrictRoom extends Room<DistrictState> {
       nearbyPlayers,
       nearbyNpcs,
       nearbyVehicles,
-      damagePlayer: (player, damage, attackerId, nowMs, crimeKind) => this.damageController.player(
+      damagePlayer: (player, damage, attackerId, nowMs, crimeKind, impact) => this.damageController.player(
         player,
         damage,
         attackerId,
         nowMs,
-        crimeKind
+        crimeKind,
+        undefined,
+        impact
       ),
-      damageNpc: (npc, damage, attackerId, nowMs, crimeKind) => this.damageController.npc(
+      damageNpc: (npc, damage, attackerId, nowMs, crimeKind, impact) => this.damageController.npc(
         npc,
         damage,
         attackerId,
         nowMs,
-        crimeKind
+        crimeKind,
+        impact
       )
     });
     this.explosionController = new ExplosionController({
@@ -340,17 +354,22 @@ export class DistrictRoom extends Room<DistrictState> {
       queryPlayers: nearbyPlayers,
       queryNpcs: nearbyNpcs,
       queryVehicles: nearbyVehicles,
-      damagePlayer: (target, damage, attackerId, nowMs) => this.damageController.player(
+      damagePlayer: (target, damage, attackerId, nowMs, impact) => this.damageController.player(
         target,
         damage,
         attackerId,
-        nowMs
+        nowMs,
+        undefined,
+        undefined,
+        impact
       ),
-      damageNpc: (target, damage, attackerId, nowMs) => this.damageController.npc(
+      damageNpc: (target, damage, attackerId, nowMs, impact) => this.damageController.npc(
         target,
         damage,
         attackerId,
-        nowMs
+        nowMs,
+        undefined,
+        impact
       ),
       damageVehicle: (target, damage, attackerId, nowMs, zone) => this.vehicleSimulation.damage(
         target,
@@ -392,7 +411,11 @@ export class DistrictRoom extends Room<DistrictState> {
       economy: this.economyController,
       clock: () => ({tick: this.simulationClock.tick}),
       repairVehicle: (vehicle) => this.vehicleSimulation.repair(vehicle),
-      restockPlayer: (playerId) => this.fireControl.restock(playerId),
+      restockPlayer: (playerId) => {
+        this.fireControl.restock(playerId);
+        const player = this.state.players.get(playerId);
+        if (player) player.armor = 100;
+      },
       medical: this.medicalController,
       openWardrobe: (playerId, serviceId) => {
         const client = this.clients.find((candidate) => candidate.sessionId === playerId);
@@ -560,6 +583,7 @@ export class DistrictRoom extends Room<DistrictState> {
     const spawn = this.world.spawnFor(this.state.players.size, PLAYER_RADIUS);
     const player = new PlayerState();
     player.id = client.sessionId;
+    player.armor = 25;
     player.name = sanitizeName(options?.name, this.state.players.size + 1);
     player.x = spawn.x;
     player.y = spawn.y;
@@ -586,6 +610,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.meleeCombat.clearPlayer(client.sessionId);
+    this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
@@ -623,6 +648,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
     });
+    this.combatReactions.update(now);
     this.meleeCombat.update(now);
     this.state.players.forEach((player) => {
       if (!player.alive) {

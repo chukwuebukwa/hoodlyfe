@@ -5,6 +5,7 @@ import type {DistrictState} from '../../state.ts';
 interface ClientProjection {
   view: StateView;
   visible: Set<Schema>;
+  awaitingCompleteSnapshot: Set<Schema>;
 }
 
 export class DistrictReplicationController {
@@ -15,7 +16,11 @@ export class DistrictReplicationController {
   attach(playerId: string): StateView {
     const existing = this.clients.get(playerId);
     if (existing) return existing.view;
-    const projection = {view: new StateView(), visible: new Set<Schema>()};
+    const projection = {
+      view: new StateView(),
+      visible: new Set<Schema>(),
+      awaitingCompleteSnapshot: new Set<Schema>()
+    };
     this.clients.set(playerId, projection);
     this.synchronizeClient(playerId, projection);
     return projection.view;
@@ -49,11 +54,17 @@ export class DistrictReplicationController {
       if (desired.has(visible)) continue;
       projection.view.remove(visible);
       projection.visible.delete(visible);
+      projection.awaitingCompleteSnapshot.delete(visible);
     }
     for (const candidate of desired) {
-      if (projection.visible.has(candidate)) continue;
-      projection.view.add(candidate);
-      projection.visible.add(candidate);
+      if (!projection.visible.has(candidate)) {
+        const completeSnapshotQueued = projection.view.add(candidate);
+        projection.visible.add(candidate);
+        if (!completeSnapshotQueued) projection.awaitingCompleteSnapshot.add(candidate);
+        continue;
+      }
+      if (!projection.awaitingCompleteSnapshot.has(candidate)) continue;
+      if (projection.view.add(candidate)) projection.awaitingCompleteSnapshot.delete(candidate);
     }
   }
 

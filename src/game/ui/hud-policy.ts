@@ -6,6 +6,8 @@ export interface LocalHudProjection {
   name: string;
   cash: string;
   health: number;
+  armor: number;
+  showArmor: boolean;
   wanted: number;
   dead: boolean;
   showVehicleHud: boolean;
@@ -37,10 +39,13 @@ export function projectLocalHud(
 ): LocalHudProjection {
   const isDriver = Boolean(player.vehicleId) && player.vehicleSeat === 0;
   const weapon = weaponDefinition(player.weapon);
+  const armor = clamp(finite(player.armor), 0, 100);
   return {
     name: player.name,
     cash: `$${String(Math.max(0, finite(player.cash))).padStart(6, '0')}`,
     health: clamp(finite(player.health), 0, 100),
+    armor,
+    showArmor: armor > 0,
     wanted: clamp(Math.floor(finite(player.wanted)), 0, 5),
     dead: !player.alive,
     showVehicleHud: isDriver,

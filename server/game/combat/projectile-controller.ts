@@ -57,7 +57,13 @@ export class ProjectileController {
         bullet.ownerId,
         nowMs,
         'assault',
-        bullet.ownerKind === 'player' ? 'player' : 'non-player'
+        bullet.ownerKind === 'player' ? 'player' : 'non-player',
+        {
+          family: 'bullet',
+          force: weapon.id === 'shotgun' ? 'heavy' : 'light',
+          sourceX: target.x - Math.cos(bullet.angle),
+          sourceY: target.y - Math.sin(bullet.angle)
+        }
       );
       this.options.remove(bulletId);
       return;
@@ -89,7 +95,19 @@ export class ProjectileController {
       if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > NPC_RADIUS + 4) {
         continue;
       }
-      this.options.damage.npc(target, weapon.damage, bullet.ownerId, nowMs);
+      this.options.damage.npc(
+        target,
+        weapon.damage,
+        bullet.ownerId,
+        nowMs,
+        undefined,
+        {
+          family: 'bullet',
+          force: weapon.id === 'shotgun' ? 'heavy' : 'light',
+          sourceX: target.x - Math.cos(bullet.angle),
+          sourceY: target.y - Math.sin(bullet.angle)
+        }
+      );
       this.options.remove(bulletId);
       return;
     }

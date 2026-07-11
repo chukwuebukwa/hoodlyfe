@@ -1,6 +1,6 @@
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {
-  ammunitionRestockQuote,
+  combatResupplyQuote,
   medicalTreatmentQuote,
   vehicleRepairQuote
 } from '../../../shared/content/street-services.ts';
@@ -66,12 +66,12 @@ export function projectInteractionAffordance(
     const quote = serviceQuote(state, player, service);
     const label = service.kind === 'repair'
       ? `REPAIR $${quote}`
-      : (service.kind === 'hospital' ? `TREAT $${quote}` : `RESTOCK $${quote}`);
+      : (service.kind === 'hospital' ? `TREAT $${quote}` : `RESUPPLY $${quote}`);
     return {
       visible: true,
       kind: service.kind,
       label,
-      touchLabel: service.kind === 'repair' ? 'FIX' : (service.kind === 'hospital' ? 'CARE' : 'AMMO'),
+      touchLabel: service.kind === 'repair' ? 'FIX' : (service.kind === 'hospital' ? 'CARE' : 'GEAR'),
       ariaLabel: `${service.label}, ${quote} dollars`
     };
   }
@@ -127,7 +127,7 @@ function nearestUsableService(
       const distance = Math.hypot(vehicle.x - service.x, vehicle.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
     } else if (service.kind === 'ammunition') {
-      if (player.vehicleId || ammunitionRestockQuote(player) <= 0) continue;
+      if (player.vehicleId || combatResupplyQuote(player) <= 0) continue;
       const distance = Math.hypot(player.x - service.x, player.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
     } else if (service.kind === 'hospital') {
@@ -155,7 +155,7 @@ function serviceQuote(
   }
   if (service.kind === 'hospital') return medicalTreatmentQuote(player.health);
   if (service.kind === 'clothing') return 0;
-  return ammunitionRestockQuote(player);
+  return combatResupplyQuote(player);
 }
 
 function nearestEnterableVehicle(

@@ -154,12 +154,27 @@ export class ExplosionController {
     for (const player of this.options.queryPlayers(x, y, policy.radius)) {
       if (!player.alive || player.vehicleId || excludedPlayerIds.includes(player.id)) continue;
       const amount = scaledDamage(player.x, player.y, x, y, policy.radius, policy.maximumPedestrianDamage);
-      this.options.damage.player(player, amount, sourceId, nowMs);
+      this.options.damage.player(
+        player,
+        amount,
+        sourceId,
+        nowMs,
+        undefined,
+        undefined,
+        {family: 'explosion', force: 'heavy', sourceX: x, sourceY: y}
+      );
     }
     for (const npc of this.options.queryNpcs(x, y, policy.radius)) {
       if (!npc.alive) continue;
       const amount = scaledDamage(npc.x, npc.y, x, y, policy.radius, policy.maximumPedestrianDamage);
-      this.options.damage.npc(npc, amount, sourceId, nowMs);
+      this.options.damage.npc(
+        npc,
+        amount,
+        sourceId,
+        nowMs,
+        undefined,
+        {family: 'explosion', force: 'heavy', sourceX: x, sourceY: y}
+      );
     }
     for (const vehicle of this.options.queryVehicles(x, y, policy.radius)) {
       if (vehicle.destroyed) continue;

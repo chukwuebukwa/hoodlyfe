@@ -40,6 +40,7 @@ export class PlayerState extends Schema {
   y = 0;
   angle = 0;
   health = 100;
+  armor = 0;
   wanted = 0;
   cash = 0;
   alive = true;
@@ -54,6 +55,10 @@ export class PlayerState extends Schema {
   attackSequence = 0;
   attackCombo = 0;
   attackProgress = 0;
+  reactionSequence = 0;
+  reactionKind = '';
+  reactionDirection = 'front';
+  reactionProgress = 1;
   weapon = 'pistol';
   ammoPistol = 120;
   ammoSmg = 240;
@@ -70,6 +75,7 @@ defineTypes(PlayerState, {
   y: 'number',
   angle: 'number',
   health: 'number',
+  armor: 'number',
   wanted: 'number',
   cash: 'number',
   alive: 'boolean',
@@ -84,6 +90,10 @@ defineTypes(PlayerState, {
   attackSequence: 'number',
   attackCombo: 'number',
   attackProgress: 'number',
+  reactionSequence: 'number',
+  reactionKind: 'string',
+  reactionDirection: 'string',
+  reactionProgress: 'number',
   weapon: 'string',
   ammoPistol: 'number',
   ammoSmg: 'number',
@@ -207,8 +217,13 @@ export class NpcState extends Schema {
   y = 0;
   angle = 0;
   health = 50;
+  armor = 0;
   alive = true;
   action = 'wander';
+  reactionSequence = 0;
+  reactionKind = '';
+  reactionDirection = 'front';
+  reactionProgress = 1;
 }
 
 defineTypes(NpcState, {
@@ -218,8 +233,13 @@ defineTypes(NpcState, {
   y: 'number',
   angle: 'number',
   health: 'number',
+  armor: 'number',
   alive: 'boolean',
-  action: 'string'
+  action: 'string',
+  reactionSequence: 'number',
+  reactionKind: 'string',
+  reactionDirection: 'string',
+  reactionProgress: 'number'
 });
 
 export class VehicleState extends Schema {

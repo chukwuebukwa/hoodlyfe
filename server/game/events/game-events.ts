@@ -50,6 +50,9 @@ export interface DamageAppliedEvent extends EventMetadata {
   targetKind: DamageTargetKind;
   attackerId: string;
   amount: number;
+  armorDamage: number;
+  healthDamage: number;
+  remainingArmor: number;
   remainingHealth: number;
 }
 

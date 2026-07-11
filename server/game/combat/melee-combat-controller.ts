@@ -9,6 +9,7 @@ import type {CollisionMap} from '../../world-map.ts';
 import type {GameEventStream} from '../events/game-events.ts';
 import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
 import {selectMeleeTargets, type MeleeTargetCandidate} from './melee-hit-policy.ts';
+import type {DamageImpact} from './combat-survivability-policy.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -23,8 +24,20 @@ interface MeleeCombatControllerOptions {
   queryPlayers: (x: number, y: number, radius: number) => PlayerState[];
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
   queryVehicles: (x: number, y: number, radius: number) => VehicleState[];
-  damagePlayer: (target: PlayerState, damage: number, attackerId: string, nowMs: number) => void;
-  damageNpc: (target: NpcState, damage: number, attackerId: string, nowMs: number) => void;
+  damagePlayer: (
+    target: PlayerState,
+    damage: number,
+    attackerId: string,
+    nowMs: number,
+    impact: DamageImpact
+  ) => void;
+  damageNpc: (
+    target: NpcState,
+    damage: number,
+    attackerId: string,
+    nowMs: number,
+    impact: DamageImpact
+  ) => void;
   damageVehicle: (
     target: VehicleState,
     damage: number,
@@ -191,13 +204,19 @@ export class MeleeCombatController {
     const definition = WEAPONS[attack.weapon] as MeleeWeaponDefinition;
     const strike = definition.strikes[attack.combo];
     const targets = this.targets(player, strike);
+    const impact: DamageImpact = {
+      family: 'melee',
+      force: attack.weapon === 'bat' ? 'heavy' : 'medium',
+      sourceX: player.x,
+      sourceY: player.y
+    };
     for (const target of targets) {
       if (target.kind === 'player') {
         const victim = this.options.state.players.get(target.id);
-        if (victim) this.options.damagePlayer(victim, strike.damage, player.id, nowMs);
+        if (victim) this.options.damagePlayer(victim, strike.damage, player.id, nowMs, impact);
       } else if (target.kind === 'npc') {
         const victim = this.options.state.npcs.get(target.id);
-        if (victim) this.options.damageNpc(victim, strike.damage, player.id, nowMs);
+        if (victim) this.options.damageNpc(victim, strike.damage, player.id, nowMs, impact);
       } else if (strike.vehicleDamage > 0) {
         const vehicle = this.options.state.vehicles.get(target.id);
         if (!vehicle) continue;

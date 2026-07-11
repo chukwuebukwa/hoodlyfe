@@ -9,6 +9,7 @@ import {
 } from './player-render-policy.ts';
 import type {VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
+import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
 
 const PLAYER_SPEED = 190;
 
@@ -32,6 +33,7 @@ interface RenderPlayer {
   attackWeapon: NetworkPlayer['weapon'];
   attackCombo: number;
   meleeActive: boolean;
+  reactionActive: boolean;
 }
 
 interface PlayerRendererOptions {
@@ -109,7 +111,8 @@ export class PlayerRenderer {
   predictLocalMovement(x: number, y: number, deltaSeconds: number): void {
     const state = this.latestPlayers?.get(this.options.localPlayerId);
     const local = this.rendered.get(this.options.localPlayerId);
-    if (!local || !state?.alive || state.vehicleId || state.action) return;
+    if (!local || !state?.alive || state.vehicleId || state.action ||
+      combatReactionPresentation(state).stopMovement) return;
     const distance = PLAYER_SPEED * Math.min(deltaSeconds, 0.05);
     if (x !== 0 || y !== 0) local.sprite.play(local.animationKey, true);
     else if (local.sprite.anims.isPlaying) local.sprite.stop().setFrame(0);
@@ -190,12 +193,14 @@ export class PlayerRenderer {
     const visibleOnFoot = player.alive && !player.vehicleId;
     const visiblePassenger = player.alive && Boolean(player.vehicleId) && player.vehicleSeat > 0;
     const heldWeapon = weaponPresentation(player.weapon);
+    const reaction = combatReactionPresentation(player);
     rendered.sprite.setVisible(visibleOnFoot);
-    rendered.passengerSprite.setVisible(visiblePassenger && !player.action);
+    rendered.passengerSprite.setVisible(visiblePassenger && (!player.action || reaction.active));
     rendered.label.setVisible(player.alive).setText(player.name);
     rendered.weaponSprite.setVisible(
       (visibleOnFoot || visiblePassenger) &&
       heldWeapon.visible &&
+      !reaction.active &&
       (!player.action || player.action === 'melee')
     );
     rendered.spawnProtected = Boolean(player.spawnProtected) && visibleOnFoot;
@@ -257,11 +262,28 @@ export class PlayerRenderer {
       attackSequence: -1,
       attackWeapon: player.weapon,
       attackCombo: 0,
-      meleeActive: false
+      meleeActive: false,
+      reactionActive: false
     };
   }
 
   private presentAction(rendered: RenderPlayer, player: NetworkPlayer | undefined, time: number): void {
+    const reaction = combatReactionPresentation(player ?? {});
+    if (reaction.active) {
+      rendered.reactionActive = true;
+      rendered.meleeActive = false;
+      rendered.sprite.stop().setFrame(0)
+        .setScale(rendered.bodyScaleX * reaction.scaleX, reaction.scaleY)
+        .setRotation(rendered.targetAngle - Math.PI / 2 + reaction.rotationOffset);
+      if (reaction.tint === undefined) rendered.sprite.clearTint();
+      else rendered.sprite.setTint(reaction.tint);
+      return;
+    }
+    if (rendered.reactionActive) {
+      rendered.reactionActive = false;
+      rendered.sprite.rotation = rendered.targetAngle - Math.PI / 2;
+    }
+    rendered.sprite.clearTint();
     const melee = this.meleePresentation(rendered, player);
     if (melee.active) {
       rendered.meleeActive = true;
@@ -288,6 +310,7 @@ export class PlayerRenderer {
     player: NetworkPlayer | undefined,
     time: number
   ): void {
+    const reaction = combatReactionPresentation(player ?? {});
     const melee = this.meleePresentation(rendered, player);
     const aimAngle = melee.active
       ? rendered.targetAngle
@@ -312,9 +335,14 @@ export class PlayerRenderer {
         weaponBaseY = passenger.baseY;
         rendered.passengerSprite
           .setPosition(passenger.spriteX, passenger.spriteY)
-          .setRotation(aimAngle - Math.PI / 2)
-          .setScale(passenger.scale * rendered.bodyScaleX, passenger.scale)
+          .setRotation(aimAngle - Math.PI / 2 + reaction.rotationOffset)
+          .setScale(
+            passenger.scale * rendered.bodyScaleX * reaction.scaleX,
+            passenger.scale * reaction.scaleY
+          )
           .setDepth(Math.round(weaponBaseY) + 101);
+        if (reaction.tint === undefined) rendered.passengerSprite.clearTint();
+        else rendered.passengerSprite.setTint(reaction.tint);
       }
     }
     rendered.weaponSprite
@@ -331,7 +359,8 @@ export class PlayerRenderer {
     player: NetworkPlayer | undefined
   ): MeleeAttackPresentation {
     const interrupted = !player?.alive || player.weapon !== rendered.attackWeapon ||
-      Boolean(player.action && player.action !== 'melee');
+      Boolean(player.action && player.action !== 'melee') ||
+      combatReactionPresentation(player ?? {}).stopMovement;
     return meleeAttackPresentationAtProgress(
       rendered.attackWeapon,
       rendered.attackCombo,

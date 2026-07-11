@@ -7,9 +7,11 @@ export interface PedestrianMotionPresentation {
 
 export function pedestrianMotionPresentation(
   action: string,
-  distance: number
+  distance: number,
+  reactionActive = false
 ): PedestrianMotionPresentation {
   if (action === 'dead') return {animate: false, timeScale: 1, alpha: 0};
+  if (reactionActive) return {animate: false, timeScale: 1, alpha: 1};
   if (action === 'startle') {
     return {animate: false, timeScale: 1, tint: 0xffd6a0, alpha: 1};
   }

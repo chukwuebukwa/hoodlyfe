@@ -25,8 +25,11 @@ export class PlayerLifecycleController {
   kill(player: PlayerState, nowMs: number, attackerId: string): void {
     player.alive = false;
     player.health = 0;
+    player.armor = 0;
     player.wanted = 0;
     player.spawnProtected = false;
+    player.reactionKind = '';
+    player.reactionProgress = 1;
     this.protectionUntil.delete(player.id);
     this.options.medical.begin(player, player.x, player.y, nowMs);
     this.options.crime.clearSuspect(player.id);
@@ -52,10 +55,13 @@ export class PlayerLifecycleController {
     player.spaceId = plan.spaceId;
     player.angle = plan.angle;
     player.health = 100;
+    player.armor = 0;
     player.alive = true;
     player.respawnAt = 0;
     player.respawnCare = '';
     player.spawnProtected = true;
+    player.reactionKind = '';
+    player.reactionProgress = 1;
     this.protectionUntil.set(player.id, nowMs + SPAWN_PROTECTION_MS);
     player.wanted = 0;
     player.vehicleId = '';

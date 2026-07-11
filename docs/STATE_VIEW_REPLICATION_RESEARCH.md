@@ -11,6 +11,7 @@ This implementation targets the installed `@colyseus/core 0.16.24` and `@colyseu
 - `Client.view` selects a `StateView` for full-state and patch encoding.
 - A collection field must carry `view()` metadata before the serializer creates its encoder; a `StateView` alone does not activate filtering.
 - `StateView.add()` recursively links the selected schema object through its map and root parents.
+- `StateView.add()` does not force all fields while a change tree is still marked new; it assumes that cycle's filtered encode carries the complete object. A late observer can therefore receive the reference before unchanged newly added scalar fields.
 - Map encoding calls its child filter for initial state, ordinary patches, and explicit view changes.
 - `StateView.remove()` emits the client-specific delete operation without deleting the authoritative object.
 
@@ -20,6 +21,7 @@ The schema `DefinitionType` currently advertises a `view` option, but this insta
 
 - `server/state.ts` declares which synchronized collections are eligible for view filtering.
 - `DistrictReplicationController` owns client view membership and diffs desired schema references once per outgoing patch.
+- Newly attached references remain in an `awaitingCompleteSnapshot` set until one post-encode `StateView.add()` queues their complete field set. Removal clears both membership sets, preventing a one-cycle visibility leak.
 - `DistrictRoom` creates the controller, attaches/detaches each client's view, and invokes synchronization from `onBeforePatch()`.
 - Gameplay domains continue mutating one authoritative district state. They do not know which clients observe an entity.
 - Client renderers retain defensive space checks, but they are no longer the security or bandwidth boundary.
@@ -52,6 +54,7 @@ Do not couple simulation activation to one client's view. Population level of de
 ## QA Contract
 
 - Unit tests verify street versus interior membership, dynamic additions, and reversible space transitions.
+- A regression test advances the installed encoder through the first filtered cycle and verifies that the controller then queues a complete one-time snapshot.
 - The real two-client integration test drives one client through the ordinary doorway. Its decoded state contracts to one player, zero NPCs, zero vehicles, zero missions, and one interior service; the street peer loses that player. Exit restores both views.
 - Live Three QA verifies replicated shell counters change from `1/13/19` to `1/0/0`, Threads remains usable, missions disappear, the scene remains nonblank, and exit restores the street.
 - Full regression and production build must pass after every schema-view change. A test that inspects only authoritative server state is not sufficient.

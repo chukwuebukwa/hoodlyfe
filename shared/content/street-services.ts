@@ -6,6 +6,12 @@ export interface AmmunitionState {
   ammoShotgun: number;
 }
 
+export interface CombatResupplyState extends AmmunitionState {
+  armor?: number;
+}
+
+export const ARMOR_CAPACITY = 100;
+
 export interface VehicleRepairState {
   health: number;
   maxHealth: number;
@@ -35,6 +41,16 @@ export function ammunitionRestockQuote(state: AmmunitionState): number {
   const shotgun = missingRounds(state.ammoShotgun, AMMUNITION_CAPACITY.ammoShotgun);
   if (pistol + smg + shotgun === 0) return 0;
   return clamp(Math.ceil(pistol * 0.5 + smg * 0.25 + shotgun * 2), 25, 500);
+}
+
+export function combatResupplyQuote(state: CombatResupplyState): number {
+  const ammunition = ammunitionRestockQuote(state);
+  const missingArmor = Math.max(
+    0,
+    ARMOR_CAPACITY - clamp(finite(state.armor ?? 0), 0, ARMOR_CAPACITY)
+  );
+  if (ammunition === 0 && missingArmor === 0) return 0;
+  return clamp(Math.ceil(ammunition + missingArmor * 1.5), 25, 650);
 }
 
 export function vehicleRepairQuote(state: VehicleRepairState): number {

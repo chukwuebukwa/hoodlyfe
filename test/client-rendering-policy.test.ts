@@ -13,6 +13,7 @@ import {
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
 import {pedestrianMotionPresentation} from '../src/game/rendering/pedestrian-render-policy.ts';
+import {combatReactionPresentation} from '../src/game/rendering/combat-reaction-render-policy.ts';
 import {thrownProjectilePresentation} from '../src/game/rendering/thrown-projectile-render-policy.ts';
 import {explosionPresentation} from '../src/game/rendering/explosion-render-policy.ts';
 import {weaponPickupMinimapPoints} from '../src/game/rendering/weapon-pickup-render-policy.ts';
@@ -113,6 +114,56 @@ test('melee attack presentation follows replicated combo and catalog strike timi
     batImpact
   );
   assert.equal(meleeAttackPresentationAtProgress('bat', 0, 1).active, false);
+});
+
+test('combat reactions are deterministic, directional, and driven only by replicated progress', () => {
+  const state = Object.freeze({
+    reactionKind: 'stagger' as const,
+    reactionDirection: 'left' as const,
+    reactionProgress: 0.5
+  });
+  const first = combatReactionPresentation(state);
+  assert.deepEqual(combatReactionPresentation(state), first);
+  assert.equal(first.active, true);
+  assert.equal(first.stopMovement, true);
+  assert.ok(first.rotationOffset < 0);
+  assert.ok(first.scaleX < 1);
+  assert.equal(state.reactionProgress, 0.5);
+
+  const right = combatReactionPresentation({...state, reactionDirection: 'right'});
+  assert.ok(right.rotationOffset > 0);
+  assert.equal(right.scaleX, first.scaleX);
+  assert.equal(right.scaleY, first.scaleY);
+
+  const neutral = combatReactionPresentation({
+    reactionKind: '',
+    reactionDirection: 'front',
+    reactionProgress: 0.5
+  });
+  assert.deepEqual(neutral, {
+    active: false,
+    stopMovement: false,
+    rotationOffset: 0,
+    scaleX: 1,
+    scaleY: 1
+  });
+});
+
+test('knockdown settles into an obvious replicated end pose and suppresses walking', () => {
+  const knockdown = combatReactionPresentation({
+    reactionKind: 'knockdown',
+    reactionDirection: 'back',
+    reactionProgress: 1
+  });
+  assert.equal(knockdown.active, true);
+  assert.ok(Math.abs(knockdown.rotationOffset) > 1.4);
+  assert.ok(knockdown.scaleY < 0.6);
+  assert.equal(knockdown.tint, 0xff6f61);
+  assert.deepEqual(pedestrianMotionPresentation('flee', 12, knockdown.active), {
+    animate: false,
+    timeScale: 1,
+    alpha: 1
+  });
 });
 
 test('explosive and pickup presentation follows replicated height, fuse, kind, and availability', () => {

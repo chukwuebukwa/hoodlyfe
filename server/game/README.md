@@ -30,6 +30,8 @@ game/
   appearance/
     wardrobe-inventory-controller.ts
   combat/
+    combat-reaction-controller.ts
+    combat-survivability-policy.ts
     damage-controller.ts
     explosion-controller.ts
     fire-control-controller.ts
@@ -108,7 +110,7 @@ The current compatibility order is:
 
 1. rebuild spatial memberships from authoritative state;
 2. update vehicles and traffic;
-3. resolve due melee contacts, then update players and actions;
+3. advance active hit reactions, resolve due melee contacts, then update players and actions;
 4. resolve due witness reports and district dispatch assignments through `CrimeResponseController`;
 5. update pedestrians and police pursuit/search behavior;
 6. move and resolve projectiles;
@@ -142,7 +144,8 @@ Extracted domain policies and room adapters now include:
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, primary-attack family dispatch, spread, pellet count, muzzle origin, and bullet creation.
 - `melee-combat-controller.ts` for per-player combo progression, accepted swing runtime, server-owned impact timing, facing assistance, target-family caps, and existing damage-port requests; `melee-hit-policy.ts` for pure line-of-sight-aware range/arc scoring and deterministic ordering.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
-- `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
+- `combat-survivability-policy.ts` for pure armor-before-health resolution and force/family/direction reaction selection; `combat-reaction-controller.ts` for bounded replicated flinch/stagger/knockdown runtime and player-action interruption.
+- `damage-controller.ts` for player/NPC armor/health mutation, split damage/death events, reaction requests, crime translation, threat response, and street-cash rewards.
 - `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
 - `street-economy-controller.ts` for bounded idempotent session street-cash credits/debits, balance validation/caps, typed audit events, and a replaceable future persistence port.
 - `street-service-controller.ts` for deterministic replicated service placement, authoritative eligibility, shared quotes, debit-before-effect coordination, and player notices.

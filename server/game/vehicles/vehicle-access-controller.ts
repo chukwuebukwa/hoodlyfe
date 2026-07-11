@@ -118,6 +118,14 @@ export class VehicleAccessController {
     player.actionVehicleId = '';
   }
 
+  cancelAction(player: PlayerState): void {
+    if (player.actionVehicleId) {
+      const vehicle = this.options.state.vehicles.get(player.actionVehicleId);
+      if (vehicle?.hijackBy === player.id) vehicle.hijackBy = '';
+    }
+    this.clearAction(player);
+  }
+
   private beginAction(
     player: PlayerState,
     vehicle: VehicleState,

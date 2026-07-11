@@ -93,6 +93,9 @@ test('event summaries preserve compact gameplay context', () => {
     targetKind: 'npc',
     attackerId: 'driver',
     amount: 25,
+    armorDamage: 0,
+    healthDamage: 25,
+    remainingArmor: 0,
     remainingHealth: 25
   }), 'driver -> npc:civilian-1 -25');
   assert.equal(summarizeGameEvent({

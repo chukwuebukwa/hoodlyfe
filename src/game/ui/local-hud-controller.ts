@@ -16,6 +16,8 @@ export class LocalHudController {
   private readonly cash: Element | null;
   private readonly healthFill: HTMLElement | null;
   private readonly healthTrack: Element | null;
+  private readonly armorFill: HTMLElement | null;
+  private readonly armorTrack: Element | null;
   private readonly heatMeter: Element | null;
   private readonly heatCells: Element[];
   private readonly deathScreen: Element | null;
@@ -40,6 +42,8 @@ export class LocalHudController {
     this.cash = root.querySelector('#cash');
     this.healthFill = root.querySelector<HTMLElement>('#health-fill');
     this.healthTrack = root.querySelector('#health-track');
+    this.armorFill = root.querySelector<HTMLElement>('#armor-fill');
+    this.armorTrack = root.querySelector('#armor-track');
     this.heatMeter = root.querySelector('#heat-meter');
     this.heatCells = [...root.querySelectorAll('#heat-meter i')];
     this.deathScreen = root.querySelector('#death-screen');
@@ -62,6 +66,9 @@ export class LocalHudController {
     if (this.cash) this.cash.textContent = projection.cash;
     if (this.healthFill) this.healthFill.style.width = `${projection.health}%`;
     this.healthTrack?.setAttribute('aria-label', `Health ${player.health}`);
+    if (this.armorFill) this.armorFill.style.width = `${projection.armor}%`;
+    this.armorTrack?.classList.toggle('hidden', !projection.showArmor);
+    this.armorTrack?.setAttribute('aria-label', `Armor ${projection.armor}`);
     this.heatMeter?.setAttribute('aria-label', `Heat level ${projection.wanted}`);
     this.heatCells.forEach((cell, index) => cell.classList.toggle('active', index < projection.wanted));
     this.deathScreen?.classList.toggle('hidden', !projection.dead);
@@ -89,6 +96,7 @@ export class LocalHudController {
     if (this.shell) {
       this.shell.dataset.mode = projection.mode;
       this.shell.dataset.health = String(player.health);
+      this.shell.dataset.armor = String(projection.armor);
       this.shell.dataset.wanted = String(projection.wanted);
       this.shell.dataset.action = projection.action;
     }

@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 import type {NetworkNpc} from '../types.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
 import {pedestrianMotionPresentation} from './pedestrian-render-policy.ts';
+import {
+  combatReactionPresentation,
+  type CombatReactionPresentation
+} from './combat-reaction-render-policy.ts';
+import type {CombatReactionDirection, CombatReactionKind} from '../types.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
@@ -9,6 +14,9 @@ interface RenderNpc {
   targetY: number;
   targetAngle: number;
   targetAction: string;
+  reactionKind: CombatReactionKind;
+  reactionDirection: CombatReactionDirection;
+  reactionProgress: number;
 }
 
 export class PedestrianRenderer {
@@ -42,16 +50,18 @@ export class PedestrianRenderer {
         120
       );
       rendered.sprite.setPosition(position.x, position.y);
-      rendered.sprite.rotation = rotateTowards(
-        rendered.sprite.rotation,
-        rendered.targetAngle - Math.PI / 2,
-        0.14
-      );
+      const reaction = combatReactionPresentation(rendered);
+      const targetRotation = rendered.targetAngle - Math.PI / 2 + reaction.rotationOffset;
+      rendered.sprite.rotation = reaction.active
+        ? targetRotation
+        : rotateTowards(rendered.sprite.rotation, targetRotation, 0.14);
+      rendered.sprite.setDisplaySize(72 * reaction.scaleX, 72 * reaction.scaleY);
       this.updatePresentation(
         rendered.sprite,
         `${rendered.sprite.texture.key}-walk`,
         position.distance,
-        rendered.targetAction
+        rendered.targetAction,
+        reaction
       );
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 95);
     }
@@ -75,7 +85,10 @@ export class PedestrianRenderer {
         targetX: npc.x,
         targetY: npc.y,
         targetAngle: npc.angle,
-        targetAction: npc.action ?? 'wander'
+        targetAction: npc.action ?? 'wander',
+        reactionKind: npc.reactionKind ?? '',
+        reactionDirection: npc.reactionDirection ?? 'front',
+        reactionProgress: npc.reactionProgress ?? 0
       };
       this.rendered.set(npcId, rendered);
     }
@@ -83,6 +96,9 @@ export class PedestrianRenderer {
     rendered.targetY = npc.y;
     rendered.targetAngle = npc.angle;
     rendered.targetAction = npc.action ?? 'wander';
+    rendered.reactionKind = npc.reactionKind ?? '';
+    rendered.reactionDirection = npc.reactionDirection ?? 'front';
+    rendered.reactionProgress = npc.reactionProgress ?? 0;
     rendered.sprite.setVisible(npc.alive);
   }
 
@@ -90,13 +106,15 @@ export class PedestrianRenderer {
     sprite: Phaser.GameObjects.Sprite,
     key: string,
     distance: number,
-    action: string
+    action: string,
+    reaction: CombatReactionPresentation
   ): void {
     if (!sprite.visible) return;
-    const presentation = pedestrianMotionPresentation(action, distance);
+    const presentation = pedestrianMotionPresentation(action, distance, reaction.stopMovement);
     sprite.setAlpha(presentation.alpha);
-    if (presentation.tint === undefined) sprite.clearTint();
-    else sprite.setTint(presentation.tint);
+    const tint = reaction.tint ?? presentation.tint;
+    if (tint === undefined) sprite.clearTint();
+    else sprite.setTint(tint);
     sprite.anims.timeScale = presentation.timeScale;
     if (presentation.animate) sprite.play(key, true);
     else if (sprite.anims.isPlaying) sprite.stop().setFrame(0);

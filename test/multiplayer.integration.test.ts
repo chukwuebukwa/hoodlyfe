@@ -83,6 +83,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   });
 
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
+  await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
+  await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
   assert.equal(first.state.npcs.size, 13);
   assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
   assert.equal(first.state.services.size, 4);
@@ -100,6 +102,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
       vehicle.engineDamage === 0;
   }));
   assert.equal(first.state.players.get(first.sessionId)?.name, 'Driver One');
+  assert.equal(first.state.players.get(first.sessionId)?.armor, 25);
+  assert.equal(first.state.players.get(second.sessionId)?.armor, 25);
+  assert.equal(second.state.players.get(second.sessionId)?.armor, 25);
   assert.equal(second.state.players.get(first.sessionId)?.name, 'Driver One');
   assert.equal(first.state.players.get(first.sessionId)?.appearance.outfitName, 'Night Run');
   assert.equal(second.state.players.get(first.sessionId)?.appearance.topColor, 'red');
@@ -235,6 +240,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   );
   assert.ok(attackDistance <= 70, `First attacker stopped ${Math.round(attackDistance)} units away.`);
   const targetHealthBeforeMelee = first.state.players.get(second.sessionId)?.health ?? 100;
+  const targetArmorBeforeMelee = first.state.players.get(second.sessionId)?.armor ?? 0;
+  const targetReactionBeforeMelee = first.state.players.get(second.sessionId)?.reactionSequence ?? 0;
   const bulletsBeforeMelee = first.state.bullets.size;
   const ammoBeforeMelee = {
     pistol: first.state.players.get(first.sessionId)?.ammoPistol,
@@ -260,10 +267,17 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   ));
   assert.equal(second.state.players.get(first.sessionId)?.action, 'melee');
   await waitUntil(() => (
-    (first.state.players.get(second.sessionId)?.health ?? targetHealthBeforeMelee) <
-      targetHealthBeforeMelee
+    (first.state.players.get(second.sessionId)?.reactionSequence ?? 0) >
+      targetReactionBeforeMelee &&
+    (second.state.players.get(second.sessionId)?.reactionSequence ?? 0) >
+      targetReactionBeforeMelee
   ));
-  assert.equal(first.state.players.get(second.sessionId)?.health, targetHealthBeforeMelee - 34);
+  const meleeDamageToHealth = Math.max(0, 34 - targetArmorBeforeMelee);
+  assert.equal(first.state.players.get(second.sessionId)?.armor, 0);
+  assert.equal(first.state.players.get(second.sessionId)?.health, targetHealthBeforeMelee - meleeDamageToHealth);
+  assert.equal(first.state.players.get(second.sessionId)?.reactionKind, 'knockdown');
+  assert.equal(second.state.players.get(second.sessionId)?.reactionKind, 'knockdown');
+  assert.equal(first.state.players.get(second.sessionId)?.action, 'knockdown');
   assert.equal(first.state.bullets.size, bulletsBeforeMelee);
   assert.deepEqual(
     {
@@ -295,6 +309,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.ok((first.state.players.get(first.sessionId)?.cash ?? 0) >= 100);
   await waitUntil(() => second.state.players.get(second.sessionId)?.alive === true, 5000);
   assert.equal(second.state.players.get(second.sessionId)?.health, 100);
+  assert.equal(second.state.players.get(second.sessionId)?.armor, 0);
   await returnToStreetIfNeeded(second, second.sessionId);
 
   const hospital = INTERIORS[0];

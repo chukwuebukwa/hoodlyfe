@@ -147,6 +147,10 @@ export class PedestrianController {
       this.tryRespawn(npc, runtime, nowMs);
       return;
     }
+    if (npc.reactionKind && npc.reactionProgress < 1) {
+      npc.action = npc.reactionKind;
+      return;
+    }
 
     const combatTarget = runtime.combatTargetId
       ? this.options.state.players.get(runtime.combatTargetId)
@@ -323,8 +327,11 @@ export class PedestrianController {
     npc.x = position.x;
     npc.y = position.y;
     npc.health = healthFor(npc.kind);
+    npc.armor = 0;
     npc.alive = true;
     npc.action = 'wander';
+    npc.reactionKind = '';
+    npc.reactionProgress = 1;
     clearPedestrianThreat(runtime);
     clearPedestrianStimulus(runtime);
     clearPedestrianReaction(runtime);

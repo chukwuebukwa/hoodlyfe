@@ -35,6 +35,9 @@ export function attachTestVehicleSimulation(room: any): VehicleSimulationControl
         targetKind: 'player',
         attackerId,
         amount: previousHealth - player.health,
+        armorDamage: 0,
+        healthDamage: previousHealth - player.health,
+        remainingArmor: player.armor,
         remainingHealth: player.health
       });
     },
@@ -49,6 +52,9 @@ export function attachTestVehicleSimulation(room: any): VehicleSimulationControl
         targetKind: 'npc',
         attackerId,
         amount: previousHealth - npc.health,
+        armorDamage: 0,
+        healthDamage: previousHealth - npc.health,
+        remainingArmor: npc.armor,
         remainingHealth: npc.health
       });
     }

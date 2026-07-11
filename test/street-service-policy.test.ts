@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   AMMUNITION_CAPACITY,
+  ARMOR_CAPACITY,
   ammunitionRestockQuote,
+  combatResupplyQuote,
   medicalTreatmentQuote,
   vehicleRepairQuote
 } from '../shared/content/street-services.ts';
@@ -22,6 +24,9 @@ test('street service quotes charge for missing ammunition and layered vehicle da
   assert.equal(ammunitionRestockQuote(AMMUNITION_CAPACITY), 0);
   assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoPistol: 119}), 25);
   assert.equal(ammunitionRestockQuote({ammoPistol: 0, ammoSmg: 0, ammoShotgun: 0}), 216);
+  assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: ARMOR_CAPACITY}), 0);
+  assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: 0}), 150);
+  assert.equal(combatResupplyQuote({ammoPistol: 0, ammoSmg: 0, ammoShotgun: 0, armor: 0}), 366);
   assert.equal(medicalTreatmentQuote(100), 0);
   assert.equal(medicalTreatmentQuote(50), 138);
   assert.equal(medicalTreatmentQuote(-1000), 250);
@@ -43,18 +48,19 @@ test('interaction projection gives usable services priority over vehicle actions
   const state = createState();
   const player = state.players.get('local');
   assert.ok(player);
-  state.services.set('ammo', createService({kind: 'ammunition', label: 'Ammunition'}));
+  state.services.set('ammo', createService({kind: 'ammunition', label: 'Combat Supply'}));
   player.ammoPistol = 100;
 
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'ammunition',
-    label: 'RESTOCK $25',
-    touchLabel: 'AMMO',
-    ariaLabel: 'Ammunition, 25 dollars'
+    label: 'RESUPPLY $175',
+    touchLabel: 'GEAR',
+    ariaLabel: 'Combat Supply, 175 dollars'
   });
 
   player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
+  player.armor = ARMOR_CAPACITY;
   assert.equal(projectInteractionAffordance(state, player.id).kind, 'hidden');
 
   state.services.set('hospital', createService({

@@ -29,7 +29,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** server-authoritative aim, firing gates, projectile movement, collision, player/NPC/vehicle damage, kill rewards, and respawn.
 - **Playable** passenger drive-by shooting with seat-specific muzzle origins and a visible passenger lean/peek presentation.
 - **Playable** bounded thrown-grenade arc/fuse/bounce, production-shaped radial falloff, self damage, player/NPC/vehicle attribution, transient blast presentation, and car chain reactions.
-- **Foundation** weapon-family separation now covers bullet, thrown, and melee definitions through one shared content catalog; armor, directional hit/knockdown state, blocking, ground attacks, NPC melee, rockets, Molotov/fire, mines, throw charging, reloads, recoil/accuracy, and weapon shops remain content work.
+- **Playable** server-authoritative armor absorbs accepted damage before health, exposes split damage facts, clears on death, and can be restored with ammunition at Combat Supply. Development players receive a temporary 25-point starter vest so the loop is immediately visible.
+- **Playable** synchronized directional flinch, stagger, and knockdown reactions for players and pedestrians, with force/family/critical-health escalation, stronger-hit interruption, action cancellation, and one shared Phaser/Three presentation policy.
+- **Foundation** weapon-family separation now covers bullet, thrown, and melee definitions through one shared content catalog; blocking, ground attacks, NPC melee, rockets, Molotov/fire, mines, throw charging, reloads, recoil/accuracy, durable armor inventory, and weapon shops remain content work.
 
 ### Vehicles and Traffic
 
@@ -69,7 +71,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 ### Street Economy and Services
 
 - **Playable** bounded server-authoritative street cash with idempotent credits/debits, balance limits, typed audit events, mission payouts, and kill rewards.
-- **Playable** replicated ammunition counter with missing-reserve pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
+- **Playable** replicated Combat Supply counter with combined missing-ammunition/armor pricing, cash validation, complete authoritative restock, world marker, minimap point, contextual action, and notices.
 - **Playable** replicated repair garage with layered damage pricing, driver/speed/fire/wanted validation, complete vehicle/component/fire restoration, world marker, minimap point, contextual action, and notices.
 - **Playable** Mercy Hospital as an indoor recovery/treatment destination plus street-based Southside Clinic, with nearest-facility respawn, free 4.2-second Public Ward, $250 2.2-second Trauma Care, wanted/vehicle gates, markers, and idempotent billing.
 - **Playable** collision-safe street Threads service that opens the existing creator in Wardrobe mode; its own seamless building remains queued and must use the authored interior guide.

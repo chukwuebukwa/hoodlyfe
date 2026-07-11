@@ -13,6 +13,8 @@ test('local HUD projection covers foot, driver, passenger, damage, and death mod
   assert.equal(foot.mode, 'foot');
   assert.equal(foot.showWeaponHud, true);
   assert.equal(foot.showVehicleHud, false);
+  assert.equal(foot.armor, 0);
+  assert.equal(foot.showArmor, false);
   assert.equal(foot.weaponName, 'PISTOL');
   assert.equal(foot.weaponAmmo, 120);
   const grenade = projectLocalHud(createPlayer({weapon: 'grenade', ammoGrenade: 4}), undefined);
@@ -28,6 +30,13 @@ test('local HUD projection covers foot, driver, passenger, damage, and death mod
   assert.equal(bat.weaponAmmo, undefined);
   assert.equal(bat.weaponIcon, '/assets/original/weapons/bat.svg');
   assert.equal(bat.showWeaponHud, true);
+
+  const armored = projectLocalHud(createPlayer({armor: 65}), undefined);
+  assert.equal(armored.armor, 65);
+  assert.equal(armored.showArmor, true);
+  const overArmored = projectLocalHud(createPlayer({armor: 140}), undefined);
+  assert.equal(overArmored.armor, 100);
+  assert.equal(projectLocalHud(createPlayer({armor: -10}), undefined).showArmor, false);
 
   const driver = projectLocalHud(createPlayer({vehicleId: 'car', vehicleSeat: 0}), createVehicle());
   assert.equal(driver.mode, 'vehicle');
