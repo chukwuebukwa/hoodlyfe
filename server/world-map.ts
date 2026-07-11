@@ -139,13 +139,27 @@ export class CollisionMap {
     return {...this.spawn};
   }
 
+  pedestrianSpawn(index: number, radius: number): {x: number; y: number} {
+    if (this.openCells.length === 0) return {...this.spawn};
+    const start = Math.abs(index * 97) % this.openCells.length;
+    for (let step = 0; step < this.openCells.length; step++) {
+      const cell = this.openCells[(start + step * 37) % this.openCells.length];
+      if (this.isRoadCell(cell.column, cell.row)) continue;
+      const x = (cell.column + 0.5) * this.tileWidth;
+      const y = (cell.row + 0.5) * this.tileHeight;
+      if (this.canOccupy(x, y, radius)) return {x, y};
+    }
+    return this.openPoint(index, radius);
+  }
+
   openPointNear(
     x: number,
     y: number,
     minDistance: number,
     maxDistance: number,
     radius: number,
-    seed: number
+    seed: number,
+    avoidRoad = false
   ): {x: number; y: number} {
     for (let attempt = 0; attempt < 96; attempt++) {
       const sample = MAP_RANDOM.unit('open-point-distance', seed + attempt * 17);
@@ -153,11 +167,14 @@ export class CollisionMap {
       const distance = minDistance + (maxDistance - minDistance) * sample;
       const candidateX = x + Math.cos(angle) * distance;
       const candidateY = y + Math.sin(angle) * distance;
-      if (this.canOccupy(candidateX, candidateY, radius)) {
+      if (
+        this.canOccupy(candidateX, candidateY, radius) &&
+        (!avoidRoad || !this.isRoadAt(candidateX, candidateY))
+      ) {
         return {x: candidateX, y: candidateY};
       }
     }
-    return this.openPoint(seed, radius);
+    return avoidRoad ? this.pedestrianSpawn(seed, radius) : this.openPoint(seed, radius);
   }
 
   isRoadAt(x: number, y: number): boolean {

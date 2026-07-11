@@ -36,6 +36,7 @@ import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
+import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
@@ -62,7 +63,10 @@ import {
   PedestrianController,
   PEDESTRIAN_RADIUS
 } from './game/pedestrians/pedestrian-controller.ts';
-import {VEHICLE_RADIUS} from './game/vehicles/vehicle-config.ts';
+import {
+  VEHICLE_COLLISION_BOUNDING_RADIUS,
+  VEHICLE_RADIUS
+} from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
@@ -117,6 +121,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private weaponPickupController!: WeaponPickupController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
+  private populationStreaming!: PopulationStreamingController;
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
@@ -134,7 +139,23 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
-    this.replicationController = new DistrictReplicationController(this.state);
+    this.replicationController = new DistrictReplicationController(this.state, {
+      queryStreetActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+        kinds: ['npc', 'vehicle'],
+        includeRecordRadius: true
+      }).map((record) => {
+        const schema = record.kind === 'npc'
+          ? this.state.npcs.get(record.id)
+          : this.state.vehicles.get(record.id);
+        return schema ? {
+          id: record.id,
+          kind: record.kind as 'npc' | 'vehicle',
+          x: record.x,
+          y: record.y,
+          schema
+        } : undefined;
+      }).filter((record): record is NonNullable<typeof record> => Boolean(record))
+    });
     this.interiorController = new InteriorController();
     this.economyController = new StreetEconomyController({
       state: this.state,
@@ -205,6 +226,8 @@ export class DistrictRoom extends Room<DistrictState> {
       traffic: () => this.trafficController.diagnostics(),
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
+      replication: () => this.replicationController.diagnostics(),
+      population: () => this.populationStreaming.diagnostics(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -461,10 +484,20 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
+      includeAmbientTraffic: false,
       onVehicleSpawned: (vehicle) => {
         this.indexVehicle(vehicle);
         if (vehicle.kind === 'police') this.policeVehicleController.register(vehicle.id);
       }
+    });
+    this.populationStreaming = new PopulationStreamingController({
+      state: this.state,
+      world: this.world,
+      random: this.random,
+      pedestrians: this.pedestrians,
+      traffic: this.trafficController,
+      onVehicleMaterialized: (vehicle) => this.indexVehicle(vehicle),
+      onVehicleDematerialized: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
     this.projectileController = new ProjectileController({
       state: this.state,
@@ -537,6 +570,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.weaponPickupController.initialize();
     this.trafficSignalController.initialize(this.simulationClock.nowMs);
     this.population.populate();
+    this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
     this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
 
@@ -652,6 +686,12 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.populationStreaming.update(
+      [...this.state.players.values()]
+        .filter((player) => player.spaceId === 'street')
+        .map((player) => ({x: player.x, y: player.y})),
+      now
+    );
     this.trafficSignalController.beginTick();
     this.trafficSignalController.update(now);
     this.explosionController.update(now);
@@ -730,7 +770,13 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private vehicleSpatialRecord(vehicle: VehicleState): SpatialRecord<WorldEntityKind> {
-    return {id: vehicle.id, kind: 'vehicle', x: vehicle.x, y: vehicle.y, radius: VEHICLE_RADIUS};
+    return {
+      id: vehicle.id,
+      kind: 'vehicle',
+      x: vehicle.x,
+      y: vehicle.y,
+      radius: VEHICLE_COLLISION_BOUNDING_RADIUS
+    };
   }
 
 }

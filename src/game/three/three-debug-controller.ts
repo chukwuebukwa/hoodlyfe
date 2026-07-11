@@ -22,6 +22,8 @@ export class ThreeDebugController {
     vehicles: document.querySelector('#debug-vehicles'),
     bullets: document.querySelector('#debug-bullets'),
     spatial: document.querySelector('#debug-spatial'),
+    streaming: document.querySelector('#debug-streaming'),
+    population: document.querySelector('#debug-population'),
     dropped: document.querySelector('#debug-dropped'),
     deferred: document.querySelector('#debug-deferred'),
     eventsThisTick: document.querySelector('#debug-event-count'),

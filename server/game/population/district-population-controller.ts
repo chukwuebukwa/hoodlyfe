@@ -1,5 +1,5 @@
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
-import type {TrafficController} from '../traffic/traffic-controller.ts';
+import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 import {VehicleState, type DistrictState} from '../../state.ts';
 import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
@@ -13,6 +13,7 @@ interface DistrictPopulationControllerOptions {
   world: CollisionMap;
   pedestrians: PedestrianController;
   traffic: TrafficController;
+  includeAmbientTraffic?: boolean;
   onVehicleSpawned?: (vehicle: VehicleState) => void;
 }
 
@@ -35,13 +36,13 @@ export class DistrictPopulationController {
     this.options.state.missionContactY = this.options.world.spawn.y;
     this.spawnPedestrians();
     this.spawnParkedVehicles();
-    this.spawnTraffic();
+    if (this.options.includeAmbientTraffic !== false) this.spawnTraffic();
     this.initialized = true;
     this.result = {
       civilians: 10,
       police: 3,
       parkedVehicles: 3,
-      trafficVehicles: AMBIENT_TRAFFIC_TARGET
+      trafficVehicles: this.options.includeAmbientTraffic === false ? 0 : AMBIENT_TRAFFIC_TARGET
     };
     return {...this.result};
   }
@@ -87,10 +88,14 @@ export class DistrictPopulationController {
   private spawnTraffic(): void {
     for (let index = 0; index < AMBIENT_TRAFFIC_TARGET; index++) {
       const spawn = this.openTrafficSpawn(index);
+      const lane = trafficLanePoint(spawn);
+      const position = this.options.world.canOccupy(lane.x, lane.y, VEHICLE_RADIUS)
+        ? lane
+        : spawn;
       const vehicle = this.createVehicle(
         `traffic-${index + 1}`,
         index % 4 === 2 ? 'taxi' : 'sedan',
-        spawn,
+        position,
         spawn.angle
       );
       vehicle.speed = 90 + index * 4;

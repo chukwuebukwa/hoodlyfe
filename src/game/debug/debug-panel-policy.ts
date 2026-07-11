@@ -8,6 +8,8 @@ export interface DebugPanelProjection {
   vehicles: number;
   bullets: number;
   spatial: number;
+  streaming: string;
+  population: string;
   dropped: string;
   deferred: number;
   eventsThisTick: number;
@@ -31,6 +33,8 @@ export function projectDebugPanel(
     vehicles: snapshot?.vehicles ?? state?.vehicles?.size ?? 0,
     bullets: snapshot?.bullets ?? state?.bullets?.size ?? 0,
     spatial: snapshot?.spatialEntities ?? 0,
+    streaming: replicationSummary(snapshot),
+    population: populationSummary(snapshot),
     dropped: `${Math.round(snapshot?.droppedMs ?? 0)}ms`,
     deferred: snapshot?.deferredCommands ?? 0,
     eventsThisTick: snapshot?.eventsThisTick ?? 0,
@@ -43,6 +47,25 @@ export function projectDebugPanel(
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function populationSummary(snapshot?: DebugSnapshot): string {
+  const population = snapshot?.populationStreaming;
+  if (!population) return 'off';
+  const active = population.activePedestrians + population.activeTraffic;
+  const potential = population.potentialPedestrians + population.potentialTraffic;
+  const pinned = population.pinnedPedestrians + population.pinnedTraffic;
+  return `${active}/${potential}${pinned > 0 ? ` / ${pinned} pinned` : ''}`;
+}
+
+function replicationSummary(snapshot?: DebugSnapshot): string {
+  const world = snapshot?.spatialEntities ?? 0;
+  const views = snapshot?.replication ?? [];
+  if (views.length === 0) return 'off';
+  const visible = views.reduce((sum, entry) => sum + entry.visible, 0);
+  const average = Math.round(visible / views.length);
+  const pending = views.reduce((sum, entry) => sum + entry.pendingAdds + entry.pendingRemoves, 0);
+  return `${average} avg / ${world} world${pending > 0 ? ` / ${pending} queued` : ''}`;
 }
 
 function trafficSignalSummary(snapshot?: DebugSnapshot): string {

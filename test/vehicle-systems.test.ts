@@ -15,7 +15,8 @@ test('vehicle collision separates overlaps and transfers forward momentum', () =
     y: 0,
     angle: 0,
     speed: 240,
-    radius: 20,
+    halfLength: 29,
+    halfWidth: 16,
     mass: 1,
     damageScale: 1
   }, {
@@ -24,7 +25,8 @@ test('vehicle collision separates overlaps and transfers forward momentum', () =
     y: 0,
     angle: 0,
     speed: 0,
-    radius: 20,
+    halfLength: 29,
+    halfWidth: 16,
     mass: 1,
     damageScale: 1
   });
@@ -48,7 +50,8 @@ test('overlapping vehicles moving apart separate without taking impact damage', 
     y: 0,
     angle: Math.PI,
     speed: 80,
-    radius: 20,
+    halfLength: 29,
+    halfWidth: 16,
     mass: 1,
     damageScale: 1
   }, {
@@ -57,7 +60,8 @@ test('overlapping vehicles moving apart separate without taking impact damage', 
     y: 0,
     angle: 0,
     speed: 80,
-    radius: 20,
+    halfLength: 29,
+    halfWidth: 16,
     mass: 1,
     damageScale: 1
   });

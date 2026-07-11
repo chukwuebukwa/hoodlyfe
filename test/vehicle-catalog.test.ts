@@ -14,6 +14,8 @@ test('vehicle catalog exposes complete, distinct, bounded model definitions', ()
     assert.ok(definition.radius > 0);
     assert.ok(definition.maxHealth > 0);
     assert.ok(definition.mass > 0);
+    assert.ok(definition.collision.length > definition.collision.width);
+    assert.ok(definition.collision.width > 0);
     assert.ok(definition.handling.maximumForwardSpeed > definition.traffic.cruiseSpeed);
     assert.ok(definition.traffic.brakeDeceleration > definition.traffic.acceleration);
   }

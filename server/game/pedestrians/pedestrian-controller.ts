@@ -133,31 +133,77 @@ export class PedestrianController {
     minDistance: number,
     maxDistance: number
   ): NpcState {
-    const {world, random, state} = this.options;
+    const {world, random} = this.options;
     const position = world.openPointNear(
       world.spawn.x,
       world.spawn.y,
       minDistance,
       maxDistance,
       PEDESTRIAN_RADIUS,
-      seed
+      seed,
+      true
     );
+    return this.spawnAmbientAt(
+      id,
+      kind,
+      position.x,
+      position.y,
+      random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2
+    );
+  }
+
+  spawnAmbientAt(
+    id: string,
+    kind: 'civilian' | 'police',
+    x: number,
+    y: number,
+    angle: number
+  ): NpcState {
+    const existing = this.options.state.npcs.get(id);
+    if (existing) return existing;
     const npc = new NpcState();
     npc.id = id;
     npc.kind = kind;
-    npc.x = position.x;
-    npc.y = position.y;
-    npc.angle = random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2;
+    npc.x = x;
+    npc.y = y;
+    npc.angle = angle;
     npc.health = healthFor(kind);
     npc.action = 'wander';
-    state.npcs.set(id, npc);
+    this.options.state.npcs.set(id, npc);
     this.runtime.set(id, createPedestrianRuntime(
       npc.angle,
-      random.range('npc-bravery', id, 0.22, 0.72),
-      random.range('npc-perception-offset', id, 0, 220)
+      this.options.random.range('npc-bravery', id, 0.22, 0.72),
+      this.options.random.range('npc-perception-offset', id, 0, 220)
     ));
     this.options.onSpawned?.(npc);
     return npc;
+  }
+
+  canStreamOut(npcId: string): boolean {
+    const npc = this.options.state.npcs.get(npcId);
+    const runtime = this.runtime.get(npcId);
+    return Boolean(
+      npc?.alive &&
+      runtime?.lifecycle === 'ambient' &&
+      runtime.objective === 'wander' &&
+      !runtime.combatTargetId &&
+      !runtime.threatId &&
+      !runtime.stimulusId &&
+      runtime.reaction.phase === 'none' &&
+      runtime.melee.phase === 'idle' &&
+      !npc.reactionKind
+    );
+  }
+
+  streamOutAmbient(npcId: string): boolean {
+    if (!this.canStreamOut(npcId)) return false;
+    const npc = this.options.state.npcs.get(npcId);
+    const runtime = this.runtime.get(npcId);
+    if (npc && runtime) this.melee.clear(npc, runtime);
+    this.runtime.delete(npcId);
+    this.options.state.npcs.delete(npcId);
+    this.options.onDespawned?.(npcId);
+    return true;
   }
 
   update(npc: NpcState, deltaSeconds: number, nowMs: number): void {
@@ -189,7 +235,8 @@ export class PedestrianController {
     const moveAngle = this.navigation.resolveAngle(npc, runtime, intent, nowMs);
     npc.action = intent.objective;
     npc.angle = moveAngle;
-    if (!this.locomotion.move(npc, moveAngle, intent.speed, deltaSeconds)) {
+    const avoidRoad = runtime.lifecycle === 'ambient' && intent.objective === 'wander';
+    if (!this.locomotion.move(npc, moveAngle, intent.speed, deltaSeconds, avoidRoad)) {
       this.navigation.recoverFromBlock(runtime, npc.id, moveAngle, nowMs);
     }
     if (intent.fire) {
@@ -331,6 +378,7 @@ export class PedestrianController {
     npc.angle = Math.atan2(position.y - vehicle.y, position.x - vehicle.x);
     npc.health = healthFor(npc.kind);
     npc.action = 'startle';
+    npc.ejectedAt = nowMs;
     this.options.state.npcs.set(id, npc);
     this.runtime.set(id, {
       ...createPedestrianRuntime(
@@ -355,7 +403,8 @@ export class PedestrianController {
       npc.kind === 'police' ? 420 : 180,
       npc.kind === 'police' ? 900 : 800,
       PEDESTRIAN_RADIUS,
-      nowMs + npc.id.length
+      nowMs + npc.id.length,
+      true
     );
     npc.x = position.x;
     npc.y = position.y;
@@ -366,6 +415,7 @@ export class PedestrianController {
     npc.attackProgress = 1;
     npc.reactionKind = '';
     npc.reactionProgress = 1;
+    npc.ejectedAt = 0;
     clearPedestrianThreat(runtime);
     clearPedestrianStimulus(runtime);
     clearPedestrianReaction(runtime);

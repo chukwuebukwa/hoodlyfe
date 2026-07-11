@@ -61,6 +61,10 @@ game/
     weapon-pickup-controller.ts
   population/
     district-population-controller.ts
+    population-streaming-controller.ts
+  replication/
+    district-replication-controller.ts
+    street-streaming-policy.ts
   services/
     street-service-controller.ts
   players/
@@ -70,6 +74,8 @@ game/
   traffic/
     traffic-awareness-system.ts
     traffic-controller.ts
+    traffic-junction-system.ts
+    traffic-maneuver-system.ts
   missions/
     freemode-mission-controller.ts
     mission-entity-scope.ts
@@ -154,6 +160,10 @@ Extracted domain policies and room adapters now include:
 - `wardrobe-inventory-controller.ts` for private namespaced grants, owner-only snapshots, and equipped-style entitlement checks without public inventory replication.
 - `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
+- `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, and gameplay pinning.
+- `street-streaming-policy.ts` plus `district-replication-controller.ts` for client AOI hysteresis, deterministic add/remove budgets, same-space visibility, and occupied/mission vehicle retention.
+- `traffic-junction-system.ts` for expiring deterministic intersection ownership and `traffic-maneuver-system.ts` for bounded reverse/pass/merge recovery without bypassing protected queues.
+- `vehicle-collision-system.ts` for per-model oriented-box contact and separation beneath spatial broad-phase discovery.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-appearance-controller.ts` for finite catalog validation, default join fallback, private wardrobe gating, replicated visual-only equipped appearance mutation, update throttling, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, delegated medical completion, health/ammunition mutation, bounded attack-cancelable spawn protection, and respawn events.

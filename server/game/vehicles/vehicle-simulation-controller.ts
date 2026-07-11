@@ -7,7 +7,7 @@ import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
 import type {PoliceVehicleController} from '../police/police-vehicle-controller.ts';
 import type {TrafficSignalController} from '../traffic/traffic-signal-controller.ts';
 import {classifyImpactZone, VehicleCollisionSystem, type VehicleDamageZone} from './vehicle-collision-system.ts';
-import {vehicleConfig} from './vehicle-config.ts';
+import {VEHICLE_COLLISION_BOUNDING_RADIUS, vehicleConfig} from './vehicle-config.ts';
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
@@ -248,7 +248,11 @@ export class VehicleSimulationController {
   }
 
   handleCollision(vehicle: VehicleState, nowMs: number): void {
-    for (const other of this.options.nearbyVehicles(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
+    for (const other of this.options.nearbyVehicles(
+      vehicle.x,
+      vehicle.y,
+      VEHICLE_COLLISION_BOUNDING_RADIUS
+    )) {
       if (other.id === vehicle.id) continue;
       const pairKey = [vehicle.id, other.id].sort().join(':');
       if (this.collisionPairsThisTick.has(pairKey)) continue;
@@ -260,7 +264,8 @@ export class VehicleSimulationController {
         y: vehicle.y,
         angle: vehicle.angle,
         speed: vehicle.speed,
-        radius: VEHICLE_RADIUS,
+        halfLength: vehicleSettings.collision.length / 2,
+        halfWidth: vehicleSettings.collision.width / 2,
         mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
         damageScale: vehicleSettings.collisionDamageScale
       }, {
@@ -269,7 +274,8 @@ export class VehicleSimulationController {
         y: other.y,
         angle: other.angle,
         speed: other.destroyed ? 0 : other.speed,
-        radius: VEHICLE_RADIUS,
+        halfLength: otherSettings.collision.length / 2,
+        halfWidth: otherSettings.collision.width / 2,
         mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
         damageScale: otherSettings.collisionDamageScale
       });

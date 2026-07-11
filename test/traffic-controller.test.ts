@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {TrafficController} from '../server/game/traffic/traffic-controller.ts';
+import {TrafficController, trafficLanePoint} from '../server/game/traffic/traffic-controller.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
@@ -114,8 +114,35 @@ test('traffic controller records blocked routes and selects a deterministic reco
   assert.equal(controller.diagnostics()[0].speedReason, 'blocked');
   assert.equal(controller.diagnostics()[0].recoveryCount, 0);
   controller.update(vehicle, 1 / 30, 1300);
+  assert.equal(controller.diagnostics()[0].recoveryCount, 0);
+  controller.update(vehicle, 1 / 30, 2000);
   assert.equal(controller.diagnostics()[0].recoveryCount, 1);
-  assert.equal(controller.diagnostics()[0].blockedSince, 1300);
+  assert.equal(controller.diagnostics()[0].blockedSince, 2000);
+});
+
+test('opposing traffic spawns on opposite right-hand lane offsets', () => {
+  const eastbound = trafficLanePoint({
+    x: 100,
+    y: 100,
+    angle: 0,
+    column: 1,
+    row: 1,
+    targetColumn: 2,
+    targetRow: 1
+  });
+  const westbound = trafficLanePoint({
+    x: 100,
+    y: 100,
+    angle: Math.PI,
+    column: 2,
+    row: 1,
+    targetColumn: 1,
+    targetRow: 1
+  });
+
+  assert.ok(eastbound.y > 100);
+  assert.ok(westbound.y < 100);
+  assert.equal(eastbound.x, westbound.x);
 });
 
 test('traffic scans the active route and does not node-snap through a stopping obstacle', () => {

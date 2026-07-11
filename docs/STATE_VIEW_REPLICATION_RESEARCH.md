@@ -39,17 +39,17 @@ Street clients additionally receive:
 
 Interior clients receive none of those street collections. Global scalar district metadata remains replicated and negligible. Developer debug snapshots are a separate explicitly subscribed diagnostic channel and are not a production privacy surface.
 
-## Scaling Limits
+## Street Area Of Interest
 
-This is a coarse spatial partition, not full area-of-interest replication. A street client still receives the entire current district population. The next networking scale step should add stable spatial cells and hysteresis inside the street space, while always retaining:
+Street clients now receive NPCs and vehicles through the shared spatial index with an explicit hysteresis band: actors enter at 1,280 pixels and leave at 1,536 pixels. Patch work is bounded to 64 additions and 96 removals, ordered by distance and stable identity. The policy always retains:
 
 - the local player and occupied vehicle;
 - mission-owned actors/objectives relevant to the player;
-- current attackers, witnesses, and police assignments for a bounded grace period;
-- party/crew markers at a reduced update representation when distant;
-- explicit add/remove budgets so crossing a cell boundary cannot create a patch spike.
+- participant mission target vehicles.
 
-Do not couple simulation activation to one client's view. Population level of detail and network observation are related policies with separate owners.
+Attackers, witnesses, police assignments, and distant crew markers still need explicit reduced representations rather than relying on ordinary actor membership.
+
+Do not couple simulation activation to one client's view. `PopulationStreamingController` separately owns potential records, active ceilings, materialization hysteresis, dormant progress, and gameplay pins.
 
 ## QA Contract
 

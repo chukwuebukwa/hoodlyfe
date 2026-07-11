@@ -8,6 +8,7 @@ const REVERSE_DURATION_MS = 650;
 const PASS_TIMEOUT_MS = 3_200;
 const MERGE_TIMEOUT_MS = 2_400;
 const RETRY_COOLDOWN_MS = 2_000;
+const PEDESTRIAN_STUCK_DELAY_MS = 1_400;
 
 export type TrafficManeuverPhase = 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
 
@@ -100,6 +101,14 @@ export class TrafficManeuverSystem {
     this.observeStoppedTraffic(input);
     const observedPhase = runtime.phase as TrafficManeuverPhase;
     if (observedPhase === 'reverse') return {phase: observedPhase, reverse: true};
+    if (observedPhase !== 'none') {
+      return {
+        phase: observedPhase,
+        targetX: runtime.targetX,
+        targetY: runtime.targetY,
+        ignoredObstacleIds: new Set([runtime.blockedById])
+      };
+    }
     return {phase: 'none'};
   }
 
@@ -109,14 +118,15 @@ export class TrafficManeuverSystem {
 
   private observeStoppedTraffic(input: TrafficManeuverInput): void {
     const {runtime, vehicle, nowMs, obstacles} = input;
-    const legitimateStop = input.speedReason === 'signal' || input.speedReason === 'pedestrian';
-    if (legitimateStop || input.speedReason !== 'vehicle' || input.desiredSpeed > 4) {
+    const legitimateStop = input.speedReason === 'signal';
+    const recoverableObstacle = input.speedReason === 'vehicle' || input.speedReason === 'pedestrian';
+    if (legitimateStop || !recoverableObstacle || input.desiredSpeed > 4) {
       runtime.stationarySince = 0;
       runtime.blockedById = '';
       return;
     }
     const lead = obstacles.find((obstacle) => obstacle.id === input.obstacleId);
-    if (!lead || Math.abs(lead.speed ?? 0) > 8 || this.nearProtectedStop(vehicle, obstacles)) {
+    if (!lead || Math.abs(lead.speed ?? 0) > 8 || this.nearProtectedStop(vehicle, lead.id, obstacles)) {
       runtime.stationarySince = 0;
       runtime.blockedById = '';
       return;
@@ -126,26 +136,60 @@ export class TrafficManeuverSystem {
       runtime.stationarySince = nowMs;
       return;
     }
-    if (nowMs < runtime.cooldownUntil || nowMs - runtime.stationarySince < STUCK_DELAY_MS) return;
+    const stuckDelay = lead.kind === 'pedestrian' ? PEDESTRIAN_STUCK_DELAY_MS : STUCK_DELAY_MS;
+    if (nowMs < runtime.cooldownUntil || nowMs - runtime.stationarySince < stuckDelay) return;
 
     const routeAngle = Math.atan2(input.routeTargetY - vehicle.y, input.routeTargetX - vehicle.x);
     const preferredSide: -1 | 1 = hash(vehicle.id, runtime.attempts) % 2 === 0 ? -1 : 1;
     const alternateSide: -1 | 1 = preferredSide === -1 ? 1 : -1;
-    const plan = this.planForSide(vehicle, lead, routeAngle, preferredSide, obstacles) ??
-      this.planForSide(vehicle, lead, routeAngle, alternateSide, obstacles);
+    const plan = lead.kind === 'pedestrian'
+      ? this.planAroundPedestrian(vehicle, lead, routeAngle, preferredSide, obstacles) ??
+        this.planAroundPedestrian(vehicle, lead, routeAngle, alternateSide, obstacles)
+      : this.planForSide(vehicle, lead, routeAngle, preferredSide, obstacles) ??
+        this.planForSide(vehicle, lead, routeAngle, alternateSide, obstacles);
     runtime.attempts++;
     if (!plan) {
       runtime.stationarySince = nowMs;
       runtime.cooldownUntil = nowMs + RETRY_COOLDOWN_MS;
       return;
     }
-    runtime.phase = 'reverse';
-    runtime.phaseUntil = nowMs + REVERSE_DURATION_MS;
+    runtime.phase = lead.kind === 'pedestrian'
+      ? (plan.side < 0 ? 'pass-left' : 'pass-right')
+      : 'reverse';
+    runtime.phaseUntil = nowMs + (lead.kind === 'pedestrian' ? PASS_TIMEOUT_MS : REVERSE_DURATION_MS);
     runtime.targetX = plan.passX;
     runtime.targetY = plan.passY;
     runtime.mergeX = plan.mergeX;
     runtime.mergeY = plan.mergeY;
     runtime.passSide = plan.side;
+  }
+
+  private planAroundPedestrian(
+    vehicle: VehicleState,
+    lead: TrafficObstacle,
+    angle: number,
+    side: -1 | 1,
+    obstacles: readonly TrafficObstacle[]
+  ): {side: -1 | 1; passX: number; passY: number; mergeX: number; mergeY: number} | undefined {
+    const forwardX = Math.cos(angle);
+    const forwardY = Math.sin(angle);
+    const normalX = -forwardY * side;
+    const normalY = forwardX * side;
+    const passX = lead.x + forwardX * 54 + normalX * 34;
+    const passY = lead.y + forwardY * 54 + normalY * 34;
+    const mergeX = lead.x + forwardX * 96;
+    const mergeY = lead.y + forwardY * 96;
+    const points = [[(vehicle.x + passX) / 2, (vehicle.y + passY) / 2], [passX, passY], [mergeX, mergeY]];
+    if (points.some(([x, y]) => !this.world.canOccupy(x, y, VEHICLE_RADIUS) || !this.world.isRoadAt(x, y))) {
+      return undefined;
+    }
+    for (const obstacle of obstacles) {
+      if (obstacle.id === vehicle.id || obstacle.id === lead.id || obstacle.kind === 'signal') continue;
+      if (points.some(([x, y]) => distance(x, y, obstacle.x, obstacle.y) < VEHICLE_RADIUS + obstacle.radius + 8)) {
+        return undefined;
+      }
+    }
+    return {side, passX, passY, mergeX, mergeY};
   }
 
   private planForSide(
@@ -178,8 +222,13 @@ export class TrafficManeuverSystem {
     return {side, passX, passY, mergeX, mergeY};
   }
 
-  private nearProtectedStop(vehicle: VehicleState, obstacles: readonly TrafficObstacle[]): boolean {
+  private nearProtectedStop(
+    vehicle: VehicleState,
+    leadId: string,
+    obstacles: readonly TrafficObstacle[]
+  ): boolean {
     return obstacles.some((obstacle) => (
+      obstacle.id !== leadId &&
       (obstacle.kind === 'signal' || obstacle.kind === 'pedestrian') &&
       distance(vehicle.x, vehicle.y, obstacle.x, obstacle.y) < 150
     ));

@@ -3,6 +3,8 @@ import {
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
   type DebugPoliceVehicleEntry,
+  type DebugReplicationEntry,
+  type DebugPopulationStreamingEntry,
   type DebugSnapshot,
   type DebugStimulusEntry,
   type DebugTrafficAiEntry,
@@ -32,6 +34,8 @@ interface DebugSnapshotControllerOptions {
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
   trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
+  replication?: () => ReadonlyArray<DebugReplicationEntry>;
+  population?: () => DebugPopulationStreamingEntry;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -113,6 +117,8 @@ export class DebugSnapshotController {
         ...unit,
         waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))
       })),
+      replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
+      populationStreaming: this.options.population?.(),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }

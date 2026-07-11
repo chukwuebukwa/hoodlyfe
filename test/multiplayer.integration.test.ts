@@ -31,6 +31,11 @@ import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 import {AMBIENT_TRAFFIC_TARGET} from '../server/game/population/district-population-controller.ts';
+import {
+  STREAMED_CIVILIAN_RECORDS,
+  STREAMED_POLICE_RECORDS,
+  STREAMED_TRAFFIC_RECORDS
+} from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
@@ -85,8 +90,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
   await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
-  assert.equal(first.state.npcs.size, 13);
-  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
+  assert.ok(first.state.npcs.size > 0);
+  assert.ok(first.state.npcs.size < 13 + STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS);
+  assert.ok(first.state.vehicles.size > 0);
+  assert.ok(
+    first.state.vehicles.size < AMBIENT_TRAFFIC_TARGET + 3 + STREAMED_TRAFFIC_RECORDS
+  );
   assert.equal(first.state.services.size, 4);
   assert.deepEqual([...first.state.services.values()].map((service) => service.kind).sort(), [
     'ammunition',
@@ -173,7 +182,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
       .filter(([, vehicle]) => vehicle.traffic)
       .map(([id, vehicle]) => [id, {x: vehicle.x, y: vehicle.y}])
   );
-  assert.equal(trafficStarts.size, AMBIENT_TRAFFIC_TARGET);
+  assert.ok(
+    trafficStarts.size > 0 && trafficStarts.size < AMBIENT_TRAFFIC_TARGET + STREAMED_TRAFFIC_RECORDS
+  );
   await waitUntil(() => [...trafficStarts.entries()].some(([id, start]) => {
     const vehicle = first.state.vehicles.get(id);
     return Boolean(vehicle && Math.hypot(vehicle.x - start.x, vehicle.y - start.y) > 10);
@@ -334,8 +345,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     STREET_SPACE_ID
   );
   await waitUntil(() => (
-    second.state.npcs.size === 13 &&
-    second.state.vehicles.size === AMBIENT_TRAFFIC_TARGET + 3 &&
+    second.state.npcs.size > 0 &&
+    second.state.npcs.size < 13 + STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS &&
+    second.state.vehicles.size > 0 &&
+    second.state.vehicles.size < AMBIENT_TRAFFIC_TARGET + 3 + STREAMED_TRAFFIC_RECORDS &&
     second.state.services.size === 4 &&
     second.state.services.has('clothing-store') &&
     !second.state.services.has('hospital-mercy')

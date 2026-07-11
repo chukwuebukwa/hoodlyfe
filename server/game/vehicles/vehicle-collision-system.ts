@@ -4,7 +4,8 @@ export interface VehicleCollisionBody {
   y: number;
   angle: number;
   speed: number;
-  radius: number;
+  halfLength: number;
+  halfWidth: number;
   mass: number;
   damageScale: number;
 }
@@ -30,12 +31,9 @@ export class VehicleCollisionSystem {
   resolve(primary: VehicleCollisionBody, other: VehicleCollisionBody): VehicleCollisionResult {
     const differenceX = other.x - primary.x;
     const differenceY = other.y - primary.y;
-    const minimumDistance = primary.radius + other.radius;
-    const distance = Math.hypot(differenceX, differenceY);
-    if (distance >= minimumDistance) return noCollision(primary, other);
-
-    const normalX = distance > 0.001 ? differenceX / distance : Math.cos(primary.angle);
-    const normalY = distance > 0.001 ? differenceY / distance : Math.sin(primary.angle);
+    const contact = orientedBoxContact(primary, other, differenceX, differenceY);
+    if (!contact) return noCollision(primary, other);
+    const {normalX, normalY, overlap} = contact;
     const primaryVelocityX = Math.cos(primary.angle) * primary.speed;
     const primaryVelocityY = Math.sin(primary.angle) * primary.speed;
     const otherVelocityX = Math.cos(other.angle) * other.speed;
@@ -48,9 +46,9 @@ export class VehicleCollisionSystem {
     const inversePrimaryMass = 1 / Math.max(0.1, primary.mass);
     const inverseOtherMass = 1 / Math.max(0.1, other.mass);
     const inverseMassTotal = inversePrimaryMass + inverseOtherMass;
-    const overlap = minimumDistance - distance + 0.1;
-    const primaryCorrection = overlap * inversePrimaryMass / inverseMassTotal;
-    const otherCorrection = overlap * inverseOtherMass / inverseMassTotal;
+    const separation = overlap + 0.1;
+    const primaryCorrection = separation * inversePrimaryMass / inverseMassTotal;
+    const otherCorrection = separation * inverseOtherMass / inverseMassTotal;
 
     let nextPrimaryVelocityX = primaryVelocityX;
     let nextPrimaryVelocityY = primaryVelocityY;
@@ -80,6 +78,59 @@ export class VehicleCollisionSystem {
       otherZone: classifyImpactZone(other.angle, -normalX, -normalY)
     };
   }
+}
+
+interface ContactAxis {
+  x: number;
+  y: number;
+}
+
+function orientedBoxContact(
+  primary: VehicleCollisionBody,
+  other: VehicleCollisionBody,
+  differenceX: number,
+  differenceY: number
+): {normalX: number; normalY: number; overlap: number} | undefined {
+  const primaryForward = axis(primary.angle);
+  const primarySide = axis(primary.angle + Math.PI / 2);
+  const otherForward = axis(other.angle);
+  const otherSide = axis(other.angle + Math.PI / 2);
+  const axes = [primaryForward, primarySide, otherForward, otherSide];
+  let minimumOverlap = Number.POSITIVE_INFINITY;
+  let minimumAxis = axes[0];
+
+  for (const candidate of axes) {
+    const centerDistance = Math.abs(differenceX * candidate.x + differenceY * candidate.y);
+    const primaryRadius = projectionRadius(primary, primaryForward, primarySide, candidate);
+    const otherRadius = projectionRadius(other, otherForward, otherSide, candidate);
+    const overlap = primaryRadius + otherRadius - centerDistance;
+    if (overlap <= 0) return undefined;
+    if (overlap < minimumOverlap) {
+      minimumOverlap = overlap;
+      minimumAxis = candidate;
+    }
+  }
+
+  const direction = differenceX * minimumAxis.x + differenceY * minimumAxis.y < 0 ? -1 : 1;
+  return {
+    normalX: minimumAxis.x * direction,
+    normalY: minimumAxis.y * direction,
+    overlap: minimumOverlap
+  };
+}
+
+function axis(angle: number): ContactAxis {
+  return {x: Math.cos(angle), y: Math.sin(angle)};
+}
+
+function projectionRadius(
+  body: VehicleCollisionBody,
+  forward: ContactAxis,
+  side: ContactAxis,
+  candidate: ContactAxis
+): number {
+  return body.halfLength * Math.abs(forward.x * candidate.x + forward.y * candidate.y) +
+    body.halfWidth * Math.abs(side.x * candidate.x + side.y * candidate.y);
 }
 
 function projectSpeed(velocityX: number, velocityY: number, angle: number): number {

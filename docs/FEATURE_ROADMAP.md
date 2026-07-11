@@ -1,6 +1,6 @@
 # NOCK0 Feature Roadmap and Status
 
-Updated: 2026-07-10
+Updated: 2026-07-11
 
 This is the canonical status list for the requested top-down multiplayer GTA-like experience. Research rationale remains in `GAMEPLAY_RESEARCH.md`; engineering ownership remains in `PROJECT_STRUCTURE.md`; the chain boundary remains in `ONCHAIN_INTEGRATION.md`.
 
@@ -41,9 +41,10 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** moving ambient traffic with deterministic road following/turn selection, ahead-corridor vehicle following, pedestrian stopping, asymmetric braking/acceleration, and blocked-route recovery.
 - **Playable** two authored signalized intersections with replicated phases, stop-line braking, cross-axis occupancy holds, emergency bypass, wreck awareness, and F3 queue diagnostics.
 - **Playable** deterministic stopped-car recovery with legitimate-stop suppression, bounded reverse, collision/road clearance probes, left/right passing, route merge, and retry cooldown.
-- **Playable** car-to-car separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
+- **Playable** opposite right-hand compatibility lanes, expiring deterministic junction reservations, non-road ambient pedestrian placement/wander, and one-minute circulation soak coverage.
+- **Playable** catalog-sized oriented-box car collisions with broad-phase bounds, minimum-axis separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
-- **Foundation** the original sprite selection remains small; additional vehicle classes, authored lane centerlines/turn connectors, siren yielding, dynamic traffic population, and parking remain incomplete. A functional repair garage is playable.
+- **Foundation** streamed traffic now owns 64 potential records with a 24-car active ceiling; additional vehicle classes, authored directed lane centerlines/turn connectors, segment capacity, siren yielding, and parking remain incomplete. A functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
@@ -52,7 +53,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** first police cruiser response with report-based search, bounded road routing, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, hijack handoff, and F3 route/strategy diagnostics.
 - **Playable** ambient civilian/police population, ejected drivers, event stimuli, bravery, investigation, startle, sustained flee, recovery, death, and respawn.
 - **Playable** bounded deterministic pedestrian paths around large collision obstacles with per-tick work limits and private route memory.
-- **Foundation** detailed arrests, containment, roadblocks, call-police behavior, gangs, cover, crowd propagation, sidewalks/crossings, and population level of detail remain incomplete.
+- **Foundation** 80 potential ambient pedestrian records now materialize near street players with hysteresis, bounded work, pinning, and coarse dormant movement. Detailed arrests, containment, roadblocks, call-police behavior, gangs, cover, crowd propagation, and authored sidewalks/crossings remain incomplete.
 
 ### World, Navigation, Missions, and Diagnostics
 
@@ -68,6 +69,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
 - **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
+- **Playable foundation** street AOI streams NPCs and vehicles with 1,280/1,536-pixel hysteresis, bounded add/remove budgets, occupied/mission vehicle pinning, and F3 visibility pressure diagnostics.
 
 ### Street Economy and Services
 
@@ -101,7 +103,8 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered foundation**: stable shared content catalog for current Sedan, Taxi, and Police Cruiser; separated mass, footprint, health, acceleration, braking, grip, steering, reverse speed, seats, traffic tuning, and presentation ID.
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
-- **Delivered playable**: 16 ambient traffic vehicles use separated deterministic spawns; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal/pedestrian queues as deadlocks.
+- **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
+- **Delivered playable**: junction reservations serialize conflicting approaches and expire abandoned ownership; catalog-sized oriented rectangles replace circular vehicle-to-vehicle collision.
 - **Delivered playable**: one police cruiser consumes reported suspect facts without traffic/wanted coupling, uses bounded deterministic A*, searches last-known positions, intercepts visible targets, scales speed with heat, and permits occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.

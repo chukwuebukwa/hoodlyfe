@@ -3,6 +3,7 @@ import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {TrafficObstacle, TrafficSpeedReason} from './traffic-awareness-system.ts';
 import {RoadDrivingSystem} from './road-driving-system.ts';
+import {TrafficJunctionSystem} from './traffic-junction-system.ts';
 import {
   TrafficManeuverSystem,
   type TrafficManeuverPhase,
@@ -20,6 +21,7 @@ interface TrafficRuntime {
   obstacleId: string;
   obstacleDistance: number;
   blockedSince: number;
+  reversingUntil: number;
   recoveryCount: number;
   maneuver: TrafficManeuverRuntime;
 }
@@ -50,6 +52,7 @@ export class TrafficController {
   private readonly runtime = new Map<string, TrafficRuntime>();
   private readonly driver: RoadDrivingSystem;
   private readonly maneuvers: TrafficManeuverSystem;
+  private readonly junctions = new TrafficJunctionSystem();
 
   constructor(private readonly options: TrafficControllerOptions) {
     this.driver = new RoadDrivingSystem(options.world);
@@ -68,6 +71,7 @@ export class TrafficController {
       obstacleId: '',
       obstacleDistance: -1,
       blockedSince: 0,
+      reversingUntil: 0,
       recoveryCount: 0,
       maneuver: this.maneuvers.createRuntime()
     });
@@ -75,6 +79,7 @@ export class TrafficController {
 
   release(vehicleId: string): void {
     this.runtime.delete(vehicleId);
+    this.junctions.release(vehicleId);
   }
 
   has(vehicleId: string): boolean {
@@ -115,15 +120,28 @@ export class TrafficController {
     }
 
     const {world} = this.options;
-    const targetX = (runtime.targetColumn + 0.5) * world.tileWidth;
-    const targetY = (runtime.targetRow + 0.5) * world.tileHeight;
+    const routeTarget = this.routeTarget(runtime);
+    const targetX = routeTarget.x;
+    const targetY = routeTarget.y;
     const obstacles = context.obstacles ?? [];
+    const junctionKey = this.junctionKey(runtime.targetColumn, runtime.targetRow);
+    const junctionDistance = Math.hypot(targetX - vehicle.x, targetY - vehicle.y);
+    const junctionGranted = !junctionKey || junctionDistance > 150 ||
+      this.junctions.request(vehicle.id, junctionKey, nowMs);
+    const routedObstacles = junctionGranted ? obstacles : [...obstacles, {
+      id: `junction:${junctionKey}`,
+      kind: 'signal' as const,
+      x: targetX,
+      y: targetY,
+      radius: 8,
+      speed: 0
+    }];
     const maneuver = this.maneuvers.command({
       vehicle,
       runtime: runtime.maneuver,
       routeTargetX: targetX,
       routeTargetY: targetY,
-      obstacles,
+      obstacles: routedObstacles,
       speedReason: runtime.speedReason,
       obstacleId: runtime.obstacleId,
       desiredSpeed: runtime.desiredSpeed,
@@ -140,7 +158,7 @@ export class TrafficController {
       targetY: maneuver.targetY ?? targetY,
       cruiseSpeed: runtime.cruiseSpeed,
       deltaSeconds,
-      obstacles,
+      obstacles: routedObstacles,
       ignoredObstacleIds: maneuver.ignoredObstacleIds,
       minimumGapScale: maneuver.phase === 'none' ? 1 : 0.75
     });
@@ -155,6 +173,7 @@ export class TrafficController {
     }
 
     if (result.reached && maneuver.phase === 'none') {
+      if (junctionKey) this.junctions.release(vehicle.id, junctionKey);
       vehicle.x = targetX;
       vehicle.y = targetY;
       const current = {column: runtime.targetColumn, row: runtime.targetRow};
@@ -168,6 +187,7 @@ export class TrafficController {
 
     if (!result.blocked) {
       runtime.blockedSince = 0;
+      runtime.reversingUntil = 0;
       return result.moved;
     }
 
@@ -178,7 +198,13 @@ export class TrafficController {
     runtime.obstacleDistance = 0;
     const currentColumn = Math.floor(vehicle.x / world.tileWidth);
     const currentRow = Math.floor(vehicle.y / world.tileHeight);
-    if (nowMs - runtime.blockedSince >= 1200) {
+    if (nowMs - runtime.blockedSince >= 1200 && runtime.reversingUntil === 0) {
+      runtime.reversingUntil = nowMs + 650;
+    }
+    if (nowMs < runtime.reversingUntil) {
+      return this.driver.reverse(vehicle, deltaSeconds);
+    }
+    if (runtime.reversingUntil > 0) {
       const next = this.chooseRecoveryRoadNode(
         {column: currentColumn, row: currentRow},
         runtime,
@@ -189,9 +215,28 @@ export class TrafficController {
       runtime.targetColumn = next.column;
       runtime.targetRow = next.row;
       runtime.blockedSince = nowMs;
+      runtime.reversingUntil = 0;
       runtime.recoveryCount++;
     }
     return false;
+  }
+
+  private routeTarget(runtime: TrafficRuntime): {x: number; y: number} {
+    const centerX = (runtime.targetColumn + 0.5) * this.options.world.tileWidth;
+    const centerY = (runtime.targetRow + 0.5) * this.options.world.tileHeight;
+    const deltaColumn = runtime.targetColumn - runtime.previousColumn;
+    const deltaRow = runtime.targetRow - runtime.previousRow;
+    const magnitude = Math.hypot(deltaColumn, deltaRow);
+    if (magnitude === 0) return {x: centerX, y: centerY};
+    const laneX = centerX - deltaRow / magnitude * TRAFFIC_LANE_OFFSET;
+    const laneY = centerY + deltaColumn / magnitude * TRAFFIC_LANE_OFFSET;
+    return this.options.world.canOccupy(laneX, laneY, 20) && this.options.world.isRoadAt(laneX, laneY)
+      ? {x: laneX, y: laneY}
+      : {x: centerX, y: centerY};
+  }
+
+  private junctionKey(column: number, row: number): string {
+    return this.options.world.roadNeighbors(column, row).length >= 3 ? `${column},${row}` : '';
   }
 
   private chooseRecoveryRoadNode(
@@ -227,4 +272,17 @@ export class TrafficController {
     const choices = alternatives.length > 0 ? alternatives : neighbors;
     return choices[this.options.random.integer('traffic-turn', seed + 17, 0, choices.length)];
   }
+}
+
+export const TRAFFIC_LANE_OFFSET = 14;
+
+export function trafficLanePoint(spawn: TrafficSpawn): {x: number; y: number} {
+  const deltaColumn = spawn.targetColumn - spawn.column;
+  const deltaRow = spawn.targetRow - spawn.row;
+  const magnitude = Math.hypot(deltaColumn, deltaRow);
+  if (magnitude === 0) return {x: spawn.x, y: spawn.y};
+  return {
+    x: spawn.x - deltaRow / magnitude * TRAFFIC_LANE_OFFSET,
+    y: spawn.y + deltaColumn / magnitude * TRAFFIC_LANE_OFFSET
+  };
 }

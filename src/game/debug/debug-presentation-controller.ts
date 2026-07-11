@@ -48,6 +48,8 @@ export class DebugPresentationController {
       vehicles: this.root.querySelector('#debug-vehicles'),
       bullets: this.root.querySelector('#debug-bullets'),
       spatial: this.root.querySelector('#debug-spatial'),
+      streaming: this.root.querySelector('#debug-streaming'),
+      population: this.root.querySelector('#debug-population'),
       dropped: this.root.querySelector('#debug-dropped'),
       deferred: this.root.querySelector('#debug-deferred'),
       eventsThisTick: this.root.querySelector('#debug-event-count'),

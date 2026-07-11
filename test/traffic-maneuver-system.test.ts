@@ -87,6 +87,36 @@ test('traffic does not overtake a queue protected by a signal or pedestrian', ()
   }
 });
 
+test('traffic eventually steers around a pedestrian directly blocking its lane', () => {
+  const system = new TrafficManeuverSystem(openRoad);
+  const runtime = system.createRuntime();
+  const vehicle = trafficVehicle('traffic-pedestrian-detour', 100, 100);
+  const pedestrian = {
+    id: 'crossing-pedestrian',
+    kind: 'pedestrian' as const,
+    x: 145,
+    y: 100,
+    radius: 11,
+    speed: 0
+  };
+  const input = {
+    vehicle,
+    runtime,
+    routeTargetX: 300,
+    routeTargetY: 100,
+    obstacles: [pedestrian],
+    speedReason: 'pedestrian',
+    obstacleId: pedestrian.id,
+    desiredSpeed: 0
+  };
+
+  assert.equal(system.command({...input, nowMs: 100}).phase, 'none');
+  const detour = system.command({...input, nowMs: 1_501});
+  assert.match(detour.phase, /^pass-(left|right)$/);
+  assert.equal(detour.ignoredObstacleIds?.has(pedestrian.id), true);
+  assert.notEqual(detour.targetY, 100);
+});
+
 function trafficVehicle(id: string, x: number, y: number): VehicleState {
   const vehicle = new VehicleState();
   vehicle.id = id;

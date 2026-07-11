@@ -11,6 +11,8 @@ test('debug panel uses replicated collection counts while waiting for a snapshot
   assert.equal(panel.players, 1);
   assert.equal(panel.vehicles, 1);
   assert.equal(panel.spatial, 0);
+  assert.equal(panel.streaming, 'off');
+  assert.equal(panel.population, 'off');
   assert.deepEqual(panel.events, ['No recent events']);
 });
 
@@ -23,6 +25,8 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     vehicles: 11,
     bullets: 2,
     spatial: 28,
+    streaming: 'off',
+    population: 'off',
     dropped: '3ms',
     deferred: 1,
     eventsThisTick: 2,

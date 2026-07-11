@@ -58,7 +58,7 @@ Vehicle access consumes catalog seating. Player simulation consumes catalog hand
 5. Return the most restrictive deterministic result: `cruise`, `vehicle`, or `pedestrian` plus obstacle ID and gap.
 6. `TrafficController` approaches the result with slower acceleration and faster braking.
 
-World blockage remains route ownership. A blocked car records the deadline and chooses a deterministic alternate road neighbor after 1.2 seconds. A traffic jam caused by a valid lead obstacle remains `vehicle`, not `blocked`, so following cars do not repeatedly reroute around ordinary queues.
+World blockage remains route ownership. A blocked car records the deadline, reverses through validated road space, and chooses a deterministic alternate road neighbor after the bounded reverse phase. Stationary lead vehicles use a separate reverse/pass/merge maneuver; traffic signals and protected queues suppress it.
 
 `VehicleSimulationController` adapts the shared spatial queries into plain traffic obstacles. Traffic awareness does not import district state, the room, wanted, missions, or rendering.
 
@@ -73,14 +73,21 @@ Opt-in F3 vehicle labels now include:
 
 The server snapshot copies this private runtime data. Ordinary clients do not receive traffic intentions.
 
+## Delivered Traffic Depth
+
+- Opposing flows use opposite right-hand offsets from compatibility road-cell centers.
+- Intersections serialize approaches through deterministic expiring reservations.
+- Ambient pedestrians spawn and wander away from roads; direct lane blockers permit a bounded detour.
+- Streamed traffic has 64 potential records, a 24-car active ceiling, actual-lane spawn capacity checks, and gameplay pinning.
+- Per-model length/width drives oriented-box car collision; catalog radius is no longer the narrow-phase shape.
+
 ## Deferred Production Nuance
 
 - Replace road cells with authored, versioned lane centerlines, direction, speed limits, turn links, stop lines, parking, and vehicle-class restrictions.
-- Add intersection reservations and traffic-light phases before allowing dense crossing flows.
-- Add local steering/lane changes around disabled vehicles while preserving deterministic collision primitives.
+- Replace compatibility offsets and reservations with authored directed lanes, legal turn connectors, segment capacity, turn radii, and merge priority before allowing materially denser crossing flows.
+- Expand local steering/lane changes around disabled vehicles while preserving deterministic collision primitives.
 - Add police driving missions such as follow, intercept, ram, block, contain, and roadblock through a police-to-driving intent contract.
-- Add traffic levels of detail: full near players, reduced lane progress farther away, virtual route progress offscreen.
-- Add spawn/despawn density budgets by zone, time, visibility, player speed, vehicle class, and mission ownership.
+- Extend traffic level of detail with zone/time/player-speed density policy and authored offscreen route progress.
 - Add original compact, sports, van, truck, bus, motorcycle, ambulance, fire, and special frames before exposing those content IDs in public runtime state.
 - Validate larger footprints, seat layouts, door/access points, passenger rendering, and road compatibility per class.
 

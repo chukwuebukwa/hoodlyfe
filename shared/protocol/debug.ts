@@ -96,6 +96,24 @@ export interface DebugPoliceVehicleEntry {
   waypoints: Array<{x: number; y: number}>;
 }
 
+export interface DebugReplicationEntry {
+  playerId: string;
+  spaceId: string;
+  visible: number;
+  nearbyActors: number;
+  pendingAdds: number;
+  pendingRemoves: number;
+}
+
+export interface DebugPopulationStreamingEntry {
+  potentialPedestrians: number;
+  activePedestrians: number;
+  potentialTraffic: number;
+  activeTraffic: number;
+  pinnedPedestrians: number;
+  pinnedTraffic: number;
+}
+
 export interface DebugSnapshot {
   tick: number;
   nowMs: number;
@@ -114,5 +132,7 @@ export interface DebugSnapshot {
   trafficAi?: DebugTrafficAiEntry[];
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
+  replication?: DebugReplicationEntry[];
+  populationStreaming?: DebugPopulationStreamingEntry;
   events: DebugEventEntry[];
 }

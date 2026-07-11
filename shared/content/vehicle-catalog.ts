@@ -30,6 +30,11 @@ export interface VehiclePresentationDefinition {
   readonly emergencyLights: boolean;
 }
 
+export interface VehicleCollisionDefinition {
+  readonly length: number;
+  readonly width: number;
+}
+
 export interface VehicleDefinition {
   readonly id: VehicleKind;
   readonly label: string;
@@ -39,6 +44,7 @@ export interface VehicleDefinition {
   readonly maxHealth: number;
   readonly mass: number;
   readonly collisionDamageScale: number;
+  readonly collision: VehicleCollisionDefinition;
   readonly handling: VehicleHandlingDefinition;
   readonly traffic: VehicleTrafficDefinition;
   readonly presentation: VehiclePresentationDefinition;
@@ -54,6 +60,7 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
     maxHealth: 1000,
     mass: 1,
     collisionDamageScale: 1,
+    collision: {length: 58, width: 32},
     handling: {
       forwardAcceleration: 390,
       reverseAcceleration: 270,
@@ -85,6 +92,7 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
     maxHealth: 1200,
     mass: 1.12,
     collisionDamageScale: 0.82,
+    collision: {length: 60, width: 33},
     handling: {
       forwardAcceleration: 440,
       reverseAcceleration: 300,
@@ -116,6 +124,7 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
     maxHealth: 950,
     mass: 1.05,
     collisionDamageScale: 0.95,
+    collision: {length: 57, width: 32},
     handling: {
       forwardAcceleration: 360,
       reverseAcceleration: 250,
