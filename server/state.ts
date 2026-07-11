@@ -220,6 +220,8 @@ export class NpcState extends Schema {
   armor = 0;
   alive = true;
   action = 'wander';
+  attackSequence = 0;
+  attackProgress = 1;
   reactionSequence = 0;
   reactionKind = '';
   reactionDirection = 'front';
@@ -236,6 +238,8 @@ defineTypes(NpcState, {
   armor: 'number',
   alive: 'boolean',
   action: 'string',
+  attackSequence: 'number',
+  attackProgress: 'number',
   reactionSequence: 'number',
   reactionKind: 'string',
   reactionDirection: 'string',

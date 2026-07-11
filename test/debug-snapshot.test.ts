@@ -86,6 +86,15 @@ test('event summaries preserve compact gameplay context', () => {
     y: 20
   }), 'driver swung bat combo 1');
   assert.equal(summarizeGameEvent({
+    type: 'npc.melee.started',
+    tick: 3,
+    nowMs: 95,
+    npcId: 'hostile',
+    targetId: 'driver',
+    x: 10,
+    y: 20
+  }), 'hostile punched driver');
+  assert.equal(summarizeGameEvent({
     type: 'damage.applied',
     tick: 4,
     nowMs: 120,

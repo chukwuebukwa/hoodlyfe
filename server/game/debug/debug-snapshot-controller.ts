@@ -124,6 +124,8 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.ownerKind}:${event.ownerId} fired ${event.weapon}`;
     case 'melee.started':
       return `${event.playerId} swung ${event.weapon} combo ${event.combo + 1}`;
+    case 'npc.melee.started':
+      return `${event.npcId} punched ${event.targetId}`;
     case 'explosion.created':
       return `${event.kind} explosion ${event.explosionId} by ${event.sourceId || event.sourceKind}`;
     case 'pickup.collected':

@@ -108,7 +108,9 @@ export interface NetworkNpc {
   health: number;
   armor?: number;
   alive: boolean;
-  action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'assault' | 'pursue' | 'search' | 'dead';
+  action: 'wander' | 'startle' | 'flee' | 'investigate' | 'recover' | 'assault' | 'pursue' | 'search' | 'melee' | 'dead';
+  attackSequence?: number;
+  attackProgress?: number;
   reactionSequence?: number;
   reactionKind?: CombatReactionKind;
   reactionDirection?: CombatReactionDirection;

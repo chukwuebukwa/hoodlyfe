@@ -264,11 +264,14 @@ export class DebugPresentationController {
       const phase = diagnostic?.reactionPhase && diagnostic.reactionPhase !== 'none'
         ? ` phase:${diagnostic.reactionPhase}`
         : '';
+      const melee = diagnostic?.meleePhase && diagnostic.meleePhase !== 'idle'
+        ? ` melee:${diagnostic.meleePhase}:${shortId(diagnostic.meleeTargetId ?? '')}`
+        : '';
       const path = diagnostic && diagnostic.waypointIndex < diagnostic.waypoints.length
         ? ` path:${diagnostic.waypointIndex + 1}/${diagnostic.waypoints.length}`
         : '';
       const ai = diagnostic
-        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}${phase}${path}`
+        ? ` ${diagnostic.objective} b:${diagnostic.bravery.toFixed(2)}${memory}${phase}${melee}${path}`
         : '';
       this.drawEntity(
         npc.x,

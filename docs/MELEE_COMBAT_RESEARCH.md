@@ -80,6 +80,7 @@ The weapon catalog becomes the single source for stable weapon IDs, weapon famil
 - Bat uses one slower swing, wider reach, stronger damage, and a bounded multi-target cap.
 - Both are on-foot only and have no ammunition cost.
 - A nearby eligible target can gently correct facing when the swing starts.
+- Accepted strikes preserve full, collision-safe player movement instead of freezing translation. This adapts GTA III's forward shuffle and separate moving held-melee path to continuous top-down input while the committed swing direction and authoritative contact window remain stable.
 - Damage resolves once at the strike's impact time, never at input receipt.
 - Street-only combat remains explicit until interior projectile/melee obstruction and witness policy are authored.
 - Bat-to-vehicle damage is a deliberate top-down adaptation and remains low relative to firearm/vehicle health; fists do not materially damage vehicles.
@@ -93,4 +94,3 @@ The weapon catalog becomes the single source for stable weapon IDs, weapon famil
 - Presentation tests for ammo-free HUD, hidden fist model, bat model, and deterministic swing phases.
 - Real two-client coverage proving replicated attack sequence, health/crime effect, and unchanged ammunition.
 - Phaser and Three browser QA showing fists/bat cycling and visible bat swing without layout regressions.
-

@@ -7,6 +7,7 @@ import {
   type CombatReactionPresentation
 } from './combat-reaction-render-policy.ts';
 import type {CombatReactionDirection, CombatReactionKind} from '../types.ts';
+import {npcMeleePresentation} from './npc-melee-render-policy.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
@@ -17,6 +18,7 @@ interface RenderNpc {
   reactionKind: CombatReactionKind;
   reactionDirection: CombatReactionDirection;
   reactionProgress: number;
+  attackProgress: number;
 }
 
 export class PedestrianRenderer {
@@ -51,17 +53,26 @@ export class PedestrianRenderer {
       );
       rendered.sprite.setPosition(position.x, position.y);
       const reaction = combatReactionPresentation(rendered);
-      const targetRotation = rendered.targetAngle - Math.PI / 2 + reaction.rotationOffset;
-      rendered.sprite.rotation = reaction.active
+      const melee = npcMeleePresentation({
+        action: rendered.targetAction,
+        attackProgress: rendered.attackProgress
+      });
+      const rotationOffset = reaction.active ? reaction.rotationOffset : melee.rotationOffset;
+      const scaleX = reaction.active ? reaction.scaleX : melee.scaleX;
+      const scaleY = reaction.active ? reaction.scaleY : melee.scaleY;
+      const targetRotation = rendered.targetAngle - Math.PI / 2 + rotationOffset;
+      rendered.sprite.rotation = reaction.active || melee.active
         ? targetRotation
         : rotateTowards(rendered.sprite.rotation, targetRotation, 0.14);
-      rendered.sprite.setDisplaySize(72 * reaction.scaleX, 72 * reaction.scaleY);
+      rendered.sprite.setDisplaySize(72 * scaleX, 72 * scaleY);
       this.updatePresentation(
         rendered.sprite,
         `${rendered.sprite.texture.key}-walk`,
         position.distance,
         rendered.targetAction,
-        reaction
+        reaction,
+        melee.active,
+        melee.tint
       );
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 95);
     }
@@ -88,7 +99,8 @@ export class PedestrianRenderer {
         targetAction: npc.action ?? 'wander',
         reactionKind: npc.reactionKind ?? '',
         reactionDirection: npc.reactionDirection ?? 'front',
-        reactionProgress: npc.reactionProgress ?? 0
+        reactionProgress: npc.reactionProgress ?? 0,
+        attackProgress: npc.attackProgress ?? 1
       };
       this.rendered.set(npcId, rendered);
     }
@@ -99,6 +111,7 @@ export class PedestrianRenderer {
     rendered.reactionKind = npc.reactionKind ?? '';
     rendered.reactionDirection = npc.reactionDirection ?? 'front';
     rendered.reactionProgress = npc.reactionProgress ?? 0;
+    rendered.attackProgress = npc.attackProgress ?? 1;
     rendered.sprite.setVisible(npc.alive);
   }
 
@@ -107,12 +120,18 @@ export class PedestrianRenderer {
     key: string,
     distance: number,
     action: string,
-    reaction: CombatReactionPresentation
+    reaction: CombatReactionPresentation,
+    meleeActive: boolean,
+    meleeTint?: number
   ): void {
     if (!sprite.visible) return;
-    const presentation = pedestrianMotionPresentation(action, distance, reaction.stopMovement);
+    const presentation = pedestrianMotionPresentation(
+      action,
+      distance,
+      reaction.stopMovement || meleeActive
+    );
     sprite.setAlpha(presentation.alpha);
-    const tint = reaction.tint ?? presentation.tint;
+    const tint = reaction.tint ?? meleeTint ?? presentation.tint;
     if (tint === undefined) sprite.clearTint();
     else sprite.setTint(tint);
     sprite.anims.timeScale = presentation.timeScale;

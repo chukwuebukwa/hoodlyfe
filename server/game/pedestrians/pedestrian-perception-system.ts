@@ -40,7 +40,10 @@ export type PedestrianObservation =
     angleAway: number;
     angleToward: number;
   }
-  | {kind: 'police'; response: PedestrianPoliceTarget & {pursuit: PursuitRecord}};
+  | {
+    kind: 'police';
+    response: PedestrianPoliceTarget & {pursuit: PursuitRecord; targetOnFootInStreet: boolean};
+  };
 
 interface PedestrianPerceptionOptions {
   state: DistrictState;
@@ -54,7 +57,17 @@ export class PedestrianPerceptionSystem {
   observe(npc: NpcState, runtime: PedestrianRuntime, nowMs: number): PedestrianObservation {
     if (npc.kind === 'police') {
       const response = this.options.policeTarget(npc, nowMs);
-      if (response?.pursuit) return {kind: 'police', response: {...response, pursuit: response.pursuit}};
+      if (response?.pursuit) {
+        const target = this.options.state.players.get(response.pursuit.suspectId);
+        return {
+          kind: 'police',
+          response: {
+            ...response,
+            pursuit: response.pursuit,
+            targetOnFootInStreet: Boolean(target?.alive && !target.vehicleId && target.spaceId === 'street')
+          }
+        };
+      }
     }
     const threat = this.observeThreat(npc, runtime, nowMs);
     if (threat) return threat;

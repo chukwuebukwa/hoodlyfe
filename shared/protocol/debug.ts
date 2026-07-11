@@ -37,6 +37,9 @@ export interface DebugPedestrianAiEntry {
   stimulusSourceId: string;
   stimulusUntil: number;
   reactionPhase: string;
+  meleePhase?: string;
+  meleeTargetId?: string;
+  meleeCooldownUntil?: number;
   navigationGoalX: number;
   navigationGoalY: number;
   waypointIndex: number;

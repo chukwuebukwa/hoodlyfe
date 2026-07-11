@@ -8,4 +8,5 @@ export interface PedestrianIntent {
   aimAngle: number;
   targetX?: number;
   targetY?: number;
+  meleeTargetId?: string;
 }

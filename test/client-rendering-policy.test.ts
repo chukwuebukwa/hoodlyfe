@@ -13,6 +13,7 @@ import {
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
 import {pedestrianMotionPresentation} from '../src/game/rendering/pedestrian-render-policy.ts';
+import {npcMeleePresentation} from '../src/game/rendering/npc-melee-render-policy.ts';
 import {combatReactionPresentation} from '../src/game/rendering/combat-reaction-render-policy.ts';
 import {thrownProjectilePresentation} from '../src/game/rendering/thrown-projectile-render-policy.ts';
 import {explosionPresentation} from '../src/game/rendering/explosion-render-policy.ts';
@@ -232,6 +233,20 @@ test('pedestrian presentation differentiates startle, flee, assault, investigati
   assert.equal(pedestrianMotionPresentation('investigate', 2).timeScale, 0.82);
   assert.equal(pedestrianMotionPresentation('recover', 0).animate, false);
   assert.equal(pedestrianMotionPresentation('dead', 0).alpha, 0);
+});
+
+test('NPC melee presentation is progress-driven through windup, contact, and recovery', () => {
+  const windup = npcMeleePresentation({action: 'melee', attackProgress: 0.2});
+  const contact = npcMeleePresentation({action: 'melee', attackProgress: 210 / 520});
+  const recovery = npcMeleePresentation({action: 'melee', attackProgress: 0.8});
+  assert.equal(windup.active, true);
+  assert.equal(windup.stopMovement, true);
+  assert.ok(windup.rotationOffset < 0);
+  assert.ok(contact.rotationOffset > 0.4);
+  assert.ok(contact.scaleX > 1.15);
+  assert.ok(recovery.rotationOffset > 0 && recovery.rotationOffset < contact.rotationOffset);
+  assert.equal(npcMeleePresentation({action: 'assault', attackProgress: 0.2}).active, false);
+  assert.equal(npcMeleePresentation({action: 'melee', attackProgress: 1}).active, false);
 });
 
 function createBullet(weapon: NetworkBullet['weapon']): NetworkBullet {

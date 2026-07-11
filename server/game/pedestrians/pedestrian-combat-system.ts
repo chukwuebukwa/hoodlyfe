@@ -2,6 +2,7 @@ import type {NpcState, PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {PedestrianIntent} from './pedestrian-intent.ts';
 import type {PedestrianRuntime} from './pedestrian-runtime.ts';
+import {NPC_MELEE} from '../../../shared/content/pedestrian-combat.ts';
 
 const HOSTILE_STOP_DISTANCE = 105;
 const HOSTILE_FIRE_DISTANCE = 430;
@@ -24,17 +25,21 @@ export class PedestrianCombatSystem {
       target.x,
       target.y
     );
-    const canFire = canSeeTarget &&
+    const pointBlank = canSeeTarget && !target.vehicleId && target.spaceId === 'street' &&
+      distance <= NPC_MELEE.engageDistance;
+    const canMelee = pointBlank && nowMs >= runtime.melee.cooldownUntil;
+    const canFire = !pointBlank && canSeeTarget &&
       nowMs - runtime.lastShotAt >= runtime.combatFireCooldownMs;
     if (canFire) runtime.lastShotAt = nowMs;
     return {
       objective: 'assault',
       angle,
-      speed: distance > HOSTILE_STOP_DISTANCE || !canSeeTarget ? HOSTILE_MOVE_SPEED : 0,
+      speed: pointBlank ? 0 : (distance > HOSTILE_STOP_DISTANCE || !canSeeTarget ? HOSTILE_MOVE_SPEED : 0),
       fire: canFire,
       aimAngle: angle,
       targetX: target.x,
-      targetY: target.y
+      targetY: target.y,
+      meleeTargetId: canMelee ? target.id : undefined
     };
   }
 }

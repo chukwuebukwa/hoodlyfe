@@ -4,6 +4,7 @@ import type {PedestrianObservation} from './pedestrian-perception-system.ts';
 import type {PedestrianRuntime} from './pedestrian-runtime.ts';
 import type {PedestrianIntent} from './pedestrian-intent.ts';
 import {PedestrianReactionSystem} from './pedestrian-reaction-system.ts';
+import {NPC_MELEE} from '../../../shared/content/pedestrian-combat.ts';
 
 const POLICE_FIRE_COOLDOWN_MS = 680;
 
@@ -101,22 +102,26 @@ export class PedestrianBehaviorSystem {
     observation: Extract<PedestrianObservation, {kind: 'police'}>,
     nowMs: number
   ): PedestrianIntent {
-    const {pursuit, canSeeTarget, targetDistance} = observation.response;
+    const {pursuit, canSeeTarget, targetDistance, targetOnFootInStreet} = observation.response;
     const angle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
     const distance = Math.hypot(pursuit.lastKnownX - npc.x, pursuit.lastKnownY - npc.y);
     const objective = pursuit.mode === 'pursuit' ? 'pursue' : 'search';
     const stopDistance = pursuit.mode === 'pursuit' ? 165 : 28;
-    const canFire = canSeeTarget && targetDistance < 430 &&
+    const pointBlank = canSeeTarget && targetOnFootInStreet &&
+      targetDistance <= NPC_MELEE.engageDistance;
+    const canMelee = pointBlank && nowMs >= runtime.melee.cooldownUntil;
+    const canFire = !pointBlank && canSeeTarget && targetDistance < 430 &&
       nowMs - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS;
     if (canFire) runtime.lastShotAt = nowMs;
     return {
       objective,
       angle,
-      speed: distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0,
+      speed: pointBlank ? 0 : (distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0),
       fire: canFire,
       aimAngle: angle,
       targetX: pursuit.lastKnownX,
-      targetY: pursuit.lastKnownY
+      targetY: pursuit.lastKnownY,
+      meleeTargetId: canMelee ? pursuit.suspectId : undefined
     };
   }
 

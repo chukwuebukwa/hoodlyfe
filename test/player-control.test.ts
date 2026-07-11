@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {PlayerControlController} from '../server/game/players/player-control-controller.ts';
+import type {InteriorController} from '../server/game/interiors/interior-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
 import type {CollisionMap} from '../server/world-map.ts';
 
@@ -62,6 +63,34 @@ test('on-foot locomotion resolves collision per axis and respects control states
   player.alive = false;
   controller.updateOnFoot(player, 1);
   assert.deepEqual({x: player.x, y: player.y}, blockedPosition);
+});
+
+test('active melee preserves full collision-safe movement without entering doors', () => {
+  const state = new DistrictState();
+  let entryAttempts = 0;
+  const world = {
+    canOccupy: (x: number) => x <= 112
+  } as unknown as CollisionMap;
+  const interiors = {
+    move: () => false,
+    tryEnter: () => {
+      entryAttempts++;
+      return false;
+    }
+  } as unknown as InteriorController;
+  const controller = new PlayerControlController({state, world, interiors});
+  const player = addPlayer(state, 'player', 100, 100);
+  controller.register(player.id);
+  controller.setMove(player.id, {x: 1, y: 1});
+  player.action = 'melee';
+  player.weapon = 'fists';
+  player.attackCombo = 0;
+
+  controller.updateOnFoot(player, 1);
+
+  assert.equal(player.x, 100, 'Melee momentum must still respect horizontal collision.');
+  assert.ok(Math.abs(player.y - (100 + 190 / Math.sqrt(2))) < 0.0001);
+  assert.equal(entryAttempts, 0, 'An active swing cannot transition into an interior.');
 });
 
 test('aim normalizes angles for on-foot players and passengers but rejects gated states', () => {

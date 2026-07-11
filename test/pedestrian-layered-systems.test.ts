@@ -70,7 +70,8 @@ test('navigation detours police locomotion without altering target aim or fire c
         mode: 'pursuit' as const
       },
       canSeeTarget: true,
-      targetDistance: 200
+      targetDistance: 200,
+      targetOnFootInStreet: true
     }
   };
   const first = behavior.decide(npc, runtime, observation, 1000);

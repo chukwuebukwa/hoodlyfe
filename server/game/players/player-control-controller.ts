@@ -1,5 +1,6 @@
 import type {DistrictState, PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import {isMeleeWeaponId, WEAPONS} from '../../../shared/content/weapon-catalog.ts';
 import type {InteriorController} from '../interiors/interior-controller.ts';
 
 export const PLAYER_RADIUS = 11;
@@ -69,19 +70,29 @@ export class PlayerControlController {
 
   updateOnFoot(player: PlayerState, deltaSeconds: number): void {
     const control = this.controls.get(player.id);
-    if (!control || !player.alive || player.action || player.vehicleId) return;
+    if (!control || !player.alive || player.vehicleId) return;
+    const movementScale = movementScaleFor(player);
+    if (movementScale === 0) return;
     const magnitude = Math.hypot(control.inputX, control.inputY);
     if (magnitude === 0) return;
     const inputScale = magnitude > 1 ? 1 / magnitude : 1;
-    const moveX = control.inputX * inputScale * PLAYER_SPEED * deltaSeconds;
-    const moveY = control.inputY * inputScale * PLAYER_SPEED * deltaSeconds;
+    const moveX = control.inputX * inputScale * PLAYER_SPEED * movementScale * deltaSeconds;
+    const moveY = control.inputY * inputScale * PLAYER_SPEED * movementScale * deltaSeconds;
     if (this.options.interiors?.move(player, moveX, moveY, PLAYER_RADIUS)) return;
     const nextX = player.x + moveX;
     if (this.options.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
     const nextY = player.y + moveY;
     if (this.options.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
-    this.options.interiors?.tryEnter(player);
+    if (!player.action) this.options.interiors?.tryEnter(player);
   }
+}
+
+function movementScaleFor(player: PlayerState): number {
+  if (!player.action) return 1;
+  if (player.action !== 'melee') return 0;
+  if (!isMeleeWeaponId(player.weapon)) return 0;
+  const weapon = WEAPONS[player.weapon];
+  return weapon.strikes[player.attackCombo]?.movementScale ?? 0;
 }
 
 function normalizeAngle(angle: number): number {

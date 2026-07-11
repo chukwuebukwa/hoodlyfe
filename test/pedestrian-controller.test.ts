@@ -160,6 +160,97 @@ test('mission hostile pursues its assigned target, fires, never ambient-respawns
   assert.deepEqual(despawned, [hostile.id]);
 });
 
+test('mission hostile uses timed point-blank melee instead of firing through its target', () => {
+  const world = CollisionMap.load();
+  const fired: number[] = [];
+  const damage: Array<{amount: number; attackerId: string}> = [];
+  const state = new DistrictState();
+  const controller = new PedestrianController({
+    state,
+    world,
+    random: new DeterministicRandom('hostile-melee'),
+    clock: () => ({tick: 9}),
+    policeTarget: () => undefined,
+    requestPoliceFire: () => undefined,
+    requestHostileFire: (_id, _x, _y, _angle, nowMs) => fired.push(nowMs),
+    damagePlayer: (_target, amount, attackerId) => damage.push({amount, attackerId})
+  });
+  const player = new PlayerState();
+  player.id = 'target';
+  player.x = world.spawn.x + 40;
+  player.y = world.spawn.y;
+  state.players.set(player.id, player);
+  const hostile = controller.spawnMissionHostile(
+    'hostile-melee',
+    world.spawn.x,
+    world.spawn.y,
+    0,
+    0,
+    90,
+    'smg',
+    680,
+    1
+  );
+  controller.assignCombatTarget(hostile.id, player.id);
+
+  controller.update(hostile, 1 / 30, 1_000);
+  assert.equal(hostile.action, 'melee');
+  assert.equal(hostile.attackSequence, 1);
+  assert.deepEqual(fired, []);
+  controller.update(hostile, 1 / 30, 1_209);
+  assert.deepEqual(damage, []);
+  controller.update(hostile, 1 / 30, 1_210);
+  assert.deepEqual(damage, [{amount: 8, attackerId: hostile.id}]);
+  controller.update(hostile, 1 / 30, 1_520);
+  assert.equal(hostile.action, 'assault');
+  assert.deepEqual(fired, []);
+});
+
+test('police use point-blank melee only for a visible on-foot pursuit target', () => {
+  const world = CollisionMap.load();
+  const state = new DistrictState();
+  const fired: number[] = [];
+  const damage: number[] = [];
+  let officerId = '';
+  const controller = new PedestrianController({
+    state,
+    world,
+    random: new DeterministicRandom('police-melee'),
+    clock: () => ({tick: 10}),
+    policeTarget: () => ({
+      pursuit: {
+        officerId,
+        suspectId: 'suspect',
+        lastKnownX: world.spawn.x + 40,
+        lastKnownY: world.spawn.y,
+        lastSeenAt: 1_000,
+        searchUntil: 9_000,
+        mode: 'pursuit'
+      },
+      canSeeTarget: true,
+      targetDistance: 40
+    }),
+    requestPoliceFire: (_id, _x, _y, _angle, nowMs) => fired.push(nowMs),
+    damagePlayer: (_target, amount) => damage.push(amount)
+  });
+  const police = controller.spawn('police-melee', 'police', 31, 0, 0);
+  police.x = world.spawn.x;
+  police.y = world.spawn.y;
+  officerId = police.id;
+  const player = new PlayerState();
+  player.id = 'suspect';
+  player.x = world.spawn.x + 40;
+  player.y = world.spawn.y;
+  player.wanted = 1;
+  state.players.set(player.id, player);
+
+  controller.update(police, 1 / 30, 1_000);
+  assert.equal(police.action, 'melee');
+  assert.deepEqual(fired, []);
+  controller.update(police, 1 / 30, 1_210);
+  assert.deepEqual(damage, [8]);
+});
+
 test('carjacking creates a panicked ambient driver beside the vehicle', () => {
   const world = CollisionMap.load();
   const spawned: string[] = [];

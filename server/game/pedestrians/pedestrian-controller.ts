@@ -1,10 +1,12 @@
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import {NpcState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import type {GameEvent} from '../events/game-events.ts';
+import type {GameEvent, GameEventStream} from '../events/game-events.ts';
+import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
 import {PedestrianBehaviorSystem} from './pedestrian-behavior-system.ts';
 import {PedestrianCombatSystem} from './pedestrian-combat-system.ts';
 import {PedestrianLocomotionSystem} from './pedestrian-locomotion-system.ts';
+import {PedestrianMeleeSystem} from './pedestrian-melee-system.ts';
 import {PedestrianNavigationSystem} from './pedestrian-navigation-system.ts';
 import {
   PedestrianPerceptionSystem,
@@ -37,6 +39,9 @@ export interface PedestrianDiagnostic {
   stimulusSourceId: string;
   stimulusUntil: number;
   reactionPhase: string;
+  meleePhase: string;
+  meleeTargetId: string;
+  meleeCooldownUntil: number;
   navigationGoalX: number;
   navigationGoalY: number;
   waypointIndex: number;
@@ -50,6 +55,7 @@ interface PedestrianControllerOptions {
   world: CollisionMap;
   random: DeterministicRandom;
   clock: () => {tick: number};
+  events?: GameEventStream;
   policeTarget: (officer: NpcState, nowMs: number) => PedestrianPoliceTarget | undefined;
   requestPoliceFire: (
     officerId: string,
@@ -66,6 +72,13 @@ interface PedestrianControllerOptions {
     nowMs: number,
     weapon: 'pistol' | 'smg'
   ) => void;
+  damagePlayer?: (
+    target: PlayerState,
+    damage: number,
+    attackerId: string,
+    nowMs: number,
+    impact: DamageImpact
+  ) => void;
   onSpawned?: (npc: NpcState) => void;
   onDespawned?: (npcId: string) => void;
 }
@@ -75,6 +88,7 @@ export class PedestrianController {
   private readonly perception: PedestrianPerceptionSystem;
   private readonly behavior: PedestrianBehaviorSystem;
   private readonly combat: PedestrianCombatSystem;
+  private readonly melee: PedestrianMeleeSystem;
   private readonly navigation: PedestrianNavigationSystem;
   private readonly locomotion: PedestrianLocomotionSystem;
   private readonly stimuli = new PedestrianStimulusRegistry();
@@ -92,6 +106,13 @@ export class PedestrianController {
       clock: options.clock
     });
     this.combat = new PedestrianCombatSystem(options.world);
+    this.melee = new PedestrianMeleeSystem({
+      state: options.state,
+      world: options.world,
+      events: options.events,
+      clock: options.clock,
+      damagePlayer: options.damagePlayer
+    });
     this.navigation = new PedestrianNavigationSystem({
       random: options.random,
       clock: options.clock,
@@ -143,14 +164,17 @@ export class PedestrianController {
     const runtime = this.runtime.get(npc.id);
     if (!runtime) return;
     if (!npc.alive) {
+      this.melee.clear(npc, runtime);
       npc.action = 'dead';
       this.tryRespawn(npc, runtime, nowMs);
       return;
     }
     if (npc.reactionKind && npc.reactionProgress < 1) {
+      if (runtime.melee.phase !== 'idle') this.melee.interrupt(npc, runtime, nowMs);
       npc.action = npc.reactionKind;
       return;
     }
+    if (this.melee.update(npc, runtime, nowMs)) return;
 
     const combatTarget = runtime.combatTargetId
       ? this.options.state.players.get(runtime.combatTargetId)
@@ -158,6 +182,10 @@ export class PedestrianController {
     const intent = npc.kind === 'hostile' && combatTarget?.alive
       ? this.combat.decide(npc, runtime, combatTarget, nowMs)
       : this.behavior.decide(npc, runtime, this.perception.observe(npc, runtime, nowMs), nowMs);
+    const meleeTarget = intent.meleeTargetId
+      ? this.options.state.players.get(intent.meleeTargetId)
+      : undefined;
+    if (meleeTarget && this.melee.begin(npc, runtime, meleeTarget, nowMs)) return;
     const moveAngle = this.navigation.resolveAngle(npc, runtime, intent, nowMs);
     npc.action = intent.objective;
     npc.angle = moveAngle;
@@ -200,6 +228,9 @@ export class PedestrianController {
       stimulusSourceId: runtime.stimulusSourceId,
       stimulusUntil: runtime.stimulusUntil,
       reactionPhase: runtime.reaction.phase,
+      meleePhase: runtime.melee.phase,
+      meleeTargetId: runtime.melee.targetId,
+      meleeCooldownUntil: runtime.melee.cooldownUntil,
       navigationGoalX: runtime.navigation.goalX,
       navigationGoalY: runtime.navigation.goalY,
       waypointIndex: runtime.navigation.waypointIndex,
@@ -269,6 +300,8 @@ export class PedestrianController {
   despawn(npcId: string): boolean {
     const runtime = this.runtime.get(npcId);
     if (!runtime || runtime.lifecycle !== 'mission') return false;
+    const npc = this.options.state.npcs.get(npcId);
+    if (npc) this.melee.clear(npc, runtime);
     this.runtime.delete(npcId);
     this.options.state.npcs.delete(npcId);
     this.options.onDespawned?.(npcId);
@@ -330,11 +363,13 @@ export class PedestrianController {
     npc.armor = 0;
     npc.alive = true;
     npc.action = 'wander';
+    npc.attackProgress = 1;
     npc.reactionKind = '';
     npc.reactionProgress = 1;
     clearPedestrianThreat(runtime);
     clearPedestrianStimulus(runtime);
     clearPedestrianReaction(runtime);
+    this.melee.clear(npc, runtime);
     clearPedestrianNavigation(runtime);
     runtime.objective = 'wander';
     runtime.avoidUntil = 0;

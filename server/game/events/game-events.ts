@@ -25,6 +25,14 @@ export interface MeleeAttackStartedEvent extends EventMetadata {
   y: number;
 }
 
+export interface NpcMeleeAttackStartedEvent extends EventMetadata {
+  type: 'npc.melee.started';
+  npcId: string;
+  targetId: string;
+  x: number;
+  y: number;
+}
+
 export interface ExplosionCreatedEvent extends EventMetadata {
   type: 'explosion.created';
   explosionId: string;
@@ -166,6 +174,7 @@ export interface StreetEconomyChangedEvent extends EventMetadata {
 export type GameEvent =
   | WeaponFiredEvent
   | MeleeAttackStartedEvent
+  | NpcMeleeAttackStartedEvent
   | ExplosionCreatedEvent
   | WeaponPickupCollectedEvent
   | DamageAppliedEvent

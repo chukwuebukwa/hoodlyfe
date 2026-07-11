@@ -434,12 +434,24 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick}),
+      events: this.events,
       policeTarget: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
       requestPoliceFire: (officerId, x, y, angle, nowMs) => {
         this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
       },
       requestHostileFire: (actorId, x, y, angle, nowMs, weapon) => {
         this.fireControl.createNpcBullet(actorId, x, y, angle, nowMs, weapon, 'hostile');
+      },
+      damagePlayer: (target, damage, attackerId, nowMs, impact) => {
+        this.damageController.player(
+          target,
+          damage,
+          attackerId,
+          nowMs,
+          undefined,
+          'non-player',
+          impact
+        );
       },
       onSpawned: (npc) => this.indexNpc(npc),
       onDespawned: (npcId) => this.spatialIndex.remove('npc', npcId)
@@ -655,7 +667,8 @@ export class DistrictRoom extends Room<DistrictState> {
         this.playerLifecycle.tryRespawn(player, now);
       } else if (player.action) {
         this.playerLifecycle.updateProtection(player, now);
-        if (player.action !== 'melee') this.vehicleAccess.updateAction(player, now);
+        if (player.action === 'melee') this.playerControl.updateOnFoot(player, deltaSeconds);
+        else this.vehicleAccess.updateAction(player, now);
       } else {
         this.playerLifecycle.updateProtection(player, now);
         this.playerControl.updateOnFoot(player, deltaSeconds);

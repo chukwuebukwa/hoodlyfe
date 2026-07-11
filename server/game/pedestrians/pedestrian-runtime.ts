@@ -39,6 +39,18 @@ export interface PedestrianNavigationRuntime {
   nextPathAt: number;
 }
 
+export type PedestrianMeleePhase = 'idle' | 'windup' | 'recovery';
+
+export interface PedestrianMeleeRuntime {
+  phase: PedestrianMeleePhase;
+  targetId: string;
+  startedAt: number;
+  impactAt: number;
+  endsAt: number;
+  cooldownUntil: number;
+  contactApplied: boolean;
+}
+
 export interface PedestrianRuntime {
   lifecycle: 'ambient' | 'mission';
   objective: PedestrianObjective;
@@ -64,6 +76,7 @@ export interface PedestrianRuntime {
   stimulusUntil: number;
   reaction: PedestrianReactionRuntime;
   navigation: PedestrianNavigationRuntime;
+  melee: PedestrianMeleeRuntime;
   avoidAngle: number;
   avoidUntil: number;
   respawnAt: number;
@@ -99,9 +112,22 @@ export function createPedestrianRuntime(
     stimulusUntil: 0,
     reaction: createPedestrianReactionRuntime(),
     navigation: createPedestrianNavigationRuntime(),
+    melee: createPedestrianMeleeRuntime(),
     avoidAngle: 0,
     avoidUntil: 0,
     respawnAt: 0
+  };
+}
+
+export function createPedestrianMeleeRuntime(): PedestrianMeleeRuntime {
+  return {
+    phase: 'idle',
+    targetId: '',
+    startedAt: 0,
+    impactAt: 0,
+    endsAt: 0,
+    cooldownUntil: 0,
+    contactApplied: false
   };
 }
 
@@ -137,6 +163,10 @@ export function createPedestrianNavigationRuntime(): PedestrianNavigationRuntime
 
 export function clearPedestrianNavigation(runtime: PedestrianRuntime): void {
   runtime.navigation = createPedestrianNavigationRuntime();
+}
+
+export function clearPedestrianMelee(runtime: PedestrianRuntime): void {
+  runtime.melee = createPedestrianMeleeRuntime();
 }
 
 export function clearPedestrianReaction(runtime: PedestrianRuntime): void {

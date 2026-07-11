@@ -42,6 +42,7 @@ export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
 export interface MeleeStrikeDefinition {
   durationMs: number;
   impactMs: number;
+  movementScale: number;
   damage: number;
   range: number;
   halfArcRadians: number;
@@ -77,6 +78,7 @@ export const WEAPONS = Object.freeze({
       Object.freeze({
         durationMs: 340,
         impactMs: 135,
+        movementScale: 1,
         damage: 9,
         range: 31,
         halfArcRadians: 0.62,
@@ -87,6 +89,7 @@ export const WEAPONS = Object.freeze({
       Object.freeze({
         durationMs: 360,
         impactMs: 145,
+        movementScale: 1,
         damage: 11,
         range: 33,
         halfArcRadians: 0.58,
@@ -97,6 +100,7 @@ export const WEAPONS = Object.freeze({
       Object.freeze({
         durationMs: 430,
         impactMs: 205,
+        movementScale: 1,
         damage: 18,
         range: 37,
         halfArcRadians: 0.54,
@@ -119,6 +123,7 @@ export const WEAPONS = Object.freeze({
       Object.freeze({
         durationMs: 610,
         impactMs: 285,
+        movementScale: 1,
         damage: 34,
         range: 48,
         halfArcRadians: 0.82,

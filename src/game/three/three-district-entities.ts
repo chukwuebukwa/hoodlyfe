@@ -17,6 +17,7 @@ import {
 } from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
 import {combatReactionPresentation} from '../rendering/combat-reaction-render-policy.ts';
+import {npcMeleePresentation} from '../rendering/npc-melee-render-policy.ts';
 import {rotateTowards} from '../rendering/interpolation-policy.ts';
 import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
 import {
@@ -244,25 +245,31 @@ export class ThreeDistrictEntities {
       0.28
     );
     const reaction = combatReactionPresentation(npc);
-    const bodyRotation = serverPedestrianAngleToThree(npc.angle) - reaction.rotationOffset;
-    rendered.mesh.rotation.z = reaction.active
+    const melee = npcMeleePresentation(npc);
+    const rotationOffset = reaction.active ? reaction.rotationOffset : melee.rotationOffset;
+    const scaleX = reaction.active ? reaction.scaleX : melee.scaleX;
+    const scaleY = reaction.active ? reaction.scaleY : melee.scaleY;
+    const bodyRotation = serverPedestrianAngleToThree(npc.angle) - rotationOffset;
+    rendered.mesh.rotation.z = reaction.active || melee.active
       ? bodyRotation
       : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.18);
-    rendered.mesh.scale.set(reaction.scaleX, reaction.scaleY, 1);
+    rendered.mesh.scale.set(scaleX, scaleY, 1);
     rendered.mesh.visible = npc.alive;
     const moving = updateWalkingFrame(
       rendered.mesh,
       npc.x,
       npc.y,
-      npc.alive && !reaction.stopMovement
+      npc.alive && !reaction.stopMovement && !melee.stopMovement
     );
     const presentation = pedestrianMotionPresentation(
       npc.action,
       moving ? 1 : 0,
-      reaction.stopMovement
+      reaction.stopMovement || melee.stopMovement
     );
     rendered.mesh.material.opacity = presentation.alpha;
-    rendered.mesh.material.color.setHex(reaction.tint ?? presentation.tint ?? 0xffffff);
+    rendered.mesh.material.color.setHex(
+      reaction.tint ?? melee.tint ?? presentation.tint ?? 0xffffff
+    );
   }
 
   private synchronizeVehicle(id: string, vehicle: NetworkVehicle): void {
