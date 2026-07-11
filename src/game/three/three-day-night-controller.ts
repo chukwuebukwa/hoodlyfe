@@ -74,7 +74,7 @@ export class ThreeDayNightController {
     focusY: number,
     localSpaceId: string,
     label?: HTMLElement
-  ): void {
+  ): number {
     const minute = this.debugMinute ?? worldMinuteAt(clock, nowMs);
     const lighting = lightingAtMinute(minute);
     const interior = localSpaceId !== STREET_SPACE_ID;
@@ -109,6 +109,7 @@ export class ThreeDayNightController {
     }
     if (this.timeValue) this.timeValue.textContent = formatWorldTime(minute);
     this.liveButton?.classList.toggle('active', this.debugMinute === undefined);
+    return interior ? 0 : lighting.streetlightIntensity;
   }
 
   destroy(): void {

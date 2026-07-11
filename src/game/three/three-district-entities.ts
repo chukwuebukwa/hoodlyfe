@@ -27,6 +27,7 @@ import {combatReactionPresentation} from '../rendering/combat-reaction-render-po
 import {npcMeleePresentation} from '../rendering/npc-melee-render-policy.ts';
 import {rotateTowards} from '../rendering/interpolation-policy.ts';
 import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
+import {vehicleLightPresentation} from '../rendering/vehicle-light-render-policy.ts';
 import {
   ACTION_SPRITE_COLUMNS,
   ACTION_SPRITE_ROWS,
@@ -44,6 +45,7 @@ import {
   serverVehicleAngleToThree,
   serverYToThree
 } from './three-prototype-policy.ts';
+import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -52,6 +54,8 @@ interface RenderedEntity {
   smoke?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   fire?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   blood?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  headlight?: RadialGlow;
+  taillight?: RadialGlow;
   appearanceKey?: string;
   attackSequence?: number;
   attackWeapon?: NetworkPlayer['weapon'];
@@ -198,6 +202,33 @@ export class ThreeDistrictEntities {
     for (const [id, rendered] of this.rendered) {
       if (present.has(id)) continue;
       this.remove(id, rendered);
+    }
+  }
+
+  updateVehicleLights(nightIntensity: number, focusX: number, focusY: number): void {
+    const nearby = new Set(
+      [...this.rendered.entries()]
+        .filter(([id]) => id.startsWith('vehicle:'))
+        .map(([id, rendered]) => ({
+          id,
+          distance: Math.hypot(
+            Number(rendered.mesh.userData.worldX ?? 0) - focusX,
+            Number(rendered.mesh.userData.worldY ?? 0) - focusY
+          )
+        }))
+        .sort((left, right) => left.distance - right.distance || left.id.localeCompare(right.id))
+        .slice(0, 10)
+        .map(({id}) => id)
+    );
+    for (const [id, rendered] of this.rendered) {
+      if (!id.startsWith('vehicle:') || !rendered.headlight || !rendered.taillight) continue;
+      const vehicle = rendered.mesh.userData.vehicle as NetworkVehicle | undefined;
+      if (!vehicle) continue;
+      const presentation = vehicleLightPresentation(vehicle, nightIntensity, nearby.has(id));
+      rendered.headlight.visible = presentation.active && presentation.frontOpacity > 0.01;
+      updateRadialGlow(rendered.headlight, 0xfff2c7, presentation.frontOpacity);
+      rendered.taillight.visible = presentation.active && presentation.rearOpacity > 0.01;
+      updateRadialGlow(rendered.taillight, presentation.rearColor, presentation.rearOpacity);
     }
   }
 
@@ -486,7 +517,9 @@ export class ThreeDistrictEntities {
         definition.presentation.height
       ),
       smoke: effectDisc(11, 0x3b4244, 0.72),
-      fire: effectDisc(7, 0xff7a24, 0.92)
+      fire: effectDisc(7, 0xff7a24, 0.92),
+      headlight: radialGlow(105, 0xfff2c7, 0, 12),
+      taillight: radialGlow(34, 0xff1f2f, 0, 10)
     }));
     const door = vehicleDoorPresentation(vehicle, players);
     setSpriteFrame(
@@ -505,6 +538,28 @@ export class ThreeDistrictEntities {
     rendered.mesh.visible = true;
     rendered.mesh.material.opacity = visual.alpha;
     rendered.mesh.material.color.setHex(visual.tint ?? 0xffffff);
+    rendered.mesh.userData.worldX = vehicle.x;
+    rendered.mesh.userData.worldY = vehicle.y;
+    rendered.mesh.userData.vehicle = vehicle;
+    const angle = rendered.mesh.rotation.z;
+    if (rendered.headlight) {
+      rendered.headlight.position.set(
+        vehicle.x + Math.cos(angle) * 43,
+        serverYToThree(vehicle.y) + Math.sin(angle) * 43,
+        z + 1
+      );
+      rendered.headlight.rotation.z = angle;
+      rendered.headlight.scale.set(1.65, 0.58, 1);
+    }
+    if (rendered.taillight) {
+      rendered.taillight.position.set(
+        vehicle.x - Math.cos(angle) * 31,
+        serverYToThree(vehicle.y) - Math.sin(angle) * 31,
+        z + 1
+      );
+      rendered.taillight.rotation.z = angle;
+      rendered.taillight.scale.set(1.15, 0.52, 1);
+    }
     if (rendered.smoke) {
       rendered.smoke.position.set(vehicle.x - 12, serverYToThree(vehicle.y) + 5, z + 4);
       rendered.smoke.visible = visual.smoke;
@@ -529,6 +584,8 @@ export class ThreeDistrictEntities {
     if (rendered.smoke) this.scene.add(rendered.smoke);
     if (rendered.fire) this.scene.add(rendered.fire);
     if (rendered.blood) this.scene.add(rendered.blood);
+    if (rendered.headlight) this.scene.add(rendered.headlight);
+    if (rendered.taillight) this.scene.add(rendered.taillight);
     return rendered;
   }
 
@@ -543,11 +600,14 @@ export class ThreeDistrictEntities {
       rendered.label.material.map?.dispose();
       rendered.label.material.dispose();
     }
-    for (const effect of [rendered.weapon, rendered.smoke, rendered.fire, rendered.blood]) {
+    for (const effect of [
+      rendered.weapon, rendered.smoke, rendered.fire, rendered.blood,
+      rendered.headlight, rendered.taillight
+    ]) {
       if (!effect) continue;
       this.scene.remove(effect);
       effect.geometry.dispose();
-      effect.material.map?.dispose();
+      if (effect.material instanceof THREE.MeshBasicMaterial) effect.material.map?.dispose();
       effect.material.dispose();
     }
     this.rendered.delete(id);

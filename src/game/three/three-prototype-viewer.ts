@@ -267,11 +267,12 @@ export class ThreePrototypeViewer {
       const vehicle = local?.vehicleId ? this.room.state.vehicles.get(local.vehicleId) : undefined;
       const focusX = vehicle?.x ?? local?.x ?? this.center.x;
       const focusY = vehicle?.y ?? local?.y ?? serverYToThree(this.center.y);
-      this.lighting?.update({
+      const nightIntensity = this.lighting?.update({
         worldTimeStartedAt: this.room.state.worldTimeStartedAt ?? Date.now(),
         worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
         worldTimeRate: this.room.state.worldTimeRate ?? 0
-      }, Date.now(), focusX, focusY, localSpaceId, this.status?.querySelector('#world-clock-status') ?? undefined);
+      }, Date.now(), focusX, focusY, localSpaceId, this.status?.querySelector('#world-clock-status') ?? undefined) ?? 0;
+      this.entities?.updateVehicleLights(nightIntensity, focusX, focusY);
       this.input?.update(performance.now());
     } else {
       const pan = 260 * delta / this.zoom;
