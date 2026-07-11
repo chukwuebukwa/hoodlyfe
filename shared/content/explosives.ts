@@ -1,4 +1,4 @@
-export type ExplosionKind = 'grenade' | 'vehicle';
+export type ExplosionKind = 'grenade' | 'rocket' | 'vehicle';
 
 export interface ExplosionPolicy {
   radius: number;
@@ -21,12 +21,26 @@ export const GRENADE_PROJECTILE = Object.freeze({
   ownerCapacity: 2
 });
 
+export const ROCKET_PROJECTILE = Object.freeze({
+  radius: 7,
+  globalCapacity: 32,
+  ownerCapacity: 2,
+  spawnOffset: 25,
+  collisionStep: 7
+});
+
 export const EXPLOSION_POLICIES: Readonly<Record<ExplosionKind, ExplosionPolicy>> = Object.freeze({
   grenade: Object.freeze({
     radius: 130,
     maximumPedestrianDamage: 120,
     maximumVehicleDamage: 650,
     visualLifetimeMs: 650
+  }),
+  rocket: Object.freeze({
+    radius: 155,
+    maximumPedestrianDamage: 165,
+    maximumVehicleDamage: 820,
+    visualLifetimeMs: 720
   }),
   vehicle: Object.freeze({
     radius: 170,

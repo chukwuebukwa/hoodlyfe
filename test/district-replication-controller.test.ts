@@ -9,6 +9,7 @@ import {
   MissionState,
   NpcState,
   PlayerState,
+  RocketProjectileState,
   StreetServiceState,
   VehicleState
 } from '../server/state.ts';
@@ -51,6 +52,27 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(interiorView.has(vehicle), false);
   assert.equal(interiorView.has(streetService), false);
   assert.equal(interiorView.has(interiorService), true);
+});
+
+test('rocket replication pins the owner projectile and applies street AOI to other players', () => {
+  const state = new DistrictState();
+  const owner = player('owner', 'street');
+  const observer = player('observer', 'street');
+  observer.x = 3_000;
+  state.players.set(owner.id, owner);
+  state.players.set(observer.id, observer);
+  const rocket = new RocketProjectileState();
+  rocket.id = 'rocket-1';
+  rocket.ownerId = owner.id;
+  rocket.x = 3_000;
+  state.rockets.set(rocket.id, rocket);
+  const controller = new DistrictReplicationController(state);
+
+  assert.equal(controller.attach(owner.id).has(rocket), true);
+  assert.equal(controller.attach(observer.id).has(rocket), true);
+  observer.x = 6_000;
+  controller.synchronize();
+  assert.equal(controller.attach(observer.id).has(rocket), false);
 });
 
 test('district replication streams cash pickups with street AOI hysteresis', () => {

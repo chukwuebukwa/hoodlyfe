@@ -63,6 +63,7 @@ export class PlayerState extends Schema {
   ammoPistol = 120;
   ammoSmg = 240;
   ammoShotgun = 48;
+  ammoRocket = 4;
   ammoGrenade = 2;
   appearance = new PlayerAppearanceState();
 }
@@ -98,6 +99,7 @@ defineTypes(PlayerState, {
   ammoPistol: 'number',
   ammoSmg: 'number',
   ammoShotgun: 'number',
+  ammoRocket: 'number',
   ammoGrenade: 'number',
   appearance: PlayerAppearanceState
 });
@@ -146,6 +148,24 @@ defineTypes(ThrownProjectileState, {
   angle: 'number',
   createdAt: 'number',
   fuseAt: 'number'
+});
+
+export class RocketProjectileState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  angle = 0;
+  createdAt = 0;
+}
+
+defineTypes(RocketProjectileState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  angle: 'number',
+  createdAt: 'number'
 });
 
 export class ExplosionState extends Schema {
@@ -437,6 +457,7 @@ defineTypes(MissionState, {
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
+  rockets = new MapSchema<RocketProjectileState>();
   thrownProjectiles = new MapSchema<ThrownProjectileState>();
   explosions = new MapSchema<ExplosionState>();
   weaponPickups = new MapSchema<WeaponPickupState>();
@@ -453,6 +474,7 @@ export class DistrictState extends Schema {
 defineTypes(DistrictState, {
   players: {map: PlayerState},
   bullets: {map: BulletState},
+  rockets: {map: RocketProjectileState},
   thrownProjectiles: {map: ThrownProjectileState},
   explosions: {map: ExplosionState},
   weaponPickups: {map: WeaponPickupState},

@@ -13,6 +13,7 @@ import {MedicalCarePresentationController} from './medical/medical-care-presenta
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
+import {RocketProjectileRenderer} from './rendering/rocket-projectile-renderer.ts';
 import {ExplosionRenderer} from './rendering/explosion-renderer.ts';
 import {ThrownProjectileRenderer} from './rendering/thrown-projectile-renderer.ts';
 import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
@@ -34,6 +35,7 @@ export class DistrictScene extends Phaser.Scene {
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private rocketProjectileRenderer!: RocketProjectileRenderer;
   private explosionRenderer!: ExplosionRenderer;
   private thrownProjectileRenderer!: ThrownProjectileRenderer;
   private weaponPickupRenderer!: WeaponPickupRenderer;
@@ -84,6 +86,7 @@ export class DistrictScene extends Phaser.Scene {
     this.load.svg('weapon-pistol', '/assets/original/weapons/pistol.svg');
     this.load.svg('weapon-smg', '/assets/original/weapons/smg.svg');
     this.load.svg('weapon-shotgun', '/assets/original/weapons/shotgun.svg');
+    this.load.svg('weapon-rocket', '/assets/original/weapons/rocket.svg');
     this.load.svg('weapon-grenade', '/assets/original/weapons/grenade.svg');
   }
 
@@ -143,6 +146,7 @@ export class DistrictScene extends Phaser.Scene {
         this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
       }
     });
+    this.rocketProjectileRenderer = new RocketProjectileRenderer(this);
     this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
     this.explosionRenderer = new ExplosionRenderer(this);
     this.weaponPickupRenderer = new WeaponPickupRenderer(this);
@@ -219,6 +223,7 @@ export class DistrictScene extends Phaser.Scene {
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
     this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
     this.projectileRenderer.synchronize(state.bullets);
+    this.rocketProjectileRenderer.synchronize(state.rockets);
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
     this.explosionRenderer.synchronize(state.explosions);
     this.weaponPickupRenderer.synchronize(state.weaponPickups);
@@ -230,7 +235,9 @@ export class DistrictScene extends Phaser.Scene {
       shell.dataset.npcs = String(state.npcs?.size ?? 0);
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
       shell.dataset.explosives = String(
-        (state.thrownProjectiles?.size ?? 0) + (state.explosions?.size ?? 0)
+        (state.rockets?.size ?? 0) +
+        (state.thrownProjectiles?.size ?? 0) +
+        (state.explosions?.size ?? 0)
       );
     }
     this.interactionController.synchronize(state);
@@ -244,6 +251,7 @@ export class DistrictScene extends Phaser.Scene {
     this.playerRenderer.interpolate(time);
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();
+    this.rocketProjectileRenderer.interpolate();
     this.thrownProjectileRenderer.interpolate();
     this.weaponPickupRenderer.interpolate();
     this.cashPickupRenderer.interpolate();

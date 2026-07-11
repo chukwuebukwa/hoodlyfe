@@ -224,6 +224,17 @@ export class DistrictReplicationController {
         `bullet:${bullet.id}`
       );
     }
+    for (const rocket of this.state.rockets.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        rocket,
+        x,
+        y,
+        rocket.ownerId === playerId,
+        `rocket:${rocket.id}`
+      );
+    }
     for (const projectile of this.state.thrownProjectiles.values()) {
       this.addTransientIfRelevant(
         desired,

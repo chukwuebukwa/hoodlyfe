@@ -62,7 +62,7 @@ export class ThreeDistrictEntities {
     surfaceHeightAt: (x: number, y: number) => number
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
-    const [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, grenade] = await Promise.all([
+    const [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, rocket, grenade] = await Promise.all([
       loader.loadAsync('/assets/original/sprites/player-base.png'),
       loader.loadAsync('/assets/original/sprites/civilian.png'),
       loader.loadAsync('/assets/original/sprites/police.png'),
@@ -72,14 +72,15 @@ export class ThreeDistrictEntities {
       loader.loadAsync('/assets/original/weapons/pistol.svg'),
       loader.loadAsync('/assets/original/weapons/smg.svg'),
       loader.loadAsync('/assets/original/weapons/shotgun.svg'),
+      loader.loadAsync('/assets/original/weapons/rocket.svg'),
       loader.loadAsync('/assets/original/weapons/grenade.svg')
     ]);
-    for (const texture of [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, grenade]) {
+    for (const texture of [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, rocket, grenade]) {
       configureTexture(texture);
     }
     return new ThreeDistrictEntities(
       scene,
-      {player, civilian, police, vehicles, weapons: {fists, bat, pistol, smg, shotgun, grenade}},
+      {player, civilian, police, vehicles, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade}},
       surfaceHeightAt
     );
   }

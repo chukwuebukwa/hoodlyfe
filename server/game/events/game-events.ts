@@ -36,7 +36,7 @@ export interface NpcMeleeAttackStartedEvent extends EventMetadata {
 export interface ExplosionCreatedEvent extends EventMetadata {
   type: 'explosion.created';
   explosionId: string;
-  kind: 'grenade' | 'vehicle';
+  kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
   x: number;

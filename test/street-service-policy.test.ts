@@ -24,6 +24,7 @@ import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 test('street service quotes charge for missing ammunition and layered vehicle damage', () => {
   assert.equal(ammunitionRestockQuote(AMMUNITION_CAPACITY), 0);
   assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoPistol: 119}), 25);
+  assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoRocket: 0}), 300);
   assert.equal(ammunitionRestockQuote({ammoPistol: 0, ammoSmg: 0, ammoShotgun: 0}), 216);
   assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: ARMOR_CAPACITY}), 0);
   assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: 0}), 150);

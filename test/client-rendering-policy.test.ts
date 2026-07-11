@@ -75,6 +75,9 @@ test('player weapon models and passenger seats preserve stable presentation anch
   assert.deepEqual(weaponPresentation('shotgun'), {
     texture: 'weapon-shotgun', width: 42, height: 10, visible: true, originX: 0.16
   });
+  assert.deepEqual(weaponPresentation('rocket'), {
+    texture: 'weapon-rocket', width: 48, height: 14, visible: true, originX: 0.16
+  });
   assert.deepEqual(weaponPresentation('grenade'), {
     texture: 'weapon-grenade', width: 15, height: 15, visible: true, originX: 0.16
   });
@@ -180,7 +183,10 @@ test('explosive and pickup presentation follows replicated height, fuse, kind, a
   assert.notEqual(late.modelScale, 0.58);
 
   const grenadeExplosion = explosionPresentation(explosion('grenade'));
+  const rocketExplosion = explosionPresentation(explosion('rocket'));
   const vehicleExplosion = explosionPresentation(explosion('vehicle'));
+  assert.ok(rocketExplosion.durationMs > grenadeExplosion.durationMs);
+  assert.ok(rocketExplosion.shakeIntensity > grenadeExplosion.shakeIntensity);
   assert.ok(vehicleExplosion.durationMs > grenadeExplosion.durationMs);
   assert.ok(vehicleExplosion.shakeIntensity > grenadeExplosion.shakeIntensity);
 

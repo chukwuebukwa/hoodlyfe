@@ -1,9 +1,10 @@
-export const WEAPON_ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'grenade'] as const;
+export const WEAPON_ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'rocket', 'grenade'] as const;
 
 export type WeaponId = typeof WEAPON_ORDER[number];
 export type BulletWeaponId = Extract<WeaponId, 'pistol' | 'smg' | 'shotgun'>;
+export type RocketWeaponId = Extract<WeaponId, 'rocket'>;
 export type MeleeWeaponId = Extract<WeaponId, 'fists' | 'bat'>;
-export type AmmunitionField = 'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoGrenade';
+export type AmmunitionField = 'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoRocket' | 'ammoGrenade';
 
 export interface WeaponPresentationDefinition {
   assetId: string;
@@ -24,7 +25,7 @@ interface WeaponDefinitionBase {
 export interface BulletWeaponDefinition extends WeaponDefinitionBase {
   id: BulletWeaponId;
   fireMode: 'bullet';
-  ammunitionField: Exclude<AmmunitionField, 'ammoGrenade'>;
+  ammunitionField: Extract<AmmunitionField, 'ammoPistol' | 'ammoSmg' | 'ammoShotgun'>;
   damage: number;
   projectileSpeed: number;
   lifetimeMs: number;
@@ -37,6 +38,14 @@ export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
   fireMode: 'thrown';
   ammunitionField: 'ammoGrenade';
   fuseMs: number;
+}
+
+export interface RocketWeaponDefinition extends WeaponDefinitionBase {
+  id: RocketWeaponId;
+  fireMode: 'rocket';
+  ammunitionField: 'ammoRocket';
+  projectileSpeed: number;
+  lifetimeMs: number;
 }
 
 export interface MeleeStrikeDefinition {
@@ -61,6 +70,7 @@ export interface MeleeWeaponDefinition extends WeaponDefinitionBase {
 
 export type WeaponDefinition =
   | BulletWeaponDefinition
+  | RocketWeaponDefinition
   | ThrownWeaponDefinition
   | MeleeWeaponDefinition;
 
@@ -175,6 +185,17 @@ export const WEAPONS = Object.freeze({
     spread: 0.3,
     presentation: Object.freeze({assetId: 'shotgun', heldWidth: 42, heldHeight: 10, heldVisible: true})
   } satisfies BulletWeaponDefinition),
+  rocket: Object.freeze({
+    id: 'rocket',
+    name: 'Rocket Launcher',
+    fireMode: 'rocket',
+    passengerAllowed: false,
+    cooldownMs: 950,
+    ammunitionField: 'ammoRocket',
+    projectileSpeed: 430,
+    lifetimeMs: 1400,
+    presentation: Object.freeze({assetId: 'rocket', heldWidth: 48, heldHeight: 14, heldVisible: true})
+  } satisfies RocketWeaponDefinition),
   grenade: Object.freeze({
     id: 'grenade',
     name: 'Grenade',

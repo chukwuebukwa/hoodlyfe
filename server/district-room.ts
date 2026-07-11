@@ -46,6 +46,7 @@ import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
 import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
+import {RocketProjectileController} from './game/combat/rocket-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {
@@ -119,6 +120,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private projectileController!: ProjectileController;
   private explosionController!: ExplosionController;
   private thrownProjectileController!: ThrownProjectileController;
+  private rocketProjectileController!: RocketProjectileController;
   private weaponPickupController!: WeaponPickupController;
   private cashPickupController!: CashPickupController;
   private pedestrians!: PedestrianController;
@@ -412,6 +414,7 @@ export class DistrictRoom extends Room<DistrictState> {
       events: this.events,
       cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId),
       throwExplosive: (input) => this.thrownProjectileController.throw(input),
+      launchRocket: (input) => this.rocketProjectileController.launch(input),
       meleeAttack: (input) => this.meleeCombat.begin(
         input.playerId,
         input.weapon,
@@ -542,6 +545,28 @@ export class DistrictRoom extends Room<DistrictState> {
         .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
       remove: (bulletId) => this.lifecycle.defer(`bullet.remove:${bulletId}`, () => {
         this.state.bullets.delete(bulletId);
+      })
+    });
+    this.rocketProjectileController = new RocketProjectileController({
+      state: this.state,
+      world: this.world,
+      queryPlayers: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
+        minX, minY, maxX, maxY, {kinds: ['player']}
+      ).map((record) => this.state.players.get(record.id))
+        .filter((player): player is PlayerState => Boolean(player)),
+      queryNpcs: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
+        minX, minY, maxX, maxY, {kinds: ['npc']}
+      ).map((record) => this.state.npcs.get(record.id))
+        .filter((npc): npc is NpcState => Boolean(npc)),
+      queryVehicles: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
+        minX, minY, maxX, maxY, {kinds: ['vehicle']}
+      ).map((record) => this.state.vehicles.get(record.id))
+        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
+      detonate: (x, y, ownerId, nowMs) => {
+        this.explosionController.detonate('rocket', x, y, ownerId, 'player', nowMs);
+      },
+      remove: (rocketId) => this.lifecycle.defer(`rocket.remove:${rocketId}`, () => {
+        this.state.rockets.delete(rocketId);
       })
     });
     this.missionController = new FreemodeMissionController({
@@ -737,6 +762,9 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.state.bullets.forEach((bullet, bulletId) => {
       this.projectileController.update(bullet, bulletId, deltaSeconds, now);
+    });
+    this.state.rockets.forEach((rocket, rocketId) => {
+      this.rocketProjectileController.update(rocket, rocketId, deltaSeconds, now);
     });
     this.state.thrownProjectiles.forEach((projectile, projectileId) => {
       this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);

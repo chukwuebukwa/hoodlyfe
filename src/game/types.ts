@@ -41,6 +41,7 @@ export interface NetworkPlayer {
   ammoPistol: number;
   ammoSmg: number;
   ammoShotgun: number;
+  ammoRocket?: number;
   ammoGrenade: number;
   appearance: PlayerAppearance;
 }
@@ -68,9 +69,18 @@ export interface NetworkThrownProjectile {
   fuseAt: number;
 }
 
+export interface NetworkRocketProjectile {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  angle: number;
+  createdAt: number;
+}
+
 export interface NetworkExplosion {
   id: string;
-  kind: 'grenade' | 'vehicle';
+  kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
   x: number;
@@ -214,6 +224,7 @@ export interface NetworkMission {
 export interface DistrictNetworkState {
   players: Map<string, NetworkPlayer>;
   bullets: Map<string, NetworkBullet>;
+  rockets?: Map<string, NetworkRocketProjectile>;
   thrownProjectiles: Map<string, NetworkThrownProjectile>;
   explosions: Map<string, NetworkExplosion>;
   weaponPickups: Map<string, NetworkWeaponPickup>;
