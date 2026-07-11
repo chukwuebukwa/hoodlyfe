@@ -1,16 +1,41 @@
 {
   "name": "nock0",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Top-down multiplayer city sandbox prototype built around Reldens.",
+  "description": "Browser-based top-down multiplayer city sandbox.",
   "license": "MIT",
+  "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "bootstrap": "bash scripts/bootstrap.sh",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down",
-    "test": "node --test"
+    "assets:export": "bash scripts/export-gta2-assets.sh",
+    "assets:original-map": "python3 scripts/render-original-district.py",
+    "build": "tsc --noEmit && vite build",
+    "dev": "concurrently -k -n server,client -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite --host 0.0.0.0",
+    "dev:server": "tsx watch server/index.ts",
+    "start": "npm run dev",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.16.24",
+    "@colyseus/schema": "3.0.76",
+    "@colyseus/ws-transport": "0.16.5",
+    "colyseus.js": "0.16.22",
+    "cors": "2.8.5",
+    "express": "4.21.2",
+    "phaser": "3.90.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "24.10.1",
+    "@types/three": "^0.185.1",
+    "concurrently": "9.2.1",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6"
   }
 }

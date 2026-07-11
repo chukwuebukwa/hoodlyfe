@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="NOCK0 multiplayer city prototype">
+  <title>NOCK0</title>
+</head>
+<body>
+  <main id="game-shell">
+    <div id="game"></div>
+    <div id="loading" role="status">
+      <strong>NOCK0</strong>
+      <span>Connecting to Industrial District</span>
+    </div>
+    <header id="district-label" class="hud-layer">
+      <strong>NOCK0</strong>
+      <span>Industrial District</span>
+    </header>
+    <button
+      id="debug-toggle"
+      class="hud-layer"
+      type="button"
+      aria-label="Toggle simulation debug view"
+      aria-pressed="false"
+      title="Toggle simulation debug view (F3)"
+    >DBG</button>
+    <aside id="debug-panel" class="hud-layer hidden" aria-label="Simulation debug information">
+      <header>
+        <strong>Simulation</strong>
+        <span id="debug-clock">T0 / 0.0s</span>
+      </header>
+      <dl>
+        <div><dt>Players</dt><dd id="debug-players">0</dd></div>
+        <div><dt>NPCs</dt><dd id="debug-npcs">0</dd></div>
+        <div><dt>Vehicles</dt><dd id="debug-vehicles">0</dd></div>
+        <div><dt>Bullets</dt><dd id="debug-bullets">0</dd></div>
+        <div><dt>Spatial</dt><dd id="debug-spatial">0</dd></div>
+        <div><dt>Streaming</dt><dd id="debug-streaming">off</dd></div>
+        <div><dt>Population</dt><dd id="debug-population">off</dd></div>
+        <div><dt>Dropped</dt><dd id="debug-dropped">0ms</dd></div>
+        <div><dt>Deferred</dt><dd id="debug-deferred">0</dd></div>
+        <div><dt>Events</dt><dd id="debug-event-count">0</dd></div>
+        <div><dt>Incidents</dt><dd id="debug-incidents">0</dd></div>
+        <div><dt>Pursuits</dt><dd id="debug-pursuits">0</dd></div>
+        <div><dt>Cruisers</dt><dd id="debug-cruisers">0</dd></div>
+        <div><dt>Stimuli</dt><dd id="debug-stimuli">0</dd></div>
+        <div><dt>Signals</dt><dd id="debug-signals">0</dd></div>
+      </dl>
+      <div id="debug-legend" aria-label="Debug color legend">
+        <span class="player">Player</span>
+        <span class="civilian">Civilian</span>
+        <span class="police">Police</span>
+        <span class="vehicle">Vehicle</span>
+        <span class="collision">Collision</span>
+        <span class="incident">Incident</span>
+        <span class="search">Search</span>
+        <span class="stimulus">Stimulus</span>
+        <span class="signal">Signal</span>
+      </div>
+      <ol id="debug-events"><li>No recent events</li></ol>
+    </aside>
+    <aside id="status-hud" class="hud-layer" aria-label="Player status">
+      <div id="heat-meter" aria-label="Heat level 0">
+        <span>Heat</span>
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div id="cash">$000000</div>
+    </aside>
+    <aside id="mission-hud" class="hud-layer hidden" aria-label="Freemode job">
+      <header>
+        <div id="mission-selector">
+          <button id="mission-prev" type="button" aria-label="Previous Freemode job">&lt;</button>
+          <strong id="mission-title">BOOST AND DELIVER</strong>
+          <button id="mission-next" type="button" aria-label="Next Freemode job">&gt;</button>
+        </div>
+        <span id="mission-timer">00:00</span>
+      </header>
+      <p id="mission-objective">Meet the contact for work.</p>
+      <footer>
+        <span id="mission-meta">CREW 1/4 | $750</span>
+        <button id="mission-action" type="button">START JOB</button>
+      </footer>
+    </aside>
+    <footer id="player-hud" class="hud-layer">
+      <div id="player-identity">
+        <span id="driver-name">Driver</span>
+        <button id="appearance-toggle" type="button" aria-label="Edit character appearance">LOOK</button>
+      </div>
+      <div id="health-track" aria-label="Health 100"><span id="health-fill"></span></div>
+      <div id="armor-track" class="hidden" aria-label="Armor 0"><span id="armor-fill"></span></div>
+    </footer>
+    <aside id="vehicle-hud" class="hud-layer hidden" aria-label="Vehicle speed">
+      <strong id="speed-value">000</strong>
+      <span>KM/H</span>
+      <div id="vehicle-condition" aria-label="Vehicle condition 100"><i id="vehicle-condition-fill"></i></div>
+    </aside>
+    <aside id="minimap-hud" class="hud-layer" aria-label="District minimap">
+      <canvas id="minimap-canvas" width="380" height="280" aria-label="District minimap"></canvas>
+    </aside>
+    <aside id="weapon-hud" class="hud-layer" aria-label="Equipped weapon">
+      <button id="weapon-prev" type="button" aria-label="Previous weapon">&lt;</button>
+      <img id="weapon-icon" src="/assets/original/weapons/pistol.svg" alt="pistol">
+      <div>
+        <strong id="weapon-name">PISTOL</strong>
+        <span id="weapon-ammo">120</span>
+      </div>
+      <button id="weapon-next" type="button" aria-label="Next weapon">&gt;</button>
+    </aside>
+    <button id="vehicle-action-button" class="hud-layer hidden" type="button">ENTER CAR</button>
+    <div id="event-toast" class="hud-layer" role="status"></div>
+    <div id="death-screen" class="hidden" aria-live="assertive">
+      <strong>WASTED</strong>
+      <span id="medical-care-status">Public Ward</span>
+      <div id="medical-care-actions" aria-label="Medical care choice">
+        <button id="medical-public" type="button" aria-pressed="true">PUBLIC 4.2S</button>
+        <button id="medical-trauma" type="button" aria-pressed="false">TRAUMA $250</button>
+      </div>
+    </div>
+    <div id="appearance-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+      <section id="appearance-creator">
+        <header>
+          <div>
+            <strong id="appearance-title">CHARACTER CREATOR</strong>
+            <span id="appearance-outfit-label">STREET FIT</span>
+          </div>
+          <button id="appearance-close" type="button" aria-label="Close character creator">X</button>
+        </header>
+        <div id="appearance-content">
+          <div id="appearance-preview-wrap">
+            <canvas id="appearance-preview" width="144" height="144" aria-label="Character preview"></canvas>
+          </div>
+          <form id="appearance-form">
+            <label>Outfit name<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
+            <label>Body<select id="appearance-body"></select></label>
+            <label>Skin<select id="appearance-skin"></select></label>
+            <label>Hair<select id="appearance-hair"></select></label>
+            <label>Headwear<select id="appearance-headwear"></select></label>
+            <label>Top<select id="appearance-top"></select></label>
+            <label>Bottoms<select id="appearance-bottom"></select></label>
+            <label>Shoes<select id="appearance-shoes"></select></label>
+          </form>
+        </div>
+        <div id="appearance-colors">
+          <div id="appearance-color-targets" role="tablist" aria-label="Color target">
+            <button type="button" role="tab" data-color-field="hairColor">HAIR</button>
+            <button type="button" role="tab" data-color-field="topColor">TOP</button>
+            <button type="button" role="tab" data-color-field="accentColor">ACCENT</button>
+            <button type="button" role="tab" data-color-field="bottomColor">BOTTOM</button>
+            <button type="button" role="tab" data-color-field="shoeColor">SHOES</button>
+          </div>
+          <div id="appearance-swatches" aria-label="Color palette"></div>
+        </div>
+        <footer>
+          <button id="appearance-randomize" type="button">RANDOMIZE</button>
+          <div>
+            <button id="appearance-cancel" type="button">CANCEL</button>
+            <button id="appearance-apply" type="button">APPLY LOOK</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+    <div id="touch-controls" aria-label="Touch game controls">
+      <div id="move-stick" class="touch-stick" aria-label="Move">
+        <i id="move-thumb"></i>
+      </div>
+      <button id="interact-button" type="button" aria-label="Enter or exit vehicle">CAR</button>
+      <div id="aim-stick" class="touch-stick" aria-label="Aim and fire">
+        <i id="aim-thumb"></i>
+      </div>
+    </div>
+    <div id="connection-state" class="hud-layer">Online</div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
