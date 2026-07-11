@@ -44,6 +44,9 @@ export interface NetworkPlayer {
   ammoRocket?: number;
   ammoGrenade: number;
   ammoMolotov?: number;
+  onFire?: boolean;
+  fireStartedAt?: number;
+  fireExpiresAt?: number;
   appearance: PlayerAppearance;
 }
 
@@ -147,6 +150,9 @@ export interface NetworkNpc {
   reactionDirection?: CombatReactionDirection;
   reactionProgress?: number;
   ejectedAt?: number;
+  onFire?: boolean;
+  fireStartedAt?: number;
+  fireExpiresAt?: number;
 }
 
 export interface NetworkVehicle {

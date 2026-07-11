@@ -53,6 +53,7 @@ import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
 import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
 import {FireZoneController} from './game/combat/fire-zone-controller.ts';
+import {ActorBurnController} from './game/combat/actor-burn-controller.ts';
 import {RocketProjectileController} from './game/combat/rocket-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
@@ -131,6 +132,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private explosionController!: ExplosionController;
   private thrownProjectileController!: ThrownProjectileController;
   private fireZoneController!: FireZoneController;
+  private actorBurnController!: ActorBurnController;
   private rocketProjectileController!: RocketProjectileController;
   private weaponPickupController!: WeaponPickupController;
   private cashPickupController!: CashPickupController;
@@ -379,11 +381,15 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: nearbyNpcs,
       queryVehicles: nearbyVehicles
     });
+    this.actorBurnController = new ActorBurnController({
+      state: this.state,
+      damage: this.damageController
+    });
     this.fireZoneController = new FireZoneController({
       state: this.state,
       events: this.events,
       clock: () => ({tick: this.simulationClock.tick}),
-      damage: this.damageController,
+      burn: this.actorBurnController,
       vehicles: this.vehicleSimulation,
       queryPlayers: nearbyPlayers,
       queryNpcs: nearbyNpcs,
@@ -807,6 +813,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
     });
     this.fireZoneController.update(now);
+    this.actorBurnController.update(now);
     this.weaponPickupController.update(now);
     this.cashPickupController.update(now);
     this.crimeController.expire(now);

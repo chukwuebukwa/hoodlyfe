@@ -27,6 +27,7 @@ import {combatReactionPresentation} from '../rendering/combat-reaction-render-po
 import {npcMeleePresentation} from '../rendering/npc-melee-render-policy.ts';
 import {rotateTowards} from '../rendering/interpolation-policy.ts';
 import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
+import {actorBurnPresentation} from '../rendering/actor-burn-render-policy.ts';
 import {
   emergencyLightPresentation,
   vehicleLightPresentation
@@ -294,6 +295,7 @@ export class ThreeDistrictEntities {
         label: nameLabel(player.name),
         weapon,
         blood: spriteMesh(this.textures.blood, 4, 1, 3, 64, 64),
+        fire: effectDisc(9, 0xff762e, 0.78),
         appearanceKey: appearance.textureKey
       };
     });
@@ -405,6 +407,17 @@ export class ThreeDistrictEntities {
       rendered.blood.position.set(player.x, serverYToThree(player.y), this.surfaceHeightAt(player.x, player.y) + 2);
       rendered.blood.visible = !player.alive && !vehicle;
     }
+    if (rendered.fire) {
+      const burn = actorBurnPresentation(player, performance.now());
+      rendered.fire.position.set(
+        rendered.mesh.position.x,
+        rendered.mesh.position.y,
+        rendered.mesh.position.z + 4
+      );
+      rendered.fire.visible = burn.visible && !vehicle;
+      rendered.fire.scale.set(burn.scaleX, burn.scaleY, 1);
+      rendered.fire.material.opacity = burn.alpha;
+    }
     if (rendered.weapon) {
       const baseX = passenger?.baseX ?? player.x;
       const baseY = passenger?.baseY ?? player.y;
@@ -438,6 +451,7 @@ export class ThreeDistrictEntities {
     const rendered = this.obtain(id, () => ({
       mesh: spriteMesh(texture, 3, 3, 0, 54, 54),
       blood: spriteMesh(this.textures.blood, 4, 1, 3, 60, 60),
+      fire: effectDisc(9, 0xff762e, 0.78),
       spriteKey: 'walk'
     }));
     positionEntity(
@@ -504,6 +518,17 @@ export class ThreeDistrictEntities {
     if (rendered.blood) {
       rendered.blood.position.set(npc.x, serverYToThree(npc.y), this.surfaceHeightAt(npc.x, npc.y) + 2);
       rendered.blood.visible = !npc.alive || npc.action === 'dead';
+    }
+    if (rendered.fire) {
+      const burn = actorBurnPresentation(npc, performance.now());
+      rendered.fire.position.set(
+        rendered.mesh.position.x,
+        rendered.mesh.position.y,
+        rendered.mesh.position.z + 4
+      );
+      rendered.fire.visible = burn.visible;
+      rendered.fire.scale.set(burn.scaleX, burn.scaleY, 1);
+      rendered.fire.material.opacity = burn.alpha;
     }
   }
 

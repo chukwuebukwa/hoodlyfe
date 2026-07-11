@@ -31,10 +31,10 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** passenger drive-by shooting with seat-specific muzzle origins and a visible passenger lean/peek presentation.
 - **Playable** bounded thrown-grenade arc/fuse/bounce, production-shaped radial falloff, self damage, player/NPC/vehicle attribution, transient blast presentation, and car chain reactions.
 - **Playable** bounded server-authoritative rockets with accepted-launch ammo consumption, swept actor/world collision, self-damaging typed blasts, attribution, vehicle chain reactions, AOI replication, and Phaser/Three models.
-- **Playable** bounded server-authoritative Molotov flight and impact-created ground fire with fixed damage cadence, actor/vehicle attribution, AOI replication, pedestrian hazard stimulus, positional ignition audio, and Phaser/Three presentation.
+- **Playable** bounded server-authoritative Molotov flight, impact-created ground fire, and finite carried pedestrian burns with fixed damage cadence, actor/vehicle attribution, AOI replication, pedestrian hazard stimulus, positional ignition audio, lifecycle cleanup, and shared Phaser/Three presentation.
 - **Playable** server-authoritative armor absorbs accepted damage before health, exposes split damage facts, clears on death, and can be restored with ammunition at Combat Supply. Development players receive a temporary 25-point starter vest so the loop is immediately visible.
 - **Playable** synchronized directional flinch, stagger, and knockdown reactions for players and pedestrians, with force/family/critical-health escalation, stronger-hit interruption, action cancellation, and one shared Phaser/Three presentation policy.
-- **Foundation** weapon-family separation now covers bullet, rocket, thrown, persistent fire, and melee definitions through shared content catalogs; blocking, ground attacks, expanded NPC fight moves, actor-attached/spreading fire, mines, throw charging, reloads, recoil/accuracy, durable armor inventory, and weapon shops remain content work.
+- **Foundation** weapon-family separation now covers bullet, rocket, thrown, ground/actor fire, and melee definitions through shared content catalogs; blocking, ground attacks, expanded NPC fight moves, spreading/extinguishable fire, mines, throw charging, reloads, recoil/accuracy, durable armor inventory, and weapon shops remain content work.
 
 ### Vehicles and Traffic
 

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {FireZoneController} from '../server/game/combat/fire-zone-controller.ts';
-import type {DamageController} from '../server/game/combat/damage-controller.ts';
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import type {VehicleSimulationController} from '../server/game/vehicles/vehicle-simulation-controller.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
@@ -21,18 +20,18 @@ test('fire zones damage exposed actors on cadence and expire deterministically',
   vehicle.id = 'car';
   vehicle.x = 12;
   state.vehicles.set(vehicle.id, vehicle);
-  const playerDamage: string[] = [];
-  const npcDamage: string[] = [];
+  const playerIgnitions: string[] = [];
+  const npcIgnitions: string[] = [];
   const vehicleDamage: string[] = [];
   const events = new GameEventStream();
   const controller = new FireZoneController({
     state,
     events,
     clock: () => ({tick: 7}),
-    damage: {
-      player: (target: PlayerState) => playerDamage.push(target.id),
-      npc: (target: NpcState) => npcDamage.push(target.id)
-    } as unknown as DamageController,
+    burn: {
+      ignitePlayer: (target: PlayerState) => (playerIgnitions.push(target.id), true),
+      igniteNpc: (target: NpcState) => (npcIgnitions.push(target.id), true)
+    },
     vehicles: {
       damage: (target: VehicleState) => vehicleDamage.push(target.id)
     } as unknown as VehicleSimulationController,
@@ -45,11 +44,11 @@ test('fire zones damage exposed actors on cadence and expire deterministically',
   assert.equal(events.drain()[0]?.type, 'fire.created');
   controller.update(1000);
   controller.update(1200);
-  assert.deepEqual(playerDamage, ['exposed']);
-  assert.deepEqual(npcDamage, ['civilian']);
+  assert.deepEqual(playerIgnitions, ['exposed']);
+  assert.deepEqual(npcIgnitions, ['civilian']);
   assert.deepEqual(vehicleDamage, ['car']);
   controller.update(1500);
-  assert.deepEqual(playerDamage, ['exposed', 'exposed']);
+  assert.deepEqual(playerIgnitions, ['exposed', 'exposed']);
   controller.update(7000);
   assert.equal(state.fires.has(id), false);
 });
@@ -60,7 +59,7 @@ test('fire zones evict the oldest owner zone when capacity is exceeded', () => {
     state,
     events: new GameEventStream(),
     clock: () => ({tick: 1}),
-    damage: {player: () => undefined, npc: () => undefined} as unknown as DamageController,
+    burn: {ignitePlayer: () => false, igniteNpc: () => false},
     vehicles: {damage: () => undefined} as unknown as VehicleSimulationController,
     queryPlayers: () => [],
     queryNpcs: () => [],

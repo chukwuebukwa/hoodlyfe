@@ -10,6 +10,7 @@ import {
 import type {VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
 import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
+import {actorBurnPresentation} from './actor-burn-render-policy.ts';
 
 const PLAYER_SPEED = 190;
 
@@ -19,6 +20,7 @@ interface RenderPlayer {
   label: Phaser.GameObjects.Text;
   weaponSprite: Phaser.GameObjects.Image;
   protectionRing: Phaser.GameObjects.Arc;
+  burnEffect: Phaser.GameObjects.Ellipse;
   weapon: NetworkPlayer['weapon'];
   appearanceTextureKey: string;
   animationKey: string;
@@ -29,6 +31,8 @@ interface RenderPlayer {
   isLocal: boolean;
   peekRecoilUntil: number;
   spawnProtected: boolean;
+  burning: boolean;
+  burnExpiresAt: number;
   attackSequence: number;
   attackWeapon: NetworkPlayer['weapon'];
   attackCombo: number;
@@ -104,6 +108,7 @@ export class PlayerRenderer {
       this.presentWeaponAndPassenger(rendered, player, time);
       this.positionNameplate(rendered, player);
       this.presentSpawnProtection(rendered, time);
+      this.presentBurn(rendered, time);
     }
     this.resolveNameplateOverlaps();
   }
@@ -204,6 +209,8 @@ export class PlayerRenderer {
       (!player.action || player.action === 'melee')
     );
     rendered.spawnProtected = Boolean(player.spawnProtected) && visibleOnFoot;
+    rendered.burning = Boolean(player.onFire) && visibleOnFoot;
+    rendered.burnExpiresAt = player.fireExpiresAt ?? 0;
     if (rendered.weapon !== player.weapon) {
       rendered.weapon = player.weapon;
       applyWeaponPresentation(rendered.weaponSprite, player.weapon);
@@ -243,12 +250,17 @@ export class PlayerRenderer {
       .setStrokeStyle(2, 0x63dfff, 0.9)
       .setVisible(false)
       .setDepth(Math.round(player.y) + 99);
+    const burnEffect = this.scene.add.ellipse(player.x, player.y - 4, 22, 34, 0xff762e, 0.72)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false)
+      .setDepth(Math.round(player.y) + 103);
     return {
       sprite,
       passengerSprite,
       label,
       weaponSprite,
       protectionRing,
+      burnEffect,
       weapon: player.weapon,
       appearanceTextureKey: appearance.textureKey,
       animationKey: appearance.animationKey,
@@ -259,6 +271,8 @@ export class PlayerRenderer {
       isLocal,
       peekRecoilUntil: 0,
       spawnProtected: false,
+      burning: false,
+      burnExpiresAt: 0,
       attackSequence: -1,
       attackWeapon: player.weapon,
       attackCombo: 0,
@@ -386,6 +400,21 @@ export class PlayerRenderer {
       .setVisible(rendered.spawnProtected);
   }
 
+  private presentBurn(rendered: RenderPlayer, time: number): void {
+    const presentation = actorBurnPresentation({
+      id: rendered.appearanceTextureKey,
+      alive: rendered.sprite.visible,
+      onFire: rendered.burning,
+      fireExpiresAt: rendered.burnExpiresAt
+    }, time);
+    rendered.burnEffect
+      .setPosition(rendered.sprite.x, rendered.sprite.y - 5)
+      .setScale(presentation.scaleX, presentation.scaleY)
+      .setAlpha(presentation.alpha)
+      .setDepth(Math.round(rendered.sprite.y) + 103)
+      .setVisible(presentation.visible);
+  }
+
   private updateWalkAnimation(rendered: RenderPlayer, distance: number): void {
     if (!rendered.sprite.visible) return;
     if (distance > 0.75) rendered.sprite.play(rendered.animationKey, true);
@@ -428,4 +457,5 @@ function destroyPlayer(rendered: RenderPlayer): void {
   rendered.label.destroy();
   rendered.weaponSprite.destroy();
   rendered.protectionRing.destroy();
+  rendered.burnEffect.destroy();
 }

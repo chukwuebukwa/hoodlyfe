@@ -1,14 +1,18 @@
 import {FIRE_ZONE} from '../../../shared/content/fire-zones.ts';
 import {FireZoneState, type DistrictState, type NpcState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {GameEventStream} from '../events/game-events.ts';
-import type {DamageController} from './damage-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
+
+interface ActorBurnPort {
+  ignitePlayer: (player: PlayerState, sourceId: string, nowMs: number) => boolean;
+  igniteNpc: (npc: NpcState, sourceId: string, nowMs: number) => boolean;
+}
 
 interface FireZoneControllerOptions {
   state: DistrictState;
   events: GameEventStream;
   clock: () => {tick: number};
-  damage: Pick<DamageController, 'player' | 'npc'>;
+  burn: ActorBurnPort;
   vehicles: Pick<VehicleSimulationController, 'damage'>;
   queryPlayers: (x: number, y: number, radius: number) => PlayerState[];
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
@@ -60,14 +64,13 @@ export class FireZoneController {
   }
 
   private applyDamage(fire: FireZoneState, nowMs: number): void {
-    const impact = {family: 'environment' as const, force: 'light' as const, sourceX: fire.x, sourceY: fire.y};
     for (const player of this.options.queryPlayers(fire.x, fire.y, fire.radius)) {
       if (!player.alive || player.vehicleId || distance(player, fire) > fire.radius) continue;
-      this.options.damage.player(player, FIRE_ZONE.playerDamage, fire.ownerId, nowMs, 'assault', 'player', impact);
+      this.options.burn.ignitePlayer(player, fire.ownerId, nowMs);
     }
     for (const npc of this.options.queryNpcs(fire.x, fire.y, fire.radius)) {
       if (!npc.alive || distance(npc, fire) > fire.radius) continue;
-      this.options.damage.npc(npc, FIRE_ZONE.npcDamage, fire.ownerId, nowMs, undefined, impact);
+      this.options.burn.igniteNpc(npc, fire.ownerId, nowMs);
     }
     for (const vehicle of this.options.queryVehicles(fire.x, fire.y, fire.radius)) {
       if (vehicle.destroyed || distance(vehicle, fire) > fire.radius) continue;

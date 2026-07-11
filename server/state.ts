@@ -68,6 +68,9 @@ export class PlayerState extends Schema {
   ammoRocket = 4;
   ammoGrenade = 2;
   ammoMolotov = 3;
+  onFire = false;
+  fireStartedAt = 0;
+  fireExpiresAt = 0;
   appearance = new PlayerAppearanceState();
 }
 
@@ -105,6 +108,9 @@ defineTypes(PlayerState, {
   ammoRocket: 'number',
   ammoGrenade: 'number',
   ammoMolotov: 'number',
+  onFire: 'boolean',
+  fireStartedAt: 'number',
+  fireExpiresAt: 'number',
   appearance: PlayerAppearanceState
 });
 
@@ -291,6 +297,9 @@ export class NpcState extends Schema {
   reactionDirection = 'front';
   reactionProgress = 1;
   ejectedAt = 0;
+  onFire = false;
+  fireStartedAt = 0;
+  fireExpiresAt = 0;
 }
 
 defineTypes(NpcState, {
@@ -309,7 +318,10 @@ defineTypes(NpcState, {
   reactionKind: 'string',
   reactionDirection: 'string',
   reactionProgress: 'number',
-  ejectedAt: 'number'
+  ejectedAt: 'number',
+  onFire: 'boolean',
+  fireStartedAt: 'number',
+  fireExpiresAt: 'number'
 });
 
 export class VehicleState extends Schema {

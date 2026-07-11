@@ -416,6 +416,9 @@ export class PedestrianController {
     npc.reactionKind = '';
     npc.reactionProgress = 1;
     npc.ejectedAt = 0;
+    npc.onFire = false;
+    npc.fireStartedAt = 0;
+    npc.fireExpiresAt = 0;
     clearPedestrianThreat(runtime);
     clearPedestrianStimulus(runtime);
     clearPedestrianReaction(runtime);

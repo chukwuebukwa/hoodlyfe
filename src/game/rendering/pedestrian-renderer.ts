@@ -8,9 +8,11 @@ import {
 } from './combat-reaction-render-policy.ts';
 import type {CombatReactionDirection, CombatReactionKind} from '../types.ts';
 import {npcMeleePresentation} from './npc-melee-render-policy.ts';
+import {actorBurnPresentation} from './actor-burn-render-policy.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
+  burnEffect: Phaser.GameObjects.Ellipse;
   targetX: number;
   targetY: number;
   targetAngle: number;
@@ -19,6 +21,8 @@ interface RenderNpc {
   reactionDirection: CombatReactionDirection;
   reactionProgress: number;
   attackProgress: number;
+  burning: boolean;
+  burnExpiresAt: number;
 }
 
 export class PedestrianRenderer {
@@ -37,6 +41,7 @@ export class PedestrianRenderer {
     for (const [npcId, rendered] of this.rendered) {
       if (present.has(npcId)) continue;
       rendered.sprite.destroy();
+      rendered.burnEffect.destroy();
       this.rendered.delete(npcId);
     }
   }
@@ -75,11 +80,26 @@ export class PedestrianRenderer {
         melee.tint
       );
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 95);
+      const burn = actorBurnPresentation({
+        id: rendered.sprite.texture.key,
+        alive: rendered.sprite.visible,
+        onFire: rendered.burning,
+        fireExpiresAt: rendered.burnExpiresAt
+      }, this.scene.time.now);
+      rendered.burnEffect
+        .setPosition(rendered.sprite.x, rendered.sprite.y - 5)
+        .setScale(burn.scaleX, burn.scaleY)
+        .setAlpha(burn.alpha)
+        .setDepth(Math.round(rendered.sprite.y) + 98)
+        .setVisible(burn.visible);
     }
   }
 
   destroy(): void {
-    for (const rendered of this.rendered.values()) rendered.sprite.destroy();
+    for (const rendered of this.rendered.values()) {
+      rendered.sprite.destroy();
+      rendered.burnEffect.destroy();
+    }
     this.rendered.clear();
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
@@ -91,8 +111,13 @@ export class PedestrianRenderer {
         .setDisplaySize(72, 72)
         .setOrigin(0.5)
         .setDepth(Math.round(npc.y) + 95);
+      const burnEffect = this.scene.add.ellipse(npc.x, npc.y - 5, 22, 34, 0xff762e, 0.72)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setVisible(false)
+        .setDepth(Math.round(npc.y) + 98);
       rendered = {
         sprite,
+        burnEffect,
         targetX: npc.x,
         targetY: npc.y,
         targetAngle: npc.angle,
@@ -100,7 +125,9 @@ export class PedestrianRenderer {
         reactionKind: npc.reactionKind ?? '',
         reactionDirection: npc.reactionDirection ?? 'front',
         reactionProgress: npc.reactionProgress ?? 0,
-        attackProgress: npc.attackProgress ?? 1
+        attackProgress: npc.attackProgress ?? 1,
+        burning: Boolean(npc.onFire),
+        burnExpiresAt: npc.fireExpiresAt ?? 0
       };
       this.rendered.set(npcId, rendered);
     }
@@ -112,6 +139,8 @@ export class PedestrianRenderer {
     rendered.reactionDirection = npc.reactionDirection ?? 'front';
     rendered.reactionProgress = npc.reactionProgress ?? 0;
     rendered.attackProgress = npc.attackProgress ?? 1;
+    rendered.burning = Boolean(npc.onFire);
+    rendered.burnExpiresAt = npc.fireExpiresAt ?? 0;
     rendered.sprite.setVisible(npc.alive);
   }
 
