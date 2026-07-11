@@ -1,5 +1,5 @@
 export type TrafficObstacleKind = 'vehicle' | 'pedestrian' | 'signal';
-export type TrafficSpeedReason = 'cruise' | 'vehicle' | 'pedestrian' | 'signal';
+export type TrafficSpeedReason = 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren';
 
 export interface TrafficObstacle {
   id: string;

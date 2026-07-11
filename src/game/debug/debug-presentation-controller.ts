@@ -335,6 +335,8 @@ export class DebugPresentationController {
           (diagnostic.recoveryCount > 0 ? ` recover:${diagnostic.recoveryCount}` : '')
           + (diagnostic.maneuverPhase !== 'none'
             ? ` maneuver:${diagnostic.maneuverPhase}`
+            : '') + (diagnostic.emergencyYieldPhase !== 'none'
+            ? ` yield:${diagnostic.emergencyYieldPhase}:${shortId(diagnostic.emergencyVehicleId)}`
             : '')
         : '';
       const pursuit = police

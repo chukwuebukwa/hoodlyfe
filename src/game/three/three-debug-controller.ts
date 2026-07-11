@@ -144,6 +144,16 @@ export class ThreeDebugController {
       }
       this.group.add(debugLine(points, entry.strategy === 'ram' ? 0xff5e68 : 0x5bbcff));
     }
+    for (const entry of this.snapshot?.trafficAi ?? []) {
+      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
+      const vehicle = state.vehicles.get(entry.vehicleId);
+      const emergency = state.vehicles.get(entry.emergencyVehicleId);
+      if (!vehicle || !emergency) continue;
+      this.group.add(debugLine([
+        point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 29),
+        point(emergency.x, emergency.y, this.surfaceHeightAt(emergency.x, emergency.y) + 29)
+      ], entry.emergencyYieldPhase === 'wait' ? 0xffd45b : 0x52e8ff));
+    }
     for (const stimulus of this.snapshot?.stimuli ?? []) {
       this.group.add(debugRing(
         stimulus.x,

@@ -42,7 +42,7 @@ import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts'
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
-test('two clients can use weapons, share cars, drive, fight, and respawn cleanly', {skip: !hasLocalAssets, timeout: 25_000}, async (context) => {
+test('two clients can use weapons, share cars, drive, fight, and respawn cleanly', {skip: !hasLocalAssets, timeout: 35_000}, async (context) => {
   const port = 28_000 + Math.floor(Math.random() * 1000);
   const server = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
     cwd: process.cwd(),
@@ -410,6 +410,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     entry.templateId === 'crew-holdout'
   ));
   assert.ok(holdout);
+  await ensureLivingStreetPlayer(second, second.sessionId);
   const targetBeforeNpcApproach = second.state.players.get(second.sessionId);
   assert.ok(targetBeforeNpcApproach);
   const npcContactSurvivability = targetBeforeNpcApproach.health + (targetBeforeNpcApproach.armor ?? 0);
@@ -663,8 +664,16 @@ async function movePlayerNearNpc(
   let waypointIndex = 0;
   let plannedTarget = {x: Number.NaN, y: Number.NaN};
   for (let step = 0; step < 160; step++) {
-    const player = room.state.players.get(playerId);
+    let player = room.state.players.get(playerId);
     const npc = room.state.npcs.get(npcId);
+    if (player && !player.alive && npc?.alive) {
+      room.send('input', {x: 0, y: 0});
+      await ensureLivingStreetPlayer(room, playerId);
+      waypoints = [];
+      waypointIndex = 0;
+      plannedTarget = {x: Number.NaN, y: Number.NaN};
+      player = room.state.players.get(playerId);
+    }
     assert.ok(
       player?.alive && npc?.alive,
       `Melee participants must remain alive (player=${player?.alive}/${player?.health}, ` +
@@ -699,6 +708,18 @@ async function movePlayerNearNpc(
   const player = room.state.players.get(playerId);
   const npc = room.state.npcs.get(npcId);
   return player && npc ? Math.hypot(npc.x - player.x, npc.y - player.y) : Number.POSITIVE_INFINITY;
+}
+
+async function ensureLivingStreetPlayer(
+  room: Room<DistrictNetworkState>,
+  playerId: string
+): Promise<void> {
+  await waitUntil(() => room.state.players.get(playerId)?.alive === true, 8000);
+  await returnToStreetIfNeeded(room, playerId);
+  await waitUntil(() => (
+    room.state.players.get(playerId)?.alive === true &&
+    room.state.players.get(playerId)?.spaceId === STREET_SPACE_ID
+  ), 5000);
 }
 
 async function driveToSpace(

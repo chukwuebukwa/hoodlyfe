@@ -52,6 +52,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** crimes become bounded incidents; witnesses report after delay; unwitnessed incidents expire.
 - **Playable** wanted heat, response caps, police dispatch assignments, pursuit, last-known-position search, line-of-sight fire, heat decay, and respawn reset.
 - **Playable** first police cruiser response with report-based search, bounded road routing, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, hijack handoff, and F3 route/strategy diagnostics.
+- **Playable** moving police sirens project a bounded response corridor: aligned civilian traffic pulls to a road-safe side, crossing/oncoming traffic waits, invalid sirens are ignored, and F3 exposes the temporary yielding relationship.
 - **Playable** ambient civilian/police population, ejected drivers, event stimuli, bravery, investigation, startle, sustained flee, recovery, death, and respawn.
 - **Playable** bounded deterministic pedestrian paths around large collision obstacles with per-tick work limits and private route memory.
 - **Foundation** 80 potential ambient pedestrian records now materialize near street players with hysteresis, bounded work, pinning, and coarse dormant movement. Detailed arrests, containment, roadblocks, call-police behavior, gangs, cover, crowd propagation, and authored sidewalks/crossings remain incomplete.

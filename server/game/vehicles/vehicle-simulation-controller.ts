@@ -99,7 +99,12 @@ export class VehicleSimulationController {
     }
     if (vehicle.traffic && !vehicle.driverId) {
       if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
-        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs)
+        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs),
+        emergencyVehicles: this.options.nearbyVehicles(
+          vehicle.x,
+          vehicle.y,
+          Math.max(340, configuration.traffic.lookAhead)
+        ).filter((candidate) => candidate.siren && !candidate.destroyed)
       })) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }

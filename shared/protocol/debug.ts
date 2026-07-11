@@ -63,13 +63,15 @@ export interface DebugTrafficAiEntry {
   vehicleId: string;
   cruiseSpeed: number;
   desiredSpeed: number;
-  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'blocked' | 'hijack';
+  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren' | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
   blockedSince: number;
   recoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
   maneuverAttempts: number;
+  emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
+  emergencyVehicleId: string;
 }
 
 export interface DebugTrafficSignalEntry {
