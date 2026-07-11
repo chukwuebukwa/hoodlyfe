@@ -554,13 +554,23 @@ export class ThreeDistrictEntities {
     rendered.mesh.userData.worldX = vehicle.x;
     rendered.mesh.userData.worldY = vehicle.y;
     rendered.mesh.userData.vehicle = vehicle;
-    const frontLamp = renderedVehicleLampAnchor(vehicle.x, vehicle.y, rendered.mesh.rotation.z, 52);
-    const rearLamp = renderedVehicleLampAnchor(vehicle.x, vehicle.y, rendered.mesh.rotation.z, -34);
+    const frontLamp = renderedVehicleLampAnchor(
+      rendered.mesh.position.x,
+      rendered.mesh.position.y,
+      rendered.mesh.rotation.z,
+      52
+    );
+    const rearLamp = renderedVehicleLampAnchor(
+      rendered.mesh.position.x,
+      rendered.mesh.position.y,
+      rendered.mesh.rotation.z,
+      -34
+    );
     if (rendered.headlight) {
       rendered.headlight.position.set(
         frontLamp.x,
         frontLamp.y,
-        z + 1
+        rendered.mesh.position.z + 1
       );
       rendered.headlight.rotation.z = frontLamp.rotation;
       rendered.headlight.scale.set(1.45, 0.52, 1);
@@ -569,7 +579,7 @@ export class ThreeDistrictEntities {
       rendered.taillight.position.set(
         rearLamp.x,
         rearLamp.y,
-        z + 1
+        rendered.mesh.position.z + 1
       );
       rendered.taillight.rotation.z = rearLamp.rotation;
       rendered.taillight.scale.set(1.15, 0.52, 1);

@@ -39,11 +39,11 @@ test('vehicle lamp anchors follow physical heading without the sprite atlas quar
 test('rendered lamp anchors stay attached to the interpolated vehicle sprite heading', () => {
   const eastSpriteRotation = serverVehicleAngleToThree(0);
   assert.deepEqual(
-    renderedVehicleLampAnchor(100, 200, eastSpriteRotation, 40),
+    renderedVehicleLampAnchor(100, -200, eastSpriteRotation, 40),
     {x: 140, y: -200, rotation: 0}
   );
   const turningSpriteRotation = -Math.PI / 4;
-  const anchor = renderedVehicleLampAnchor(100, 200, turningSpriteRotation, 40);
+  const anchor = renderedVehicleLampAnchor(100, -200, turningSpriteRotation, 40);
   assert.ok(Math.abs(anchor.x - (100 + Math.SQRT1_2 * 40)) < 0.0001);
   assert.ok(Math.abs(anchor.y - (-200 + Math.SQRT1_2 * 40)) < 0.0001);
   assert.ok(Math.abs(anchor.rotation - Math.PI / 4) < 0.0001);

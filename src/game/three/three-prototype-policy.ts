@@ -59,14 +59,14 @@ export function vehicleLampAnchor(
 
 export function renderedVehicleLampAnchor(
   x: number,
-  y: number,
+  threeY: number,
   spriteRotation: number,
   forwardOffset: number
 ): {x: number; y: number; rotation: number} {
   const physicalRotation = spriteRotation + Math.PI / 2;
   return {
     x: x + Math.cos(physicalRotation) * forwardOffset,
-    y: serverYToThree(y) + Math.sin(physicalRotation) * forwardOffset,
+    y: threeY + Math.sin(physicalRotation) * forwardOffset,
     rotation: physicalRotation
   };
 }
