@@ -802,9 +802,9 @@ canvas {
   right: 18px;
   bottom: 42px;
   display: grid;
-  width: 164px;
+  width: 192px;
   height: 48px;
-  grid-template-columns: 28px 52px 1fr 28px;
+  grid-template-columns: 28px 52px minmax(84px, 1fr) 28px;
   align-items: center;
   border-top: 2px solid #f2c94c;
   background: rgba(0, 0, 0, 0.68);
@@ -1088,7 +1088,7 @@ canvas {
     top: 72px;
     right: 12px;
     bottom: auto;
-    width: 164px;
+    width: 192px;
   }
 
   #mission-hud {

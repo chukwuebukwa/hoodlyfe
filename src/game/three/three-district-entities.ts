@@ -10,7 +10,11 @@ import {
   appearanceSpritePresentation,
   renderAppearanceSheet
 } from '../appearance/appearance-render-policy.ts';
-import {passengerPresentation, weaponPresentation} from '../rendering/player-render-policy.ts';
+import {
+  meleeAttackPresentationAtProgress,
+  passengerPresentation,
+  weaponPresentation
+} from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
 import {rotateTowards} from '../rendering/interpolation-policy.ts';
 import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
@@ -28,6 +32,9 @@ interface RenderedEntity {
   smoke?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   fire?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   appearanceKey?: string;
+  attackSequence?: number;
+  attackWeapon?: NetworkPlayer['weapon'];
+  attackCombo?: number;
 }
 
 interface EntityTextures {
@@ -53,22 +60,24 @@ export class ThreeDistrictEntities {
     surfaceHeightAt: (x: number, y: number) => number
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
-    const [player, civilian, police, vehicles, pistol, smg, shotgun, grenade] = await Promise.all([
+    const [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, grenade] = await Promise.all([
       loader.loadAsync('/assets/original/sprites/player-base.png'),
       loader.loadAsync('/assets/original/sprites/civilian.png'),
       loader.loadAsync('/assets/original/sprites/police.png'),
       loader.loadAsync('/assets/original/sprites/vehicles.png'),
+      loader.loadAsync('/assets/original/weapons/fists.svg'),
+      loader.loadAsync('/assets/original/weapons/bat.svg'),
       loader.loadAsync('/assets/original/weapons/pistol.svg'),
       loader.loadAsync('/assets/original/weapons/smg.svg'),
       loader.loadAsync('/assets/original/weapons/shotgun.svg'),
       loader.loadAsync('/assets/original/weapons/grenade.svg')
     ]);
-    for (const texture of [player, civilian, police, vehicles, pistol, smg, shotgun, grenade]) {
+    for (const texture of [player, civilian, police, vehicles, fists, bat, pistol, smg, shotgun, grenade]) {
       configureTexture(texture);
     }
     return new ThreeDistrictEntities(
       scene,
-      {player, civilian, police, vehicles, weapons: {pistol, smg, shotgun, grenade}},
+      {player, civilian, police, vehicles, weapons: {fists, bat, pistol, smg, shotgun, grenade}},
       surfaceHeightAt
     );
   }
@@ -116,22 +125,53 @@ export class ThreeDistrictEntities {
   ): void {
     const appearance = appearanceSpritePresentation(player.appearance);
     const appearanceTexture = this.appearanceTexture(player);
-    const rendered = this.obtain(id, () => ({
-      mesh: spriteMesh(appearanceTexture, 3, 3, 0, 58, 58),
-      label: nameLabel(player.name),
-      weapon: spriteMesh(this.textures.weapons[player.weapon], 1, 1, 0, 25, 9),
-      appearanceKey: appearance.textureKey
-    }));
+    const rendered = this.obtain(id, () => {
+      const held = weaponPresentation(player.weapon);
+      const weapon = spriteMesh(
+        this.textures.weapons[player.weapon],
+        1,
+        1,
+        0,
+        held.width,
+        held.height
+      );
+      weapon.geometry.dispose();
+      weapon.geometry = weaponPlaneGeometry(held);
+      weapon.userData.weapon = player.weapon;
+      return {
+        mesh: spriteMesh(appearanceTexture, 3, 3, 0, 58, 58),
+        label: nameLabel(player.name),
+        weapon,
+        appearanceKey: appearance.textureKey
+      };
+    });
+    const attackSequence = player.attackSequence ?? 0;
+    if (rendered.attackSequence !== attackSequence) {
+      rendered.attackSequence = attackSequence;
+      if (player.action === 'melee') {
+        rendered.attackWeapon = player.weapon;
+        rendered.attackCombo = player.attackCombo ?? 0;
+      }
+    }
+    const meleeInterrupted = !player.alive || rendered.attackWeapon !== player.weapon ||
+      Boolean(player.action && player.action !== 'melee');
+    const melee = rendered.attackWeapon
+      ? meleeAttackPresentationAtProgress(
+        rendered.attackWeapon,
+        rendered.attackCombo ?? 0,
+        meleeInterrupted ? 1 : (player.attackProgress ?? 0)
+      )
+      : undefined;
     if (rendered.appearanceKey !== appearance.textureKey) {
       replaceTexture(rendered.mesh, appearanceTexture);
       rendered.appearanceKey = appearance.textureKey;
     }
+    const held = weaponPresentation(player.weapon);
     const weaponMesh = rendered.weapon;
     if (weaponMesh && weaponMesh.userData.weapon !== player.weapon) {
-      const weapon = weaponPresentation(player.weapon);
       replaceTexture(weaponMesh, this.textures.weapons[player.weapon]);
       weaponMesh.geometry.dispose();
-      weaponMesh.geometry = new THREE.PlaneGeometry(weapon.width, weapon.height);
+      weaponMesh.geometry = weaponPlaneGeometry(held);
       weaponMesh.userData.weapon = player.weapon;
     }
     const vehicle = player.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
@@ -142,25 +182,37 @@ export class ThreeDistrictEntities {
     const y = passenger?.spriteY ?? player.y;
     const z = this.surfaceHeightAt(x, y) + (passenger ? 8 : 4);
     positionEntity(rendered.mesh, x, y, z, 0.34);
-    rendered.mesh.rotation.z = rotateTowards(
-      rendered.mesh.rotation.z,
-      serverPedestrianAngleToThree(player.angle),
-      0.22
+    const bodyRotation = serverPedestrianAngleToThree(player.angle) -
+      (melee?.active ? melee.bodyRotationOffset : 0);
+    rendered.mesh.rotation.z = melee?.active
+      ? bodyRotation
+      : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.22);
+    const bodyScale = passenger?.scale ?? 1;
+    rendered.mesh.scale.set(
+      bodyScale * appearance.bodyScaleX * (melee?.bodyScaleX ?? 1),
+      bodyScale * (melee?.bodyScaleY ?? 1),
+      bodyScale
     );
-    rendered.mesh.scale.setScalar(passenger?.scale ?? 1);
-    rendered.mesh.scale.x *= appearance.bodyScaleX;
     rendered.mesh.visible = player.alive && (!vehicle || player.vehicleSeat > 0);
-    updateWalkingFrame(rendered.mesh, player.x, player.y, Boolean(!vehicle && player.alive));
+    updateWalkingFrame(
+      rendered.mesh,
+      player.x,
+      player.y,
+      Boolean(!vehicle && player.alive && !player.action && !melee?.active)
+    );
     if (rendered.weapon) {
       const baseX = passenger?.baseX ?? player.x;
       const baseY = passenger?.baseY ?? player.y;
+      const weaponAngle = player.angle + (melee?.weaponRotationOffset ?? 0);
+      const weaponDistance = melee?.active ? melee.weaponDistance : 8;
       rendered.weapon.position.set(
-        baseX + Math.cos(player.angle) * 8,
-        serverYToThree(baseY + Math.sin(player.angle) * 8),
+        baseX + Math.cos(weaponAngle) * weaponDistance,
+        serverYToThree(baseY + Math.sin(weaponAngle) * weaponDistance),
         z + 2
       );
-      rendered.weapon.rotation.z = serverAngleToThree(player.angle);
-      rendered.weapon.visible = rendered.mesh.visible;
+      rendered.weapon.rotation.z = serverAngleToThree(weaponAngle);
+      rendered.weapon.visible = rendered.mesh.visible && held.visible &&
+        (!player.action || player.action === 'melee');
     }
     if (rendered.label) {
       const labelX = vehicle?.x ?? player.x;
@@ -307,6 +359,14 @@ function spriteMesh(
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
   mesh.renderOrder = 10;
   return mesh;
+}
+
+function weaponPlaneGeometry(
+  presentation: ReturnType<typeof weaponPresentation>
+): THREE.PlaneGeometry {
+  const geometry = new THREE.PlaneGeometry(presentation.width, presentation.height);
+  geometry.translate((0.5 - presentation.originX) * presentation.width, 0, 0);
+  return geometry;
 }
 
 function nameLabel(name: string): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {

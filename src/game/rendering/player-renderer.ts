@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 import type {NetworkPlayer} from '../types.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
-import {passengerPresentation, weaponPresentation} from './player-render-policy.ts';
+import {
+  meleeAttackPresentationAtProgress,
+  passengerPresentation,
+  weaponPresentation,
+  type MeleeAttackPresentation
+} from './player-render-policy.ts';
 import type {VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
 
@@ -23,6 +28,10 @@ interface RenderPlayer {
   isLocal: boolean;
   peekRecoilUntil: number;
   spawnProtected: boolean;
+  attackSequence: number;
+  attackWeapon: NetworkPlayer['weapon'];
+  attackCombo: number;
+  meleeActive: boolean;
 }
 
 interface PlayerRendererOptions {
@@ -170,12 +179,25 @@ export class PlayerRenderer {
     rendered.targetX = player.x;
     rendered.targetY = player.y;
     rendered.targetAngle = player.angle;
+    const attackSequence = player.attackSequence ?? 0;
+    if (rendered.attackSequence !== attackSequence) {
+      rendered.attackSequence = attackSequence;
+      if (player.action === 'melee') {
+        rendered.attackWeapon = player.weapon;
+        rendered.attackCombo = player.attackCombo ?? 0;
+      }
+    }
     const visibleOnFoot = player.alive && !player.vehicleId;
     const visiblePassenger = player.alive && Boolean(player.vehicleId) && player.vehicleSeat > 0;
+    const heldWeapon = weaponPresentation(player.weapon);
     rendered.sprite.setVisible(visibleOnFoot);
     rendered.passengerSprite.setVisible(visiblePassenger && !player.action);
     rendered.label.setVisible(player.alive).setText(player.name);
-    rendered.weaponSprite.setVisible((visibleOnFoot || visiblePassenger) && !player.action);
+    rendered.weaponSprite.setVisible(
+      (visibleOnFoot || visiblePassenger) &&
+      heldWeapon.visible &&
+      (!player.action || player.action === 'melee')
+    );
     rendered.spawnProtected = Boolean(player.spawnProtected) && visibleOnFoot;
     if (rendered.weapon !== player.weapon) {
       rendered.weapon = player.weapon;
@@ -202,8 +224,9 @@ export class PlayerRenderer {
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5, 1).setDepth(950_000);
-    const weaponSprite = this.scene.add.image(player.x, player.y, 'weapon-pistol')
-      .setOrigin(0.16, 0.5)
+    const initialWeapon = weaponPresentation(player.weapon);
+    const weaponSprite = this.scene.add.image(player.x, player.y, initialWeapon.texture)
+      .setOrigin(initialWeapon.originX, 0.5)
       .setDepth(Math.round(player.y) + 101);
     applyWeaponPresentation(weaponSprite, player.weapon);
     const passengerSprite = this.scene.add.sprite(player.x, player.y, appearance.textureKey, 0)
@@ -230,11 +253,27 @@ export class PlayerRenderer {
       targetAngle: player.angle,
       isLocal,
       peekRecoilUntil: 0,
-      spawnProtected: false
+      spawnProtected: false,
+      attackSequence: -1,
+      attackWeapon: player.weapon,
+      attackCombo: 0,
+      meleeActive: false
     };
   }
 
   private presentAction(rendered: RenderPlayer, player: NetworkPlayer | undefined, time: number): void {
+    const melee = this.meleePresentation(rendered, player);
+    if (melee.active) {
+      rendered.meleeActive = true;
+      rendered.sprite.stop().setFrame(0)
+        .setScale(rendered.bodyScaleX * melee.bodyScaleX, melee.bodyScaleY)
+        .setRotation(rendered.targetAngle - Math.PI / 2 + melee.bodyRotationOffset);
+      return;
+    }
+    if (rendered.meleeActive) {
+      rendered.meleeActive = false;
+      rendered.sprite.rotation = rendered.targetAngle - Math.PI / 2;
+    }
     if (player?.action) {
       const pulse = 1 + Math.sin(time / 58) * 0.08;
       rendered.sprite.setScale(rendered.bodyScaleX * pulse, pulse);
@@ -249,9 +288,14 @@ export class PlayerRenderer {
     player: NetworkPlayer | undefined,
     time: number
   ): void {
-    const aimAngle = rendered.isLocal
+    const melee = this.meleePresentation(rendered, player);
+    const aimAngle = melee.active
+      ? rendered.targetAngle
+      : rendered.isLocal
       ? rendered.targetAngle
       : rendered.sprite.rotation + Math.PI / 2;
+    const weaponAngle = aimAngle + melee.weaponRotationOffset;
+    const weaponDistance = melee.active ? melee.weaponDistance : 7;
     let weaponBaseX = rendered.sprite.x;
     let weaponBaseY = rendered.sprite.y;
     if (player?.vehicleId && player.vehicleSeat > 0) {
@@ -275,11 +319,24 @@ export class PlayerRenderer {
     }
     rendered.weaponSprite
       .setPosition(
-        weaponBaseX + Math.cos(aimAngle) * 7,
-        weaponBaseY + Math.sin(aimAngle) * 7
+        weaponBaseX + Math.cos(weaponAngle) * weaponDistance,
+        weaponBaseY + Math.sin(weaponAngle) * weaponDistance
       )
-      .setRotation(aimAngle)
+      .setRotation(weaponAngle)
       .setDepth(Math.round(weaponBaseY) + 102);
+  }
+
+  private meleePresentation(
+    rendered: RenderPlayer,
+    player: NetworkPlayer | undefined
+  ): MeleeAttackPresentation {
+    const interrupted = !player?.alive || player.weapon !== rendered.attackWeapon ||
+      Boolean(player.action && player.action !== 'melee');
+    return meleeAttackPresentationAtProgress(
+      rendered.attackWeapon,
+      rendered.attackCombo,
+      interrupted ? 1 : (player?.attackProgress ?? 0)
+    );
   }
 
   private positionNameplate(rendered: RenderPlayer, player: NetworkPlayer | undefined): void {
@@ -330,7 +387,10 @@ function applyWeaponPresentation(
   weapon: NetworkPlayer['weapon']
 ): void {
   const presentation = weaponPresentation(weapon);
-  sprite.setTexture(presentation.texture).setDisplaySize(presentation.width, presentation.height);
+  sprite
+    .setTexture(presentation.texture)
+    .setDisplaySize(presentation.width, presentation.height)
+    .setOrigin(presentation.originX, 0.5);
 }
 
 function destroyPlayer(rendered: RenderPlayer): void {

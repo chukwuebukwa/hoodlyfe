@@ -68,7 +68,12 @@ export class LocalHudController {
     this.vehicleHud?.classList.toggle('hidden', !projection.showVehicleHud);
     this.weaponHud?.classList.toggle('hidden', !projection.showWeaponHud);
     if (this.weaponName) this.weaponName.textContent = projection.weaponName;
-    if (this.weaponAmmo) this.weaponAmmo.textContent = String(projection.weaponAmmo);
+    if (this.weaponAmmo) {
+      this.weaponAmmo.textContent = projection.weaponAmmo === undefined
+        ? ''
+        : String(projection.weaponAmmo);
+      this.weaponAmmo.classList.toggle('hidden', projection.weaponAmmo === undefined);
+    }
     if (this.weaponIcon) {
       this.weaponIcon.src = projection.weaponIcon;
       this.weaponIcon.alt = player.weapon;

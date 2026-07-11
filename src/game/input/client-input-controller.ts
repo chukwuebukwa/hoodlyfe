@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import {TouchControls} from '../touch-controls.ts';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
 import {
+  canRequestPrimaryAttack,
   canUseWeaponControls,
   ClientInputCadence,
   type MovementVector,
@@ -131,7 +132,7 @@ export class ClientInputController {
   }
 
   private updateShooting(time: number): void {
-    if (!canUseWeaponControls(this.options.getPlayer())) return;
+    if (!canRequestPrimaryAttack(this.options.getPlayer())) return;
     const pointerEvent = this.options.scene.input.activePointer.event as PointerEvent | undefined;
     const firing = Boolean(this.touch?.firing) || (
       this.options.scene.input.activePointer.isDown && pointerEvent?.pointerType !== 'touch'

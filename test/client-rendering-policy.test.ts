@@ -6,6 +6,8 @@ import {
 } from '../src/game/rendering/interpolation-policy.ts';
 import {projectileStyle} from '../src/game/rendering/projectile-render-policy.ts';
 import {
+  meleeAttackPresentation,
+  meleeAttackPresentationAtProgress,
   passengerPresentation,
   weaponPresentation
 } from '../src/game/rendering/player-render-policy.ts';
@@ -63,16 +65,22 @@ test('projectile presentation preserves weapon style and police override', () =>
 
 test('player weapon models and passenger seats preserve stable presentation anchors', () => {
   assert.deepEqual(weaponPresentation('pistol'), {
-    texture: 'weapon-pistol', width: 25, height: 9
+    texture: 'weapon-pistol', width: 25, height: 9, visible: true, originX: 0.16
   });
   assert.deepEqual(weaponPresentation('smg'), {
-    texture: 'weapon-smg', width: 33, height: 11
+    texture: 'weapon-smg', width: 33, height: 11, visible: true, originX: 0.16
   });
   assert.deepEqual(weaponPresentation('shotgun'), {
-    texture: 'weapon-shotgun', width: 42, height: 10
+    texture: 'weapon-shotgun', width: 42, height: 10, visible: true, originX: 0.16
   });
   assert.deepEqual(weaponPresentation('grenade'), {
-    texture: 'weapon-grenade', width: 15, height: 15
+    texture: 'weapon-grenade', width: 15, height: 15, visible: true, originX: 0.16
+  });
+  assert.deepEqual(weaponPresentation('fists'), {
+    texture: 'weapon-fists', width: 1, height: 1, visible: false, originX: 0.16
+  });
+  assert.deepEqual(weaponPresentation('bat'), {
+    texture: 'weapon-bat', width: 46, height: 12, visible: true, originX: 0.16
   });
   const vehicle = {x: 100, y: 200, angle: 0};
   const frontRight = passengerPresentation(vehicle, 1, 0, 0, false);
@@ -84,6 +92,27 @@ test('player weapon models and passenger seats preserve stable presentation anch
   const recoil = passengerPresentation(vehicle, 1, 0, 0, true);
   assert.equal(recoil.spriteX, frontRight.spriteX - 4);
   assert.equal(recoil.scale, 0.64);
+});
+
+test('melee attack presentation follows replicated combo and catalog strike timing', () => {
+  const first = meleeAttackPresentation('fists', 0, 135);
+  const repeated = meleeAttackPresentation('fists', 0, 135);
+  const second = meleeAttackPresentation('fists', 1, 145);
+  const batImpact = meleeAttackPresentation('bat', 0, 285);
+
+  assert.deepEqual(first, repeated);
+  assert.equal(first.active, true);
+  assert.ok(first.bodyRotationOffset > 0);
+  assert.ok(second.bodyRotationOffset < 0);
+  assert.ok(batImpact.weaponDistance > 14);
+  assert.ok(Math.abs(batImpact.weaponRotationOffset) > 1);
+  assert.equal(meleeAttackPresentation('bat', 0, 610).active, false);
+  assert.equal(meleeAttackPresentation('pistol', 0, 100).active, false);
+  assert.deepEqual(
+    meleeAttackPresentationAtProgress('bat', 0, 285 / 610),
+    batImpact
+  );
+  assert.equal(meleeAttackPresentationAtProgress('bat', 0, 1).active, false);
 });
 
 test('explosive and pickup presentation follows replicated height, fuse, kind, and availability', () => {

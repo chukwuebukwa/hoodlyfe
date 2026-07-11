@@ -157,6 +157,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'grenade');
   assert.equal(first.state.players.get(first.sessionId)?.ammoGrenade, 2);
   first.send('cycleWeapon', {direction: 1});
+  await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'fists');
+  first.send('cycleWeapon', {direction: 1});
+  await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'bat');
+  first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'pistol');
 
   const trafficStarts = new Map(
@@ -226,10 +230,53 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     first,
     first.sessionId,
     second.sessionId,
-    110,
+    44,
     (mover, target) => world.hasLineOfSight(mover.x, mover.y, target.x, target.y)
   );
-  assert.ok(attackDistance <= 150, `First shooter stopped ${Math.round(attackDistance)} units away.`);
+  assert.ok(attackDistance <= 70, `First attacker stopped ${Math.round(attackDistance)} units away.`);
+  const targetHealthBeforeMelee = first.state.players.get(second.sessionId)?.health ?? 100;
+  const bulletsBeforeMelee = first.state.bullets.size;
+  const ammoBeforeMelee = {
+    pistol: first.state.players.get(first.sessionId)?.ammoPistol,
+    smg: first.state.players.get(first.sessionId)?.ammoSmg,
+    shotgun: first.state.players.get(first.sessionId)?.ammoShotgun,
+    grenade: first.state.players.get(first.sessionId)?.ammoGrenade
+  };
+  first.send('cycleWeapon', {direction: -1});
+  await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'bat');
+  const meleeAttacker = first.state.players.get(first.sessionId);
+  const meleeTarget = first.state.players.get(second.sessionId);
+  assert.ok(meleeAttacker && meleeTarget);
+  first.send('aim', {angle: Math.atan2(
+    meleeTarget.y - meleeAttacker.y,
+    meleeTarget.x - meleeAttacker.x
+  )});
+  await delay(40);
+  const sequenceBefore = meleeAttacker.attackSequence ?? 0;
+  first.send('shoot');
+  await waitUntil(() => (
+    (first.state.players.get(first.sessionId)?.attackSequence ?? 0) > sequenceBefore &&
+    (second.state.players.get(first.sessionId)?.attackSequence ?? 0) > sequenceBefore
+  ));
+  assert.equal(second.state.players.get(first.sessionId)?.action, 'melee');
+  await waitUntil(() => (
+    (first.state.players.get(second.sessionId)?.health ?? targetHealthBeforeMelee) <
+      targetHealthBeforeMelee
+  ));
+  assert.equal(first.state.players.get(second.sessionId)?.health, targetHealthBeforeMelee - 34);
+  assert.equal(first.state.bullets.size, bulletsBeforeMelee);
+  assert.deepEqual(
+    {
+      pistol: first.state.players.get(first.sessionId)?.ammoPistol,
+      smg: first.state.players.get(first.sessionId)?.ammoSmg,
+      shotgun: first.state.players.get(first.sessionId)?.ammoShotgun,
+      grenade: first.state.players.get(first.sessionId)?.ammoGrenade
+    },
+    ammoBeforeMelee
+  );
+  await waitUntil(() => first.state.players.get(first.sessionId)?.action === '');
+  first.send('cycleWeapon', {direction: 1});
+  await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'pistol');
   for (let shot = 0; shot < 8 && first.state.players.get(second.sessionId)?.alive; shot++) {
     const shooter = first.state.players.get(first.sessionId);
     const target = first.state.players.get(second.sessionId);

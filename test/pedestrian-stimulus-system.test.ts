@@ -44,6 +44,9 @@ test('event adapter converts combat and vehicle facts without duplicating weapon
   const adapter = new PedestrianStimulusAdapter({state, registry});
 
   adapter.ingest([
+    event({
+      type: 'melee.started', playerId: 'shooter', weapon: 'bat', combo: 0, x: 1, y: 2
+    }),
     event({type: 'weapon.fired', ownerId: 'shooter', ownerKind: 'player', weapon: 'shotgun', x: 1, y: 2}),
     event({type: 'damage.applied', targetId: npc.id, targetKind: 'npc', attackerId: 'shooter', amount: 25, remainingHealth: 25}),
     event({type: 'entity.killed', entityId: npc.id, entityKind: 'npc', attackerId: 'shooter'}),

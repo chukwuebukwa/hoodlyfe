@@ -77,6 +77,8 @@ export class DistrictScene extends Phaser.Scene {
       frameWidth: 96,
       frameHeight: 96
     });
+    this.load.svg('weapon-fists', '/assets/original/weapons/fists.svg');
+    this.load.svg('weapon-bat', '/assets/original/weapons/bat.svg');
     this.load.svg('weapon-pistol', '/assets/original/weapons/pistol.svg');
     this.load.svg('weapon-smg', '/assets/original/weapons/smg.svg');
     this.load.svg('weapon-shotgun', '/assets/original/weapons/shotgun.svg');

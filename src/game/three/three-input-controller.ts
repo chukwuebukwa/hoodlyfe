@@ -1,7 +1,10 @@
 import type {Room} from 'colyseus.js';
 import * as THREE from 'three';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
-import {normalizeMovement} from '../input/client-input-policy.ts';
+import {
+  canRequestPrimaryAttack,
+  normalizeMovement
+} from '../input/client-input-policy.ts';
 import {TouchControls} from '../touch-controls.ts';
 import {threePointToServerAimAngle} from './three-prototype-policy.ts';
 
@@ -81,7 +84,11 @@ export class ThreeInputController {
       this.options.room.send('aim', {angle});
       this.lastAimAt = nowMs;
     }
-    if ((this.firing || this.touch.firing) && nowMs - this.lastFireAt >= FIRE_INTERVAL_MS) {
+    if (
+      canRequestPrimaryAttack(player) &&
+      (this.firing || this.touch.firing) &&
+      nowMs - this.lastFireAt >= FIRE_INTERVAL_MS
+    ) {
       this.options.room.send('shoot');
       this.lastFireAt = nowMs;
     }

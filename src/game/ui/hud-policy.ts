@@ -1,4 +1,5 @@
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
+import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 
 export interface LocalHudProjection {
@@ -10,7 +11,7 @@ export interface LocalHudProjection {
   showVehicleHud: boolean;
   showWeaponHud: boolean;
   weaponName: string;
-  weaponAmmo: number;
+  weaponAmmo?: number;
   weaponIcon: string;
   speed: string;
   vehicleCondition: number;
@@ -35,6 +36,7 @@ export function projectLocalHud(
   vehicle?: NetworkVehicle
 ): LocalHudProjection {
   const isDriver = Boolean(player.vehicleId) && player.vehicleSeat === 0;
+  const weapon = weaponDefinition(player.weapon);
   return {
     name: player.name,
     cash: `$${String(Math.max(0, finite(player.cash))).padStart(6, '0')}`,
@@ -42,10 +44,10 @@ export function projectLocalHud(
     wanted: clamp(Math.floor(finite(player.wanted)), 0, 5),
     dead: !player.alive,
     showVehicleHud: isDriver,
-    showWeaponHud: !isDriver && player.alive && !player.action,
-    weaponName: player.weapon === 'smg' ? 'SMG' : player.weapon.toUpperCase(),
+    showWeaponHud: !isDriver && player.alive && (!player.action || player.action === 'melee'),
+    weaponName: weapon.name.toUpperCase(),
     weaponAmmo: weaponAmmo(player),
-    weaponIcon: `/assets/original/weapons/${player.weapon}.svg`,
+    weaponIcon: `/assets/original/weapons/${weapon.presentation.assetId}.svg`,
     speed: String(Math.round(Math.abs(finite(vehicle?.speed)) * 0.55)).padStart(3, '0'),
     vehicleCondition: clamp(
       finite(vehicle?.health) / Math.max(1, finite(vehicle?.maxHealth, 1)) * 100,
@@ -89,11 +91,9 @@ export function hudTransitionNotices(
   return notices;
 }
 
-function weaponAmmo(player: NetworkPlayer): number {
-  if (player.weapon === 'grenade') return player.ammoGrenade;
-  if (player.weapon === 'smg') return player.ammoSmg;
-  if (player.weapon === 'shotgun') return player.ammoShotgun;
-  return player.ammoPistol;
+function weaponAmmo(player: NetworkPlayer): number | undefined {
+  const field = weaponDefinition(player.weapon).ammunitionField;
+  return field ? player[field] : undefined;
 }
 
 function finite(value: number | undefined, fallback = 0): number {

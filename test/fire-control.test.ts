@@ -16,12 +16,17 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   const clock = {tick: 1, nowMs: 1000};
   const events = new GameEventStream();
   const cancelledProtection: string[] = [];
+  const meleeAttacks: string[] = [];
   const fire = new FireControlController({
     state,
     random: new DeterministicRandom('fire-control-test'),
     clock: () => clock,
     events,
-    cancelSpawnProtection: (playerId) => cancelledProtection.push(playerId)
+    cancelSpawnProtection: (playerId) => cancelledProtection.push(playerId),
+    meleeAttack: ({weapon}) => {
+      meleeAttacks.push(weapon);
+      return {accepted: weapon === 'fists', combo: 2};
+    }
   });
 
   fire.shoot(player.id);
@@ -98,4 +103,32 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   const hostileEvent = events.drain()[0];
   assert.equal(hostileEvent?.type, 'weapon.fired');
   if (hostileEvent?.type === 'weapon.fired') assert.equal(hostileEvent.ownerKind, 'hostile');
+
+  player.vehicleId = '';
+  player.vehicleSeat = -1;
+  player.weapon = 'fists';
+  const ammoBeforeMelee = {
+    pistol: player.ammoPistol,
+    smg: player.ammoSmg,
+    shotgun: player.ammoShotgun,
+    grenade: player.ammoGrenade
+  };
+  clock.nowMs += 700;
+  fire.shoot(player.id);
+  assert.equal(state.bullets.size, 9);
+  assert.deepEqual(
+    {
+      pistol: player.ammoPistol,
+      smg: player.ammoSmg,
+      shotgun: player.ammoShotgun,
+      grenade: player.ammoGrenade
+    },
+    ammoBeforeMelee
+  );
+  assert.deepEqual(meleeAttacks, ['fists']);
+  assert.equal(events.size, 0, 'The melee domain publishes its own accepted-swing event.');
+  player.action = 'melee';
+  clock.nowMs += 30;
+  fire.shoot(player.id);
+  assert.deepEqual(meleeAttacks, ['fists', 'fists'], 'Active melee input reaches the combo buffer.');
 });

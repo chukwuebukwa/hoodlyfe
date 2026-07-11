@@ -5,6 +5,7 @@ import type {
   MissionTemplateId
 } from '../../shared/content/mission-catalog.ts';
 import type {PlayerAppearance} from '../../shared/content/appearance-catalog.ts';
+import type {BulletWeaponId, WeaponId} from '../../shared/content/weapon-catalog.ts';
 
 export interface NetworkPlayer {
   id: string;
@@ -22,10 +23,13 @@ export interface NetworkPlayer {
   spawnProtected?: boolean;
   vehicleId: string;
   vehicleSeat: number;
-  action: '' | 'entering' | 'hijacking';
+  action: '' | 'entering' | 'hijacking' | 'melee';
   actionUntil: number;
   actionVehicleId: string;
-  weapon: 'pistol' | 'smg' | 'shotgun' | 'grenade';
+  attackSequence?: number;
+  attackCombo?: number;
+  attackProgress?: number;
+  weapon: WeaponId;
   ammoPistol: number;
   ammoSmg: number;
   ammoShotgun: number;
@@ -41,7 +45,7 @@ export interface NetworkBullet {
   y: number;
   angle: number;
   createdAt: number;
-  weapon: 'pistol' | 'smg' | 'shotgun';
+  weapon: BulletWeaponId;
 }
 
 export interface NetworkThrownProjectile {

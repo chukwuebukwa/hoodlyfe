@@ -25,10 +25,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 ### Combat and Weapons
 
 - **Playable** pistol, SMG, shotgun, and grenade with distinct cooldown, ammunition, fire mode, projectile, HUD icon, and held-weapon presentation.
+- **Playable** fists and baseball bat with server-owned windup/contact/recovery timing, three-step per-player fist combos, target-facing assistance, line-of-sight and forward-contact validation, one-contact fists, bounded multi-target bat strikes, low bat-to-vehicle damage, assault escalation, and synchronized Phaser/Three swing presentation.
 - **Playable** server-authoritative aim, firing gates, projectile movement, collision, player/NPC/vehicle damage, kill rewards, and respawn.
 - **Playable** passenger drive-by shooting with seat-specific muzzle origins and a visible passenger lean/peek presentation.
 - **Playable** bounded thrown-grenade arc/fuse/bounce, production-shaped radial falloff, self damage, player/NPC/vehicle attribution, transient blast presentation, and car chain reactions.
-- **Foundation** weapon-family separation exists; melee, rockets, Molotov/fire, mines, throw charging, reloads, recoil/accuracy, and weapon shops remain content work.
+- **Foundation** weapon-family separation now covers bullet, thrown, and melee definitions through one shared content catalog; armor, directional hit/knockdown state, blocking, ground attacks, NPC melee, rockets, Molotov/fire, mines, throw charging, reloads, recoil/accuracy, and weapon shops remain content work.
 
 ### Vehicles and Traffic
 

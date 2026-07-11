@@ -51,6 +51,9 @@ export class PlayerState extends Schema {
   action = '';
   actionUntil = 0;
   actionVehicleId = '';
+  attackSequence = 0;
+  attackCombo = 0;
+  attackProgress = 0;
   weapon = 'pistol';
   ammoPistol = 120;
   ammoSmg = 240;
@@ -78,6 +81,9 @@ defineTypes(PlayerState, {
   action: 'string',
   actionUntil: 'number',
   actionVehicleId: 'string',
+  attackSequence: 'number',
+  attackCombo: 'number',
+  attackProgress: 'number',
   weapon: 'string',
   ammoPistol: 'number',
   ammoSmg: 'number',

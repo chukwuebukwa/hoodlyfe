@@ -5,6 +5,8 @@ import {
   ammoFor,
   isWeaponId,
   setAmmo,
+  type BulletWeaponId,
+  type MeleeWeaponId,
   type WeaponId
 } from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
@@ -24,10 +26,15 @@ interface FireControlControllerOptions {
     angle: number;
     nowMs: number;
   }) => boolean;
+  meleeAttack?: (input: {
+    playerId: string;
+    weapon: MeleeWeaponId;
+    nowMs: number;
+  }) => {accepted: boolean; combo: number};
 }
 
 export class FireControlController {
-  private readonly lastShotAt = new Map<string, number>();
+  private readonly lastAttackAt = new Map<string, number>();
   private nextBulletId = 1;
 
   constructor(private readonly options: FireControlControllerOptions) {}
@@ -35,18 +42,34 @@ export class FireControlController {
   shoot(playerId: string): void {
     const player = this.options.state.players.get(playerId);
     const clock = this.options.clock();
-    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
-    const weaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
+    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0)) return;
+    const weaponId: WeaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
     const weapon = WEAPONS[weaponId];
+    if (player.action) {
+      if (player.action === 'melee' && weapon.fireMode === 'melee') {
+        this.options.meleeAttack?.({playerId, weapon: weapon.id, nowMs: clock.nowMs});
+      }
+      return;
+    }
     if (player.vehicleId && !weapon.passengerAllowed) return;
     if (
-      clock.nowMs - (this.lastShotAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
+      clock.nowMs - (this.lastAttackAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
       ammoFor(player, weaponId) <= 0
     ) {
       return;
     }
 
     const origin = this.shotOrigin(player);
+    if (weapon.fireMode === 'melee') {
+      const result = this.options.meleeAttack?.({
+        playerId,
+        weapon: weapon.id,
+        nowMs: clock.nowMs
+      });
+      if (!result?.accepted) return;
+      this.lastAttackAt.set(playerId, clock.nowMs);
+      return;
+    }
     if (weapon.fireMode === 'thrown') {
       const created = this.options.throwExplosive?.({
         ownerId: playerId,
@@ -56,14 +79,14 @@ export class FireControlController {
         nowMs: clock.nowMs
       }) ?? false;
       if (!created) return;
-      this.lastShotAt.set(playerId, clock.nowMs);
+      this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
       return;
     }
 
-    this.lastShotAt.set(playerId, clock.nowMs);
+    this.lastAttackAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
@@ -78,7 +101,7 @@ export class FireControlController {
         origin.y,
         player.angle + spread,
         clock.nowMs,
-        weaponId
+        weapon.id
       );
     }
   }
@@ -108,16 +131,17 @@ export class FireControlController {
     weapon: WeaponId = 'pistol',
     ownerKind: 'police' | 'hostile' = 'police'
   ): void {
-    if (WEAPONS[weapon].fireMode !== 'bullet') return;
-    this.publishWeaponFired(ownerId, ownerKind, x, y, weapon, {
+    const definition = WEAPONS[weapon];
+    if (definition.fireMode !== 'bullet') return;
+    this.publishWeaponFired(ownerId, ownerKind, x, y, definition.id, {
       tick: this.options.clock().tick,
       nowMs
     });
-    this.createBullet(ownerId, ownerKind, x, y, angle, nowMs, weapon);
+    this.createBullet(ownerId, ownerKind, x, y, angle, nowMs, definition.id);
   }
 
   clearPlayer(playerId: string): void {
-    this.lastShotAt.delete(playerId);
+    this.lastAttackAt.delete(playerId);
   }
 
   restock(playerId: string): void {
@@ -168,7 +192,7 @@ export class FireControlController {
     y: number,
     angle: number,
     nowMs: number,
-    weapon: WeaponId
+    weapon: BulletWeaponId
   ): void {
     const bullet = new BulletState();
     bullet.id = String(this.nextBulletId++);

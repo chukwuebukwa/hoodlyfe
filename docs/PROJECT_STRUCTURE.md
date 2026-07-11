@@ -196,6 +196,8 @@ The first room-facing facades are now live:
 - `DebugSnapshotController` owns bounded event summaries, sampled simulation diagnostics, domain-to-protocol copies, and developer snapshot publication.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, `ThrownProjectileController`, `ExplosionController`, and `DamageController` separate weapon use, bullets, bounded thrown/fused motion, one-shot radial resolution/vehicle-chain adaptation, and victim response.
+- `MeleeCombatController` owns per-player combo memory, windup/contact/recovery timing, deterministic forward target scoring, line-of-sight, target-family caps, and narrow player/NPC/vehicle damage requests; `melee-hit-policy.ts` keeps contact geometry pure and independently testable.
+- The shared weapon catalog is the single ID/family/ammunition/timing/presentation definition consumed by server and both renderers. Adding a weapon no longer requires independent client unions or fallback ammunition behavior.
 - `WeaponPickupController` owns collision-safe placement, spatial proximity collection, deterministic contention, quantity caps, shared availability, respawn, notices, and pickup events without importing combat presentation or economy mutation.
 - `PlayerControlController` owns validated move/aim intent, shared driver input, state-gated on-foot locomotion, collision resolution, and input cleanup.
 - `MedicalCareController` owns registered hospitals, private admission/care choice, nearest-facility selection, living treatment, and idempotent economy coordination.

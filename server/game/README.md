@@ -33,6 +33,8 @@ game/
     damage-controller.ts
     explosion-controller.ts
     fire-control-controller.ts
+    melee-combat-controller.ts
+    melee-hit-policy.ts
     projectile-controller.ts
     thrown-projectile-controller.ts
   debug/
@@ -106,7 +108,7 @@ The current compatibility order is:
 
 1. rebuild spatial memberships from authoritative state;
 2. update vehicles and traffic;
-3. update players and actions;
+3. resolve due melee contacts, then update players and actions;
 4. resolve due witness reports and district dispatch assignments through `CrimeResponseController`;
 5. update pedestrians and police pursuit/search behavior;
 6. move and resolve projectiles;
@@ -137,7 +139,8 @@ Extracted domain policies and room adapters now include:
 - `police-vehicle-dispatch-system.ts` for stable response-capped unit assignments and expired-report suppression; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
 - `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.
 - `vehicle-simulation-controller.ts` for catalog-driven authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
-- `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, spread, pellet count, muzzle origin, and bullet creation.
+- `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, primary-attack family dispatch, spread, pellet count, muzzle origin, and bullet creation.
+- `melee-combat-controller.ts` for per-player combo progression, accepted swing runtime, server-owned impact timing, facing assistance, target-family caps, and existing damage-port requests; `melee-hit-policy.ts` for pure line-of-sight-aware range/arc scoring and deterministic ordering.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `damage-controller.ts` for player/NPC health, damage/death events, crime translation, threat response, and street-cash rewards.
 - `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
@@ -157,7 +160,8 @@ Extracted domain policies and room adapters now include:
 - `pedestrian-reaction-system.ts` for civilian orient/respond/recover transitions and `pedestrian-intent.ts` for the shared output contract consumed by locomotion/presentation projection.
 - `pedestrian-navigation-system.ts` for private route ownership, per-tick request budgets, deterministic blocked recovery, and planner composition; `pedestrian-path-planner.ts` for bounded deterministic collision-grid A* with clearance and smoothing; plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
 - `pedestrian-stimulus-registry.ts` for bounded, expiring, deduplicated sensory facts and `pedestrian-stimulus-adapter.ts` for translating stable cross-domain game events without importing producer systems.
-- `fire-control-controller.ts` for holder, cooldown, ammunition, seat, protection-cancel, and bullet-versus-thrown dispatch gates; `projectile-controller.ts` remains bullet-only.
+- `shared/content/weapon-catalog.ts` for discriminated bullet/thrown/melee definitions, stable IDs, ammunition ownership, combat timing, and renderer-neutral presentation metadata.
+- `fire-control-controller.ts` for holder, cooldown, ammunition, seat, protection-cancel, and bullet/thrown/melee dispatch gates; `projectile-controller.ts` remains bullet-only.
 - `thrown-projectile-controller.ts` for bounded private grenade velocity, gravity, world/ground bounce, fuse, replicated pose, detonation request, and lifecycle cleanup.
 - `explosion-controller.ts` for one-shot radial player/NPC/vehicle resolution, active-source attribution, transient effects, vehicle-destruction adaptation, occupant exclusion, and bounded chain reactions.
 - `weapon-pickup-controller.ts` for spatial collection candidates, nearest/ID-stable contention, grenade capacity, shared availability, respawn, notices, and events.

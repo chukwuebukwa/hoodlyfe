@@ -1,4 +1,5 @@
 import type {NetworkPlayer} from '../types.ts';
+import {isMeleeWeapon, weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 
 const INPUT_SEND_INTERVAL_MS = 50;
 const INPUT_HEARTBEAT_MS = 220;
@@ -68,4 +69,10 @@ export function canUseWeaponControls(player?: NetworkPlayer): boolean {
     !player.action &&
     (!player.vehicleId || player.vehicleSeat > 0)
   );
+}
+
+export function canRequestPrimaryAttack(player?: NetworkPlayer): boolean {
+  if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0)) return false;
+  if (!player.action) return true;
+  return player.action === 'melee' && isMeleeWeapon(weaponDefinition(player.weapon));
 }

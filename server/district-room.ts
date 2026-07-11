@@ -40,6 +40,7 @@ import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
+import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
 import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
@@ -106,6 +107,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private playerLifecycle!: PlayerLifecycleController;
   private damageController!: DamageController;
   private fireControl!: FireControlController;
+  private meleeCombat!: MeleeCombatController;
   private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
   private explosionController!: ExplosionController;
@@ -329,13 +331,48 @@ export class DistrictRoom extends Room<DistrictState> {
         () => this.state.thrownProjectiles.delete(projectileId)
       )
     });
+    this.meleeCombat = new MeleeCombatController({
+      state: this.state,
+      world: this.world,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId),
+      queryPlayers: nearbyPlayers,
+      queryNpcs: nearbyNpcs,
+      queryVehicles: nearbyVehicles,
+      damagePlayer: (target, damage, attackerId, nowMs) => this.damageController.player(
+        target,
+        damage,
+        attackerId,
+        nowMs
+      ),
+      damageNpc: (target, damage, attackerId, nowMs) => this.damageController.npc(
+        target,
+        damage,
+        attackerId,
+        nowMs
+      ),
+      damageVehicle: (target, damage, attackerId, nowMs, zone) => this.vehicleSimulation.damage(
+        target,
+        damage,
+        attackerId,
+        'weapon',
+        nowMs,
+        zone
+      )
+    });
     this.fireControl = new FireControlController({
       state: this.state,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       events: this.events,
       cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId),
-      throwExplosive: (input) => this.thrownProjectileController.throw(input)
+      throwExplosive: (input) => this.thrownProjectileController.throw(input),
+      meleeAttack: (input) => this.meleeCombat.begin(
+        input.playerId,
+        input.weapon,
+        input.nowMs
+      )
     });
     this.weaponPickupController = new WeaponPickupController({
       state: this.state,
@@ -548,6 +585,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
+    this.meleeCombat.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
@@ -585,12 +623,13 @@ export class DistrictRoom extends Room<DistrictState> {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
     });
+    this.meleeCombat.update(now);
     this.state.players.forEach((player) => {
       if (!player.alive) {
         this.playerLifecycle.tryRespawn(player, now);
       } else if (player.action) {
         this.playerLifecycle.updateProtection(player, now);
-        this.vehicleAccess.updateAction(player, now);
+        if (player.action !== 'melee') this.vehicleAccess.updateAction(player, now);
       } else {
         this.playerLifecycle.updateProtection(player, now);
         this.playerControl.updateOnFoot(player, deltaSeconds);

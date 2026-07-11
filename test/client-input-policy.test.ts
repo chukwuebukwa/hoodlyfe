@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  canRequestPrimaryAttack,
   canUseWeaponControls,
   ClientInputCadence,
   normalizeMovement
@@ -55,6 +56,20 @@ test('client weapon intent is gated for death, actions, and drivers but allowed 
   player.vehicleSeat = 1;
   assert.equal(canUseWeaponControls(player), true);
   assert.equal(canUseWeaponControls(undefined), false);
+
+  player.vehicleId = '';
+  player.vehicleSeat = -1;
+  player.weapon = 'fists';
+  player.action = 'melee';
+  assert.equal(canUseWeaponControls(player), false);
+  assert.equal(canRequestPrimaryAttack(player), true);
+  player.weapon = 'pistol';
+  assert.equal(canRequestPrimaryAttack(player), false);
+  player.action = '';
+  assert.equal(canRequestPrimaryAttack(player), true);
+  player.vehicleId = 'car';
+  player.vehicleSeat = 0;
+  assert.equal(canRequestPrimaryAttack(player), false);
 });
 
 function createPlayer(): NetworkPlayer {

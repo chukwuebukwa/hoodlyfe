@@ -76,6 +76,16 @@ test('debug projection bounds history, samples cadence, and copies domain record
 
 test('event summaries preserve compact gameplay context', () => {
   assert.equal(summarizeGameEvent({
+    type: 'melee.started',
+    tick: 3,
+    nowMs: 90,
+    playerId: 'driver',
+    weapon: 'bat',
+    combo: 0,
+    x: 10,
+    y: 20
+  }), 'driver swung bat combo 1');
+  assert.equal(summarizeGameEvent({
     type: 'damage.applied',
     tick: 4,
     nowMs: 120,

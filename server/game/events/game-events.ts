@@ -16,6 +16,15 @@ export interface WeaponFiredEvent extends EventMetadata {
   y: number;
 }
 
+export interface MeleeAttackStartedEvent extends EventMetadata {
+  type: 'melee.started';
+  playerId: string;
+  weapon: string;
+  combo: number;
+  x: number;
+  y: number;
+}
+
 export interface ExplosionCreatedEvent extends EventMetadata {
   type: 'explosion.created';
   explosionId: string;
@@ -153,6 +162,7 @@ export interface StreetEconomyChangedEvent extends EventMetadata {
 
 export type GameEvent =
   | WeaponFiredEvent
+  | MeleeAttackStartedEvent
   | ExplosionCreatedEvent
   | WeaponPickupCollectedEvent
   | DamageAppliedEvent

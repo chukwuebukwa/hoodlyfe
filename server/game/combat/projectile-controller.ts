@@ -1,6 +1,6 @@
 import type {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import {WEAPONS, isWeaponId} from '../../weapons.ts';
+import {WEAPONS, isBulletWeaponId} from '../../weapons.ts';
 import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
@@ -26,7 +26,7 @@ export class ProjectileController {
   constructor(private readonly options: ProjectileControllerOptions) {}
 
   update(bullet: BulletState, bulletId: string, deltaSeconds: number, nowMs: number): void {
-    const weapon = WEAPONS[isWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
+    const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
     if (nowMs - bullet.createdAt > weapon.lifetimeMs) {
       this.options.remove(bulletId);
       return;
