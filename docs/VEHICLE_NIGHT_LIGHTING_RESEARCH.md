@@ -34,6 +34,8 @@ The current browser slice deliberately implements only rules supported by replic
 - only the ten nearest replicated vehicles receive glow meshes;
 - the effect is renderer-owned and creates no server traffic or gameplay state.
 
+Emergency-capable Three vehicles also consume the replicated siren fact. Police cruisers alternate small red/blue roof glows on the same 120 ms cadence as the Phaser presentation, while the shared `VehicleAudioSystem` supplies distance-attenuated positional siren audio. Destroyed, burning, silent, and non-police vehicles cannot display emergency glows.
+
 Brake lamps are not inferred from speed deltas because that would produce client-dependent flicker. A future authoritative or presentation-safe braking fact can add them. Model-specific lamp anchors should move into vehicle presentation metadata when original vehicle art replaces the current shared 96x96 atlas.
 
 ## Exit Criteria

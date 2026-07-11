@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {NetworkVehicle} from '../src/game/types.ts';
-import {vehicleLightPresentation} from '../src/game/rendering/vehicle-light-render-policy.ts';
+import {
+  emergencyLightPresentation,
+  vehicleLightPresentation
+} from '../src/game/rendering/vehicle-light-render-policy.ts';
 
 function vehicle(overrides: Partial<NetworkVehicle> = {}): NetworkVehicle {
   return {
@@ -27,4 +30,21 @@ test('front and rear damage fade their lamps while reverse selects white rear la
   assert.ok(damaged.rearOpacity > 0 && damaged.rearOpacity < 0.2);
   assert.equal(damaged.rearColor, 0xff1f2f);
   assert.equal(vehicleLightPresentation(vehicle({speed: -20}), 1, true).rearColor, 0xf4f0d8);
+});
+
+test('police emergency lamps alternate only for an operable active siren', () => {
+  const cruiser = vehicle({kind: 'police', siren: true});
+  assert.deepEqual(emergencyLightPresentation(cruiser, 0), {
+    active: true,
+    redOpacity: 0.92,
+    blueOpacity: 0.16
+  });
+  assert.deepEqual(emergencyLightPresentation(cruiser, 120), {
+    active: true,
+    redOpacity: 0.16,
+    blueOpacity: 0.92
+  });
+  assert.equal(emergencyLightPresentation(vehicle({kind: 'police'}), 0).active, false);
+  assert.equal(emergencyLightPresentation(vehicle({kind: 'sedan', siren: true}), 0).active, false);
+  assert.equal(emergencyLightPresentation(vehicle({kind: 'police', siren: true, destroyed: true}), 0).active, false);
 });

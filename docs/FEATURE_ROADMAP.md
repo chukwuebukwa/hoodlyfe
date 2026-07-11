@@ -45,7 +45,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** opposite right-hand compatibility lanes, expiring deterministic junction reservations, non-road ambient pedestrian placement/wander, and one-minute circulation soak coverage.
 - **Playable** catalog-sized oriented-box car collisions with broad-phase bounds, minimum-axis separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
-- **Foundation** streamed traffic now owns 64 potential records with a 24-car active ceiling; additional vehicle classes, authored directed lane centerlines/turn connectors, segment capacity, siren yielding, and parking remain incomplete. A functional repair garage is playable.
+- **Foundation** streamed traffic now owns 64 potential records with a 24-car active ceiling; additional vehicle classes, authored directed lane centerlines/turn connectors, segment capacity, and parking remain incomplete. A functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
@@ -114,7 +114,7 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
 - **Deferred note**: author lane centerlines, legal turn connectors, parking points, and lane-based overtaking later. The compatibility road mask is too broad to infer these safely, and this work is not the next selected feature slice.
-- Add multiple police units, coordinated block/intercept positions, siren yielding, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
+- Add multiple police units, coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.
