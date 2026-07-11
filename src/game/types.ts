@@ -90,6 +90,16 @@ export interface NetworkWeaponPickup {
   respawnAt: number;
 }
 
+export interface NetworkCashPickup {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  amount: number;
+  availableAt: number;
+  expiresAt: number;
+}
+
 export interface NetworkTrafficSignal {
   id: string;
   x: number;
@@ -206,6 +216,7 @@ export interface DistrictNetworkState {
   thrownProjectiles: Map<string, NetworkThrownProjectile>;
   explosions: Map<string, NetworkExplosion>;
   weaponPickups: Map<string, NetworkWeaponPickup>;
+  cashPickups?: Map<string, NetworkCashPickup>;
   trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;

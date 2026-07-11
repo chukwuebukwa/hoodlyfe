@@ -52,6 +52,13 @@ export interface WeaponPickupCollectedEvent extends EventMetadata {
   quantity: number;
 }
 
+export interface CashPickupCollectedEvent extends EventMetadata {
+  type: 'cash-pickup.collected';
+  pickupId: string;
+  playerId: string;
+  amount: number;
+}
+
 export interface DamageAppliedEvent extends EventMetadata {
   type: 'damage.applied';
   targetId: string;
@@ -177,6 +184,7 @@ export type GameEvent =
   | NpcMeleeAttackStartedEvent
   | ExplosionCreatedEvent
   | WeaponPickupCollectedEvent
+  | CashPickupCollectedEvent
   | DamageAppliedEvent
   | EntityKilledEvent
   | CrimeCommittedEvent

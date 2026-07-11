@@ -16,6 +16,7 @@ import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
 import {ExplosionRenderer} from './rendering/explosion-renderer.ts';
 import {ThrownProjectileRenderer} from './rendering/thrown-projectile-renderer.ts';
 import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
+import {CashPickupRenderer} from './rendering/cash-pickup-renderer.ts';
 import {TrafficSignalRenderer} from './rendering/traffic-signal-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
@@ -36,6 +37,7 @@ export class DistrictScene extends Phaser.Scene {
   private explosionRenderer!: ExplosionRenderer;
   private thrownProjectileRenderer!: ThrownProjectileRenderer;
   private weaponPickupRenderer!: WeaponPickupRenderer;
+  private cashPickupRenderer!: CashPickupRenderer;
   private trafficSignalRenderer!: TrafficSignalRenderer;
   private vehicleRenderer!: VehicleRenderer;
   private hudController!: LocalHudController;
@@ -144,6 +146,7 @@ export class DistrictScene extends Phaser.Scene {
     this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
     this.explosionRenderer = new ExplosionRenderer(this);
     this.weaponPickupRenderer = new WeaponPickupRenderer(this);
+    this.cashPickupRenderer = new CashPickupRenderer(this);
     this.trafficSignalRenderer = new TrafficSignalRenderer(this);
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
@@ -219,6 +222,7 @@ export class DistrictScene extends Phaser.Scene {
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
     this.explosionRenderer.synchronize(state.explosions);
     this.weaponPickupRenderer.synchronize(state.weaponPickups);
+    this.cashPickupRenderer.synchronize(state.cashPickups);
     this.trafficSignalRenderer.synchronize(state.trafficSignals);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
@@ -242,6 +246,7 @@ export class DistrictScene extends Phaser.Scene {
     this.projectileRenderer.interpolate();
     this.thrownProjectileRenderer.interpolate();
     this.weaponPickupRenderer.interpolate();
+    this.cashPickupRenderer.interpolate();
   }
 
   private canOccupy(x: number, y: number): boolean {
@@ -277,7 +282,8 @@ export class DistrictScene extends Phaser.Scene {
       points: [
         ...this.missionController.minimapPoints(),
         ...this.interactionController.minimapPoints(),
-        ...this.weaponPickupRenderer.minimapPoints()
+        ...this.weaponPickupRenderer.minimapPoints(),
+        ...this.cashPickupRenderer.minimapPoints()
       ]
     });
     if (frame) this.minimap.render(frame, time);

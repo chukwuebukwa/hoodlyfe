@@ -192,6 +192,26 @@ defineTypes(WeaponPickupState, {
   respawnAt: 'number'
 });
 
+export class CashPickupState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  amount = 0;
+  availableAt = 0;
+  expiresAt = 0;
+}
+
+defineTypes(CashPickupState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  amount: 'number',
+  availableAt: 'number',
+  expiresAt: 'number'
+});
+
 export class TrafficSignalState extends Schema {
   id = '';
   x = 0;
@@ -418,6 +438,7 @@ export class DistrictState extends Schema {
   thrownProjectiles = new MapSchema<ThrownProjectileState>();
   explosions = new MapSchema<ExplosionState>();
   weaponPickups = new MapSchema<WeaponPickupState>();
+  cashPickups = new MapSchema<CashPickupState>();
   trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
@@ -433,6 +454,7 @@ defineTypes(DistrictState, {
   thrownProjectiles: {map: ThrownProjectileState},
   explosions: {map: ExplosionState},
   weaponPickups: {map: WeaponPickupState},
+  cashPickups: {map: CashPickupState},
   trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
@@ -448,6 +470,7 @@ for (const field of [
   'thrownProjectiles',
   'explosions',
   'weaponPickups',
+  'cashPickups',
   'trafficSignals',
   'npcs',
   'vehicles',

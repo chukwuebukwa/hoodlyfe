@@ -4,6 +4,7 @@ import {Encoder} from '@colyseus/schema';
 import {DistrictReplicationController} from '../server/game/replication/district-replication-controller.ts';
 import {
   DistrictState,
+  CashPickupState,
   NpcState,
   PlayerState,
   StreetServiceState,
@@ -48,6 +49,37 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(interiorView.has(vehicle), false);
   assert.equal(interiorView.has(streetService), false);
   assert.equal(interiorView.has(interiorService), true);
+});
+
+test('district replication streams cash pickups with street AOI hysteresis', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  state.players.set(local.id, local);
+  const cash = new CashPickupState();
+  cash.id = 'cash:1';
+  cash.x = 1_200;
+  cash.amount = 100;
+  state.cashPickups.set(cash.id, cash);
+  const controller = new DistrictReplicationController(state);
+  const view = controller.attach(local.id);
+
+  assert.equal(view.has(cash), true);
+  cash.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(cash), true);
+  cash.x = 1_600;
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
+  cash.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
+  cash.x = 1_200;
+  controller.synchronize();
+  assert.equal(view.has(cash), true);
+
+  local.spaceId = 'threads-showroom';
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
 });
 
 test('district replication diffs a space transition and newly attached state', () => {

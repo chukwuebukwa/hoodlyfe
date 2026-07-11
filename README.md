@@ -9,7 +9,7 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - A converted 64-by-64 GTA2 Industrial District crop with layered roofs, roads, and collision.
 - Original player, civilian, and police idle/walk sprite sheets.
 - Automatic guest sessions with up to 32 players in one district.
-- Server-authoritative walking, aiming, weapon cycling, ammunition, bullets, damage, cash, death, and respawn.
+- Server-authoritative walking, aiming, weapon cycling, ammunition, bullets, damage, cash, death, recoverable death drops, and respawn.
 - Pistol, SMG, and shotgun slots with distinct held models, fire rates, spread, range, and projectile visuals.
 - Nameplates over every connected human player.
 - Wandering civilians that flee when attacked.

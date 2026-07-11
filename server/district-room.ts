@@ -47,6 +47,7 @@ import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
 import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
+import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -119,6 +120,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private explosionController!: ExplosionController;
   private thrownProjectileController!: ThrownProjectileController;
   private weaponPickupController!: WeaponPickupController;
+  private cashPickupController!: CashPickupController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
@@ -424,6 +426,15 @@ export class DistrictRoom extends Room<DistrictState> {
       nearbyPlayers,
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
+    this.cashPickupController = new CashPickupController({
+      state: this.state,
+      world: this.world,
+      economy: this.economyController,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      nearbyPlayers,
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+    });
     const sendWardrobeState = (playerId: string) => {
       const client = this.clients.find((candidate) => candidate.sessionId === playerId);
       client?.send(WARDROBE_STATE_MESSAGE, this.wardrobeController.snapshot(playerId));
@@ -677,6 +688,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.explosionController.observeEvents(events);
       this.missionController.observeEvents(events);
       this.pedestrians.observeEvents(events);
+      this.cashPickupController.observeEvents(events);
       this.debugProjection.update(events);
     });
   }
@@ -730,6 +742,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
     });
     this.weaponPickupController.update(now);
+    this.cashPickupController.update(now);
     this.crimeController.expire(now);
     this.missionController.update(now);
     this.lifecycle.flush();

@@ -170,6 +170,15 @@ export class DistrictReplicationController {
     for (const pickup of this.state.weaponPickups.values()) {
       this.addDesired(desired, pickup, 2, distance(x, y, pickup.x, pickup.y), `pickup:${pickup.id}`);
     }
+    for (const pickup of this.state.cashPickups.values()) {
+      const pickupDistance = distance(x, y, pickup.x, pickup.y);
+      if (!shouldReplicateStreetEntity({
+        distance: pickupDistance,
+        visible: projection.visible.has(pickup),
+        alwaysRelevant: false
+      })) continue;
+      this.addDesired(desired, pickup, 2, pickupDistance, `cash:${pickup.id}`);
+    }
     for (const signal of this.state.trafficSignals.values()) {
       this.addDesired(desired, signal, 2, distance(x, y, signal.x, signal.y), `signal:${signal.id}`);
     }

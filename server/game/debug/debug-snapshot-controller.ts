@@ -136,6 +136,8 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.kind} explosion ${event.explosionId} by ${event.sourceId || event.sourceKind}`;
     case 'pickup.collected':
       return `${event.playerId} collected ${event.quantity} ${event.weapon}`;
+    case 'cash-pickup.collected':
+      return `${event.playerId} collected $${event.amount}`;
     case 'damage.applied':
       return `${event.attackerId || 'world'} -> ${event.targetKind}:${event.targetId} -${event.amount}`;
     case 'entity.killed':

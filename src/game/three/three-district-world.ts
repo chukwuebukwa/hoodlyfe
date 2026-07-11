@@ -5,6 +5,7 @@ import {signalLampPresentation} from '../rendering/traffic-signal-render-policy.
 import {thrownProjectilePresentation} from '../rendering/thrown-projectile-render-policy.ts';
 import type {
   DistrictNetworkState,
+  NetworkCashPickup,
   NetworkExplosion,
   NetworkStreetService,
   NetworkTrafficSignal,
@@ -112,6 +113,19 @@ export class ThreeDistrictWorld {
       let group = this.markers.get(id);
       if (!group) {
         group = pickupMarker(pickup, this.grenadeTexture);
+        this.addMarker(id, group);
+      }
+      positionAtSurface(group, pickup.x, pickup.y, this.surfaceHeightAt(pickup.x, pickup.y) + 8);
+      pulseMarker(group, nowMs, pickup.id.length);
+    }
+    for (const pickup of localSpaceId === STREET_SPACE_ID
+      ? state.cashPickups?.values() ?? []
+      : []) {
+      const id = `cash:${pickup.id}`;
+      present.add(id);
+      let group = this.markers.get(id);
+      if (!group) {
+        group = cashMarker(pickup);
         this.addMarker(id, group);
       }
       positionAtSurface(group, pickup.x, pickup.y, this.surfaceHeightAt(pickup.x, pickup.y) + 8);
@@ -298,6 +312,15 @@ function pickupMarker(pickup: NetworkWeaponPickup, texture: THREE.Texture): THRE
   const icon = texturedPlane(texture, 17, 17, 24);
   icon.position.z = 2;
   group.add(icon);
+  return group;
+}
+
+function cashMarker(pickup: NetworkCashPickup): THREE.Group {
+  const group = ringMarker(17, 0x55e58b, `$${Math.max(0, Math.floor(pickup.amount))}`);
+  const glyph = textLabel('$', 0x55e58b);
+  glyph.scale.setScalar(1.35);
+  glyph.position.set(0, 0, 2);
+  group.add(glyph);
   return group;
 }
 

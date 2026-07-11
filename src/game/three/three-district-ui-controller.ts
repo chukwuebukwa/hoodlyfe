@@ -25,6 +25,7 @@ import {
   projectMissionHud
 } from '../missions/mission-presentation-policy.ts';
 import {weaponPickupMinimapPoints} from '../rendering/weapon-pickup-render-policy.ts';
+import {cashPickupMinimapPoints} from '../rendering/cash-pickup-render-policy.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
@@ -169,7 +170,8 @@ export class ThreeDistrictUiController {
         ...missionMinimapPoints(state, this.room.sessionId),
         ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID),
         ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),
-        ...weaponPickupMinimapPoints(state.weaponPickups?.values())
+        ...weaponPickupMinimapPoints(state.weaponPickups?.values()),
+        ...cashPickupMinimapPoints(state.cashPickups?.values())
       ]
     });
     if (frame) this.minimap?.render(frame, nowMs);
