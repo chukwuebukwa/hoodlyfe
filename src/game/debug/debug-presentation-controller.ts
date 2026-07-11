@@ -5,6 +5,7 @@ import {TRAFFIC_SIGNALS} from '../../../shared/content/traffic-signals.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {projectDebugPanel} from './debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
+import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -32,6 +33,7 @@ export class DebugPresentationController {
     private readonly room: Room<DistrictNetworkState>,
     private readonly tilemap: Phaser.Tilemaps.Tilemap,
     private readonly collisionLayer: Phaser.Tilemaps.TilemapLayer,
+    private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly root: Document = document
   ) {
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
@@ -57,7 +59,11 @@ export class DebugPresentationController {
       pursuits: this.root.querySelector('#debug-pursuits'),
       cruisers: this.root.querySelector('#debug-cruisers'),
       stimuli: this.root.querySelector('#debug-stimuli'),
-      signals: this.root.querySelector('#debug-signals')
+      signals: this.root.querySelector('#debug-signals'),
+      region: this.root.querySelector('#debug-region'),
+      latency: this.root.querySelector('#debug-latency'),
+      patchGap: this.root.querySelector('#debug-patch-gap'),
+      prediction: this.root.querySelector('#debug-prediction')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -508,7 +514,7 @@ export class DebugPresentationController {
   }
 
   private updatePanel(): void {
-    const projection = projectDebugPanel(this.state, this.snapshot);
+    const projection = projectDebugPanel(this.state, this.snapshot, this.networkQuality());
     for (const [field, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[field as keyof typeof projection]);
     }

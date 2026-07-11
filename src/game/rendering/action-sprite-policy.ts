@@ -8,7 +8,7 @@ import {
 export const ACTION_SPRITE_COLUMNS = 4;
 export const ACTION_SPRITE_ROWS = 3;
 export const VEHICLE_DOOR_COLUMNS = 5;
-export const VEHICLE_DOOR_ROWS = 3;
+export const VEHICLE_DOOR_ROWS = 5;
 
 export type CharacterActionSprite = 'walk' | 'melee' | 'dead' | 'vehicle';
 

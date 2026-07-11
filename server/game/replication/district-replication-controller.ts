@@ -37,6 +37,7 @@ interface ClientProjection {
   visible: Set<Schema>;
   awaitingCompleteSnapshot: Set<Schema>;
   diagnostic: DistrictReplicationDiagnostic;
+  anchor?: ReplicationAnchor;
 }
 
 interface DesiredSchema {
@@ -44,6 +45,12 @@ interface DesiredSchema {
   priority: number;
   distance: number;
   key: string;
+}
+
+export interface ReplicationAnchor {
+  x: number;
+  y: number;
+  spaceId?: string;
 }
 
 export class DistrictReplicationController {
@@ -65,13 +72,17 @@ export class DistrictReplicationController {
     );
   }
 
-  attach(playerId: string): StateView {
+  attach(playerId: string, anchor?: ReplicationAnchor): StateView {
     const existing = this.clients.get(playerId);
-    if (existing) return existing.view;
+    if (existing) {
+      existing.anchor = anchor;
+      return existing.view;
+    }
     const projection = {
       view: new StateView(),
       visible: new Set<Schema>(),
       awaitingCompleteSnapshot: new Set<Schema>(),
+      anchor,
       diagnostic: {
         playerId,
         spaceId: '',
@@ -107,8 +118,9 @@ export class DistrictReplicationController {
     const desired = new Map<Schema, DesiredSchema>();
     let nearbyActors = 0;
     let spaceId = '';
-    if (player) {
-      spaceId = player.spaceId || STREET_SPACE_ID;
+    const anchor = player ?? projection.anchor;
+    if (anchor) {
+      spaceId = anchor.spaceId || STREET_SPACE_ID;
       for (const candidate of this.state.players.values()) {
         if ((candidate.spaceId || STREET_SPACE_ID) === spaceId) {
           this.addDesired(desired, candidate, 0, 0, `player:${candidate.id}`);
@@ -120,7 +132,7 @@ export class DistrictReplicationController {
         }
       }
       if (spaceId === STREET_SPACE_ID) {
-        nearbyActors = this.addStreetState(playerId, player.x, player.y, projection, desired);
+        nearbyActors = this.addStreetState(playerId, anchor.x, anchor.y, projection, desired);
       }
     }
 

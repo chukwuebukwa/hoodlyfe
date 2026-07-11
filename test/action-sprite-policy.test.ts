@@ -65,6 +65,8 @@ test('vehicle kinds select their own row in the door atlas', () => {
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'sedan'}), 2), 2);
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'police'}), 2), 7);
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'taxi'}), 4), 14);
+  assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'r33'}), 2), 17);
+  assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 's15'}), 2), 22);
 });
 
 test('ejected drivers fall, settle, and recover before panic locomotion', () => {

@@ -71,6 +71,7 @@ export class PlayerState extends Schema {
   onFire = false;
   fireStartedAt = 0;
   fireExpiresAt = 0;
+  lastInputSequence = 0;
   appearance = new PlayerAppearanceState();
 }
 
@@ -111,6 +112,7 @@ defineTypes(PlayerState, {
   onFire: 'boolean',
   fireStartedAt: 'number',
   fireExpiresAt: 'number',
+  lastInputSequence: 'number',
   appearance: PlayerAppearanceState
 });
 

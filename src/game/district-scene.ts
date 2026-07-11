@@ -24,6 +24,7 @@ import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
 import {RadioSystem} from './audio/radio-system.ts';
 import {SfxSystem} from './audio/sfx-system.ts';
 import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
+import {NetworkQualityController} from './network/network-quality-controller.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 
@@ -53,6 +54,7 @@ export class DistrictScene extends Phaser.Scene {
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
   private interactionController!: InteractionPresentationController;
+  private networkQuality!: NetworkQualityController;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private minimap?: MinimapRenderer;
@@ -108,6 +110,12 @@ export class DistrictScene extends Phaser.Scene {
     const collisions = map.createLayer('collisions', tileset);
     if (!collisions) throw new Error('Industrial District collisions could not be loaded.');
     this.collisionLayer = collisions.setVisible(false);
+    this.networkQuality = new NetworkQualityController(this.room);
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.networkQuality.destroy,
+      this.networkQuality
+    );
 
     this.cameraController = new CameraPresentationController(this);
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
@@ -147,7 +155,8 @@ export class DistrictScene extends Phaser.Scene {
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {
         this.cameraController.followVehicle(vehicleId, container);
-      }
+      },
+      onPrediction: (error, snapped) => this.networkQuality?.observePrediction(error, snapped)
     });
     this.playerRenderer = new PlayerRenderer(this, {
       localPlayerId: this.room.sessionId,
@@ -188,7 +197,8 @@ export class DistrictScene extends Phaser.Scene {
       this,
       this.room,
       map,
-      this.collisionLayer
+      this.collisionLayer,
+      () => this.networkQuality.snapshot()
     );
     this.inputController = new ClientInputController({
       scene: this,
@@ -217,9 +227,11 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    this.networkQuality.update(time);
     const input = this.inputController.update(time);
     this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
-    this.interpolateEntities(time);
+    this.interpolateEntities(time, delta / 1000);
+    this.vehicleRenderer.predictLocalVehicle(input, delta / 1000);
     this.debugController.update(time);
     this.updateMinimap(time);
     this.missionController.drawWorld(time);
@@ -240,9 +252,11 @@ export class DistrictScene extends Phaser.Scene {
     this.playerRenderer.synchronize(state.players);
     this.pedestrianRenderer.synchronize(state.npcs);
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
+    const localPlayer = state.players?.get(this.room.sessionId);
+    const localDriverVehicleId = localPlayer?.vehicleSeat === 0 ? localVehicleId : '';
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
-    this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
-    const local = state.players?.get(this.room.sessionId);
+    this.vehicleRenderer.synchronize(state.vehicles, localVehicleId, localDriverVehicleId);
+    const local = localPlayer;
     this.radioSystem.synchronize(
       local,
       local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined
@@ -282,8 +296,8 @@ export class DistrictScene extends Phaser.Scene {
     this.debugController.synchronize(state);
   }
 
-  private interpolateEntities(time: number): void {
-    this.vehicleRenderer.interpolate(time);
+  private interpolateEntities(time: number, deltaSeconds: number): void {
+    this.vehicleRenderer.interpolate(time, deltaSeconds);
     this.playerRenderer.interpolate(time);
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();

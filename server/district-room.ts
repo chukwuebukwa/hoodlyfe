@@ -31,6 +31,15 @@ import {
   RADIO_STATION_MESSAGE,
   type RadioStationMessage
 } from '../shared/protocol/radio.ts';
+import {
+  PLAYER_SPAWN_MESSAGE,
+  type PlayerSpawnMessage
+} from '../shared/protocol/onboarding.ts';
+import {
+  NETWORK_PING_MESSAGE,
+  NETWORK_PONG_MESSAGE,
+  type NetworkPingMessage
+} from '../shared/protocol/network-quality.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
@@ -58,6 +67,7 @@ import {ActorBurnController} from './game/combat/actor-burn-controller.ts';
 import {RocketProjectileController} from './game/combat/rocket-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
+import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -97,6 +107,12 @@ interface DistrictRoomOptions {
   seed?: number;
 }
 
+interface DistrictJoinOptions {
+  name?: string;
+  appearance?: unknown;
+  spectator?: boolean;
+}
+
 type WorldEntityKind = 'player' | 'npc' | 'vehicle';
 
 export class DistrictRoom extends Room<DistrictState> {
@@ -109,6 +125,10 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
   private readonly debugSubscribers = new Set<string>();
+  private readonly networkProbe = new NetworkProbeController({
+    region: process.env.RAILWAY_REPLICA_REGION ?? process.env.GAME_REGION ?? 'local',
+    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? 'development'
+  });
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
   private economyController!: StreetEconomyController;
@@ -658,6 +678,15 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
     });
+    this.onMessage<NetworkPingMessage>(NETWORK_PING_MESSAGE, (client, message) => {
+      const response = this.networkProbe.accept(
+        client.sessionId,
+        message,
+        this.simulationClock.nowMs,
+        this.simulationClock.tick
+      );
+      if (response) client.send(NETWORK_PONG_MESSAGE, response);
+    });
 
     this.onMessage<PlayerAimInput>('aim', (client, message) => {
       this.playerControl.setAim(client.sessionId, message);
@@ -680,6 +709,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
       const status = this.appearanceController.update(client.sessionId, message);
       client.send(APPEARANCE_RESULT_MESSAGE, {status});
+    });
+    this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, (client, message) => {
+      this.spawnPlayer(client, {
+        name: message?.name,
+        appearance: message?.appearance
+      });
     });
     this.onMessage(WARDROBE_REQUEST_MESSAGE, (client) => sendWardrobeState(client.sessionId));
     this.onMessage<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
@@ -713,7 +748,19 @@ export class DistrictRoom extends Room<DistrictState> {
     });
   }
 
-  onJoin(client: Client, options: {name?: string; appearance?: unknown}): void {
+  onJoin(client: Client, options: DistrictJoinOptions = {}): void {
+    if (options.spectator) {
+      client.view = this.replicationController.attach(client.sessionId, {
+        ...this.world.spawnFor(this.state.players.size, PLAYER_RADIUS),
+        spaceId: 'street'
+      });
+      return;
+    }
+    this.spawnPlayer(client, options);
+  }
+
+  private spawnPlayer(client: Client, options: {name?: string; appearance?: unknown} = {}): void {
+    if (this.state.players.has(client.sessionId)) return;
     const spawn = this.world.spawnFor(this.state.players.size, PLAYER_RADIUS);
     const player = new PlayerState();
     player.id = client.sessionId;
@@ -733,6 +780,7 @@ export class DistrictRoom extends Room<DistrictState> {
   onLeave(client: Client): void {
     this.replicationController.detach(client.sessionId);
     this.debugSubscribers.delete(client.sessionId);
+    this.networkProbe.clear(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);

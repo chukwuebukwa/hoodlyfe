@@ -9,6 +9,7 @@ import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
 import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
 import {ThreeDayNightController} from './three-day-night-controller.ts';
+import {NetworkQualityController} from '../network/network-quality-controller.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {
   atlasUv,
@@ -49,6 +50,10 @@ interface PrototypePayload {
   surfaces: {width: number; height: number; values: number[]};
 }
 
+interface MapMetadataPayload {
+  spawn: {x: number; y: number};
+}
+
 interface PrototypeOccluder {
   id: string;
   bounds: {minX: number; minY: number; maxX: number; maxY: number; minZ: number; maxZ: number};
@@ -81,6 +86,7 @@ export class ThreePrototypeViewer {
   private ui?: ThreeDistrictUiController;
   private world?: ThreeDistrictWorld;
   private debug?: ThreeDebugController;
+  private networkQuality?: NetworkQualityController;
   private interiors?: ThreeInteriorRenderer;
   private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
@@ -105,6 +111,7 @@ export class ThreePrototypeViewer {
   async start(): Promise<void> {
     const payload = await loadPayload('/assets/maps/three/prototype.json');
     this.payload = payload;
+    const metadata = await loadMapMetadata('/assets/maps/district-map.metadata.json');
     const textureUrl = new URL(payload.atlas.image, `${window.location.origin}/assets/maps/three/`).toString();
     const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -123,7 +130,13 @@ export class ThreePrototypeViewer {
         this.room.sessionId,
         this.surfaceHeightAt
       );
-      this.debug = new ThreeDebugController(this.scene, this.room, this.surfaceHeightAt);
+      this.networkQuality = new NetworkQualityController(this.room);
+      this.debug = new ThreeDebugController(
+        this.scene,
+        this.room,
+        this.surfaceHeightAt,
+        () => this.networkQuality?.snapshot()
+      );
       if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
       }
@@ -140,6 +153,7 @@ export class ThreePrototypeViewer {
         surfaceZ: () => this.center.z,
         isBlocked: () => this.ui?.isInputBlocked() ?? false
       });
+      this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
       this.followLocalPlayer();
     } else {
       this.frameGeometry(map);
@@ -158,6 +172,7 @@ export class ThreePrototypeViewer {
     this.entities?.destroy();
     this.world?.destroy();
     this.debug?.destroy();
+    this.networkQuality?.destroy();
     this.interiors?.destroy();
     this.lighting?.destroy();
     this.qa?.destroy();
@@ -255,25 +270,36 @@ export class ThreePrototypeViewer {
   private readonly render = (): void => {
     const delta = Math.min(this.clock.getDelta(), 0.05);
     if (this.room) {
+      const now = performance.now();
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
       for (const [id, occluder] of this.mapOccluders) occluder.visible = id !== localSpaceId;
-      this.entities?.synchronize(this.room.state, localSpaceId);
-      this.world?.synchronize(this.room.state, performance.now(), localSpaceId);
-      this.debug?.update(this.room.state, performance.now());
-      this.qa?.update();
-      this.ui?.update(this.room.state, performance.now());
-      this.followLocalPlayer();
+      this.entities?.synchronize(this.room.state, localSpaceId, this.room.sessionId);
+      this.world?.synchronize(this.room.state, now, localSpaceId);
+      const movement = this.input?.update(now) ?? {x: 0, y: 0};
       const local = this.room.state.players.get(this.room.sessionId);
-      const vehicle = local?.vehicleId ? this.room.state.vehicles.get(local.vehicleId) : undefined;
-      const focusX = vehicle?.x ?? local?.x ?? this.center.x;
-      const focusY = vehicle?.y ?? local?.y ?? serverYToThree(this.center.y);
+      const localVehicle = local?.vehicleId
+        ? this.room.state.vehicles.get(local.vehicleId)
+        : undefined;
+      if (local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
+        const reconciliation = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);
+        if (reconciliation) {
+          this.networkQuality?.observePrediction(reconciliation.error, reconciliation.snapped);
+        }
+      }
+      this.networkQuality?.update(now);
+      this.debug?.update(this.room.state, now);
+      this.qa?.update();
+      this.ui?.update(this.room.state, now);
+      this.followLocalPlayer();
+      const vehiclePose = local?.vehicleId ? this.entities?.vehiclePose(local.vehicleId) : undefined;
+      const focusX = vehiclePose?.x ?? localVehicle?.x ?? local?.x ?? this.center.x;
+      const focusY = vehiclePose?.y ?? localVehicle?.y ?? local?.y ?? serverYToThree(this.center.y);
       const nightIntensity = this.lighting?.update({
         worldTimeStartedAt: this.room.state.worldTimeStartedAt ?? Date.now(),
         worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
         worldTimeRate: this.room.state.worldTimeRate ?? 0
       }, Date.now(), focusX, focusY, localSpaceId, this.status?.querySelector('#world-clock-status') ?? undefined) ?? 0;
       this.entities?.updateVehicleLights(nightIntensity, focusX, focusY);
-      this.input?.update(performance.now());
     } else {
       const pan = 260 * delta / this.zoom;
       if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) this.center.x -= pan;
@@ -338,8 +364,9 @@ export class ThreePrototypeViewer {
     const player = this.room?.state.players.get(this.room.sessionId);
     if (!player) return;
     const vehicle = player.vehicleId ? this.room?.state.vehicles.get(player.vehicleId) : undefined;
-    const x = vehicle?.x ?? player.x;
-    const y = vehicle?.y ?? player.y;
+    const vehiclePose = player.vehicleId ? this.entities?.vehiclePose(player.vehicleId) : undefined;
+    const x = vehiclePose?.x ?? vehicle?.x ?? player.x;
+    const y = vehiclePose?.y ?? vehicle?.y ?? player.y;
     this.renderer.domElement.dataset.localX = x.toFixed(2);
     this.renderer.domElement.dataset.localY = y.toFixed(2);
     this.renderer.domElement.dataset.localMode = vehicle ? 'vehicle' : 'foot';
@@ -350,6 +377,12 @@ export class ThreePrototypeViewer {
     } else {
       this.center.lerp(target, 0.2);
     }
+  }
+
+  private frameSpectatorSpawn(x: number, y: number): void {
+    if (this.centerInitialized || this.room?.state.players.get(this.room.sessionId)) return;
+    this.center.set(x, serverYToThree(y), this.surfaceHeightAt(x, y));
+    this.centerInitialized = true;
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
@@ -436,6 +469,12 @@ async function loadPayload(url: string): Promise<PrototypePayload> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Three prototype geometry failed to load (${response.status}).`);
   return response.json() as Promise<PrototypePayload>;
+}
+
+async function loadMapMetadata(url: string): Promise<MapMetadataPayload> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`District metadata failed to load (${response.status}).`);
+  return response.json() as Promise<MapMetadataPayload>;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

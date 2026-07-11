@@ -204,6 +204,8 @@ test('vehicle presentation stages model, component damage, fire, and destruction
   });
   assert.equal(vehicleVisualState(createVehicle({kind: 'police'})).frame, 1);
   assert.equal(vehicleVisualState(createVehicle({kind: 'taxi'})).frame, 2);
+  assert.equal(vehicleVisualState(createVehicle({kind: 'r33'})).frame, 3);
+  assert.equal(vehicleVisualState(createVehicle({kind: 's15'})).frame, 4);
   assert.equal(vehicleVisualState(createVehicle({health: 300})).stage, 'damaged');
   assert.equal(vehicleVisualState(createVehicle({engineDamage: 100})).stage, 'smoking');
   assert.equal(vehicleVisualState(createVehicle({onFire: true})).stage, 'burning');

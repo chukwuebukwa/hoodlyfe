@@ -47,6 +47,7 @@ export interface NetworkPlayer {
   onFire?: boolean;
   fireStartedAt?: number;
   fireExpiresAt?: number;
+  lastInputSequence?: number;
   appearance: PlayerAppearance;
 }
 

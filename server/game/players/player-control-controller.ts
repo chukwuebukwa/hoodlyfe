@@ -10,6 +10,7 @@ const PLAYER_SPEED = 190;
 export interface PlayerMoveInput {
   x?: number;
   y?: number;
+  sequence?: number;
 }
 
 export interface PlayerAimInput {
@@ -19,6 +20,7 @@ export interface PlayerAimInput {
 export interface PlayerControlState {
   inputX: number;
   inputY: number;
+  lastSequence: number;
 }
 
 interface PlayerControlControllerOptions {
@@ -33,7 +35,7 @@ export class PlayerControlController {
   constructor(private readonly options: PlayerControlControllerOptions) {}
 
   register(playerId: string): void {
-    this.controls.set(playerId, {inputX: 0, inputY: 0});
+    this.controls.set(playerId, {inputX: 0, inputY: 0, lastSequence: 0});
   }
 
   unregister(playerId: string): void {
@@ -43,10 +45,18 @@ export class PlayerControlController {
   setMove(playerId: string, input?: PlayerMoveInput): void {
     const control = this.controls.get(playerId);
     if (!control) return;
+    const requestedSequence = Number(input?.sequence);
+    const sequence = Number.isSafeInteger(requestedSequence)
+      ? requestedSequence
+      : control.lastSequence + 1;
+    if (sequence <= control.lastSequence || sequence - control.lastSequence > 4_096) return;
     const x = Number(input?.x);
     const y = Number(input?.y);
     control.inputX = Number.isFinite(x) ? clamp(x, -1, 1) : 0;
     control.inputY = Number.isFinite(y) ? clamp(y, -1, 1) : 0;
+    control.lastSequence = sequence;
+    const player = this.options.state.players.get(playerId);
+    if (player) player.lastInputSequence = sequence;
   }
 
   setAim(playerId: string, input?: PlayerAimInput): void {

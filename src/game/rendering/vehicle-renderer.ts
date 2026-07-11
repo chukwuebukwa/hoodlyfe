@@ -4,6 +4,11 @@ import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
 import type {VehicleRenderPose} from './render-types.ts';
 import {vehicleFrame, vehicleVisualState} from './vehicle-render-policy.ts';
+import type {MovementVector} from '../input/client-input-policy.ts';
+import {
+  predictVehiclePose,
+  reconcileVehiclePose
+} from '../prediction/vehicle-prediction-policy.ts';
 
 interface RenderVehicle {
   container: Phaser.GameObjects.Container;
@@ -15,7 +20,11 @@ interface RenderVehicle {
   targetX: number;
   targetY: number;
   targetAngle: number;
+  targetSpeed: number;
+  predictedSpeed: number;
+  kind: string;
   localOccupant: boolean;
+  localDriver: boolean;
 }
 
 interface VehicleRendererOptions {
@@ -24,6 +33,7 @@ interface VehicleRendererOptions {
     container: Phaser.GameObjects.Container,
     vehicle: NetworkVehicle
   ) => void;
+  onPrediction?: (error: number, snapped: boolean) => void;
 }
 
 export class VehicleRenderer {
@@ -36,11 +46,20 @@ export class VehicleRenderer {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
-  synchronize(vehicles?: Map<string, NetworkVehicle>, localVehicleId = ''): void {
+  synchronize(
+    vehicles?: Map<string, NetworkVehicle>,
+    localVehicleId = '',
+    localDriverVehicleId = ''
+  ): void {
     const present = new Set<string>();
     vehicles?.forEach((vehicle, vehicleId) => {
       present.add(vehicleId);
-      this.synchronizeOne(vehicleId, vehicle, localVehicleId === vehicleId);
+      this.synchronizeOne(
+        vehicleId,
+        vehicle,
+        localVehicleId === vehicleId,
+        localDriverVehicleId === vehicleId
+      );
     });
     for (const [vehicleId, rendered] of this.rendered) {
       if (present.has(vehicleId)) continue;
@@ -49,8 +68,28 @@ export class VehicleRenderer {
     }
   }
 
-  interpolate(time: number): void {
+  interpolate(time: number, deltaSeconds = 1 / 60): void {
     for (const rendered of this.rendered.values()) {
+      if (rendered.localDriver) {
+        const reconciliation = reconcileVehiclePose({
+          x: rendered.container.x,
+          y: rendered.container.y,
+          angle: rendered.container.rotation - Math.PI / 2,
+          speed: rendered.predictedSpeed
+        }, {
+          x: rendered.targetX,
+          y: rendered.targetY,
+          angle: rendered.targetAngle,
+          speed: rendered.targetSpeed
+        }, deltaSeconds);
+        rendered.container.setPosition(reconciliation.pose.x, reconciliation.pose.y);
+        rendered.container.rotation = reconciliation.pose.angle + Math.PI / 2;
+        rendered.predictedSpeed = reconciliation.pose.speed;
+        rendered.container.setDepth(Math.round(rendered.container.y) + 90);
+        this.animateEffects(rendered, time);
+        this.options.onPrediction?.(reconciliation.error, reconciliation.snapped);
+        continue;
+      }
       const position = interpolatePosition(
         rendered.container.x,
         rendered.container.y,
@@ -68,6 +107,20 @@ export class VehicleRenderer {
       rendered.container.setDepth(Math.round(rendered.container.y) + 90);
       this.animateEffects(rendered, time);
     }
+  }
+
+  predictLocalVehicle(movement: MovementVector, deltaSeconds: number): void {
+    const rendered = [...this.rendered.values()].find((candidate) => candidate.localDriver);
+    if (!rendered) return;
+    const predicted = predictVehiclePose({
+      x: rendered.container.x,
+      y: rendered.container.y,
+      angle: rendered.container.rotation - Math.PI / 2,
+      speed: rendered.predictedSpeed
+    }, movement, rendered.kind, deltaSeconds);
+    rendered.container.setPosition(predicted.x, predicted.y);
+    rendered.container.rotation = predicted.angle + Math.PI / 2;
+    rendered.predictedSpeed = predicted.speed;
   }
 
   pose(vehicleId: string): VehicleRenderPose | undefined {
@@ -89,17 +142,27 @@ export class VehicleRenderer {
   private synchronizeOne(
     vehicleId: string,
     vehicle: NetworkVehicle,
-    localOccupant: boolean
+    localOccupant: boolean,
+    localDriver: boolean
   ): void {
     let rendered = this.rendered.get(vehicleId);
     if (!rendered) {
       rendered = this.create(vehicle);
       this.rendered.set(vehicleId, rendered);
     }
+    const becameLocalDriver = localDriver && !rendered.localDriver;
     rendered.targetX = vehicle.x;
     rendered.targetY = vehicle.y;
     rendered.targetAngle = vehicle.angle;
+    rendered.targetSpeed = vehicle.speed;
+    rendered.kind = vehicle.kind;
     rendered.localOccupant = localOccupant;
+    rendered.localDriver = localDriver;
+    if (becameLocalDriver) {
+      rendered.container.setPosition(vehicle.x, vehicle.y);
+      rendered.container.rotation = vehicle.angle + Math.PI / 2;
+      rendered.predictedSpeed = vehicle.speed;
+    }
     const visual = vehicleVisualState(vehicle);
     rendered.sprite.setFrame(visual.frame).setAlpha(visual.alpha);
     rendered.smoke.setVisible(visual.smoke);
@@ -145,7 +208,11 @@ export class VehicleRenderer {
       targetX: vehicle.x,
       targetY: vehicle.y,
       targetAngle: vehicle.angle,
-      localOccupant: false
+      targetSpeed: vehicle.speed,
+      predictedSpeed: vehicle.speed,
+      kind: vehicle.kind,
+      localOccupant: false,
+      localDriver: false
     };
   }
 

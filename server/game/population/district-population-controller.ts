@@ -2,11 +2,23 @@ import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts
 import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 import {VehicleState, type DistrictState} from '../../state.ts';
+import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
 import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
 
 export const AMBIENT_TRAFFIC_TARGET = 16;
 const TRAFFIC_SPAWN_ATTEMPTS = 24;
 const TRAFFIC_SPAWN_GAP = 64;
+const PARKED_VEHICLE_KINDS: readonly VehicleKind[] = ['sedan', 'police', 'taxi', 'r33', 's15'];
+const AMBIENT_TRAFFIC_KINDS: readonly VehicleKind[] = [
+  'sedan',
+  'sedan',
+  'taxi',
+  'r33',
+  'sedan',
+  's15',
+  'taxi',
+  'sedan'
+];
 
 interface DistrictPopulationControllerOptions {
   state: DistrictState;
@@ -41,7 +53,7 @@ export class DistrictPopulationController {
     this.result = {
       civilians: 10,
       police: 3,
-      parkedVehicles: 3,
+      parkedVehicles: PARKED_VEHICLE_KINDS.length,
       trafficVehicles: this.options.includeAmbientTraffic === false ? 0 : AMBIENT_TRAFFIC_TARGET
     };
     return {...this.result};
@@ -57,7 +69,7 @@ export class DistrictPopulationController {
   }
 
   private spawnParkedVehicles(): void {
-    const kinds = ['sedan', 'police', 'taxi'];
+    const kinds = PARKED_VEHICLE_KINDS;
     for (let index = 0; index < kinds.length; index++) {
       let angle = index % 2 === 0 ? -Math.PI / 2 : 0;
       let position: {x: number; y: number};
@@ -94,7 +106,7 @@ export class DistrictPopulationController {
         : spawn;
       const vehicle = this.createVehicle(
         `traffic-${index + 1}`,
-        index % 4 === 2 ? 'taxi' : 'sedan',
+        AMBIENT_TRAFFIC_KINDS[index % AMBIENT_TRAFFIC_KINDS.length],
         position,
         spawn.angle
       );
@@ -137,7 +149,7 @@ export class DistrictPopulationController {
 
   private createVehicle(
     id: string,
-    kind: string,
+    kind: VehicleKind,
     position: {x: number; y: number},
     angle: number
   ): VehicleState {

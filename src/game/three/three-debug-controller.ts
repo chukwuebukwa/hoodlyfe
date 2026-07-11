@@ -5,6 +5,7 @@ import {projectDebugPanel} from '../debug/debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {serverYToThree} from './three-prototype-policy.ts';
+import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -31,7 +32,11 @@ export class ThreeDebugController {
     pursuits: document.querySelector('#debug-pursuits'),
     cruisers: document.querySelector('#debug-cruisers'),
     stimuli: document.querySelector('#debug-stimuli'),
-    signals: document.querySelector('#debug-signals')
+    signals: document.querySelector('#debug-signals'),
+    region: document.querySelector('#debug-region'),
+    latency: document.querySelector('#debug-latency'),
+    patchGap: document.querySelector('#debug-patch-gap'),
+    prediction: document.querySelector('#debug-prediction')
   };
   private snapshot?: DebugSnapshot;
   private state?: DistrictNetworkState;
@@ -41,7 +46,8 @@ export class ThreeDebugController {
   constructor(
     scene: THREE.Scene,
     room: Room<DistrictNetworkState>,
-    private readonly surfaceHeightAt: (x: number, y: number) => number
+    private readonly surfaceHeightAt: (x: number, y: number) => number,
+    private readonly networkQuality: () => NetworkQualitySnapshot | undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -87,7 +93,7 @@ export class ThreeDebugController {
   }
 
   private updatePanel(): void {
-    const projection = projectDebugPanel(this.state, this.snapshot);
+    const projection = projectDebugPanel(this.state, this.snapshot, this.networkQuality());
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);
     }

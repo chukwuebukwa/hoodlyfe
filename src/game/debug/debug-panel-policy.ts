@@ -1,5 +1,6 @@
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
+import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 
 export interface DebugPanelProjection {
   clock: string;
@@ -18,12 +19,17 @@ export interface DebugPanelProjection {
   cruisers: string;
   stimuli: number;
   signals: string;
+  region: string;
+  latency: string;
+  patchGap: string;
+  prediction: string;
   events: string[];
 }
 
 export function projectDebugPanel(
   state?: DistrictNetworkState,
-  snapshot?: DebugSnapshot
+  snapshot?: DebugSnapshot,
+  network?: NetworkQualitySnapshot
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -43,6 +49,14 @@ export function projectDebugPanel(
     cruisers: policeVehicleSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
+    region: network ? `${network.region} / ${network.buildId}` : 'unknown',
+    latency: network
+      ? `${network.rttMedianMs}/${network.rttP95Ms}ms +/-${network.jitterMs}`
+      : '0/0ms',
+    patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
+    prediction: network
+      ? `${network.predictionError}px / ${network.reconciliations} snap`
+      : '0px',
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']

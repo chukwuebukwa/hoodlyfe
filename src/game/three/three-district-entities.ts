@@ -51,6 +51,13 @@ import {
   renderedVehicleLampAnchor
 } from './three-prototype-policy.ts';
 import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
+import type {MovementVector} from '../input/client-input-policy.ts';
+import {
+  predictVehiclePose,
+  reconcileVehiclePose,
+  type VehicleReconciliation
+} from '../prediction/vehicle-prediction-policy.ts';
+import type {VehicleRenderPose} from '../rendering/render-types.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -72,6 +79,9 @@ interface RenderedEntity {
   vehicleActionStartedAt?: number;
   ejectionToken?: number;
   ejectionStartedAt?: number;
+  localDriver?: boolean;
+  predictedAngle?: number;
+  predictedSpeed?: number;
 }
 
 interface EntityTextures {
@@ -190,7 +200,11 @@ export class ThreeDistrictEntities {
     );
   }
 
-  synchronize(state: DistrictNetworkState, localSpaceId = 'street'): void {
+  synchronize(
+    state: DistrictNetworkState,
+    localSpaceId = 'street',
+    localPlayerId = ''
+  ): void {
     const present = new Set<string>();
     state.players.forEach((player, id) => {
       if ((player.spaceId || 'street') !== localSpaceId) return;
@@ -205,12 +219,67 @@ export class ThreeDistrictEntities {
     state.vehicles.forEach((vehicle, id) => {
       if (localSpaceId !== 'street') return;
       present.add(`vehicle:${id}`);
-      this.synchronizeVehicle(`vehicle:${id}`, vehicle, state.players.values());
+      const local = localPlayerId ? state.players.get(localPlayerId) : undefined;
+      this.synchronizeVehicle(
+        `vehicle:${id}`,
+        vehicle,
+        state.players.values(),
+        local?.vehicleId === id && local.vehicleSeat === 0
+      );
     });
     for (const [id, rendered] of this.rendered) {
       if (present.has(id)) continue;
       this.remove(id, rendered);
     }
+  }
+
+  vehiclePose(vehicleId: string): VehicleRenderPose | undefined {
+    const rendered = this.rendered.get(`vehicle:${vehicleId}`);
+    if (!rendered) return undefined;
+    return {
+      x: rendered.mesh.position.x,
+      y: serverYToThree(rendered.mesh.position.y),
+      angle: rendered.predictedAngle ?? 0
+    };
+  }
+
+  predictLocalVehicle(
+    vehicleId: string,
+    movement: MovementVector,
+    deltaSeconds: number
+  ): VehicleReconciliation | undefined {
+    const rendered = this.rendered.get(`vehicle:${vehicleId}`);
+    const vehicle = rendered?.mesh.userData.vehicle as NetworkVehicle | undefined;
+    if (!rendered?.localDriver || !vehicle) return undefined;
+    const reconciliation = reconcileVehiclePose({
+      x: rendered.mesh.position.x,
+      y: serverYToThree(rendered.mesh.position.y),
+      angle: rendered.predictedAngle ?? vehicle.angle,
+      speed: rendered.predictedSpeed ?? vehicle.speed
+    }, {
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      speed: vehicle.speed
+    }, deltaSeconds);
+    const predicted = predictVehiclePose(
+      reconciliation.pose,
+      movement,
+      vehicle.kind,
+      deltaSeconds
+    );
+    rendered.predictedAngle = predicted.angle;
+    rendered.predictedSpeed = predicted.speed;
+    rendered.mesh.position.set(
+      predicted.x,
+      serverYToThree(predicted.y),
+      this.surfaceHeightAt(predicted.x, predicted.y) + 3
+    );
+    rendered.mesh.rotation.z = serverVehicleAngleToThree(predicted.angle);
+    rendered.mesh.userData.worldX = predicted.x;
+    rendered.mesh.userData.worldY = predicted.y;
+    this.positionVehicleEffects(rendered, vehicle);
+    return reconciliation;
   }
 
   updateVehicleLights(nightIntensity: number, focusX: number, focusY: number): void {
@@ -362,8 +431,11 @@ export class ThreeDistrictEntities {
       weaponMesh.userData.weapon = player.weapon;
     }
     const vehicle = player.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
-    const passenger = vehicle && player.vehicleSeat > 0
-      ? passengerPresentation(vehicle, player.vehicleSeat, player.angle, performance.now(), false)
+    const vehiclePose = vehicle
+      ? this.vehiclePose(player.vehicleId) ?? vehicle
+      : undefined;
+    const passenger = vehiclePose && player.vehicleSeat > 0
+      ? passengerPresentation(vehiclePose, player.vehicleSeat, player.angle, performance.now(), false)
       : undefined;
     const x = passenger?.spriteX ?? player.x;
     const y = passenger?.spriteY ?? player.y;
@@ -434,8 +506,8 @@ export class ThreeDistrictEntities {
         (!player.action || player.action === 'melee');
     }
     if (rendered.label) {
-      const labelX = vehicle?.x ?? player.x;
-      const labelY = vehicle?.y ?? player.y;
+      const labelX = vehiclePose?.x ?? player.x;
+      const labelY = vehiclePose?.y ?? player.y;
       const labelZ = this.surfaceHeightAt(labelX, labelY) + 12;
       rendered.label.position.set(
         labelX,
@@ -535,7 +607,8 @@ export class ThreeDistrictEntities {
   private synchronizeVehicle(
     id: string,
     vehicle: NetworkVehicle,
-    players: Iterable<NetworkPlayer>
+    players: Iterable<NetworkPlayer>,
+    localDriver: boolean
   ): void {
     const definition = vehicleDefinition(vehicle.kind);
     const visual = vehicleVisualState(vehicle);
@@ -559,6 +632,19 @@ export class ThreeDistrictEntities {
         ? radialGlow(38, 0x3c73ff, 0, 9)
         : undefined
     }));
+    const becameLocalDriver = localDriver && !rendered.localDriver;
+    rendered.localDriver = localDriver;
+    if (becameLocalDriver) {
+      rendered.predictedAngle = vehicle.angle;
+      rendered.predictedSpeed = vehicle.speed;
+      rendered.mesh.position.set(
+        vehicle.x,
+        serverYToThree(vehicle.y),
+        this.surfaceHeightAt(vehicle.x, vehicle.y) + 3
+      );
+      rendered.mesh.rotation.z = serverVehicleAngleToThree(vehicle.angle);
+      rendered.mesh.userData.positionInitialized = true;
+    }
     const door = vehicleDoorPresentation(vehicle, players);
     setSpriteFrame(
       rendered.mesh,
@@ -567,18 +653,26 @@ export class ThreeDistrictEntities {
       vehicleDoorAtlasFrame(vehicle, door.frame)
     );
     const z = this.surfaceHeightAt(vehicle.x, vehicle.y) + 3;
-    positionEntity(rendered.mesh, vehicle.x, vehicle.y, z, 0.3);
-    rendered.mesh.rotation.z = rotateTowards(
-      rendered.mesh.rotation.z,
-      serverVehicleAngleToThree(vehicle.angle),
-      0.2
-    );
+    if (!localDriver) {
+      positionEntity(rendered.mesh, vehicle.x, vehicle.y, z, 0.3);
+      rendered.mesh.rotation.z = rotateTowards(
+        rendered.mesh.rotation.z,
+        serverVehicleAngleToThree(vehicle.angle),
+        0.2
+      );
+      rendered.predictedAngle = vehicle.angle;
+      rendered.predictedSpeed = vehicle.speed;
+    }
     rendered.mesh.visible = true;
     rendered.mesh.material.opacity = visual.alpha;
     rendered.mesh.material.color.setHex(visual.tint ?? 0xffffff);
     rendered.mesh.userData.worldX = vehicle.x;
     rendered.mesh.userData.worldY = vehicle.y;
     rendered.mesh.userData.vehicle = vehicle;
+    this.positionVehicleEffects(rendered, vehicle);
+  }
+
+  private positionVehicleEffects(rendered: RenderedEntity, vehicle: NetworkVehicle): void {
     const frontLamp = renderedVehicleLampAnchor(
       rendered.mesh.position.x,
       rendered.mesh.position.y,
@@ -609,36 +703,46 @@ export class ThreeDistrictEntities {
       rendered.taillight.rotation.z = rearLamp.rotation;
       rendered.taillight.scale.set(1.15, 0.52, 1);
     }
-    const angle = rendered.mesh.rotation.z;
+    const angle = frontLamp.rotation;
     const emergency = emergencyLightPresentation(vehicle, performance.now());
     const rightX = -Math.sin(angle);
     const rightY = Math.cos(angle);
     if (rendered.emergencyRed) {
       rendered.emergencyRed.position.set(
-        vehicle.x - rightX * 8,
-        serverYToThree(vehicle.y) - rightY * 8,
-        z + 3
+        rendered.mesh.position.x - rightX * 8,
+        rendered.mesh.position.y - rightY * 8,
+        rendered.mesh.position.z + 3
       );
       rendered.emergencyRed.visible = emergency.active;
       updateRadialGlow(rendered.emergencyRed, 0xff303f, emergency.redOpacity);
     }
     if (rendered.emergencyBlue) {
       rendered.emergencyBlue.position.set(
-        vehicle.x + rightX * 8,
-        serverYToThree(vehicle.y) + rightY * 8,
-        z + 3
+        rendered.mesh.position.x + rightX * 8,
+        rendered.mesh.position.y + rightY * 8,
+        rendered.mesh.position.z + 3
       );
       rendered.emergencyBlue.visible = emergency.active;
       updateRadialGlow(rendered.emergencyBlue, 0x3c73ff, emergency.blueOpacity);
     }
     if (rendered.smoke) {
-      rendered.smoke.position.set(vehicle.x - 12, serverYToThree(vehicle.y) + 5, z + 4);
+      rendered.smoke.position.set(
+        rendered.mesh.position.x - 12,
+        rendered.mesh.position.y + 5,
+        rendered.mesh.position.z + 4
+      );
+      const visual = vehicleVisualState(vehicle);
       rendered.smoke.visible = visual.smoke;
       const pulse = 0.85 + Math.sin(performance.now() / 170) * 0.18;
       rendered.smoke.scale.setScalar(pulse);
     }
     if (rendered.fire) {
-      rendered.fire.position.set(vehicle.x - 9, serverYToThree(vehicle.y) + 4, z + 5);
+      rendered.fire.position.set(
+        rendered.mesh.position.x - 9,
+        rendered.mesh.position.y + 4,
+        rendered.mesh.position.z + 5
+      );
+      const visual = vehicleVisualState(vehicle);
       rendered.fire.visible = visual.fire;
       rendered.fire.scale.setScalar(0.82 + Math.sin(performance.now() / 65) * 0.2);
     }
