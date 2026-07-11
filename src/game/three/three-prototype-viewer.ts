@@ -8,6 +8,7 @@ import {ThreeDebugController} from './three-debug-controller.ts';
 import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
 import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
+import {ThreeDayNightController} from './three-day-night-controller.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {
   atlasUv,
@@ -81,6 +82,7 @@ export class ThreePrototypeViewer {
   private world?: ThreeDistrictWorld;
   private debug?: ThreeDebugController;
   private interiors?: ThreeInteriorRenderer;
+  private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
   private qa?: ThreeQaDriver;
   private payload?: PrototypePayload;
@@ -111,6 +113,7 @@ export class ThreePrototypeViewer {
     texture.flipY = false;
     const map = this.createMap(payload, texture);
     this.scene.add(map);
+    this.lighting = await ThreeDayNightController.create(this.scene, this.surfaceHeightAt);
     if (this.room) {
       this.interiors = new ThreeInteriorRenderer(this.scene);
       this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
@@ -156,6 +159,7 @@ export class ThreePrototypeViewer {
     this.world?.destroy();
     this.debug?.destroy();
     this.interiors?.destroy();
+    this.lighting?.destroy();
     this.qa?.destroy();
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -242,7 +246,8 @@ export class ThreePrototypeViewer {
     const roofTriangles = [...this.mapOccluders.values()]
       .reduce((sum, occluder) => sum + Number(occluder.userData.triangleCount ?? 0), 0);
     status.innerHTML = `<strong>3D GEOMETRY</strong><span>REGION ${payload.chunk.x}:${payload.chunk.y}</span>` +
-      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>`;
+      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>` +
+      `<b id="world-clock-status">08:00 DAY</b>`;
     document.querySelector('#game-shell')?.append(status);
     this.status = status;
   }
@@ -258,6 +263,15 @@ export class ThreePrototypeViewer {
       this.qa?.update();
       this.ui?.update(this.room.state, performance.now());
       this.followLocalPlayer();
+      const local = this.room.state.players.get(this.room.sessionId);
+      const vehicle = local?.vehicleId ? this.room.state.vehicles.get(local.vehicleId) : undefined;
+      const focusX = vehicle?.x ?? local?.x ?? this.center.x;
+      const focusY = vehicle?.y ?? local?.y ?? serverYToThree(this.center.y);
+      this.lighting?.update({
+        worldTimeStartedAt: this.room.state.worldTimeStartedAt ?? Date.now(),
+        worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
+        worldTimeRate: this.room.state.worldTimeRate ?? 0
+      }, Date.now(), focusX, focusY, localSpaceId, this.status?.querySelector('#world-clock-status') ?? undefined);
       this.input?.update(performance.now());
     } else {
       const pan = 260 * delta / this.zoom;
@@ -404,10 +418,11 @@ function createMapMesh(
     geometry.addGroup(opaqueIndices.length, alphaIndices.length, 1);
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
+    geometry.computeVertexNormals();
 
     const common = {map: texture, vertexColors: true, side: THREE.DoubleSide} as const;
-    const opaque = new THREE.MeshBasicMaterial(common);
-    const alphaTested = new THREE.MeshBasicMaterial({
+    const opaque = new THREE.MeshLambertMaterial(common);
+    const alphaTested = new THREE.MeshLambertMaterial({
       ...common,
       alphaTest: 0.05,
       transparent: true,

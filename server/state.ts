@@ -14,6 +14,7 @@ export class PlayerAppearanceState extends Schema {
   bottomColor = 'denim';
   shoeStyle = 'runners';
   shoeColor = 'white';
+  lpcRecipe = '';
 }
 
 defineTypes(PlayerAppearanceState, {
@@ -29,7 +30,8 @@ defineTypes(PlayerAppearanceState, {
   bottomStyle: 'string',
   bottomColor: 'string',
   shoeStyle: 'string',
-  shoeColor: 'string'
+  shoeColor: 'string',
+  lpcRecipe: 'string'
 });
 
 export class PlayerState extends Schema {
@@ -469,6 +471,9 @@ export class DistrictState extends Schema {
   vehicles = new MapSchema<VehicleState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
+  worldTimeStartedAt = 0;
+  worldTimeStartMinute = 0;
+  worldTimeRate = 0;
   missionContactX = 0;
   missionContactY = 0;
 }
@@ -486,6 +491,9 @@ defineTypes(DistrictState, {
   vehicles: {map: VehicleState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
+  worldTimeStartedAt: 'number',
+  worldTimeStartMinute: 'number',
+  worldTimeRate: 'number',
   missionContactX: 'number',
   missionContactY: 'number'
 });

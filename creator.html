@@ -4,43 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111416">
-  <meta name="description" content="NOCK0 standalone character sprite studio">
-  <title>NOCK0 Character Lab</title>
+  <meta name="description" content="NOCK0 LPC character editor">
+  <title>NOCK0 LPC Character Editor</title>
 </head>
 <body>
   <main id="creator-app">
     <header class="studio-header">
       <div class="studio-brand">
         <span class="brand-mark">N0</span>
-        <div><strong>CHARACTER LAB</strong><span>Sprite compiler / atlas v1</span></div>
+        <div><strong>LPC CHARACTER EDITOR</strong><span>Recipe compiler / atlas v1</span></div>
       </div>
       <div class="compile-state" id="compile-state" role="status"><i></i> READY</div>
       <nav aria-label="Studio actions">
         <button id="randomize-look" type="button">RANDOM</button>
         <button id="reset-look" type="button">RESET</button>
         <button id="import-look" type="button">IMPORT</button>
-        <button id="save-look" class="primary" type="button">SAVE</button>
+        <button id="save-look" class="primary" type="button">USE IN GAME</button>
       </nav>
       <input id="import-recipe" type="file" accept="application/json,.json" hidden>
     </header>
 
     <aside class="parts-panel" aria-label="Character part catalog">
       <header><span>01</span><div><strong>PARTS</strong><small id="part-count">0 OPTIONS</small></div></header>
-      <section class="preset-rail" aria-label="Preset builds">
-        <div class="section-label"><strong>PRESETS</strong><span>GAME LOADOUTS</span></div>
-        <div id="preset-list"></div>
-      </section>
-      <label class="filter-field">FILTER PARTS<input id="part-filter" autocomplete="off" placeholder="hair, jacket, boots"></label>
       <div id="part-categories" role="tablist" aria-label="Part category">
-        <button type="button" role="tab" data-category="body" aria-selected="true">BODY</button>
-        <button type="button" role="tab" data-category="skin" aria-selected="false">SKIN</button>
-        <button type="button" role="tab" data-category="hair" aria-selected="false">HAIR</button>
-        <button type="button" role="tab" data-category="headwear" aria-selected="false">HEAD</button>
+        <button type="button" role="tab" data-category="face" aria-selected="false">FACE</button>
+        <button type="button" role="tab" data-category="hair" aria-selected="true">HAIR</button>
+        <button type="button" role="tab" data-category="hat" aria-selected="false">HAT</button>
         <button type="button" role="tab" data-category="top" aria-selected="false">TOP</button>
-        <button type="button" role="tab" data-category="bottom" aria-selected="false">LEGS</button>
+        <button type="button" role="tab" data-category="legs" aria-selected="false">LEGS</button>
         <button type="button" role="tab" data-category="shoes" aria-selected="false">SHOES</button>
       </div>
-      <div class="part-readout" id="selected-part-meta"></div>
       <div id="part-options" aria-live="polite"></div>
     </aside>
 
@@ -49,7 +42,7 @@
         <div><span>02</span><div><strong id="clip-title">IDLE</strong><small id="frame-readout">FRAME 01 / 01</small></div></div>
         <div class="asset-contract" aria-label="Runtime sprite contract">
           <span>72PX</span>
-          <span>WALK 3x3</span>
+          <span>WALK 9x4</span>
           <span>ACTION 4x3</span>
         </div>
         <div id="zoom-controls" role="group" aria-label="Preview zoom">
@@ -65,14 +58,11 @@
         <span class="stage-origin">ROOT 36:48</span>
       </div>
       <div id="clip-selector" role="tablist" aria-label="Animation clip">
-        <button type="button" role="tab" data-clip="idle" aria-selected="true">IDLE</button>
-        <button type="button" role="tab" data-clip="walk" aria-selected="false">WALK</button>
+        <button type="button" role="tab" data-clip="idle" aria-selected="false">IDLE</button>
+        <button type="button" role="tab" data-clip="walk" aria-selected="true">WALK</button>
         <button type="button" role="tab" data-clip="melee" aria-selected="false">MELEE</button>
         <button type="button" role="tab" data-clip="hit" aria-selected="false">HIT</button>
-        <button type="button" role="tab" data-clip="knockdown" aria-selected="false">FALL</button>
-        <button type="button" role="tab" data-clip="vehicleEnter" aria-selected="false">ENTER</button>
-        <button type="button" role="tab" data-clip="carjack" aria-selected="false">CARJACK</button>
-        <button type="button" role="tab" data-clip="dead" aria-selected="false">DEAD</button>
+        <button type="button" role="tab" data-clip="vehicle" aria-selected="false">VEHICLE</button>
       </div>
       <div class="timeline-shell">
         <span>FRAMES</span>
@@ -85,13 +75,13 @@
       <label class="name-field">OUTFIT NAME<input id="outfit-name" maxlength="24" autocomplete="off"></label>
 
       <section class="materials-section">
-        <div class="section-label"><strong>MATERIAL</strong><span id="material-name">TOP</span></div>
+        <div class="section-label"><strong>MATERIAL</strong><span id="material-name">HAIR</span></div>
         <div id="material-tabs" role="tablist" aria-label="Material channel">
-          <button type="button" role="tab" data-material="hairColor" aria-selected="false">HAIR</button>
-          <button type="button" role="tab" data-material="topColor" aria-selected="true">TOP</button>
-          <button type="button" role="tab" data-material="accentColor" aria-selected="false">TRIM</button>
-          <button type="button" role="tab" data-material="bottomColor" aria-selected="false">LEGS</button>
-          <button type="button" role="tab" data-material="shoeColor" aria-selected="false">SHOES</button>
+          <button type="button" role="tab" data-material="hairColor" aria-selected="true">HAIR</button>
+          <button type="button" role="tab" data-material="hatColor" aria-selected="false">HAT</button>
+          <button type="button" role="tab" data-material="topColor" aria-selected="false">TOP</button>
+          <button type="button" role="tab" data-material="legsColor" aria-selected="false">LEGS</button>
+          <button type="button" role="tab" data-material="shoesColor" aria-selected="false">SHOES</button>
         </div>
         <div id="material-swatches" aria-label="Material palette"></div>
       </section>
@@ -99,7 +89,7 @@
       <section class="output-section">
         <div class="section-label"><strong>OUTPUT</strong><span>RGBA / 72PX</span></div>
         <dl>
-          <div><dt>WALK</dt><dd>216 x 216</dd></div>
+          <div><dt>WALK</dt><dd>648 x 288</dd></div>
           <div><dt>ACTIONS</dt><dd>288 x 216</dd></div>
           <div><dt>BODY</dt><dd id="body-family">STANDARD-01</dd></div>
           <div><dt>CACHE</dt><dd id="recipe-key">---</dd></div>

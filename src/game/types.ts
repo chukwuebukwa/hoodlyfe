@@ -235,6 +235,9 @@ export interface DistrictNetworkState {
   vehicles: Map<string, NetworkVehicle>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
+  worldTimeStartedAt?: number;
+  worldTimeStartMinute?: number;
+  worldTimeRate?: number;
   missionContactX: number;
   missionContactY: number;
 }

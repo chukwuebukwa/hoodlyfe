@@ -31,6 +31,7 @@ import {SfxSystem} from '../audio/sfx-system.ts';
 import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 
 const UI_INTERVAL_MS = 100;
 
@@ -40,6 +41,7 @@ export class ThreeDistrictUiController {
   private readonly sfx: SfxSystem;
   private readonly vehicleAudio: VehicleAudioSystem;
   private readonly medical: MedicalCarePresentationController;
+  private readonly appearance: AppearanceCreatorController;
   private readonly minimap?: MinimapRenderer;
   private readonly missionHud = document.querySelector<HTMLElement>('#mission-hud');
   private readonly missionTitle = document.querySelector('#mission-title');
@@ -64,6 +66,7 @@ export class ThreeDistrictUiController {
     this.sfx = new SfxSystem(room);
     this.vehicleAudio = new VehicleAudioSystem();
     this.medical = new MedicalCarePresentationController(room);
+    this.appearance = new AppearanceCreatorController(room, room.sessionId);
     const canvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (canvas) {
       this.minimap = new MinimapRenderer(
@@ -85,7 +88,7 @@ export class ThreeDistrictUiController {
   }
 
   isInputBlocked(): boolean {
-    return false;
+    return this.appearance.isOpen();
   }
 
   update(state: DistrictNetworkState, nowMs: number): void {
@@ -103,6 +106,7 @@ export class ThreeDistrictUiController {
       Boolean(local && local.spaceId !== STREET_SPACE_ID)
     );
     this.medical.synchronize(local);
+    this.appearance.synchronize(state);
     this.updateInteraction(state);
     if (onStreet) {
       this.updateMission(state);
@@ -129,6 +133,7 @@ export class ThreeDistrictUiController {
     this.room.onLeave.remove(this.handleDisconnected);
     this.room.onError.remove(this.handleDisconnected);
     this.medical.destroy();
+    this.appearance.destroy();
     this.radio.destroy();
     this.sfx.destroy();
     this.vehicleAudio.destroy();

@@ -10,7 +10,13 @@ import {
   appearanceSpritePresentation,
 } from '../appearance/appearance-render-policy.ts';
 import {compileCharacterSpriteSet} from '../appearance/character-sprite-compiler.ts';
+import {
+  compileLpcCharacterSpriteSet,
+  loadLpcSpriteSources,
+  type LpcSpriteSources
+} from '../appearance/lpc-character-sprite-compiler.ts';
 import {CHARACTER_ATLASES} from '../../../shared/content/character-animation-manifest.ts';
+import {parseLpcRecipe} from '../../../shared/content/lpc-character-catalog.ts';
 import {
   meleeAttackPresentationAtProgress,
   passengerPresentation,
@@ -114,6 +120,7 @@ export class ThreeDistrictEntities {
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly textures: EntityTextures,
+    private readonly lpcSources: LpcSpriteSources,
     private readonly surfaceHeightAt: (x: number, y: number) => number
   ) {}
 
@@ -123,6 +130,7 @@ export class ThreeDistrictEntities {
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
+    const lpcSources = await loadLpcSpriteSources();
     const [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
       civilianActions, policeActions,
@@ -165,6 +173,7 @@ export class ThreeDistrictEntities {
         civilianActions, policeActions,
         vehicleDoors, blood, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade}
       },
+      lpcSources,
       surfaceHeightAt
     );
   }
@@ -545,6 +554,29 @@ export class ThreeDistrictEntities {
   }
 
   private appearanceTextureSet(player: NetworkPlayer): CompiledAppearanceTextures {
+    const lpcRecipe = parseLpcRecipe(player.appearance.lpcRecipe);
+    if (lpcRecipe) {
+      const compiledKey = `lpc:${player.appearance.lpcRecipe}`;
+      const cached = this.appearances.get(compiledKey);
+      if (cached) return cached;
+      const compiled = compileLpcCharacterSpriteSet(this.lpcSources, lpcRecipe);
+      const walk = new THREE.CanvasTexture(compiled.walk);
+      const actions = new THREE.CanvasTexture(compiled.actions);
+      configureTexture(walk);
+      configureTexture(actions);
+      const textures = {
+        walk,
+        walkColumns: 9,
+        walkRows: 4,
+        directionalWalk: true,
+        actions,
+        actionsColumns: ACTION_SPRITE_COLUMNS,
+        actionsRows: ACTION_SPRITE_ROWS
+      };
+      this.appearances.set(compiledKey, textures);
+      this.trimAppearanceCache(compiledKey);
+      return textures;
+    }
     const presentation = appearanceSpritePresentation(player.appearance);
     const cached = this.appearances.get(presentation.textureKey);
     if (cached) return cached;

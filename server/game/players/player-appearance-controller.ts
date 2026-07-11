@@ -66,4 +66,5 @@ function assignAppearance(target: PlayerAppearanceState, appearance: PlayerAppea
   target.bottomColor = appearance.bottomColor;
   target.shoeStyle = appearance.shoeStyle;
   target.shoeColor = appearance.shoeColor;
+  target.lpcRecipe = appearance.lpcRecipe ?? '';
 }

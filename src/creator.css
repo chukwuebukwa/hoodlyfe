@@ -227,7 +227,7 @@ summary:focus-visible {
 
 #part-categories {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -393,7 +393,7 @@ summary:focus-visible {
 #clip-selector {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
 }
@@ -532,6 +532,11 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
+#material-swatches button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .output-section dl {
   display: grid;
   margin: 0;
@@ -568,6 +573,38 @@ summary:focus-visible {
 
 .recipe-details {
   border-top: 1px solid var(--color-line);
+}
+
+.compat-section {
+  border-top: 1px solid var(--color-line);
+}
+
+#validation-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3) 30px;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+#layer-stack {
+  display: grid;
+  gap: 1px;
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.layer-row {
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 8px;
+  border: 1px solid var(--color-line);
+  color: var(--color-muted);
+  background: var(--color-stage);
+  font: 750 8px/1 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recipe-details summary {
@@ -646,7 +683,7 @@ summary:focus-visible {
   }
 
   #clip-selector {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -732,7 +769,7 @@ summary:focus-visible {
   }
 
   #part-categories {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   #material-swatches {

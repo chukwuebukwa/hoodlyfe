@@ -1,127 +1,115 @@
 import type {Room} from 'colyseus.js';
 import {
-  APPEARANCE_COLORS,
-  BODY_OPTIONS,
-  BOTTOM_OPTIONS,
-  COLOR_OPTIONS,
-  COLOR_VALUES,
-  HAIR_OPTIONS,
-  HEADWEAR_OPTIONS,
-  SHOE_OPTIONS,
-  SKIN_OPTIONS,
-  TOP_OPTIONS,
+  DEFAULT_LPC_RECIPE,
+  LPC_COLOR_OPTIONS,
+  LPC_COLOR_VALUES,
+  LPC_FACE_OPTIONS,
+  LPC_HAT_OPTIONS,
+  LPC_HAIR_OPTIONS,
+  LPC_LEGS_OPTIONS,
+  LPC_SHOE_OPTIONS,
+  LPC_TOP_OPTIONS,
+  cloneLpcRecipe,
+  parseLpcRecipe,
+  serializeLpcRecipe,
+  validateLpcCharacterRecipe,
+  type LpcCharacterRecipe,
+  type LpcColorId,
+  type LpcOption
+} from '../../../shared/content/lpc-character-catalog.ts';
+import {
   cloneAppearance,
   validateAppearance,
-  type AppearanceColorId,
-  type AppearanceOption,
   type PlayerAppearance
 } from '../../../shared/content/appearance-catalog.ts';
-import {
-  wardrobeItemForField,
-  type WardrobeItemId
-} from '../../../shared/content/wardrobe-catalog.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {saveAppearance} from './appearance-storage.ts';
 import {
-  appearanceSpritePresentation,
-} from './appearance-render-policy.ts';
-import {
-  compileCharacterSpriteSet,
-  type CompiledCharacterSpriteSet
-} from './character-sprite-compiler.ts';
-import {
-  CHARACTER_ATLASES,
-  CHARACTER_CLIPS,
-  characterClipFrame,
-  type CharacterClipId
-} from '../../../shared/content/character-animation-manifest.ts';
+  compileLpcCharacterSpriteSet,
+  loadLpcSpriteSources,
+  type CompiledLpcCharacterSpriteSet,
+  type LpcSpriteSources
+} from './lpc-character-sprite-compiler.ts';
 import {WardrobeClientSession} from './wardrobe-client-session.ts';
 
-type ColorField = 'hairColor' | 'topColor' | 'accentColor' | 'bottomColor' | 'shoeColor';
+type LpcPartCategory = 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
+type LpcMaterialField = 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
+
+interface PartCategoryDefinition<T extends string> {
+  field: keyof LpcCharacterRecipe;
+  label: string;
+  options: readonly LpcOption<T>[];
+}
+
+const PART_CATEGORIES: Readonly<Record<LpcPartCategory, PartCategoryDefinition<string>>> = {
+  face: {field: 'face', label: 'Face', options: LPC_FACE_OPTIONS},
+  hair: {field: 'hair', label: 'Hair', options: LPC_HAIR_OPTIONS},
+  hat: {field: 'hat', label: 'Hat', options: LPC_HAT_OPTIONS},
+  top: {field: 'top', label: 'Top', options: LPC_TOP_OPTIONS},
+  legs: {field: 'legs', label: 'Legs', options: LPC_LEGS_OPTIONS},
+  shoes: {field: 'shoes', label: 'Shoes', options: LPC_SHOE_OPTIONS}
+};
+
+const MATERIAL_FIELDS: readonly LpcMaterialField[] = ['hairColor', 'hatColor', 'topColor', 'legsColor', 'shoesColor'];
+const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
 
 export class AppearanceCreatorController {
-  private readonly modal: HTMLElement | null;
-  private readonly title: Element | null;
-  private readonly toggle: HTMLButtonElement | null;
-  private readonly closeButton: HTMLButtonElement | null;
-  private readonly cancelButton: HTMLButtonElement | null;
-  private readonly applyButton: HTMLButtonElement | null;
-  private readonly randomizeButton: HTMLButtonElement | null;
-  private readonly form: HTMLFormElement | null;
-  private readonly outfitName: HTMLInputElement | null;
-  private readonly outfitLabel: Element | null;
-  private readonly colorTargets: HTMLElement | null;
-  private readonly swatches: HTMLElement | null;
-  private readonly preview: HTMLCanvasElement | null;
-  private readonly previewModes: HTMLElement | null;
-  private readonly previewSources = {
-    walk: new Image(),
-    actions: new Image(),
-    walkMask: new Image(),
-    actionsMask: new Image()
-  };
   private readonly wardrobeSession: WardrobeClientSession;
-  private readonly selects: Record<string, HTMLSelectElement | null>;
+  private readonly modal: HTMLElement;
+  private readonly title: HTMLElement;
+  private readonly closeButton: HTMLButtonElement;
+  private readonly cancelButton: HTMLButtonElement;
+  private readonly applyButton: HTMLButtonElement;
+  private readonly randomizeButton: HTMLButtonElement;
+  private readonly outfitName: HTMLInputElement;
+  private readonly categoryTabs: HTMLElement;
+  private readonly partOptions: HTMLElement;
+  private readonly materialTabs: HTMLElement;
+  private readonly swatches: HTMLElement;
+  private readonly preview: HTMLCanvasElement;
+  private readonly status: HTMLElement;
+  private readonly layerCount: HTMLElement;
   private state?: DistrictNetworkState;
-  private draft?: PlayerAppearance;
-  private colorField: ColorField = 'topColor';
-  private previewClip: CharacterClipId = 'idle';
+  private draftAppearance?: PlayerAppearance;
+  private draftRecipe: LpcCharacterRecipe = cloneLpcRecipe();
+  private activeCategory: LpcPartCategory = 'hair';
+  private activeMaterial: LpcMaterialField = 'hairColor';
+  private openState = false;
+  private sources?: LpcSpriteSources;
+  private compiledPreview?: CompiledLpcCharacterSpriteSet;
   private previewStartedAt = 0;
   private previewTimer?: number;
-  private compiledPreview?: CompiledCharacterSpriteSet;
-  private openState = false;
+  private loading = false;
 
   constructor(
     private readonly room: Room<DistrictNetworkState>,
     private readonly localPlayerId: string,
     private readonly root: Document = document
   ) {
-    this.modal = root.querySelector<HTMLElement>('#appearance-modal');
-    this.title = root.querySelector('#appearance-title');
-    this.toggle = root.querySelector<HTMLButtonElement>('#appearance-toggle');
-    this.closeButton = root.querySelector<HTMLButtonElement>('#appearance-close');
-    this.cancelButton = root.querySelector<HTMLButtonElement>('#appearance-cancel');
-    this.applyButton = root.querySelector<HTMLButtonElement>('#appearance-apply');
-    this.randomizeButton = root.querySelector<HTMLButtonElement>('#appearance-randomize');
-    this.form = root.querySelector<HTMLFormElement>('#appearance-form');
-    this.outfitName = root.querySelector<HTMLInputElement>('#appearance-outfit-name');
-    this.outfitLabel = root.querySelector('#appearance-outfit-label');
-    this.colorTargets = root.querySelector<HTMLElement>('#appearance-color-targets');
-    this.swatches = root.querySelector<HTMLElement>('#appearance-swatches');
-    this.preview = root.querySelector<HTMLCanvasElement>('#appearance-preview');
-    this.previewModes = root.querySelector<HTMLElement>('#appearance-preview-modes');
-    this.selects = {
-      bodyType: root.querySelector('#appearance-body'),
-      skinTone: root.querySelector('#appearance-skin'),
-      hairStyle: root.querySelector('#appearance-hair'),
-      headwear: root.querySelector('#appearance-headwear'),
-      topStyle: root.querySelector('#appearance-top'),
-      bottomStyle: root.querySelector('#appearance-bottom'),
-      shoeStyle: root.querySelector('#appearance-shoes')
-    };
-    populateSelect(this.selects.bodyType, BODY_OPTIONS);
-    populateSelect(this.selects.skinTone, SKIN_OPTIONS);
-    populateSelect(this.selects.hairStyle, HAIR_OPTIONS, 'hairStyle');
-    populateSelect(this.selects.headwear, HEADWEAR_OPTIONS, 'headwear');
-    populateSelect(this.selects.topStyle, TOP_OPTIONS, 'topStyle');
-    populateSelect(this.selects.bottomStyle, BOTTOM_OPTIONS, 'bottomStyle');
-    populateSelect(this.selects.shoeStyle, SHOE_OPTIONS, 'shoeStyle');
-    this.createSwatches();
+    const elements = createModal(root);
+    this.modal = elements.modal;
+    this.title = elements.title;
+    this.closeButton = elements.closeButton;
+    this.cancelButton = elements.cancelButton;
+    this.applyButton = elements.applyButton;
+    this.randomizeButton = elements.randomizeButton;
+    this.outfitName = elements.outfitName;
+    this.categoryTabs = elements.categoryTabs;
+    this.partOptions = elements.partOptions;
+    this.materialTabs = elements.materialTabs;
+    this.swatches = elements.swatches;
+    this.preview = elements.preview;
+    this.status = elements.status;
+    this.layerCount = elements.layerCount;
     this.bindEvents();
+    this.renderStaticControls();
     this.wardrobeSession = new WardrobeClientSession({
       room,
-      onInventory: this.renderOwnership,
+      onInventory: () => undefined,
       onOpen: () => this.openWithMode('wardrobe'),
       onApplyResult: this.handleAppearanceResult
     });
     this.wardrobeSession.start();
-    for (const image of Object.values(this.previewSources)) {
-      image.addEventListener('load', this.renderPreview);
-    }
-    this.previewSources.walk.src = CHARACTER_ATLASES.walk.source;
-    this.previewSources.actions.src = CHARACTER_ATLASES.actions.source;
-    this.previewSources.walkMask.src = CHARACTER_ATLASES.walk.materialMask;
-    this.previewSources.actionsMask.src = CHARACTER_ATLASES.actions.materialMask;
   }
 
   isOpen(): boolean {
@@ -131,85 +119,72 @@ export class AppearanceCreatorController {
   synchronize(state: DistrictNetworkState): void {
     this.state = state;
     const player = state.players.get(this.localPlayerId);
-    this.toggle?.classList.toggle('hidden', !player?.alive);
     if (!player?.alive && this.openState) this.close();
-    if (!this.openState && player?.appearance) this.draft = cloneAppearance(player.appearance);
+    if (!this.openState && player?.appearance) {
+      this.draftAppearance = cloneAppearance(player.appearance);
+      this.draftRecipe = recipeFromAppearance(player.appearance);
+    }
   }
 
   destroy(): void {
     this.close();
-    this.toggle?.removeEventListener('click', this.open);
-    this.closeButton?.removeEventListener('click', this.close);
-    this.cancelButton?.removeEventListener('click', this.close);
-    this.applyButton?.removeEventListener('click', this.apply);
-    this.randomizeButton?.removeEventListener('click', this.randomize);
-    this.form?.removeEventListener('input', this.readForm);
-    this.form?.removeEventListener('change', this.readForm);
-    this.colorTargets?.removeEventListener('click', this.selectColorField);
-    this.swatches?.removeEventListener('click', this.selectColor);
-    this.modal?.removeEventListener('click', this.closeFromBackdrop);
-    this.root.removeEventListener('keydown', this.handleKeydown);
-    this.previewModes?.removeEventListener('click', this.selectPreviewClip);
-    for (const image of Object.values(this.previewSources)) {
-      image.removeEventListener('load', this.renderPreview);
-    }
     this.wardrobeSession.destroy();
-    this.state = undefined;
-    this.draft = undefined;
+    this.modal.remove();
+    this.root.removeEventListener('keydown', this.handleKeydown);
   }
 
   private bindEvents(): void {
-    this.toggle?.addEventListener('click', this.open);
-    this.closeButton?.addEventListener('click', this.close);
-    this.cancelButton?.addEventListener('click', this.close);
-    this.applyButton?.addEventListener('click', this.apply);
-    this.randomizeButton?.addEventListener('click', this.randomize);
-    this.form?.addEventListener('input', this.readForm);
-    this.form?.addEventListener('change', this.readForm);
-    this.colorTargets?.addEventListener('click', this.selectColorField);
-    this.swatches?.addEventListener('click', this.selectColor);
-    this.previewModes?.addEventListener('click', this.selectPreviewClip);
-    this.modal?.addEventListener('click', this.closeFromBackdrop);
+    this.closeButton.addEventListener('click', this.close);
+    this.cancelButton.addEventListener('click', this.close);
+    this.applyButton.addEventListener('click', this.apply);
+    this.randomizeButton.addEventListener('click', this.randomize);
+    this.outfitName.addEventListener('input', this.updateName);
+    this.categoryTabs.addEventListener('click', this.selectCategory);
+    this.partOptions.addEventListener('click', this.selectPart);
+    this.materialTabs.addEventListener('click', this.selectMaterial);
+    this.swatches.addEventListener('click', this.selectColor);
+    this.modal.addEventListener('click', this.closeFromBackdrop);
     this.root.addEventListener('keydown', this.handleKeydown);
   }
 
-  private createSwatches(): void {
-    if (!this.swatches) return;
-    this.swatches.replaceChildren();
-    for (const option of COLOR_OPTIONS) {
-      const button = this.root.createElement('button');
-      button.type = 'button';
-      button.dataset.color = option.id;
-      button.style.background = cssColor(COLOR_VALUES[option.id]);
-      button.setAttribute('aria-label', option.label);
-      button.setAttribute('aria-pressed', 'false');
-      this.swatches.append(button);
+  private async ensureSources(): Promise<void> {
+    if (this.sources || this.loading) return;
+    this.loading = true;
+    this.status.textContent = 'LOADING LPC';
+    try {
+      this.sources = await loadLpcSpriteSources();
+      this.status.textContent = 'READY';
+    } finally {
+      this.loading = false;
     }
   }
-
-  private readonly open = (event?: Event): void => {
-    event?.stopPropagation();
-    this.openWithMode('creator');
-  };
 
   private openWithMode(mode: 'creator' | 'wardrobe'): void {
     const player = this.state?.players.get(this.localPlayerId);
     if (!player?.alive) return;
-    this.draft = cloneAppearance(player.appearance);
+    this.draftAppearance = cloneAppearance(player.appearance);
+    this.draftRecipe = recipeFromAppearance(player.appearance);
+    this.title.textContent = mode === 'wardrobe' ? 'THREADS CHARACTER CREATOR' : 'CHARACTER CREATOR';
+    this.outfitName.value = this.draftRecipe.name;
     this.openState = true;
-    if (this.title) this.title.textContent = mode === 'wardrobe' ? 'WARDROBE' : 'CHARACTER CREATOR';
+    this.modal.classList.remove('hidden');
     this.room.send('input', {x: 0, y: 0});
-    this.modal?.classList.remove('hidden');
-    this.renderForm();
-    this.startPreviewAnimation();
-    this.outfitName?.focus();
+    void this.ensureSources().then(() => {
+      this.recompile();
+      this.startPreviewAnimation();
+      this.outfitName.focus();
+    }).catch((error) => {
+      this.status.textContent = 'LPC LOAD ERROR';
+      console.error(error);
+    });
+    this.renderAll();
   }
 
   private readonly close = (event?: Event): void => {
     event?.stopPropagation();
     this.openState = false;
     this.stopPreviewAnimation();
-    this.modal?.classList.add('hidden');
+    this.modal.classList.add('hidden');
   };
 
   private readonly closeFromBackdrop = (event: Event): void => {
@@ -220,71 +195,76 @@ export class AppearanceCreatorController {
     if (this.openState && event.key === 'Escape') this.close(event);
   };
 
-  private readonly readForm = (): void => {
-    if (!this.draft) return;
-    const candidate = validateAppearance({
-      ...this.draft,
-      outfitName: this.outfitName?.value || this.draft.outfitName,
-      bodyType: this.selects.bodyType?.value,
-      skinTone: this.selects.skinTone?.value,
-      hairStyle: this.selects.hairStyle?.value,
-      headwear: this.selects.headwear?.value,
-      topStyle: this.selects.topStyle?.value,
-      bottomStyle: this.selects.bottomStyle?.value,
-      shoeStyle: this.selects.shoeStyle?.value
+  private readonly updateName = (): void => {
+    const candidate = validateLpcCharacterRecipe({
+      ...this.draftRecipe,
+      name: this.outfitName.value || DEFAULT_LPC_RECIPE.name
     });
     if (!candidate) return;
-    this.draft = candidate;
-    this.renderAppearance();
+    this.draftRecipe = candidate;
+    this.renderRecipeMeta();
   };
 
-  private readonly selectColorField = (event: Event): void => {
+  private readonly selectCategory = (event: Event): void => {
     const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) return;
-    const field = target.dataset.colorField;
-    if (!isColorField(field)) return;
-    this.colorField = field;
-    this.renderColorSelection();
+    if (!(target instanceof HTMLButtonElement) || !isPartCategory(target.dataset.category)) return;
+    this.activeCategory = target.dataset.category;
+    this.renderPartTabs();
+    this.renderPartOptions();
+  };
+
+  private readonly selectPart = (event: Event): void => {
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('button[data-value]')
+      : null;
+    if (!target) return;
+    const definition = PART_CATEGORIES[this.activeCategory];
+    this.updateRecipe({...this.draftRecipe, [definition.field]: target.dataset.value});
+  };
+
+  private readonly selectMaterial = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement) || !isMaterialField(target.dataset.material)) return;
+    this.activeMaterial = target.dataset.material;
+    this.renderMaterialControls();
   };
 
   private readonly selectColor = (event: Event): void => {
     const target = event.target;
-    if (!(target instanceof HTMLButtonElement) || !this.draft) return;
-    const color = target.dataset.color;
-    if (!APPEARANCE_COLORS.includes(color as AppearanceColorId)) return;
-    this.draft = {...this.draft, [this.colorField]: color as AppearanceColorId};
-    this.renderColorSelection();
-    this.renderAppearance();
+    if (!(target instanceof HTMLButtonElement) || !isLpcColor(target.dataset.color) || target.disabled) return;
+    this.updateRecipe({...this.draftRecipe, [this.activeMaterial]: target.dataset.color});
   };
 
   private readonly randomize = (event: Event): void => {
     event.stopPropagation();
-    if (!this.draft) return;
-    this.draft = {
-      outfitName: 'Custom Fit',
-      bodyType: randomOption(BODY_OPTIONS),
-      skinTone: randomOption(SKIN_OPTIONS),
-      hairStyle: randomOwnedOption('hairStyle', HAIR_OPTIONS, this.wardrobeSession.ownedItems()),
-      hairColor: randomOption(COLOR_OPTIONS),
-      headwear: randomOwnedOption('headwear', HEADWEAR_OPTIONS, this.wardrobeSession.ownedItems()),
-      topStyle: randomOwnedOption('topStyle', TOP_OPTIONS, this.wardrobeSession.ownedItems()),
-      topColor: randomOption(COLOR_OPTIONS),
-      accentColor: randomOption(COLOR_OPTIONS),
-      bottomStyle: randomOwnedOption('bottomStyle', BOTTOM_OPTIONS, this.wardrobeSession.ownedItems()),
-      bottomColor: randomOption(COLOR_OPTIONS),
-      shoeStyle: randomOwnedOption('shoeStyle', SHOE_OPTIONS, this.wardrobeSession.ownedItems()),
-      shoeColor: randomOption(COLOR_OPTIONS)
-    };
-    this.renderForm();
+    this.updateRecipe({
+      ...this.draftRecipe,
+      face: randomOption(LPC_FACE_OPTIONS),
+      hair: randomOption(LPC_HAIR_OPTIONS),
+      hat: randomOption(LPC_HAT_OPTIONS),
+      top: randomOption(LPC_TOP_OPTIONS),
+      legs: randomOption(LPC_LEGS_OPTIONS),
+      shoes: randomOption(LPC_SHOE_OPTIONS),
+      hairColor: randomOption(LPC_COLOR_OPTIONS),
+      hatColor: randomOption(LPC_COLOR_OPTIONS),
+      topColor: randomOption(LPC_COLOR_OPTIONS),
+      legsColor: randomOption(LPC_COLOR_OPTIONS),
+      shoesColor: randomOption(LPC_COLOR_OPTIONS)
+    });
   };
 
   private readonly apply = (event: Event): void => {
     event.stopPropagation();
     if (this.wardrobeSession.isApplying()) return;
-    this.readForm();
-    if (!this.draft) return;
-    const appearance = validateAppearance(this.draft);
+    const base = this.draftAppearance ?? cloneAppearance();
+    const serialized = serializeLpcRecipe(this.draftRecipe);
+    const appearance = validateAppearance({
+      ...base,
+      outfitName: this.draftRecipe.name,
+      lpcRecipe: serialized
+    });
     if (!appearance) return;
+    window.localStorage.setItem(LPC_STORAGE_KEY, serialized);
     if (this.wardrobeSession.submit(appearance)) this.setApplyBusy(true);
   };
 
@@ -298,166 +278,232 @@ export class AppearanceCreatorController {
       this.close();
       return;
     }
-    if (this.outfitLabel) {
-      this.outfitLabel.textContent = status === 'unowned'
-        ? 'ITEM NOT OWNED'
-        : status === 'rate-limited'
-          ? 'TRY AGAIN'
-          : 'LOOK REJECTED';
-    }
+    this.status.textContent = status === 'rate-limited' ? 'TRY AGAIN' : 'LOOK REJECTED';
   };
 
-  private renderForm(): void {
-    if (!this.draft) return;
-    if (this.outfitName) this.outfitName.value = this.draft.outfitName;
-    for (const [field, select] of Object.entries(this.selects)) {
-      if (select) select.value = String(this.draft[field as keyof PlayerAppearance]);
-    }
-    this.renderOwnership();
-    this.renderColorSelection();
-    this.renderAppearance();
+  private updateRecipe(value: unknown): void {
+    const candidate = validateLpcCharacterRecipe(value);
+    if (!candidate) return;
+    this.draftRecipe = candidate;
+    this.outfitName.value = this.draftRecipe.name;
+    this.recompile();
+    this.renderAll();
   }
 
-  private renderColorSelection(): void {
-    if (!this.draft) return;
-    for (const button of this.colorTargets?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
-      button.setAttribute('aria-selected', String(button.dataset.colorField === this.colorField));
-    }
-    for (const button of this.swatches?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
-      button.setAttribute('aria-pressed', String(button.dataset.color === this.draft[this.colorField]));
-    }
-  }
-
-  private renderAppearance(): void {
-    if (!this.draft) return;
-    if (this.outfitLabel) this.outfitLabel.textContent = this.draft.outfitName.toUpperCase();
-    this.renderPreview();
-  }
-
-  private readonly selectPreviewClip = (event: Event): void => {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) return;
-    const clip = target.dataset.previewClip;
-    if (!isPreviewClip(clip)) return;
-    this.previewClip = clip;
+  private recompile(): void {
+    if (!this.sources) return;
+    this.compiledPreview = compileLpcCharacterSpriteSet(this.sources, this.draftRecipe);
     this.previewStartedAt = performance.now();
-    for (const button of this.previewModes?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
-      button.setAttribute('aria-selected', String(button.dataset.previewClip === clip));
-    }
+    this.status.textContent = 'READY';
     this.drawPreviewFrame();
-  };
-
-  private readonly renderOwnership = (): void => {
-    const ownedItemIds = this.wardrobeSession.ownedItems();
-    if (ownedItemIds.size === 0) return;
-    for (const select of Object.values(this.selects)) {
-      for (const option of select?.options ?? []) {
-        const itemId = option.dataset.wardrobeItem;
-        option.disabled = Boolean(itemId && !ownedItemIds.has(itemId as WardrobeItemId));
-      }
-    }
-  };
-
-  private setApplyBusy(busy: boolean): void {
-    if (!this.applyButton) return;
-    this.applyButton.disabled = busy;
-    this.applyButton.textContent = busy ? 'APPLYING' : 'APPLY LOOK';
   }
 
-  private readonly renderPreview = (): void => {
-    if (!this.preview || !this.draft || !previewSourcesReady(this.previewSources)) return;
-    this.compiledPreview = compileCharacterSpriteSet(this.previewSources, this.draft);
-    this.previewStartedAt = performance.now();
-    this.drawPreviewFrame();
-  };
+  private renderStaticControls(): void {
+    this.categoryTabs.replaceChildren(...Object.entries(PART_CATEGORIES).map(([id, definition]) => {
+      const button = this.root.createElement('button');
+      button.type = 'button';
+      button.dataset.category = id;
+      button.textContent = definition.label.toUpperCase();
+      return button;
+    }));
+    this.materialTabs.replaceChildren(...MATERIAL_FIELDS.map((field) => {
+      const button = this.root.createElement('button');
+      button.type = 'button';
+      button.dataset.material = field;
+      button.textContent = materialLabel(field);
+      return button;
+    }));
+    this.swatches.replaceChildren(...LPC_COLOR_OPTIONS.map((option) => {
+      const button = this.root.createElement('button');
+      button.type = 'button';
+      button.dataset.color = option.id;
+      button.style.setProperty('--swatch', LPC_COLOR_VALUES[option.id]);
+      button.title = option.label;
+      button.setAttribute('aria-label', option.label);
+      return button;
+    }));
+  }
 
-  private readonly drawPreviewFrame = (): void => {
-    if (!this.preview || !this.draft || !this.compiledPreview) return;
+  private renderAll(): void {
+    this.renderPartTabs();
+    this.renderPartOptions();
+    this.renderMaterialControls();
+    this.renderRecipeMeta();
+  }
+
+  private renderPartTabs(): void {
+    for (const button of this.categoryTabs.querySelectorAll<HTMLButtonElement>('button')) {
+      button.setAttribute('aria-selected', String(button.dataset.category === this.activeCategory));
+    }
+  }
+
+  private renderPartOptions(): void {
+    const definition = PART_CATEGORIES[this.activeCategory];
+    this.partOptions.replaceChildren(...definition.options.map((option) => {
+      const button = this.root.createElement('button');
+      button.type = 'button';
+      button.dataset.value = option.id;
+      button.setAttribute('aria-pressed', String(this.draftRecipe[definition.field] === option.id));
+      button.textContent = option.label;
+      return button;
+    }));
+  }
+
+  private renderMaterialControls(): void {
+    const fixed = this.fixedMaterialLabel();
+    for (const button of this.materialTabs.querySelectorAll<HTMLButtonElement>('button')) {
+      button.setAttribute('aria-selected', String(button.dataset.material === this.activeMaterial));
+    }
+    for (const button of this.swatches.querySelectorAll<HTMLButtonElement>('button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.color === this.draftRecipe[this.activeMaterial]));
+      button.disabled = Boolean(fixed);
+    }
+  }
+
+  private renderRecipeMeta(): void {
+    this.layerCount.textContent = this.fixedMaterialLabel() ?? `${serializeLpcRecipe(this.draftRecipe).length} B`;
+  }
+
+  private fixedMaterialLabel(): string | undefined {
+    if (this.activeMaterial === 'topColor' && this.draftRecipe.top === 'smiley') return 'TOP FIXED';
+    if (this.activeMaterial === 'hatColor' && !['winter_hat', 'cavalier'].includes(this.draftRecipe.hat)) return 'HAT FIXED';
+    if (this.activeMaterial === 'shoesColor' && this.draftRecipe.shoes === 'timbs') return 'SHOES FIXED';
+    return undefined;
+  }
+
+  private drawPreviewFrame = (): void => {
+    if (!this.compiledPreview) return;
     const context = this.preview.getContext('2d');
     if (!context) return;
-    const {bodyScaleX} = appearanceSpritePresentation(this.draft);
-    const clip = CHARACTER_CLIPS[this.previewClip];
-    const frame = characterClipFrame(this.previewClip, performance.now() - this.previewStartedAt);
-    const source = clip.atlas === 'walk' ? this.compiledPreview.walk : this.compiledPreview.actions;
-    const atlas = CHARACTER_ATLASES[clip.atlas];
-    const sourceX = frame % atlas.columns * atlas.frameSize;
-    const sourceY = Math.floor(frame / atlas.columns) * atlas.frameSize;
+    const frame = 19 + Math.floor((performance.now() - this.previewStartedAt) / 110) % 8;
+    const sourceX = frame % 9 * 72;
+    const sourceY = Math.floor(frame / 9) * 72;
     context.imageSmoothingEnabled = false;
     context.clearRect(0, 0, this.preview.width, this.preview.height);
-    const width = 132 * bodyScaleX;
-    context.drawImage(
-      source,
-      sourceX,
-      sourceY,
-      atlas.frameSize,
-      atlas.frameSize,
-      (this.preview.width - width) / 2,
-      6,
-      width,
-      132
-    );
+    context.drawImage(this.compiledPreview.walk, sourceX, sourceY, 72, 72, 32, 8, 160, 160);
   };
 
   private startPreviewAnimation(): void {
     this.stopPreviewAnimation();
     this.previewStartedAt = performance.now();
-    this.previewTimer = window.setInterval(this.drawPreviewFrame, 80);
+    this.previewTimer = window.setInterval(this.drawPreviewFrame, 90);
   }
 
   private stopPreviewAnimation(): void {
     if (this.previewTimer !== undefined) window.clearInterval(this.previewTimer);
     this.previewTimer = undefined;
   }
+
+  private setApplyBusy(busy: boolean): void {
+    this.applyButton.disabled = busy;
+    this.applyButton.textContent = busy ? 'APPLYING' : 'APPLY';
+  }
 }
 
-function populateSelect<T extends string>(
-  select: HTMLSelectElement | null,
-  options: readonly AppearanceOption<T>[],
-  field?: keyof PlayerAppearance
-): void {
-  if (!select) return;
-  select.replaceChildren(...options.map((option) => {
-    const element = document.createElement('option');
-    element.value = option.id;
-    element.textContent = option.label;
-    const itemId = field ? wardrobeItemForField(field, option.id) : undefined;
-    if (itemId) element.dataset.wardrobeItem = itemId;
-    return element;
-  }));
+function createModal(root: Document): {
+  modal: HTMLElement;
+  title: HTMLElement;
+  closeButton: HTMLButtonElement;
+  cancelButton: HTMLButtonElement;
+  applyButton: HTMLButtonElement;
+  randomizeButton: HTMLButtonElement;
+  outfitName: HTMLInputElement;
+  categoryTabs: HTMLElement;
+  partOptions: HTMLElement;
+  materialTabs: HTMLElement;
+  swatches: HTMLElement;
+  preview: HTMLCanvasElement;
+  status: HTMLElement;
+  layerCount: HTMLElement;
+} {
+  const existing = root.querySelector<HTMLElement>('#appearance-modal');
+  if (existing) existing.remove();
+  const wrapper = root.createElement('div');
+  wrapper.id = 'appearance-modal';
+  wrapper.className = 'lpc-game-modal hidden';
+  wrapper.innerHTML = `
+    <section class="lpc-game-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+      <header>
+        <div><strong id="appearance-title">THREADS CHARACTER CREATOR</strong><span id="lpc-game-status">READY</span></div>
+        <button id="appearance-close" type="button" aria-label="Close">x</button>
+      </header>
+      <div class="lpc-game-body">
+        <section class="lpc-game-left">
+          <label>NAME<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
+          <div id="lpc-game-categories" class="lpc-game-tabs"></div>
+          <div id="lpc-game-options" class="lpc-game-options"></div>
+        </section>
+        <section class="lpc-game-preview">
+          <canvas id="appearance-preview" width="224" height="184"></canvas>
+          <span id="lpc-game-meta">0 B</span>
+        </section>
+        <section class="lpc-game-right">
+          <div id="lpc-game-material-tabs" class="lpc-game-tabs"></div>
+          <div id="lpc-game-swatches" class="lpc-game-swatches"></div>
+        </section>
+      </div>
+      <footer>
+        <button id="appearance-randomize" type="button">RANDOM</button>
+        <button id="appearance-cancel" type="button">CANCEL</button>
+        <button id="appearance-apply" type="button">APPLY</button>
+      </footer>
+    </section>
+  `;
+  root.body.append(wrapper);
+  return {
+    modal: wrapper,
+    title: required(wrapper, '#appearance-title'),
+    closeButton: required(wrapper, '#appearance-close'),
+    cancelButton: required(wrapper, '#appearance-cancel'),
+    applyButton: required(wrapper, '#appearance-apply'),
+    randomizeButton: required(wrapper, '#appearance-randomize'),
+    outfitName: required(wrapper, '#appearance-outfit-name'),
+    categoryTabs: required(wrapper, '#lpc-game-categories'),
+    partOptions: required(wrapper, '#lpc-game-options'),
+    materialTabs: required(wrapper, '#lpc-game-material-tabs'),
+    swatches: required(wrapper, '#lpc-game-swatches'),
+    preview: required(wrapper, '#appearance-preview'),
+    status: required(wrapper, '#lpc-game-status'),
+    layerCount: required(wrapper, '#lpc-game-meta')
+  };
 }
 
-function randomOption<T extends string>(options: readonly AppearanceOption<T>[]): T {
+function recipeFromAppearance(appearance: PlayerAppearance): LpcCharacterRecipe {
+  return parseLpcRecipe(appearance.lpcRecipe) ??
+    parseLpcRecipe(window.localStorage.getItem(LPC_STORAGE_KEY) ?? undefined) ??
+    cloneLpcRecipe();
+}
+
+function required<T extends Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector<T>(selector);
+  if (!element) throw new Error(`LPC game creator missing ${selector}`);
+  return element;
+}
+
+function randomOption<T extends string>(options: readonly LpcOption<T>[]): T {
   return options[Math.floor(Math.random() * options.length)].id;
 }
 
-function randomOwnedOption<T extends string>(
-  field: keyof PlayerAppearance,
-  options: readonly AppearanceOption<T>[],
-  ownedItemIds: ReadonlySet<WardrobeItemId>
-): T {
-  const owned = ownedItemIds.size === 0
-    ? options
-    : options.filter((option) => {
-      const itemId = wardrobeItemForField(field, option.id);
-      return !itemId || ownedItemIds.has(itemId);
-    });
-  return randomOption(owned.length > 0 ? owned : options);
+function materialLabel(field: LpcMaterialField): string {
+  return field === 'hairColor'
+    ? 'HAIR'
+    : field === 'hatColor'
+      ? 'HAT'
+      : field === 'topColor'
+        ? 'TOP'
+        : field === 'legsColor'
+          ? 'LEGS'
+          : 'SHOES';
 }
 
-function isColorField(value: unknown): value is ColorField {
-  return ['hairColor', 'topColor', 'accentColor', 'bottomColor', 'shoeColor'].includes(String(value));
+function isPartCategory(value: unknown): value is LpcPartCategory {
+  return typeof value === 'string' && Object.hasOwn(PART_CATEGORIES, value);
 }
 
-function cssColor(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
+function isMaterialField(value: unknown): value is LpcMaterialField {
+  return MATERIAL_FIELDS.includes(value as LpcMaterialField);
 }
 
-function isPreviewClip(value: unknown): value is CharacterClipId {
-  return typeof value === 'string' && Object.hasOwn(CHARACTER_CLIPS, value);
-}
-
-function previewSourcesReady(
-  sources: Record<keyof AppearanceCreatorController['previewSources'], HTMLImageElement>
-): boolean {
-  return Object.values(sources).every((image) => image.complete && image.naturalWidth > 0);
+function isLpcColor(value: unknown): value is LpcColorId {
+  return typeof value === 'string' && LPC_COLOR_OPTIONS.some((option) => option.id === value);
 }

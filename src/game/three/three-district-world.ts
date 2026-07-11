@@ -13,6 +13,7 @@ import type {
 } from '../types.ts';
 import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {radialGlow, updateRadialGlow} from './three-glow.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -384,6 +385,13 @@ function signalMarker(): THREE.Group {
     material(0x111719, 0.96, 18)
   );
   group.add(housing);
+  const glow = radialGlow(92, 0xff394f, 0.12, 17);
+  glow.position.z = -9;
+  glow.userData.role = 'signal-glow';
+  const cast = new THREE.PointLight(0xff394f, 1.1, 105, 2);
+  cast.position.z = 13;
+  cast.userData.role = 'signal-light';
+  group.add(glow, cast);
   for (const [role, y, color] of [
     ['red', 10, 0xff394f],
     ['yellow', 0, 0xffcc3d],
@@ -400,10 +408,26 @@ function signalMarker(): THREE.Group {
 function applySignal(group: THREE.Group, signal: NetworkTrafficSignal): void {
   const lamps = signalLampPresentation(signal.northSouth);
   for (const child of group.children) {
+    if (child.userData.role === 'signal-glow' && child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
+      const color = signalPhaseColor(signal.northSouth);
+      updateRadialGlow(child, color, signal.northSouth === 'yellow' ? 0.16 : 0.11);
+      continue;
+    }
+    if (child.userData.role === 'signal-light' && child instanceof THREE.PointLight) {
+      child.color.setHex(signalPhaseColor(signal.northSouth));
+      child.intensity = signal.northSouth === 'yellow' ? 1.4 : 1.05;
+      continue;
+    }
     if (!(child instanceof THREE.Mesh) || !(child.material instanceof THREE.MeshBasicMaterial)) continue;
     const role = child.userData.role as 'red' | 'yellow' | 'green' | undefined;
     if (role) child.material.opacity = lamps[role].alpha;
   }
+}
+
+function signalPhaseColor(phase: NetworkTrafficSignal['northSouth']): number {
+  if (phase === 'green') return 0x55e889;
+  if (phase === 'yellow') return 0xffcc3d;
+  return 0xff394f;
 }
 
 function pulseMarker(group: THREE.Group, nowMs: number, phase: number): void {
@@ -508,6 +532,10 @@ function removeAbsentExplosions(
 function disposeObject(object: THREE.Object3D): void {
   object.removeFromParent();
   object.traverse((child) => {
+    if (child instanceof THREE.PointLight) {
+      child.dispose();
+      return;
+    }
     if (!(child instanceof THREE.Mesh)) return;
     child.geometry.dispose();
     const materials = Array.isArray(child.material) ? child.material : [child.material];

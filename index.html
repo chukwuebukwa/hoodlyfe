@@ -48,6 +48,11 @@
         <div><dt>Stimuli</dt><dd id="debug-stimuli">0</dd></div>
         <div><dt>Signals</dt><dd id="debug-signals">0</dd></div>
       </dl>
+      <section id="debug-time-controls" class="hidden" aria-label="Time of day controls">
+        <header><strong>Time of day</strong><output id="debug-time-value">08:00</output></header>
+        <input id="debug-time-input" type="range" min="0" max="1439" step="10" value="480" aria-label="Debug time of day">
+        <button id="debug-time-live" type="button">LIVE</button>
+      </section>
       <div id="debug-legend" aria-label="Debug color legend">
         <span class="player">Player</span>
         <span class="civilian">Civilian</span>

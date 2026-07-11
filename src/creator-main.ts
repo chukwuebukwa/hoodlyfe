@@ -1,53 +1,60 @@
 import {
-  APPEARANCE_COLORS,
-  BODY_OPTIONS,
-  BOTTOM_OPTIONS,
-  COLOR_OPTIONS,
-  COLOR_VALUES,
-  HAIR_OPTIONS,
-  HEADWEAR_OPTIONS,
-  SHOE_OPTIONS,
-  SKIN_OPTIONS,
-  TOP_OPTIONS,
-  cloneAppearance,
-  validateAppearance,
-  type AppearanceColorId,
-  type AppearanceOption,
-  type PlayerAppearance
-} from '../shared/content/appearance-catalog.ts';
+  DEFAULT_LPC_RECIPE,
+  LPC_COLOR_OPTIONS,
+  LPC_COLOR_VALUES,
+  LPC_FACE_OPTIONS,
+  LPC_HAT_OPTIONS,
+  LPC_HAIR_OPTIONS,
+  LPC_LEGS_OPTIONS,
+  LPC_SHOE_OPTIONS,
+  LPC_TOP_OPTIONS,
+  cloneLpcRecipe,
+  lpcLayerDefinitions,
+  lpcRecipeKey,
+  parseLpcRecipe,
+  serializeLpcRecipe,
+  validateLpcCharacterRecipe,
+  type LpcCharacterRecipe,
+  type LpcColorId,
+  type LpcOption
+} from '../shared/content/lpc-character-catalog.ts';
 import {
-  CHARACTER_ATLASES,
-  CHARACTER_CLIPS,
-  characterClipFrame,
-  type CharacterClipId
-} from '../shared/content/character-animation-manifest.ts';
-import {
-  compileCharacterSpriteSet,
-  type CharacterCompilerSources,
-  type CompiledCharacterSpriteSet
-} from './game/appearance/character-sprite-compiler.ts';
-import {appearanceSpritePresentation} from './game/appearance/appearance-render-policy.ts';
+  compileLpcCharacterSpriteSet,
+  loadLpcSpriteSources,
+  type CompiledLpcCharacterSpriteSet,
+  type LpcSpriteSources
+} from './game/appearance/lpc-character-sprite-compiler.ts';
 import {loadSavedAppearance, saveAppearance} from './game/appearance/appearance-storage.ts';
 import './creator.css';
 
-type PartCategory = 'body' | 'skin' | 'hair' | 'headwear' | 'top' | 'bottom' | 'shoes';
-type MaterialField = 'hairColor' | 'topColor' | 'accentColor' | 'bottomColor' | 'shoeColor';
+type PartCategory = 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
+type MaterialField = 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
+type PreviewClip = 'idle' | 'walk' | 'melee' | 'hit' | 'vehicle';
 
-interface PartCategoryDefinition {
-  field: keyof PlayerAppearance;
+interface PartCategoryDefinition<T extends string> {
+  field: keyof LpcCharacterRecipe;
   label: string;
-  options: readonly AppearanceOption<string>[];
+  options: readonly LpcOption<T>[];
 }
 
-const PART_CATEGORIES: Readonly<Record<PartCategory, PartCategoryDefinition>> = {
-  body: {field: 'bodyType', label: 'Body', options: BODY_OPTIONS},
-  skin: {field: 'skinTone', label: 'Skin', options: SKIN_OPTIONS},
-  hair: {field: 'hairStyle', label: 'Hair', options: HAIR_OPTIONS},
-  headwear: {field: 'headwear', label: 'Headwear', options: HEADWEAR_OPTIONS},
-  top: {field: 'topStyle', label: 'Top', options: TOP_OPTIONS},
-  bottom: {field: 'bottomStyle', label: 'Bottoms', options: BOTTOM_OPTIONS},
-  shoes: {field: 'shoeStyle', label: 'Shoes', options: SHOE_OPTIONS}
+const PART_CATEGORIES: Readonly<Record<PartCategory, PartCategoryDefinition<string>>> = {
+  face: {field: 'face', label: 'Face', options: LPC_FACE_OPTIONS},
+  hair: {field: 'hair', label: 'Hair', options: LPC_HAIR_OPTIONS},
+  hat: {field: 'hat', label: 'Hat', options: LPC_HAT_OPTIONS},
+  top: {field: 'top', label: 'Top', options: LPC_TOP_OPTIONS},
+  legs: {field: 'legs', label: 'Legs', options: LPC_LEGS_OPTIONS},
+  shoes: {field: 'shoes', label: 'Shoes', options: LPC_SHOE_OPTIONS}
 };
+
+const CLIPS: Readonly<Record<PreviewClip, {label: string; atlas: 'walk' | 'actions'; frames: readonly number[]; frameMs: number}>> = {
+  idle: {label: 'Idle', atlas: 'walk', frames: [18], frameMs: 280},
+  walk: {label: 'Walk', atlas: 'walk', frames: [19, 20, 21, 22, 23, 24, 25, 26], frameMs: 105},
+  melee: {label: 'Melee', atlas: 'actions', frames: [0, 1, 2, 3], frameMs: 110},
+  hit: {label: 'Hit', atlas: 'actions', frames: [4, 5, 6, 7], frameMs: 145},
+  vehicle: {label: 'Vehicle', atlas: 'actions', frames: [8, 9, 10, 11], frameMs: 130}
+};
+
+const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
 
 const stage = requiredCanvas('#character-stage');
 const partCategories = required<HTMLElement>('#part-categories');
@@ -66,35 +73,31 @@ const clipTitle = required<HTMLElement>('#clip-title');
 const frameReadout = required<HTMLElement>('#frame-readout');
 const materialName = required<HTMLElement>('#material-name');
 
-let appearance = loadSavedAppearance();
-let activeCategory: PartCategory = 'body';
-let activeMaterial: MaterialField = 'topColor';
-let activeClip: CharacterClipId = 'idle';
+let recipe = loadSavedLpcRecipe();
+let sources: LpcSpriteSources;
+let compiled: CompiledLpcCharacterSpriteSet;
+let activeCategory: PartCategory = 'hair';
+let activeMaterial: MaterialField = 'hairColor';
+let activeClip: PreviewClip = 'walk';
 let zoom = 6;
 let animationStartedAt = performance.now();
 let previousFrame = -1;
-let sources: CharacterCompilerSources;
-let compiled: CompiledCharacterSpriteSet;
 let animationHandle = 0;
 
 initialize().catch((error) => {
-  compileState.textContent = 'COMPILER ERROR';
+  compileState.textContent = 'LPC LOAD ERROR';
   compileState.classList.add('error');
   console.error(error);
 });
 
 async function initialize(): Promise<void> {
-  compileState.textContent = 'LOADING SOURCES';
-  const [walk, actions, walkMask, actionsMask] = await Promise.all([
-    loadImage(CHARACTER_ATLASES.walk.source),
-    loadImage(CHARACTER_ATLASES.actions.source),
-    loadImage(CHARACTER_ATLASES.walk.materialMask),
-    loadImage(CHARACTER_ATLASES.actions.materialMask)
-  ]);
-  sources = {walk, actions, walkMask, actionsMask};
+  compileState.textContent = 'LOADING LPC';
+  sources = await loadLpcSpriteSources();
   bindEvents();
+  outfitName.value = recipe.name;
+  renderCategoryTabs();
+  renderClipTabs();
   renderMaterialSwatches();
-  outfitName.value = appearance.outfitName;
   recompile();
   animationHandle = requestAnimationFrame(animate);
 }
@@ -104,9 +107,7 @@ function bindEvents(): void {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement) || !isPartCategory(target.dataset.category)) return;
     activeCategory = target.dataset.category;
-    for (const button of partCategories.querySelectorAll<HTMLButtonElement>('button')) {
-      button.setAttribute('aria-selected', String(button.dataset.category === activeCategory));
-    }
+    renderCategoryTabs();
     renderPartOptions();
   });
   partOptions.addEventListener('click', (event) => {
@@ -115,17 +116,15 @@ function bindEvents(): void {
       : null;
     if (!target) return;
     const definition = PART_CATEGORIES[activeCategory];
-    updateAppearance({...appearance, [definition.field]: target.dataset.value});
+    updateRecipe({...recipe, [definition.field]: target.dataset.value});
   });
   clipSelector.addEventListener('click', (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLButtonElement) || !isClip(target.dataset.clip)) return;
+    if (!(target instanceof HTMLButtonElement) || !isPreviewClip(target.dataset.clip)) return;
     activeClip = target.dataset.clip;
     animationStartedAt = performance.now();
     previousFrame = -1;
-    for (const button of clipSelector.querySelectorAll<HTMLButtonElement>('button')) {
-      button.setAttribute('aria-selected', String(button.dataset.clip === activeClip));
-    }
+    renderClipTabs();
     renderTimeline();
   });
   materialTabs.addEventListener('click', (event) => {
@@ -136,10 +135,8 @@ function bindEvents(): void {
   });
   materialSwatches.addEventListener('click', (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) return;
-    const color = target.dataset.color;
-    if (!APPEARANCE_COLORS.includes(color as AppearanceColorId)) return;
-    updateAppearance({...appearance, [activeMaterial]: color});
+    if (!(target instanceof HTMLButtonElement) || !isLpcColor(target.dataset.color)) return;
+    updateRecipe({...recipe, [activeMaterial]: target.dataset.color});
   });
   required<HTMLElement>('#zoom-controls').addEventListener('click', (event) => {
     const target = event.target;
@@ -153,46 +150,70 @@ function bindEvents(): void {
     previousFrame = -1;
   });
   outfitName.addEventListener('input', () => {
-    const candidate = validateAppearance({...appearance, outfitName: outfitName.value || 'Untitled Fit'});
-    if (candidate) {
-      appearance = candidate;
-      renderRecipe();
-    }
+    const candidate = validateLpcCharacterRecipe({...recipe, name: outfitName.value || 'LPC Driver'});
+    if (!candidate) return;
+    recipe = candidate;
+    renderRecipe();
   });
-  required<HTMLButtonElement>('#randomize-look').addEventListener('click', randomizeAppearance);
-  required<HTMLButtonElement>('#reset-look').addEventListener('click', () => {
-    updateAppearance(cloneAppearance());
-  });
-  required<HTMLButtonElement>('#save-look').addEventListener('click', saveRecipe);
+  required<HTMLButtonElement>('#randomize-look').addEventListener('click', randomizeRecipe);
+  required<HTMLButtonElement>('#reset-look').addEventListener('click', () => updateRecipe(cloneLpcRecipe()));
+  required<HTMLButtonElement>('#save-look').addEventListener('click', useInGame);
   required<HTMLButtonElement>('#export-recipe').addEventListener('click', exportRecipe);
   required<HTMLButtonElement>('#export-walk').addEventListener('click', () => {
-    downloadCanvas(compiled.walk, `${fileStem()}-walk.png`);
+    downloadCanvas(compiled.walk, `${fileStem()}-lpc-walk-4dir.png`);
   });
   required<HTMLButtonElement>('#export-actions').addEventListener('click', () => {
-    downloadCanvas(compiled.actions, `${fileStem()}-actions.png`);
+    downloadCanvas(compiled.actions, `${fileStem()}-lpc-actions.png`);
+  });
+  required<HTMLButtonElement>('#copy-recipe').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(`${JSON.stringify(recipe, null, 2)}\n`);
+    flashState('COPIED JSON');
+  });
+  const importInput = required<HTMLInputElement>('#import-recipe');
+  required<HTMLButtonElement>('#import-look').addEventListener('click', () => importInput.click());
+  importInput.addEventListener('change', () => {
+    const file = importInput.files?.[0];
+    if (!file) return;
+    void file.text().then((text) => {
+      const parsed = parseLpcRecipe(text);
+      if (parsed) updateRecipe(parsed);
+      importInput.value = '';
+    });
   });
   window.addEventListener('beforeunload', () => cancelAnimationFrame(animationHandle), {once: true});
 }
 
-function updateAppearance(value: unknown): void {
-  const candidate = validateAppearance(value);
+function updateRecipe(value: unknown): void {
+  const candidate = validateLpcCharacterRecipe(value);
   if (!candidate) return;
-  appearance = candidate;
-  outfitName.value = appearance.outfitName;
+  recipe = candidate;
+  outfitName.value = recipe.name;
   recompile();
 }
 
 function recompile(): void {
-  compileState.textContent = 'COMPILING';
-  compiled = compileCharacterSpriteSet(sources, appearance);
+  compileState.textContent = 'COMPILING LPC';
+  compiled = compileLpcCharacterSpriteSet(sources, recipe);
   animationStartedAt = performance.now();
   previousFrame = -1;
   renderPartOptions();
   renderMaterialSelection();
   renderTimeline();
   renderRecipe();
-  compileState.textContent = 'READY';
   compileState.classList.remove('error');
+  compileState.textContent = 'READY';
+}
+
+function renderCategoryTabs(): void {
+  for (const button of partCategories.querySelectorAll<HTMLButtonElement>('button')) {
+    button.setAttribute('aria-selected', String(button.dataset.category === activeCategory));
+  }
+}
+
+function renderClipTabs(): void {
+  for (const button of clipSelector.querySelectorAll<HTMLButtonElement>('button')) {
+    button.setAttribute('aria-selected', String(button.dataset.clip === activeClip));
+  }
 }
 
 function renderPartOptions(): void {
@@ -200,23 +221,22 @@ function renderPartOptions(): void {
   partOptions.replaceChildren();
   partCount.textContent = `${definition.options.length} OPTIONS`;
   for (const option of definition.options) {
-    const candidate = validateAppearance({...appearance, [definition.field]: option.id});
+    const candidate = validateLpcCharacterRecipe({...recipe, [definition.field]: option.id});
     if (!candidate) continue;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'part-option';
     button.dataset.value = option.id;
-    button.setAttribute('aria-pressed', String(appearance[definition.field] === option.id));
+    button.setAttribute('aria-pressed', String(recipe[definition.field] === option.id));
     const canvas = document.createElement('canvas');
     canvas.width = 72;
     canvas.height = 72;
-    canvas.setAttribute('aria-hidden', 'true');
-    const candidateSet = compileCharacterSpriteSet(sources, candidate);
-    drawCharacterFrame(canvas, candidateSet, candidate, 'idle', 0, 1.65);
+    const candidateSet = compileLpcCharacterSpriteSet(sources, candidate);
+    drawAtlasFrame(canvas, candidateSet.walk, 9, 18, 1.55);
     const label = document.createElement('span');
     label.textContent = option.label;
     const meta = document.createElement('small');
-    meta.textContent = activeCategory === 'body' ? 'STANDARD-01' : 'AVAILABLE';
+    meta.textContent = activeCategory.toUpperCase();
     button.append(canvas, label, meta);
     partOptions.append(button);
   }
@@ -224,11 +244,11 @@ function renderPartOptions(): void {
 
 function renderMaterialSwatches(): void {
   materialSwatches.replaceChildren();
-  for (const option of COLOR_OPTIONS) {
+  for (const option of LPC_COLOR_OPTIONS) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.color = option.id;
-    button.style.setProperty('--swatch', cssColor(COLOR_VALUES[option.id]));
+    button.style.setProperty('--swatch', LPC_COLOR_VALUES[option.id]);
     button.setAttribute('aria-label', option.label);
     button.title = option.label;
     materialSwatches.append(button);
@@ -236,19 +256,29 @@ function renderMaterialSwatches(): void {
 }
 
 function renderMaterialSelection(): void {
-  materialName.textContent = materialLabel(activeMaterial);
+  const fixedTop = activeMaterial === 'topColor' && recipe.top === 'smiley';
+  const fixedHat = activeMaterial === 'hatColor' && !['winter_hat', 'cavalier'].includes(recipe.hat);
+  const fixedShoes = activeMaterial === 'shoesColor' && recipe.shoes === 'timbs';
+  materialName.textContent = fixedTop
+    ? 'TOP FIXED'
+    : fixedHat
+      ? 'HAT FIXED'
+      : fixedShoes
+        ? 'SHOES FIXED'
+        : materialLabel(activeMaterial);
   for (const button of materialTabs.querySelectorAll<HTMLButtonElement>('button')) {
     button.setAttribute('aria-selected', String(button.dataset.material === activeMaterial));
   }
   for (const button of materialSwatches.querySelectorAll<HTMLButtonElement>('button')) {
-    button.setAttribute('aria-pressed', String(button.dataset.color === appearance[activeMaterial]));
+    button.setAttribute('aria-pressed', String(button.dataset.color === recipe[activeMaterial]));
+    button.disabled = fixedTop || fixedHat || fixedShoes;
   }
 }
 
 function renderTimeline(): void {
-  const clip = CHARACTER_CLIPS[activeClip];
+  const clip = CLIPS[activeClip];
   frameTimeline.replaceChildren();
-  clipTitle.textContent = clip.id.toUpperCase();
+  clipTitle.textContent = clip.label.toUpperCase();
   clip.frames.forEach((frame, index) => {
     const item = document.createElement('div');
     item.className = 'timeline-frame';
@@ -256,27 +286,43 @@ function renderTimeline(): void {
     const canvas = document.createElement('canvas');
     canvas.width = 72;
     canvas.height = 72;
-    drawCharacterFrame(canvas, compiled, appearance, activeClip, frame, 1.4);
+    drawAtlasFrame(canvas, clip.atlas === 'walk' ? compiled.walk : compiled.actions, clip.atlas === 'walk' ? 9 : 4, frame, 1.35);
     const label = document.createElement('span');
-    label.textContent = String(frame + 1).padStart(2, '0');
+    label.textContent = String(index + 1).padStart(2, '0');
     item.append(canvas, label);
     frameTimeline.append(item);
   });
 }
 
 function renderRecipe(): void {
-  recipeJson.textContent = JSON.stringify(appearance, null, 2);
-  recipeKey.textContent = shortHash(compiled.key);
-  bodyFamily.textContent = `${appearance.bodyType.toUpperCase()}-01`;
+  const serialized = serializeLpcRecipe(recipe);
+  recipeJson.textContent = JSON.stringify(recipe, null, 2);
+  recipeKey.textContent = shortHash(lpcRecipeKey(recipe));
+  bodyFamily.textContent = 'LPC-MALE';
+  required<HTMLElement>('#recipe-bytes').textContent = `${serialized.length} B`;
+  required<HTMLElement>('#recipe-status').textContent = 'VALID';
+  required<HTMLElement>('#coverage-summary').textContent = `${lpcLayerDefinitions(recipe).length} LAYERS`;
+  required<HTMLElement>('#validation-list').replaceChildren(
+    validationItem('4-direction walk atlas'),
+    validationItem('NOCK0 action fallback atlas'),
+    validationItem('Replicates through player appearance')
+  );
+  const stack = required<HTMLElement>('#layer-stack');
+  stack.replaceChildren(...lpcLayerDefinitions(recipe).map((layer) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row';
+    row.textContent = `${String(layer.zPos).padStart(3, '0')} ${layer.label}`;
+    return row;
+  }));
 }
 
 function animate(nowMs: number): void {
-  const frame = characterClipFrame(activeClip, nowMs - animationStartedAt);
+  const clip = CLIPS[activeClip];
+  const index = Math.floor((nowMs - animationStartedAt) / clip.frameMs) % clip.frames.length;
+  const frame = clip.frames[index];
   if (frame !== previousFrame) {
     previousFrame = frame;
-    drawCharacterFrame(stage, compiled, appearance, activeClip, frame, zoom);
-    const clip = CHARACTER_CLIPS[activeClip];
-    const index = Math.max(0, clip.frames.indexOf(frame));
+    drawAtlasFrame(stage, clip.atlas === 'walk' ? compiled.walk : compiled.actions, clip.atlas === 'walk' ? 9 : 4, frame, zoom);
     frameReadout.textContent = `FRAME ${String(index + 1).padStart(2, '0')} / ${String(clip.frames.length).padStart(2, '0')}`;
     for (const element of frameTimeline.querySelectorAll<HTMLElement>('.timeline-frame')) {
       element.classList.toggle('active', Number(element.dataset.index) === index);
@@ -285,67 +331,87 @@ function animate(nowMs: number): void {
   animationHandle = requestAnimationFrame(animate);
 }
 
-function drawCharacterFrame(
+function drawAtlasFrame(
   canvas: HTMLCanvasElement,
-  spriteSet: CompiledCharacterSpriteSet,
-  recipe: PlayerAppearance,
-  clipId: CharacterClipId,
+  atlas: HTMLCanvasElement,
+  columns: number,
   frame: number,
   scale: number
 ): void {
   const context = canvas.getContext('2d');
   if (!context) return;
-  const clip = CHARACTER_CLIPS[clipId];
-  const atlas = CHARACTER_ATLASES[clip.atlas];
-  const source = clip.atlas === 'walk' ? spriteSet.walk : spriteSet.actions;
-  const width = atlas.frameSize * scale * appearanceSpritePresentation(recipe).bodyScaleX;
-  const height = atlas.frameSize * scale;
+  const frameSize = 72;
+  const width = frameSize * scale;
+  const height = frameSize * scale;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.imageSmoothingEnabled = false;
   context.drawImage(
-    source,
-    frame % atlas.columns * atlas.frameSize,
-    Math.floor(frame / atlas.columns) * atlas.frameSize,
-    atlas.frameSize,
-    atlas.frameSize,
-    (canvas.width - width) / 2,
-    (canvas.height - height) / 2,
+    atlas,
+    frame % columns * frameSize,
+    Math.floor(frame / columns) * frameSize,
+    frameSize,
+    frameSize,
+    Math.floor((canvas.width - width) / 2),
+    Math.floor((canvas.height - height) / 2),
     width,
     height
   );
 }
 
-function randomizeAppearance(): void {
-  updateAppearance({
-    outfitName: 'Generated Fit',
-    bodyType: randomOption(BODY_OPTIONS),
-    skinTone: randomOption(SKIN_OPTIONS),
-    hairStyle: randomOption(HAIR_OPTIONS),
-    hairColor: randomOption(COLOR_OPTIONS),
-    headwear: randomOption(HEADWEAR_OPTIONS),
-    topStyle: randomOption(TOP_OPTIONS),
-    topColor: randomOption(COLOR_OPTIONS),
-    accentColor: randomOption(COLOR_OPTIONS),
-    bottomStyle: randomOption(BOTTOM_OPTIONS),
-    bottomColor: randomOption(COLOR_OPTIONS),
-    shoeStyle: randomOption(SHOE_OPTIONS),
-    shoeColor: randomOption(COLOR_OPTIONS)
+function randomizeRecipe(): void {
+  updateRecipe({
+    ...recipe,
+    name: 'LPC Driver',
+    face: randomOption(LPC_FACE_OPTIONS),
+    hair: randomOption(LPC_HAIR_OPTIONS),
+    hat: randomOption(LPC_HAT_OPTIONS),
+    top: randomOption(LPC_TOP_OPTIONS),
+    legs: randomOption(LPC_LEGS_OPTIONS),
+    shoes: randomOption(LPC_SHOE_OPTIONS),
+    hairColor: randomOption(LPC_COLOR_OPTIONS),
+    hatColor: randomOption(LPC_COLOR_OPTIONS),
+    topColor: randomOption(LPC_COLOR_OPTIONS),
+    legsColor: randomOption(LPC_COLOR_OPTIONS),
+    shoesColor: randomOption(LPC_COLOR_OPTIONS)
   });
 }
 
-function saveRecipe(): void {
-  saveAppearance(appearance);
-  compileState.textContent = 'SAVED LOCALLY';
-  window.setTimeout(() => {
-    if (compileState.textContent === 'SAVED LOCALLY') compileState.textContent = 'READY';
-  }, 1200);
+function useInGame(): void {
+  const serialized = serializeLpcRecipe(recipe);
+  window.localStorage.setItem(LPC_STORAGE_KEY, serialized);
+  const appearance = loadSavedAppearance();
+  saveAppearance({
+    ...appearance,
+    outfitName: recipe.name,
+    lpcRecipe: serialized
+  });
+  flashState('SAVED FOR GAME');
 }
 
 function exportRecipe(): void {
   downloadBlob(
-    new Blob([`${JSON.stringify(appearance, null, 2)}\n`], {type: 'application/json'}),
-    `${fileStem()}-recipe.json`
+    new Blob([`${JSON.stringify(recipe, null, 2)}\n`], {type: 'application/json'}),
+    `${fileStem()}-lpc-recipe.json`
   );
+}
+
+function loadSavedLpcRecipe(): LpcCharacterRecipe {
+  return parseLpcRecipe(window.localStorage.getItem(LPC_STORAGE_KEY) ?? undefined) ??
+    parseLpcRecipe(loadSavedAppearance().lpcRecipe) ??
+    cloneLpcRecipe();
+}
+
+function validationItem(text: string): HTMLLIElement {
+  const item = document.createElement('li');
+  item.textContent = text;
+  return item;
+}
+
+function flashState(text: string): void {
+  compileState.textContent = text;
+  window.setTimeout(() => {
+    if (compileState.textContent === text) compileState.textContent = 'READY';
+  }, 1200);
 }
 
 function downloadCanvas(canvas: HTMLCanvasElement, name: string): void {
@@ -364,7 +430,7 @@ function downloadBlob(blob: Blob, name: string): void {
 }
 
 function fileStem(): string {
-  return appearance.outfitName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'character';
+  return recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'lpc-character';
 }
 
 function shortHash(value: string): string {
@@ -373,21 +439,12 @@ function shortHash(value: string): string {
     hash ^= value.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
-  return `V1-${(hash >>> 0).toString(16).padStart(8, '0').toUpperCase()}`;
-}
-
-function loadImage(source: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener('load', () => resolve(image), {once: true});
-    image.addEventListener('error', () => reject(new Error(`Unable to load ${source}`)), {once: true});
-    image.src = source;
-  });
+  return `LPC-${(hash >>> 0).toString(16).padStart(8, '0').toUpperCase()}`;
 }
 
 function required<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
-  if (!element) throw new Error(`Character Lab is missing ${selector}`);
+  if (!element) throw new Error(`LPC creator is missing ${selector}`);
   return element;
 }
 
@@ -395,27 +452,34 @@ function requiredCanvas(selector: string): HTMLCanvasElement {
   return required<HTMLCanvasElement>(selector);
 }
 
-function randomOption<T extends string>(options: readonly AppearanceOption<T>[]): T {
+function randomOption<T extends string>(options: readonly LpcOption<T>[]): T {
   return options[Math.floor(Math.random() * options.length)].id;
 }
 
-function cssColor(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
-}
-
 function materialLabel(field: MaterialField): string {
-  return field === 'hairColor' ? 'HAIR' : field === 'topColor' ? 'TOP' :
-    field === 'accentColor' ? 'TRIM' : field === 'bottomColor' ? 'LEGS' : 'SHOES';
+  return field === 'hairColor'
+    ? 'HAIR'
+    : field === 'hatColor'
+      ? 'HAT'
+      : field === 'topColor'
+        ? 'TOP'
+        : field === 'legsColor'
+          ? 'LEGS'
+          : 'SHOES';
 }
 
 function isPartCategory(value: unknown): value is PartCategory {
   return typeof value === 'string' && Object.hasOwn(PART_CATEGORIES, value);
 }
 
-function isClip(value: unknown): value is CharacterClipId {
-  return typeof value === 'string' && Object.hasOwn(CHARACTER_CLIPS, value);
+function isPreviewClip(value: unknown): value is PreviewClip {
+  return typeof value === 'string' && Object.hasOwn(CLIPS, value);
 }
 
 function isMaterialField(value: unknown): value is MaterialField {
-  return ['hairColor', 'topColor', 'accentColor', 'bottomColor', 'shoeColor'].includes(String(value));
+  return ['hairColor', 'hatColor', 'topColor', 'legsColor', 'shoesColor'].includes(String(value));
+}
+
+function isLpcColor(value: unknown): value is LpcColorId {
+  return typeof value === 'string' && LPC_COLOR_OPTIONS.some((option) => option.id === value);
 }

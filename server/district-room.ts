@@ -42,6 +42,7 @@ import {CrimeResponseController} from './game/police/crime-response-controller.t
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
+import {WorldClockController} from './game/world/world-clock-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
@@ -134,6 +135,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
+  private worldClock!: WorldClockController;
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
@@ -151,6 +153,8 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.worldClock = new WorldClockController({state: this.state, now: Date.now});
+    this.worldClock.initialize();
     this.replicationController = new DistrictReplicationController(this.state, {
       queryStreetActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
         kinds: ['npc', 'vehicle'],
