@@ -30,8 +30,12 @@ test('weapon catalog exposes complete unique discriminated definitions', () => {
       assert.ok(weapon.lifetimeMs > 0);
       assert.equal(weapon.passengerAllowed, false);
     } else if (weapon.fireMode === 'thrown') {
-      assert.equal(weapon.ammunitionField, 'ammoGrenade');
+      assert.equal(
+        weapon.ammunitionField,
+        weapon.id === 'molotov' ? 'ammoMolotov' : 'ammoGrenade'
+      );
       assert.ok(weapon.fuseMs > 0);
+      assert.equal(weapon.impactTriggered, weapon.id === 'molotov');
     } else {
       assert.equal(weapon.ammunitionField, null);
       assert.equal(isMeleeWeapon(weapon), true);

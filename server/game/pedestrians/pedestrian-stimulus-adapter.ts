@@ -35,6 +35,12 @@ export class PedestrianStimulusAdapter {
           1, Math.max(720, event.radius * 5.5), event.nowMs,
           4200, `explosion:${event.explosionId}`, 1000
         );
+      case 'fire.created':
+        return stimulus(
+          'fire', event.sourceId, event.fireId, event.x, event.y,
+          0.92, Math.max(460, event.radius * 6), event.nowMs,
+          Math.max(2400, event.expiresAt - event.nowMs), `fire:${event.fireId}`, 1000
+        );
       case 'damage.applied': {
         const position = this.entityPosition(event.targetKind, event.targetId);
         if (!position) return undefined;

@@ -5,6 +5,8 @@ export interface AmmunitionState {
   ammoSmg: number;
   ammoShotgun: number;
   ammoRocket?: number;
+  ammoGrenade?: number;
+  ammoMolotov?: number;
 }
 
 export interface CombatResupplyState extends AmmunitionState {
@@ -27,7 +29,9 @@ export const AMMUNITION_CAPACITY: Readonly<Required<AmmunitionState>> = Object.f
   ammoPistol: 120,
   ammoSmg: 240,
   ammoShotgun: 48,
-  ammoRocket: 4
+  ammoRocket: 4,
+  ammoGrenade: 6,
+  ammoMolotov: 5
 });
 
 export const STREET_SERVICE_RADIUS: Readonly<Record<StreetServiceKind, number>> = Object.freeze({
@@ -45,8 +49,20 @@ export function ammunitionRestockQuote(state: AmmunitionState): number {
     state.ammoRocket ?? AMMUNITION_CAPACITY.ammoRocket,
     AMMUNITION_CAPACITY.ammoRocket
   );
-  if (pistol + smg + shotgun + rocket === 0) return 0;
-  return clamp(Math.ceil(pistol * 0.5 + smg * 0.25 + shotgun * 2 + rocket * 75), 25, 700);
+  const grenade = missingRounds(
+    state.ammoGrenade ?? AMMUNITION_CAPACITY.ammoGrenade,
+    AMMUNITION_CAPACITY.ammoGrenade
+  );
+  const molotov = missingRounds(
+    state.ammoMolotov ?? AMMUNITION_CAPACITY.ammoMolotov,
+    AMMUNITION_CAPACITY.ammoMolotov
+  );
+  if (pistol + smg + shotgun + rocket + grenade + molotov === 0) return 0;
+  return clamp(
+    Math.ceil(pistol * 0.5 + smg * 0.25 + shotgun * 2 + rocket * 75 + grenade * 28 + molotov * 22),
+    25,
+    700
+  );
 }
 
 export function combatResupplyQuote(state: CombatResupplyState): number {

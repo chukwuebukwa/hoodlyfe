@@ -257,6 +257,17 @@ export class DistrictReplicationController {
         `explosion:${explosion.id}`
       );
     }
+    for (const fire of this.state.fires.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        fire,
+        x,
+        y,
+        fire.ownerId === playerId,
+        `fire:${fire.id}`
+      );
+    }
     return actors.length;
   }
 

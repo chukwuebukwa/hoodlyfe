@@ -86,6 +86,7 @@ export class SfxSystem {
         this.impact(event, projection.gain, projection.pan);
         break;
       case 'vehicle.fire':
+      case 'fire.ignite':
         this.fireWhoosh(projection.gain, projection.pan);
         break;
       case 'vehicle.repaired':

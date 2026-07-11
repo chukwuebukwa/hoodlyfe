@@ -8,7 +8,8 @@ import {
   serverPedestrianAngleToThree,
   serverVehicleAngleToThree,
   serverYToThree,
-  threePointToServerAimAngle
+  threePointToServerAimAngle,
+  vehicleLampAnchor
 } from '../src/game/three/three-prototype-policy.ts';
 
 test('three prototype maps tile-local UVs into the complete GTA2 atlas', () => {
@@ -16,6 +17,22 @@ test('three prototype maps tile-local UVs into the complete GTA2 atlas', () => {
     1.25 / 32,
     1.75 / 31
   ]);
+});
+
+test('vehicle lamp anchors follow physical heading without the sprite atlas quarter-turn', () => {
+  const east = vehicleLampAnchor(100, 200, 0, 40);
+  assert.equal(east.x, 140);
+  assert.equal(east.y, -200);
+  assert.ok(Math.abs(east.rotation) < 0.0001);
+  const south = vehicleLampAnchor(100, 200, Math.PI / 2, 40);
+  assert.ok(Math.abs(south.x - 100) < 0.0001);
+  assert.ok(Math.abs(south.y + 240) < 0.0001);
+  const west = vehicleLampAnchor(100, 200, Math.PI, 40);
+  assert.ok(Math.abs(west.x - 60) < 0.0001);
+  assert.ok(Math.abs(west.y + 200) < 0.0001);
+  const north = vehicleLampAnchor(100, 200, -Math.PI / 2, 40);
+  assert.ok(Math.abs(north.x - 100) < 0.0001);
+  assert.ok(Math.abs(north.y + 160) < 0.0001);
 });
 
 test('three prototype converts the authoritative Y-down coordinate boundary exactly once', () => {

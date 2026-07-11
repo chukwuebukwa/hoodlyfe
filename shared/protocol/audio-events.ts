@@ -5,6 +5,7 @@ export type AudioEventKind =
   | 'melee.swing'
   | 'melee.hit'
   | 'explosion'
+  | 'fire.ignite'
   | 'vehicle.impact'
   | 'vehicle.fire'
   | 'vehicle.destroyed'

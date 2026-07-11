@@ -173,6 +173,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'grenade');
   assert.equal(first.state.players.get(first.sessionId)?.ammoGrenade, 2);
   first.send('cycleWeapon', {direction: 1});
+  await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'molotov');
+  assert.equal(first.state.players.get(first.sessionId)?.ammoMolotov, 3);
+  first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'fists');
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'bat');

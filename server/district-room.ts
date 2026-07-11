@@ -52,6 +52,7 @@ import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
 import {ThrownProjectileController} from './game/combat/thrown-projectile-controller.ts';
+import {FireZoneController} from './game/combat/fire-zone-controller.ts';
 import {RocketProjectileController} from './game/combat/rocket-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
@@ -129,6 +130,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private projectileController!: ProjectileController;
   private explosionController!: ExplosionController;
   private thrownProjectileController!: ThrownProjectileController;
+  private fireZoneController!: FireZoneController;
   private rocketProjectileController!: RocketProjectileController;
   private weaponPickupController!: WeaponPickupController;
   private cashPickupController!: CashPickupController;
@@ -377,11 +379,22 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: nearbyNpcs,
       queryVehicles: nearbyVehicles
     });
+    this.fireZoneController = new FireZoneController({
+      state: this.state,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      damage: this.damageController,
+      vehicles: this.vehicleSimulation,
+      queryPlayers: nearbyPlayers,
+      queryNpcs: nearbyNpcs,
+      queryVehicles: nearbyVehicles
+    });
     this.thrownProjectileController = new ThrownProjectileController({
       state: this.state,
       world: this.world,
-      detonate: (x, y, ownerId, nowMs) => {
-        this.explosionController.detonate('grenade', x, y, ownerId, 'player', nowMs);
+      resolve: (kind, x, y, ownerId, nowMs) => {
+        if (kind === 'molotov') this.fireZoneController.ignite(x, y, ownerId, nowMs);
+        else this.explosionController.detonate('grenade', x, y, ownerId, 'player', nowMs);
       },
       remove: (projectileId) => this.lifecycle.defer(
         `thrown.remove:${projectileId}`,
@@ -793,6 +806,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.state.thrownProjectiles.forEach((projectile, projectileId) => {
       this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
     });
+    this.fireZoneController.update(now);
     this.weaponPickupController.update(now);
     this.cashPickupController.update(now);
     this.crimeController.expire(now);

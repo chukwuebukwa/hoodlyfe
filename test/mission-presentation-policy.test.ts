@@ -242,6 +242,7 @@ function createState(): DistrictNetworkState {
     players: new Map([['local', createPlayer()]]),
     bullets: new Map(),
     thrownProjectiles: new Map(),
+    fires: new Map(),
     explosions: new Map(),
     weaponPickups: new Map(),
     npcs: new Map(),

@@ -44,6 +44,16 @@ export interface ExplosionCreatedEvent extends EventMetadata {
   radius: number;
 }
 
+export interface FireCreatedEvent extends EventMetadata {
+  type: 'fire.created';
+  fireId: string;
+  sourceId: string;
+  x: number;
+  y: number;
+  radius: number;
+  expiresAt: number;
+}
+
 export interface WeaponPickupCollectedEvent extends EventMetadata {
   type: 'pickup.collected';
   pickupId: string;
@@ -183,6 +193,7 @@ export type GameEvent =
   | MeleeAttackStartedEvent
   | NpcMeleeAttackStartedEvent
   | ExplosionCreatedEvent
+  | FireCreatedEvent
   | WeaponPickupCollectedEvent
   | CashPickupCollectedEvent
   | DamageAppliedEvent

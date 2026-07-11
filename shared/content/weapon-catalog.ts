@@ -1,10 +1,18 @@
-export const WEAPON_ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'rocket', 'grenade'] as const;
+export const WEAPON_ORDER = [
+  'fists', 'bat', 'pistol', 'smg', 'shotgun', 'rocket', 'grenade', 'molotov'
+] as const;
 
 export type WeaponId = typeof WEAPON_ORDER[number];
 export type BulletWeaponId = Extract<WeaponId, 'pistol' | 'smg' | 'shotgun'>;
 export type RocketWeaponId = Extract<WeaponId, 'rocket'>;
 export type MeleeWeaponId = Extract<WeaponId, 'fists' | 'bat'>;
-export type AmmunitionField = 'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoRocket' | 'ammoGrenade';
+export type AmmunitionField =
+  | 'ammoPistol'
+  | 'ammoSmg'
+  | 'ammoShotgun'
+  | 'ammoRocket'
+  | 'ammoGrenade'
+  | 'ammoMolotov';
 
 export interface WeaponPresentationDefinition {
   assetId: string;
@@ -34,10 +42,11 @@ export interface BulletWeaponDefinition extends WeaponDefinitionBase {
 }
 
 export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
-  id: 'grenade';
+  id: Extract<WeaponId, 'grenade' | 'molotov'>;
   fireMode: 'thrown';
-  ammunitionField: 'ammoGrenade';
+  ammunitionField: Extract<AmmunitionField, 'ammoGrenade' | 'ammoMolotov'>;
   fuseMs: number;
+  impactTriggered: boolean;
 }
 
 export interface RocketWeaponDefinition extends WeaponDefinitionBase {
@@ -204,7 +213,19 @@ export const WEAPONS = Object.freeze({
     cooldownMs: 650,
     ammunitionField: 'ammoGrenade',
     fuseMs: 2000,
+    impactTriggered: false,
     presentation: Object.freeze({assetId: 'grenade', heldWidth: 15, heldHeight: 15, heldVisible: true})
+  } satisfies ThrownWeaponDefinition),
+  molotov: Object.freeze({
+    id: 'molotov',
+    name: 'Molotov',
+    fireMode: 'thrown',
+    passengerAllowed: false,
+    cooldownMs: 720,
+    ammunitionField: 'ammoMolotov',
+    fuseMs: 2000,
+    impactTriggered: true,
+    presentation: Object.freeze({assetId: 'molotov', heldWidth: 14, heldHeight: 25, heldVisible: true})
   } satisfies ThrownWeaponDefinition)
 }) satisfies Readonly<Record<WeaponId, WeaponDefinition>>;
 

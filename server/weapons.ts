@@ -37,4 +37,5 @@ export function refillAmmo(player: PlayerState): void {
   player.ammoShotgun = 48;
   player.ammoRocket = 4;
   player.ammoGrenade = 6;
+  player.ammoMolotov = 5;
 }

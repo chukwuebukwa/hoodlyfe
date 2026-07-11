@@ -46,7 +46,8 @@ import {
   serverAngleToThree,
   serverPedestrianAngleToThree,
   serverVehicleAngleToThree,
-  serverYToThree
+  serverYToThree,
+  vehicleLampAnchor
 } from './three-prototype-policy.ts';
 import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
 
@@ -143,7 +144,7 @@ export class ThreeDistrictEntities {
     const [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
       civilianActions, policeActions,
-      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade
+      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade, molotov
     ] = await Promise.all([
       loader.loadAsync(characterSources.walk),
       loader.loadAsync('/assets/original/sprites/civilian.png'),
@@ -162,12 +163,13 @@ export class ThreeDistrictEntities {
       loader.loadAsync('/assets/original/weapons/smg.svg'),
       loader.loadAsync('/assets/original/weapons/shotgun.svg'),
       loader.loadAsync('/assets/original/weapons/rocket.svg'),
-      loader.loadAsync('/assets/original/weapons/grenade.svg')
+      loader.loadAsync('/assets/original/weapons/grenade.svg'),
+      loader.loadAsync('/assets/original/weapons/molotov.svg')
     ]);
     for (const texture of [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
       civilianActions, policeActions,
-      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade
+      vehicleDoors, blood, fists, bat, pistol, smg, shotgun, rocket, grenade, molotov
     ]) {
       configureTexture(texture);
     }
@@ -180,7 +182,7 @@ export class ThreeDistrictEntities {
         playerDirectionalWalk: characterSources.directionalWalk,
         civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,
         civilianActions, policeActions,
-        vehicleDoors, blood, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade}
+        vehicleDoors, blood, weapons: {fists, bat, pistol, smg, shotgun, rocket, grenade, molotov}
       },
       lpcSources,
       surfaceHeightAt
@@ -552,25 +554,27 @@ export class ThreeDistrictEntities {
     rendered.mesh.userData.worldX = vehicle.x;
     rendered.mesh.userData.worldY = vehicle.y;
     rendered.mesh.userData.vehicle = vehicle;
-    const angle = rendered.mesh.rotation.z;
+    const frontLamp = vehicleLampAnchor(vehicle.x, vehicle.y, vehicle.angle, 43);
+    const rearLamp = vehicleLampAnchor(vehicle.x, vehicle.y, vehicle.angle, -31);
     if (rendered.headlight) {
       rendered.headlight.position.set(
-        vehicle.x + Math.cos(angle) * 43,
-        serverYToThree(vehicle.y) + Math.sin(angle) * 43,
+        frontLamp.x,
+        frontLamp.y,
         z + 1
       );
-      rendered.headlight.rotation.z = angle;
+      rendered.headlight.rotation.z = frontLamp.rotation;
       rendered.headlight.scale.set(1.65, 0.58, 1);
     }
     if (rendered.taillight) {
       rendered.taillight.position.set(
-        vehicle.x - Math.cos(angle) * 31,
-        serverYToThree(vehicle.y) - Math.sin(angle) * 31,
+        rearLamp.x,
+        rearLamp.y,
         z + 1
       );
-      rendered.taillight.rotation.z = angle;
+      rendered.taillight.rotation.z = rearLamp.rotation;
       rendered.taillight.scale.set(1.15, 0.52, 1);
     }
+    const angle = rendered.mesh.rotation.z;
     const emergency = emergencyLightPresentation(vehicle, performance.now());
     const rightX = -Math.sin(angle);
     const rightY = Math.cos(angle);

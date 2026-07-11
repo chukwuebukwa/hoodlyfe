@@ -123,6 +123,17 @@ export class AudioEventController {
           intensity: Math.min(1, event.radius / 220),
           sourceId: event.sourceId
         };
+      case 'fire.created':
+        return {
+          id,
+          tick: event.tick,
+          kind: 'fire.ignite',
+          x: event.x,
+          y: event.y,
+          variant: 'molotov',
+          intensity: 0.72,
+          sourceId: event.sourceId
+        };
       case 'vehicle.damaged': {
         const vehicle = this.options.state.vehicles.get(event.vehicleId);
         if (!vehicle || event.amount < 5) return undefined;

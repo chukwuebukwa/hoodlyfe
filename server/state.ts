@@ -67,6 +67,7 @@ export class PlayerState extends Schema {
   ammoShotgun = 48;
   ammoRocket = 4;
   ammoGrenade = 2;
+  ammoMolotov = 3;
   appearance = new PlayerAppearanceState();
 }
 
@@ -103,6 +104,7 @@ defineTypes(PlayerState, {
   ammoShotgun: 'number',
   ammoRocket: 'number',
   ammoGrenade: 'number',
+  ammoMolotov: 'number',
   appearance: PlayerAppearanceState
 });
 
@@ -181,6 +183,26 @@ export class ExplosionState extends Schema {
   createdAt = 0;
   expiresAt = 0;
 }
+
+export class FireZoneState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  radius = 0;
+  createdAt = 0;
+  expiresAt = 0;
+}
+
+defineTypes(FireZoneState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  radius: 'number',
+  createdAt: 'number',
+  expiresAt: 'number'
+});
 
 defineTypes(ExplosionState, {
   id: 'string',
@@ -464,6 +486,7 @@ export class DistrictState extends Schema {
   rockets = new MapSchema<RocketProjectileState>();
   thrownProjectiles = new MapSchema<ThrownProjectileState>();
   explosions = new MapSchema<ExplosionState>();
+  fires = new MapSchema<FireZoneState>();
   weaponPickups = new MapSchema<WeaponPickupState>();
   cashPickups = new MapSchema<CashPickupState>();
   trafficSignals = new MapSchema<TrafficSignalState>();
@@ -484,6 +507,7 @@ defineTypes(DistrictState, {
   rockets: {map: RocketProjectileState},
   thrownProjectiles: {map: ThrownProjectileState},
   explosions: {map: ExplosionState},
+  fires: {map: FireZoneState},
   weaponPickups: {map: WeaponPickupState},
   cashPickups: {map: CashPickupState},
   trafficSignals: {map: TrafficSignalState},
@@ -503,6 +527,7 @@ for (const field of [
   'bullets',
   'thrownProjectiles',
   'explosions',
+  'fires',
   'weaponPickups',
   'cashPickups',
   'trafficSignals',

@@ -43,6 +43,7 @@ export interface NetworkPlayer {
   ammoShotgun: number;
   ammoRocket?: number;
   ammoGrenade: number;
+  ammoMolotov?: number;
   appearance: PlayerAppearance;
 }
 
@@ -60,7 +61,7 @@ export interface NetworkBullet {
 export interface NetworkThrownProjectile {
   id: string;
   ownerId: string;
-  kind: 'grenade';
+  kind: 'grenade' | 'molotov';
   x: number;
   y: number;
   height: number;
@@ -83,6 +84,16 @@ export interface NetworkExplosion {
   kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
+  x: number;
+  y: number;
+  radius: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface NetworkFireZone {
+  id: string;
+  ownerId: string;
   x: number;
   y: number;
   radius: number;
@@ -228,6 +239,7 @@ export interface DistrictNetworkState {
   rockets?: Map<string, NetworkRocketProjectile>;
   thrownProjectiles: Map<string, NetworkThrownProjectile>;
   explosions: Map<string, NetworkExplosion>;
+  fires: Map<string, NetworkFireZone>;
   weaponPickups: Map<string, NetworkWeaponPickup>;
   cashPickups?: Map<string, NetworkCashPickup>;
   trafficSignals?: Map<string, NetworkTrafficSignal>;
