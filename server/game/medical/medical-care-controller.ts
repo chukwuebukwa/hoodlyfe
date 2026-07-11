@@ -53,25 +53,8 @@ export class MedicalCareController {
   initialize(): void {
     if (this.initialized) return;
     const mercy = interiorServiceAnchor('hospital-mercy');
-    if (!mercy) throw new Error('Missing interior service anchor: hospital-mercy');
-    let second = this.options.world.openPointNear(
-      this.options.world.spawn.x,
-      this.options.world.spawn.y,
-      760,
-      1180,
-      PLAYER_RADIUS,
-      4271
-    );
-    for (let attempt = 1; attempt <= 12 && distance(mercy, second) < 320; attempt++) {
-      second = this.options.world.openPointNear(
-        this.options.world.spawn.x,
-        this.options.world.spawn.y,
-        720,
-        1280,
-        PLAYER_RADIUS,
-        4271 + attempt * 79
-      );
-    }
+    const southside = interiorServiceAnchor('hospital-southside');
+    if (!mercy || !southside) throw new Error('Missing authored hospital interior service anchors.');
     this.addFacility(
       'hospital-mercy',
       'Mercy Hospital',
@@ -79,7 +62,13 @@ export class MedicalCareController {
       mercy.y,
       mercy.spaceId
     );
-    this.addFacility('hospital-southside', 'Southside Clinic', second.x, second.y);
+    this.addFacility(
+      'hospital-southside',
+      'Southside Clinic',
+      southside.x,
+      southside.y,
+      southside.spaceId
+    );
     this.initialized = true;
   }
 
@@ -220,8 +209,4 @@ export class MedicalCareController {
       : 'Medical service unavailable. Try again.';
     this.options.notice(playerId, message, 'warning');
   }
-}
-
-function distance(left: {x: number; y: number}, right: {x: number; y: number}): number {
-  return Math.hypot(left.x - right.x, left.y - right.y);
 }

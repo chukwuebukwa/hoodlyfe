@@ -10,7 +10,8 @@ export interface InteriorObstacle {
 export interface InteriorDefinition {
   id: string;
   label: string;
-  kind: 'hospital' | 'clothing';
+  kind: 'hospital' | 'clothing' | 'ammunition';
+  roofTriangleCount: number;
   floorZ: number;
   exteriorDoor: {
     x: number;
@@ -39,6 +40,7 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
     id: 'mercy-hospital',
     label: 'Mercy Hospital',
     kind: 'hospital' as const,
+    roofTriangleCount: 32,
     floorZ: 132,
     exteriorDoor: {
       x: 2632,
@@ -60,6 +62,87 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
     ]),
     serviceAnchors: Object.freeze([
       {id: 'hospital-mercy', x: 2672, y: 1840}
+    ])
+  }),
+  Object.freeze({
+    id: 'ammunation-store',
+    label: 'Ammu-Nation',
+    kind: 'ammunition' as const,
+    roofTriangleCount: 24,
+    floorZ: 132,
+    exteriorDoor: {
+      x: 624,
+      y: 856,
+      radius: 20,
+      exitX: 624,
+      exitY: 884,
+      side: 'south' as const
+    },
+    bounds: {minX: 448, minY: 640, maxX: 704, maxY: 832},
+    entry: {x: 624, y: 792, angle: -Math.PI / 2},
+    exitDoor: {minX: 594, minY: 796, maxX: 654, maxY: 828},
+    obstacles: Object.freeze([
+      {minX: 476, minY: 668, maxX: 516, maxY: 748},
+      {minX: 536, minY: 668, maxX: 576, maxY: 748},
+      {minX: 638, minY: 686, maxX: 682, maxY: 760}
+    ]),
+    serviceAnchors: Object.freeze([
+      {id: 'ammunition-counter', x: 608, y: 720}
+    ])
+  }),
+  Object.freeze({
+    id: 'threads-store',
+    label: 'Threads',
+    kind: 'clothing' as const,
+    roofTriangleCount: 42,
+    floorZ: 132,
+    exteriorDoor: {
+      x: 1952,
+      y: 856,
+      radius: 20,
+      exitX: 1952,
+      exitY: 884,
+      side: 'south' as const
+    },
+    bounds: {minX: 1728, minY: 640, maxX: 2176, maxY: 832},
+    entry: {x: 1952, y: 792, angle: -Math.PI / 2},
+    exitDoor: {minX: 1922, minY: 796, maxX: 1982, maxY: 828},
+    obstacles: Object.freeze([
+      {minX: 1760, minY: 668, maxX: 1840, maxY: 708},
+      {minX: 1872, minY: 668, maxX: 1952, maxY: 708},
+      {minX: 1760, minY: 732, maxX: 1840, maxY: 772},
+      {minX: 2050, minY: 688, maxX: 2120, maxY: 780}
+    ]),
+    serviceAnchors: Object.freeze([
+      {id: 'clothing-store', x: 1992, y: 744}
+    ])
+  }),
+  Object.freeze({
+    id: 'southside-clinic',
+    label: 'Southside Clinic',
+    kind: 'hospital' as const,
+    roofTriangleCount: 48,
+    floorZ: 132,
+    exteriorDoor: {
+      x: 3392,
+      y: 1368,
+      radius: 20,
+      exitX: 3392,
+      exitY: 1396,
+      side: 'south' as const
+    },
+    bounds: {minX: 3200, minY: 1088, maxX: 3584, maxY: 1344},
+    entry: {x: 3392, y: 1304, angle: -Math.PI / 2},
+    recoveryAnchor: {x: 3300, y: 1160, angle: Math.PI / 2},
+    exitDoor: {minX: 3362, minY: 1308, maxX: 3422, maxY: 1340},
+    obstacles: Object.freeze([
+      {minX: 3232, minY: 1120, maxX: 3296, maxY: 1160},
+      {minX: 3330, minY: 1120, maxX: 3394, maxY: 1160},
+      {minX: 3232, minY: 1210, maxX: 3312, maxY: 1242},
+      {minX: 3470, minY: 1160, maxX: 3540, maxY: 1210}
+    ]),
+    serviceAnchors: Object.freeze([
+      {id: 'hospital-southside', x: 3490, y: 1250}
     ])
   })
 ]);

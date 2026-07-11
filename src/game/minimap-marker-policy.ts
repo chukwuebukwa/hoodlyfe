@@ -6,6 +6,10 @@ export type MinimapMarkerKind =
   | 'objective'
   | 'contact'
   | 'shop'
+  | 'ammunition'
+  | 'clothing'
+  | 'hospital'
+  | 'repair'
   | 'pickup'
   | 'property';
 
@@ -39,7 +43,8 @@ export interface MinimapNpcInput {
 
 export interface MinimapPointInput {
   id: string;
-  kind: 'objective' | 'contact' | 'shop' | 'pickup' | 'property' | 'hostile';
+  kind: 'objective' | 'contact' | 'shop' | 'ammunition' | 'clothing' | 'hospital' | 'repair' |
+    'pickup' | 'property' | 'hostile';
   x: number;
   y: number;
   angle?: number;
@@ -140,7 +145,7 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
 
   for (const point of input.points ?? []) {
     const distance = Math.hypot(point.x - localPosition.x, point.y - localPosition.y);
-    if (point.kind !== 'objective' && distance > range * 1.25) continue;
+    if (point.kind !== 'objective' && !isPermanentLocation(point.kind) && distance > range * 1.25) continue;
     markers.push(markerFor(
       `${point.kind}:${point.id}`,
       point.kind,
@@ -163,6 +168,10 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
     wantedLevel: local.wanted,
     markers
   };
+}
+
+function isPermanentLocation(kind: MinimapPointInput['kind']): boolean {
+  return kind === 'ammunition' || kind === 'clothing' || kind === 'hospital' || kind === 'repair';
 }
 
 export function drivingRange(speed: number): number {

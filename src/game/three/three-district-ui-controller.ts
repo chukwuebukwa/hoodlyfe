@@ -14,7 +14,8 @@ import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../../shared/protocol/not
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import {
   projectInteractionAffordance,
-  serviceMinimapPoints
+  serviceMinimapPoints,
+  storefrontMinimapPoints
 } from '../interactions/interaction-presentation-policy.ts';
 import {MedicalCarePresentationController} from '../medical/medical-care-presentation-controller.ts';
 import {buildMinimapFrame} from '../minimap-marker-policy.ts';
@@ -166,6 +167,7 @@ export class ThreeDistrictUiController {
       npcs: state.npcs?.values() ?? [],
       points: [
         ...missionMinimapPoints(state, this.room.sessionId),
+        ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID),
         ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),
         ...weaponPickupMinimapPoints(state.weaponPickups?.values())
       ]

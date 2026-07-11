@@ -11,7 +11,7 @@ import type {
   NetworkStreetService,
   NetworkVehicle
 } from '../types.ts';
-import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {INTERIORS, STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
 export type InteractionAffordanceKind =
   | 'hidden'
@@ -44,6 +44,16 @@ export function serviceMinimapPoints(
       x: service.x,
       y: service.y
     }));
+}
+
+export function storefrontMinimapPoints(spaceId = STREET_SPACE_ID): MinimapPointInput[] {
+  if (spaceId !== STREET_SPACE_ID) return [];
+  return INTERIORS.map((interior) => ({
+    id: `location-${interior.id}`,
+    kind: interior.kind,
+    x: interior.exteriorDoor.x,
+    y: interior.exteriorDoor.y
+  }));
 }
 
 export function projectInteractionAffordance(

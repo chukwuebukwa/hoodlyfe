@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildMinimapFrame,
   drivingRange,
+  type MinimapMarker,
   type MinimapNpcInput,
   type MinimapPlayerInput,
   type MinimapVehicleInput
@@ -74,4 +75,24 @@ test('available weapon pickup projects a stable nearby minimap marker', () => {
   assert.equal(pickup.kind, 'pickup');
   assert.equal(pickup.priority, 45);
   assert.equal(pickup.clamped, false);
+});
+
+test('permanent GTA-style locations remain edge-clamped outside radar range', () => {
+  const frame = buildMinimapFrame({
+    localPlayerId: 'local',
+    players,
+    vehicles,
+    npcs,
+    points: [
+      {id: 'ammunation', kind: 'ammunition', x: 2400, y: 100},
+      {id: 'threads', kind: 'clothing', x: 2600, y: 100},
+      {id: 'hospital', kind: 'hospital', x: 2800, y: 100}
+    ]
+  });
+  assert.ok(frame);
+  for (const kind of ['ammunition', 'clothing', 'hospital'] as const) {
+    const marker: MinimapMarker | undefined = frame.markers.find((candidate) => candidate.kind === kind);
+    assert.ok(marker);
+    assert.equal(marker.clamped, true);
+  }
 });

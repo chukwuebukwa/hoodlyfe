@@ -15,3 +15,7 @@ The production sheets are under `public/assets/original/sprites/`. They were chr
 ## Vehicle Sprite Source
 
 `vehicles-master-chroma.png` is the AI-generated source for the original civilian sedan, police cruiser, and taxi sheet. The production sheet is stored at `public/assets/original/sprites/vehicles.png` with three transparent 96-by-96 frames. Runtime rendering adds the alternating police lights, damage tint, smoke, and fire.
+
+## Minimap Location Source
+
+`location-icons-atlas.png` is the source-art sheet for permanent Ammu-Nation, Threads, hospital, and repair-garage map symbols. The centered transparent 64-by-64 production crops live under `public/assets/custom/minimap/`; the browser does not load or ship the source atlas.

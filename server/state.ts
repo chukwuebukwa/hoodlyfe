@@ -226,6 +226,7 @@ export class NpcState extends Schema {
   reactionKind = '';
   reactionDirection = 'front';
   reactionProgress = 1;
+  ejectedAt = 0;
 }
 
 defineTypes(NpcState, {
@@ -243,7 +244,8 @@ defineTypes(NpcState, {
   reactionSequence: 'number',
   reactionKind: 'string',
   reactionDirection: 'string',
-  reactionProgress: 'number'
+  reactionProgress: 'number',
+  ejectedAt: 'number'
 });
 
 export class VehicleState extends Schema {

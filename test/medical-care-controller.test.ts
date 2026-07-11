@@ -8,7 +8,6 @@ import {MedicalCareController} from '../server/game/medical/medical-care-control
 import {DistrictState, PlayerState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {
-  STREET_SPACE_ID,
   containsPoint,
   interiorDefinition
 } from '../shared/content/interior-catalog.ts';
@@ -32,8 +31,14 @@ test('medical care registers safe facilities and completes one paid nearest-hosp
   assert.ok(hospital?.recoveryAnchor);
   assert.equal(containsPoint(hospital.bounds, mercy.x, mercy.y), true);
   assert.equal(hospital.obstacles.some((obstacle) => containsPoint(obstacle, mercy.x, mercy.y)), false);
-  assert.equal(southside.spaceId, STREET_SPACE_ID);
-  assert.equal(fixture.world.canOccupy(southside.x, southside.y, 11), true);
+  const southsideInterior = interiorDefinition(southside.spaceId);
+  assert.equal(southsideInterior?.id, 'southside-clinic');
+  assert.ok(southsideInterior?.recoveryAnchor);
+  assert.equal(containsPoint(southsideInterior.bounds, southside.x, southside.y), true);
+  assert.equal(
+    southsideInterior.obstacles.some((obstacle) => containsPoint(obstacle, southside.x, southside.y)),
+    false
+  );
 
   fixture.tick = 7;
   fixture.medical.begin(fixture.player, facilities[0].x, facilities[0].y, 1000);

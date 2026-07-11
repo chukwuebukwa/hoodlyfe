@@ -278,6 +278,7 @@ test('carjacking creates a panicked ambient driver beside the vehicle', () => {
   assert.ok(driver);
   assert.equal(driver.kind, 'civilian');
   assert.equal(driver.health, 50);
+  assert.equal(driver.ejectedAt, 5000);
   assert.deepEqual(spawned, [driverId]);
   const distanceBefore = Math.hypot(driver.x - hijacker.x, driver.y - hijacker.y);
   controller.update(driver, 1 / 30, 5100);

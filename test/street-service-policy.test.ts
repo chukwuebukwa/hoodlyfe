@@ -10,7 +10,8 @@ import {
 } from '../shared/content/street-services.ts';
 import {
   projectInteractionAffordance,
-  serviceMinimapPoints
+  serviceMinimapPoints,
+  storefrontMinimapPoints
 } from '../src/game/interactions/interaction-presentation-policy.ts';
 import type {
   DistrictNetworkState,
@@ -136,6 +137,23 @@ test('service minimap points preserve authoritative identities and positions', (
     x: 30,
     y: 40
   }]);
+});
+
+test('street storefront blips expose every authored exterior with a dedicated kind', () => {
+  const points = storefrontMinimapPoints();
+  assert.deepEqual(points.map((point) => point.id), [
+    'location-mercy-hospital',
+    'location-ammunation-store',
+    'location-threads-store',
+    'location-southside-clinic'
+  ]);
+  assert.deepEqual(points.map((point) => point.kind), [
+    'hospital',
+    'ammunition',
+    'clothing',
+    'hospital'
+  ]);
+  assert.deepEqual(storefrontMinimapPoints('mercy-hospital'), []);
 });
 
 function createState(): DistrictNetworkState {

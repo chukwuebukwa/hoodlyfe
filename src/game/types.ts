@@ -115,6 +115,7 @@ export interface NetworkNpc {
   reactionKind?: CombatReactionKind;
   reactionDirection?: CombatReactionDirection;
   reactionProgress?: number;
+  ejectedAt?: number;
 }
 
 export interface NetworkVehicle {

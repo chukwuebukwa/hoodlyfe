@@ -26,7 +26,11 @@ test('exported roof groups match the authoritative interior catalog', {
   for (const interior of INTERIORS) {
     const occluder = payload.occluders.find((candidate) => candidate.id === interior.id);
     assert.ok(occluder, `Missing exported roof group: ${interior.id}`);
-    assert.ok(occluder.triangleCount > 0);
+    assert.equal(
+      occluder.triangleCount,
+      interior.roofTriangleCount,
+      `Roof triangle contract changed for ${interior.id}.`
+    );
     assert.ok(Math.abs(occluder.exteriorDoor.x * payload.blockSize - interior.exteriorDoor.x) <= 1);
     assert.ok(Math.abs(occluder.exteriorDoor.y * payload.blockSize - interior.exteriorDoor.y) <= 1);
     assert.ok(Math.abs(occluder.floorZ * payload.blockSize - interior.floorZ) <= 1);
