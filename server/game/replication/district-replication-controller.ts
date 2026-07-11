@@ -184,9 +184,11 @@ export class DistrictReplicationController {
     }
     for (const mission of this.state.missions.values()) {
       this.addDesired(desired, mission, 1, 0, `mission:${mission.id}`);
-      if (!mission.participants.has(playerId) || !mission.targetVehicleId) continue;
+      if (!mission.participants.has(playerId)) continue;
       const target = this.state.vehicles.get(mission.targetVehicleId);
       if (target) this.addDesired(desired, target, 0, 0, `vehicle:${target.id}`);
+      const targetNpc = this.state.npcs.get(mission.targetNpcId);
+      if (targetNpc) this.addDesired(desired, targetNpc, 0, 0, `npc:${targetNpc.id}`);
     }
     for (const vehicle of this.state.vehicles.values()) {
       if (!this.isOccupiedByPlayer(vehicle.id)) continue;

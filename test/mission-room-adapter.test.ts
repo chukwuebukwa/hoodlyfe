@@ -333,6 +333,82 @@ test('district mission adapter owns three hostile waves and completes Crew Holdo
   assert.equal(room.state.npcs.size, 0);
 });
 
+test('district mission adapter scales guards, marks one boss, pays, and cleans Most Wanted', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+  room.state.missionContactX = room.world.spawn.x;
+  room.state.missionContactY = room.world.spawn.y;
+  room.economyController = new StreetEconomyController({
+    state: room.state,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock.tick})
+  });
+  const roles = new Map<string, string>();
+  room.missionController = new FreemodeMissionController({
+    state: room.state,
+    world: room.world,
+    events: room.events,
+    economy: room.economyController,
+    clock: () => ({tick: room.simulationClock.tick, nowMs: room.simulationClock.nowMs}),
+    notice: () => undefined,
+    releaseDeliveredVehicle: () => undefined,
+    spawnMissionHostile: (spawn) => {
+      const npc = new NpcState();
+      npc.id = spawn.actorId;
+      npc.kind = 'hostile';
+      npc.x = spawn.centerX + spawn.minDistance;
+      npc.y = spawn.centerY;
+      npc.health = spawn.health;
+      npc.action = 'assault';
+      room.state.npcs.set(npc.id, npc);
+      roles.set(npc.id, spawn.role);
+    },
+    assignHostileTarget: () => undefined,
+    despawnMissionNpc: (actorId) => room.state.npcs.delete(actorId)
+  });
+  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  const support = createPlayer('support', room.world.spawn.x + 20, room.world.spawn.y);
+  room.state.players.set(leader.id, leader);
+  room.state.players.set(support.id, support);
+  room.missionController.start(leader.id, 'most-wanted');
+  const schema = [...room.state.missions.values()][0];
+  assert.ok(schema);
+  room.missionController.join(support.id, schema.id);
+  room.missionController.launch(leader.id, schema.id);
+  assert.equal(room.state.missions.get(schema.id)?.phase, 'eliminate');
+
+  let nowMs = 0;
+  for (let step = 0; step < 50; step++) {
+    room.missionController.update(nowMs);
+    for (const npc of [...room.state.npcs.values()]) {
+      if (!npc.alive) continue;
+      npc.alive = false;
+      npc.health = 0;
+      room.events.publish({
+        type: 'entity.killed',
+        tick: step,
+        nowMs,
+        entityId: npc.id,
+        entityKind: 'npc',
+        attackerId: step % 2 ? support.id : leader.id
+      });
+    }
+    room.missionController.observeEvents(room.events.drain());
+    room.missionController.update(nowMs);
+    if (room.missionController.get(schema.id)?.phase === 'completed') break;
+    nowMs += 400;
+  }
+  assert.equal([...roles.values()].filter((role) => role === 'guard').length, 3);
+  const targetId = `${schema.id}:target`;
+  assert.equal(roles.get(targetId), 'target');
+  assert.equal(room.state.missions.get(schema.id)?.targetNpcId, targetId);
+  assert.equal(room.missionController.get(schema.id)?.phase, 'completed');
+  assert.equal(leader.cash, 1_500);
+  assert.equal(support.cash, 1_500);
+  assert.equal(room.state.npcs.size, 0);
+});
+
 function createPlayer(id: string, x: number, y: number): PlayerState {
   const player = new PlayerState();
   player.id = id;

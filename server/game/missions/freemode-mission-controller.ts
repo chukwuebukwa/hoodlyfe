@@ -120,7 +120,7 @@ export class FreemodeMissionController {
       }
       delivery = this.deliveryPoint(target, clock.nowMs);
     }
-    const holdPoint = missionHoldDuration(templateId) > 0
+    const holdPoint = missionHoldDuration(templateId) > 0 || definition.encounter
       ? this.holdPoint(player, clock.nowMs)
       : undefined;
     const checkpoints = this.checkpointRoute(
@@ -254,7 +254,8 @@ export class FreemodeMissionController {
           waveCount: encounter.waveCount,
           remaining: encounter.remaining,
           complete: encounter.complete,
-          contested: encounter.contested
+          contested: encounter.contested,
+          targetActorId: encounter.targetActorId
         } : undefined
       });
       const updated = this.system.get(mission.id);
@@ -361,7 +362,7 @@ export class FreemodeMissionController {
     for (const transition of transitions) {
       if (transition.type === 'phase') {
         const definition = missionTemplate(mission.templateId);
-        if (transition.phase === 'hold' && definition.encounter) {
+        if ((transition.phase === 'hold' || transition.phase === 'eliminate') && definition.encounter) {
           this.encounters.start(
             mission.id,
             mission.holdX,
@@ -488,6 +489,7 @@ function phaseNotice(phase: string, objectiveKind: string): string {
   }
   if (phase === 'checkpoints') return 'Drive the target through every marked checkpoint.';
   if (phase === 'hold') return 'Hold the marked block and clear every hostile wave.';
+  if (phase === 'eliminate') return 'Raid the hideout and eliminate the marked target.';
   if (phase === 'lose-heat') return 'Lose the crew\'s police heat.';
   if (phase === 'deliver') return 'Deliver the vehicle to the marked garage.';
   return 'Objective updated.';

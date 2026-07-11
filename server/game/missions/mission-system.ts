@@ -49,6 +49,7 @@ export interface FreemodeMission {
   rosterLockedAt: number;
   maximumParticipants: number;
   targetVehicleId: string;
+  targetNpcId: string;
   phase: MissionPhase;
   objectiveId: string;
   objectiveKind: MissionObjectiveKind;
@@ -144,6 +145,7 @@ export interface MissionEncounterSnapshot {
   remaining: number;
   complete: boolean;
   contested: boolean;
+  targetActorId?: string;
 }
 
 export type MissionTransition =
@@ -213,7 +215,7 @@ export class MissionSystem {
       !Number.isFinite(deliveryX) ||
       !Number.isFinite(deliveryY) ||
       (definition.targetMode === 'reserved-traffic-vehicle' && !targetVehicleId) ||
-      (holdRequiredMs > 0 && (
+      ((holdRequiredMs > 0 || definition.encounter) && (
         !Number.isFinite(holdX) ||
         !Number.isFinite(holdY) ||
         !Number.isFinite(holdRadius) ||
@@ -253,6 +255,7 @@ export class MissionSystem {
       rosterLockedAt: 0,
       maximumParticipants,
       targetVehicleId,
+      targetNpcId: '',
       phase: 'forming',
       objectiveId: firstObjective.id,
       objectiveKind: firstObjective.kind,
@@ -378,6 +381,7 @@ export class MissionSystem {
     mission.encounterComplete = definition.encounter
       ? Boolean(world.encounter?.complete)
       : true;
+    mission.targetNpcId = world.encounter?.targetActorId ?? mission.targetNpcId;
     mission.holdContested = Boolean(world.encounter?.contested);
     const targetOccupiedByCrew = mission.participants.some((participant) => (
       participant.connected &&

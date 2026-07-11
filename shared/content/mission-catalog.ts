@@ -2,13 +2,15 @@ export const MISSION_TEMPLATE_IDS = [
   'boost-and-deliver',
   'getaway-run',
   'checkpoint-rush',
-  'crew-holdout'
+  'crew-holdout',
+  'most-wanted'
 ] as const;
 export type MissionTemplateId = typeof MISSION_TEMPLATE_IDS[number];
 
 export type MissionTargetMode = 'reserved-traffic-vehicle' | 'crew-members';
 export type MissionRewardPolicy = 'vehicle-condition' | 'fixed';
 export type MissionHostileWeapon = 'pistol' | 'smg';
+export type MissionEncounterRole = 'guard' | 'target';
 
 export const MISSION_TARGET_MODES: readonly MissionTargetMode[] = Object.freeze([
   'reserved-traffic-vehicle',
@@ -24,10 +26,11 @@ export type MissionObjectiveKind =
   | 'vehicle-checkpoints'
   | 'crew-checkpoints'
   | 'hold-area'
+  | 'eliminate-target'
   | 'clear-wanted'
   | 'deliver-vehicle';
 
-export type ActiveMissionPhase = 'steal' | 'checkpoints' | 'hold' | 'lose-heat' | 'deliver';
+export type ActiveMissionPhase = 'steal' | 'checkpoints' | 'hold' | 'eliminate' | 'lose-heat' | 'deliver';
 
 export interface MissionObjectiveDefinition {
   id: string;
@@ -41,6 +44,8 @@ export interface MissionObjectiveDefinition {
 
 export interface MissionEncounterWaveDefinition {
   count: number;
+  additionalPerParticipant?: number;
+  role?: MissionEncounterRole;
   health: number;
   weapon: MissionHostileWeapon;
   fireCooldownMs: number;
@@ -170,6 +175,47 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
           kind: 'hold-area',
           phase: 'hold',
           durationMs: 25_000
+        })
+      ])
+    }),
+    'most-wanted': Object.freeze({
+      id: 'most-wanted',
+      label: 'Most Wanted',
+      summary: 'Raid a guarded hideout and eliminate the marked crime boss.',
+      baseReward: 1_500,
+      durationMs: 180_000,
+      formationDurationMs: 15_000,
+      maximumParticipants: 4,
+      targetMode: 'crew-members',
+      rewardPolicy: 'fixed',
+      encounter: Object.freeze({
+        spawnMinDistance: 120,
+        spawnMaxDistance: 230,
+        spawnCadenceMs: 300,
+        interWaveDelayMs: 1_800,
+        waves: Object.freeze([
+          Object.freeze({
+            count: 2,
+            additionalPerParticipant: 1,
+            role: 'guard',
+            health: 85,
+            weapon: 'pistol',
+            fireCooldownMs: 780
+          }),
+          Object.freeze({
+            count: 1,
+            role: 'target',
+            health: 220,
+            weapon: 'smg',
+            fireCooldownMs: 560
+          })
+        ])
+      }),
+      objectives: Object.freeze([
+        Object.freeze({
+          id: 'eliminate-boss',
+          kind: 'eliminate-target',
+          phase: 'eliminate'
         })
       ])
     })

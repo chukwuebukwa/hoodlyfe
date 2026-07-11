@@ -184,6 +184,13 @@ export function evaluateMissionObjective(
       holdProgressMs: nextHoldProgressMs
     };
   }
+  if (objective.kind === 'eliminate-target') {
+    return {
+      status: context.encounterComplete ? 'completed' : 'active',
+      phase: objective.phase,
+      checkpointIndex
+    };
+  }
   if (objective.wantedGate && context.teamWantedLevel > 0) {
     return {status: 'active', phase: 'lose-heat', checkpointIndex};
   }

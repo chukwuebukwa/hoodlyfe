@@ -22,6 +22,7 @@ export function projectMissionState(
   state.objectiveIndex = mission.objectiveIndex;
   state.objectiveCount = mission.objectiveCount;
   state.targetVehicleId = mission.targetVehicleId;
+  state.targetNpcId = mission.targetNpcId;
   state.checkpointIndex = mission.checkpointIndex;
   state.checkpointCount = mission.checkpoints.length;
   const checkpoint = mission.checkpoints[mission.checkpointIndex];

@@ -62,10 +62,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** Getaway Run composes the same crew/runtime boundaries with three ordered authoritative road checkpoints, wanted escape, delivery, condition payout, and cleanup.
 - **Playable** Crew Checkpoint Rush adds five ordered road checkpoints carried by any living crew driver, no reserved target, fixed payout, and shared route progress.
 - **Playable** Crew Holdout adds three escalating owned hostile waves, line-of-sight combat pursuit, contested hold progress, death tolerance, contribution-gated payout, and explicit actor cleanup.
+- **Playable** Most Wanted adds a reusable eliminate-target objective, living-roster-scaled guards, one marked armored SMG boss, participant-only target pinning, shared payout, and explicit cleanup.
 - **Playable** compact job selector, shared immutable mission catalog, template-declared target/reward/encounter policy, and reusable acquire-vehicle, target-checkpoint, crew-checkpoint, hold-area, clear-wanted, and low-speed-delivery objective evaluators.
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
-- **Foundation** four complete jobs now share objective/encounter modules; item, explicit eliminate-target, escort, placement-scored race, and event-mode objectives remain incomplete.
+- **Foundation** five complete jobs now share objective/encounter modules; item, escort, placement-scored race, and event-mode objectives remain incomplete.
 - **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
 - **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
@@ -80,7 +81,8 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** collision-safe street Threads service that opens the existing creator in Wardrobe mode; its own seamless building remains queued and must use the authored interior guide.
 - **Playable** service-first interaction priority and same-tick duplicate suppression without moving service rules into `DistrictRoom`.
 - **Playable** one shared grenade pickup grants three up to a six-grenade cap, resolves contention authoritatively, projects world/minimap presentation, and respawns after 20 seconds.
-- **Foundation** street cash remains session-local and non-redeemable; money/item pickups, risky cash loss, durable ledger, durable inventory, purchases, and pricing remain incomplete.
+- **Playable** player death drops 20% of carried street cash up to $500 with delay, expiry, deterministic collection, AOI streaming, minimap/world presentation, and idempotent zero-sum debit/credit.
+- **Foundation** street cash remains session-local and non-redeemable; general item pickups, durable ledger, durable inventory, purchases, and pricing remain incomplete.
 
 ### Appearance and Customization
 
@@ -132,19 +134,20 @@ Exit gate: a player can earn from a mission, damage a car, escape police, repair
 
 ### 3. Reusable Freemode Mission Objectives
 
-**Playable four-job foundation; encounter content depth next**
+**Playable five-job foundation; encounter content depth next**
 
 - **Delivered playable**: shared definitions plus reusable steal vehicle, ordered vehicle checkpoints, escape wanted, and deliver vehicle objectives.
 - **Delivered playable**: Getaway Run is the second composed Freemode job and uses the existing crew, reservation, payout, and cleanup infrastructure.
 - **Delivered playable**: Crew Checkpoint Rush proves target-free missions, fixed rewards, participant-position predicates, shared arbitrary-vehicle progress, and target-optional cleanup.
 - **Delivered playable**: Crew Holdout proves event-driven hostile waves, mission-only actors, combat target ports, contested hold time, contribution eligibility, death tolerance, and terminal despawn.
-- Add reach-zone, acquire-item, explicit eliminate-target, escort, and multi-vehicle race objectives.
+- **Delivered playable**: Most Wanted proves a reusable eliminate-target objective, roster-scaled guard composition, one stable marked boss, participant-only relevance, and target-following presentation.
+- Add reach-zone, acquire-item, escort, and multi-vehicle race objectives.
 - Deepen Holdout with authored tactical spawn sets, per-wave roles, resupply breaks, drops, vehicles, armor/accuracy policy, and roster-scaled difficulty before adding more enemies.
 - Add courier/item work only after an inventory/world-object ownership boundary exists; add competitive race placement only after per-vehicle entrants and finish ordering exist.
 - Preserve GTA Online Freemode rules: optional nearby joining, explicit roster lock, role-friendly shared work, individual death tolerance, leader transfer, bounded payout, and cleanup ownership.
 - Add rotating district events such as GTA2-style Tag and Deathmatch with scores isolated from the street economy.
 
-Exit gate met: four definitions compose shared objectives and one event-driven combat encounter without mission code mutating combat, police, or vehicle internals. The next mission gate is authored tactical content and reconnect/late-join policy.
+Exit gate met: five definitions compose shared objectives and two event-driven combat encounters without mission code mutating combat, police, or vehicle internals. The next mission gate is authored tactical content and reconnect/late-join policy.
 
 ### 4. Character Creator and Clothing
 

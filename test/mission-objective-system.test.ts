@@ -181,6 +181,20 @@ test('hold objective accrues only with living crew in an uncontested zone and aw
   assert.equal(complete.status, 'completed');
 });
 
+test('eliminate target objective consumes encounter completion without owning combat', () => {
+  const objective = missionTemplate('most-wanted').objectives[0];
+  assert.deepEqual(evaluateMissionObjective(
+    objective,
+    context({encounterComplete: false}),
+    0
+  ), {status: 'active', phase: 'eliminate', checkpointIndex: 0});
+  assert.deepEqual(evaluateMissionObjective(
+    objective,
+    context({encounterComplete: true}),
+    0
+  ), {status: 'completed', phase: 'eliminate', checkpointIndex: 0});
+});
+
 test('delivery enforces target occupancy, heat gate, zone, and maximum speed', () => {
   const objective = missionTemplate('boost-and-deliver').objectives[2];
   assert.equal(evaluateMissionObjective(

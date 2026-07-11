@@ -349,6 +349,63 @@ test('Crew Holdout pauses when contested and excludes an idle participant from p
   );
 });
 
+test('Most Wanted completes only after its stable encounter target is defeated', () => {
+  const missions = new MissionSystem();
+  const start = missions.start({
+    leaderId: 'leader',
+    templateId: 'most-wanted',
+    holdX: 100,
+    holdY: 100,
+    holdRadius: 120,
+    nowMs: 0
+  });
+  assert.equal(start.ok, true);
+  if (!start.ok) return;
+  missions.join(start.mission.id, 'support', 50);
+  missions.launch(start.mission.id, 'leader', 100);
+  assert.equal(missions.get(start.mission.id)?.phase, 'eliminate');
+  assert.deepEqual(missions.update(start.mission.id, world({
+    nowMs: 200,
+    participants: [player('leader'), player('support')],
+    encounter: {
+      wave: 1,
+      waveCount: 2,
+      remaining: 3,
+      complete: false,
+      contested: false,
+      targetActorId: ''
+    }
+  })), []);
+  missions.update(start.mission.id, world({
+    nowMs: 300,
+    participants: [player('leader'), player('support')],
+    encounter: {
+      wave: 2,
+      waveCount: 2,
+      remaining: 1,
+      complete: false,
+      contested: true,
+      targetActorId: `${start.mission.id}:target`
+    }
+  }));
+  assert.equal(missions.get(start.mission.id)?.targetNpcId, `${start.mission.id}:target`);
+  const completed = missions.update(start.mission.id, world({
+    nowMs: 400,
+    participants: [player('leader'), player('support')],
+    encounter: {
+      wave: 2,
+      waveCount: 2,
+      remaining: 0,
+      complete: true,
+      contested: false,
+      targetActorId: `${start.mission.id}:target`
+    }
+  }));
+  assert.equal(completed[0]?.type, 'completed');
+  assert.equal(missions.get(start.mission.id)?.finalReward, 1_500);
+  assert.equal(missions.get(start.mission.id)?.payouts.length, 2);
+});
+
 test('removal releases every participant and the reserved target', () => {
   const missions = new MissionSystem();
   const start = startMission(missions);

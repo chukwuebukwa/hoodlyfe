@@ -10,6 +10,7 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - Original player, civilian, and police idle/walk sprite sheets.
 - Automatic guest sessions with up to 32 players in one district.
 - Server-authoritative walking, aiming, weapon cycling, ammunition, bullets, damage, cash, death, recoverable death drops, and respawn.
+- Five opt-in Freemode jobs, including cooperative vehicle work, checkpoint racing, wave defense, and a roster-scaled marked-target contract.
 - Pistol, SMG, and shotgun slots with distinct held models, fire rates, spread, range, and projectile visuals.
 - Nameplates over every connected human player.
 - Wandering civilians that flee when attacked.

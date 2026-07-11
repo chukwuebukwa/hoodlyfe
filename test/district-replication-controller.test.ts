@@ -5,6 +5,8 @@ import {DistrictReplicationController} from '../server/game/replication/district
 import {
   DistrictState,
   CashPickupState,
+  MissionParticipantState,
+  MissionState,
   NpcState,
   PlayerState,
   StreetServiceState,
@@ -80,6 +82,30 @@ test('district replication streams cash pickups with street AOI hysteresis', () 
   local.spaceId = 'threads-showroom';
   controller.synchronize();
   assert.equal(view.has(cash), false);
+});
+
+test('mission participants retain a marked NPC target outside ordinary street AOI', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  const outsider = player('outsider', 'street');
+  state.players.set(local.id, local);
+  state.players.set(outsider.id, outsider);
+  const target = new NpcState();
+  target.id = 'mission-1:target';
+  target.kind = 'hostile';
+  target.x = 3_000;
+  state.npcs.set(target.id, target);
+  const mission = new MissionState();
+  mission.id = 'mission-1';
+  mission.targetNpcId = target.id;
+  const participant = new MissionParticipantState();
+  participant.playerId = local.id;
+  mission.participants.set(local.id, participant);
+  state.missions.set(mission.id, mission);
+  const controller = new DistrictReplicationController(state);
+
+  assert.equal(controller.attach(local.id).has(target), true);
+  assert.equal(controller.attach(outsider.id).has(target), false);
 });
 
 test('district replication diffs a space transition and newly attached state', () => {

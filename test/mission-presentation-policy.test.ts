@@ -30,6 +30,9 @@ test('mission HUD projects street contact and deterministic nearby crew joining'
   const holdout = projectMissionHud(state, 'local', 'crew-holdout');
   assert.equal(holdout.title, 'Crew Holdout');
   assert.match(holdout.objective, /three escalating waves/);
+  const mostWanted = projectMissionHud(state, 'local', 'most-wanted');
+  assert.equal(mostWanted.title, 'Most Wanted');
+  assert.match(mostWanted.objective, /crime boss/);
 
   const leader = createPlayer({id: 'leader', name: 'Leader', x: 100, y: 0});
   state.players.set('leader', leader);
@@ -186,6 +189,52 @@ test('Holdout presentation exposes wave pressure, contested zone, and hostile mi
   const points = missionMinimapPoints(state, 'local');
   assert.equal(points.some((point) => point.id === `${mission.id}:hold`), true);
   assert.equal(points.some((point) => point.kind === 'hostile' && point.x === 340), true);
+});
+
+test('Most Wanted presentation transitions from hideout to the replicated target actor', () => {
+  const state = createState();
+  const mission = createMission({
+    templateId: 'most-wanted',
+    phase: 'eliminate',
+    objectiveId: 'eliminate-boss',
+    objectiveKind: 'eliminate-target',
+    objectiveCount: 1,
+    targetVehicleId: '',
+    holdX: 300,
+    holdY: 400,
+    holdRadius: 140,
+    encounterWave: 1,
+    encounterWaveCount: 2,
+    encounterRemaining: 3,
+    encounterComplete: false,
+    projectedReward: 1_500
+  });
+  const local = state.players.get('local');
+  assert.ok(local);
+  mission.participants.set('local', participant(local, 'leader'));
+  state.missions.set(mission.id, mission);
+
+  assert.deepEqual(projectMissionWorld(state, 'local').target, {x: 300, y: 400, angle: 0});
+  assert.match(projectMissionHud(state, 'local').objective, /Clear the guards/);
+  assert.equal(missionMinimapPoints(state, 'local').at(-1)?.id, `${mission.id}:hideout`);
+
+  mission.targetNpcId = `${mission.id}:target`;
+  state.npcs.set(mission.targetNpcId, {
+    id: mission.targetNpcId,
+    kind: 'hostile',
+    x: 360,
+    y: 420,
+    angle: 1.2,
+    health: 220,
+    alive: true,
+    action: 'assault'
+  });
+  assert.deepEqual(projectMissionWorld(state, 'local').target, {x: 360, y: 420, angle: 1.2});
+  assert.equal(projectMissionHud(state, 'local').objective, 'Eliminate the marked crime boss.');
+  assert.equal(
+    missionMinimapPoints(state, 'local').find((point) => point.id.includes(':target'))?.kind,
+    'objective'
+  );
 });
 
 function createState(): DistrictNetworkState {

@@ -368,6 +368,7 @@ export class MissionState extends Schema {
   objectiveIndex = 0;
   objectiveCount = 0;
   targetVehicleId = '';
+  targetNpcId = '';
   checkpointIndex = 0;
   checkpointCount = 0;
   checkpointX = 0;
@@ -405,6 +406,7 @@ defineTypes(MissionState, {
   objectiveIndex: 'number',
   objectiveCount: 'number',
   targetVehicleId: 'string',
+  targetNpcId: 'string',
   checkpointIndex: 'number',
   checkpointCount: 'number',
   checkpointX: 'number',

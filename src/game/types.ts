@@ -177,12 +177,13 @@ export interface NetworkMission {
   id: string;
   templateId: MissionTemplateId;
   leaderId: string;
-  phase: 'forming' | 'steal' | 'checkpoints' | 'hold' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  phase: 'forming' | 'steal' | 'checkpoints' | 'hold' | 'eliminate' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
   objectiveId: string;
   objectiveKind: MissionObjectiveKind;
   objectiveIndex: number;
   objectiveCount: number;
   targetVehicleId: string;
+  targetNpcId?: string;
   checkpointIndex: number;
   checkpointCount: number;
   checkpointX: number;

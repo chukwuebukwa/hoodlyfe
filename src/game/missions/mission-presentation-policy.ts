@@ -116,6 +116,12 @@ export function projectMissionWorld(
       contested: mission.holdContested
     };
   }
+  if (mission.phase === 'eliminate') {
+    const targetNpc = mission.targetNpcId ? state.npcs?.get(mission.targetNpcId) : undefined;
+    projection.target = targetNpc
+      ? {x: targetNpc.x, y: targetNpc.y, angle: targetNpc.angle}
+      : {x: mission.holdX, y: mission.holdY, angle: 0};
+  }
   const target = state.vehicles?.get(mission.targetVehicleId);
   if (target) projection.target = vehiclePoint(target);
   return projection;
@@ -165,6 +171,26 @@ export function missionMinimapPoints(
         x: npc.x,
         y: npc.y,
         angle: npc.angle
+      });
+    }
+  }
+  if (mission.phase === 'eliminate') {
+    for (const npc of state.npcs.values()) {
+      if (!npc.alive || npc.kind !== 'hostile') continue;
+      points.push({
+        id: `${mission.id}:hostile:${npc.id}`,
+        kind: npc.id === mission.targetNpcId ? 'objective' : 'hostile',
+        x: npc.x,
+        y: npc.y,
+        angle: npc.angle
+      });
+    }
+    if (!mission.targetNpcId) {
+      points.push({
+        id: `${mission.id}:hideout`,
+        kind: 'objective',
+        x: mission.holdX,
+        y: mission.holdY
       });
     }
   }
@@ -249,6 +275,12 @@ function missionObjective(
     }
     return `Defend the zone for ${remainingSeconds}s and clear the hostile waves.`;
   }
+  if (mission.phase === 'eliminate') {
+    if (!mission.targetNpcId) {
+      return `Clear the guards. ${mission.encounterRemaining} hostile${mission.encounterRemaining === 1 ? '' : 's'} left.`;
+    }
+    return 'Eliminate the marked crime boss.';
+  }
   if (mission.phase === 'deliver') {
     return 'Bring the target into the green delivery zone at low speed.';
   }
@@ -269,7 +301,7 @@ function formatMissionTime(remainingMs: number): string {
 }
 
 function missionMeta(mission: NetworkMission): string {
-  if (mission.phase === 'hold') {
+  if (mission.phase === 'hold' || mission.phase === 'eliminate') {
     return `W${Math.max(1, mission.encounterWave)}/${mission.encounterWaveCount} | ` +
       `${mission.encounterRemaining} LEFT | $${mission.projectedReward}`;
   }
