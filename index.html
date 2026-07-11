@@ -61,12 +61,43 @@
       </div>
       <ol id="debug-events"><li>No recent events</li></ol>
     </aside>
-    <aside id="status-hud" class="hud-layer" aria-label="Player status">
-      <div id="heat-meter" aria-label="Heat level 0">
-        <span>Heat</span>
-        <i></i><i></i><i></i><i></i><i></i>
-      </div>
-      <div id="cash">$000000</div>
+    <aside id="combat-hud" class="hud-layer" aria-label="Player combat status">
+      <aside id="weapon-hud" aria-label="Equipped weapon">
+        <button id="weapon-prev" type="button" aria-label="Previous weapon">&lt;</button>
+        <img id="weapon-icon" src="/assets/original/weapons/pistol.svg" alt="pistol">
+        <div>
+          <strong id="weapon-name">PISTOL</strong>
+          <span id="weapon-ammo">120</span>
+        </div>
+        <button id="weapon-next" type="button" aria-label="Next weapon">&gt;</button>
+      </aside>
+      <footer id="player-hud">
+        <div id="player-identity">
+          <span id="driver-name">Driver</span>
+        </div>
+        <div id="health-track" aria-label="Health 100"><span id="health-fill"></span></div>
+        <div id="armor-track" class="hidden" aria-label="Armor 0"><span id="armor-fill"></span></div>
+      </footer>
+      <aside id="status-hud" aria-label="Player status">
+        <div id="cash">$000000</div>
+        <div id="heat-meter" aria-label="Heat level 0">
+          <span>Heat</span>
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
+      </aside>
+      <aside id="vehicle-hud" class="hidden" aria-label="Vehicle speed">
+        <strong id="speed-value">000</strong>
+        <span>KM/H</span>
+        <div id="vehicle-condition" aria-label="Vehicle condition 100"><i id="vehicle-condition-fill"></i></div>
+      </aside>
+      <aside id="radio-hud" class="hidden" aria-label="Vehicle radio">
+        <button id="radio-prev" type="button" aria-label="Previous radio station">&lt;</button>
+        <div>
+          <strong id="radio-station">NCK-FM</strong>
+          <span id="radio-meta">Station 0</span>
+        </div>
+        <button id="radio-next" type="button" aria-label="Next radio station">&gt;</button>
+      </aside>
     </aside>
     <aside id="mission-hud" class="hud-layer hidden" aria-label="Freemode job">
       <header>
@@ -83,30 +114,8 @@
         <button id="mission-action" type="button">START JOB</button>
       </footer>
     </aside>
-    <footer id="player-hud" class="hud-layer">
-      <div id="player-identity">
-        <span id="driver-name">Driver</span>
-        <button id="appearance-toggle" type="button" aria-label="Edit character appearance">LOOK</button>
-      </div>
-      <div id="health-track" aria-label="Health 100"><span id="health-fill"></span></div>
-      <div id="armor-track" class="hidden" aria-label="Armor 0"><span id="armor-fill"></span></div>
-    </footer>
-    <aside id="vehicle-hud" class="hud-layer hidden" aria-label="Vehicle speed">
-      <strong id="speed-value">000</strong>
-      <span>KM/H</span>
-      <div id="vehicle-condition" aria-label="Vehicle condition 100"><i id="vehicle-condition-fill"></i></div>
-    </aside>
     <aside id="minimap-hud" class="hud-layer" aria-label="District minimap">
       <canvas id="minimap-canvas" width="380" height="280" aria-label="District minimap"></canvas>
-    </aside>
-    <aside id="weapon-hud" class="hud-layer" aria-label="Equipped weapon">
-      <button id="weapon-prev" type="button" aria-label="Previous weapon">&lt;</button>
-      <img id="weapon-icon" src="/assets/original/weapons/pistol.svg" alt="pistol">
-      <div>
-        <strong id="weapon-name">PISTOL</strong>
-        <span id="weapon-ammo">120</span>
-      </div>
-      <button id="weapon-next" type="button" aria-label="Next weapon">&gt;</button>
     </aside>
     <button id="vehicle-action-button" class="hud-layer hidden" type="button">ENTER CAR</button>
     <div id="event-toast" class="hud-layer" role="status"></div>
@@ -117,49 +126,6 @@
         <button id="medical-public" type="button" aria-pressed="true">PUBLIC 4.2S</button>
         <button id="medical-trauma" type="button" aria-pressed="false">TRAUMA $250</button>
       </div>
-    </div>
-    <div id="appearance-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
-      <section id="appearance-creator">
-        <header>
-          <div>
-            <strong id="appearance-title">CHARACTER CREATOR</strong>
-            <span id="appearance-outfit-label">STREET FIT</span>
-          </div>
-          <button id="appearance-close" type="button" aria-label="Close character creator">X</button>
-        </header>
-        <div id="appearance-content">
-          <div id="appearance-preview-wrap">
-            <canvas id="appearance-preview" width="144" height="144" aria-label="Character preview"></canvas>
-          </div>
-          <form id="appearance-form">
-            <label>Outfit name<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
-            <label>Body<select id="appearance-body"></select></label>
-            <label>Skin<select id="appearance-skin"></select></label>
-            <label>Hair<select id="appearance-hair"></select></label>
-            <label>Headwear<select id="appearance-headwear"></select></label>
-            <label>Top<select id="appearance-top"></select></label>
-            <label>Bottoms<select id="appearance-bottom"></select></label>
-            <label>Shoes<select id="appearance-shoes"></select></label>
-          </form>
-        </div>
-        <div id="appearance-colors">
-          <div id="appearance-color-targets" role="tablist" aria-label="Color target">
-            <button type="button" role="tab" data-color-field="hairColor">HAIR</button>
-            <button type="button" role="tab" data-color-field="topColor">TOP</button>
-            <button type="button" role="tab" data-color-field="accentColor">ACCENT</button>
-            <button type="button" role="tab" data-color-field="bottomColor">BOTTOM</button>
-            <button type="button" role="tab" data-color-field="shoeColor">SHOES</button>
-          </div>
-          <div id="appearance-swatches" aria-label="Color palette"></div>
-        </div>
-        <footer>
-          <button id="appearance-randomize" type="button">RANDOMIZE</button>
-          <div>
-            <button id="appearance-cancel" type="button">CANCEL</button>
-            <button id="appearance-apply" type="button">APPLY LOOK</button>
-          </div>
-        </footer>
-      </section>
     </div>
     <div id="touch-controls" aria-label="Touch game controls">
       <div id="move-stick" class="touch-stick" aria-label="Move">

@@ -20,6 +20,9 @@ import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
 import {CashPickupRenderer} from './rendering/cash-pickup-renderer.ts';
 import {TrafficSignalRenderer} from './rendering/traffic-signal-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
+import {RadioSystem} from './audio/radio-system.ts';
+import {SfxSystem} from './audio/sfx-system.ts';
+import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 
@@ -42,6 +45,9 @@ export class DistrictScene extends Phaser.Scene {
   private cashPickupRenderer!: CashPickupRenderer;
   private trafficSignalRenderer!: TrafficSignalRenderer;
   private vehicleRenderer!: VehicleRenderer;
+  private radioSystem!: RadioSystem;
+  private sfxSystem!: SfxSystem;
+  private vehicleAudioSystem!: VehicleAudioSystem;
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
   private interactionController!: InteractionPresentationController;
@@ -104,6 +110,16 @@ export class DistrictScene extends Phaser.Scene {
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
     this.hudController = new LocalHudController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
+    this.radioSystem = new RadioSystem(document, this.room);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.radioSystem.destroy, this.radioSystem);
+    this.sfxSystem = new SfxSystem(this.room);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.sfxSystem.destroy, this.sfxSystem);
+    this.vehicleAudioSystem = new VehicleAudioSystem();
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.vehicleAudioSystem.destroy,
+      this.vehicleAudioSystem
+    );
     this.missionController = new MissionPresentationController(this, this.room);
     this.medicalController = new MedicalCarePresentationController(this.room);
     this.events.once(
@@ -222,6 +238,20 @@ export class DistrictScene extends Phaser.Scene {
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
     this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
+    const local = state.players?.get(this.room.sessionId);
+    this.radioSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined
+    );
+    this.sfxSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined
+    );
+    this.vehicleAudioSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined,
+      state.vehicles
+    );
     this.projectileRenderer.synchronize(state.bullets);
     this.rocketProjectileRenderer.synchronize(state.rockets);
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);

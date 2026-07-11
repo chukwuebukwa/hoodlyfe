@@ -160,6 +160,7 @@ export interface NetworkVehicle {
   traffic: boolean;
   hijackBy: string;
   siren?: boolean;
+  radioStation?: string;
 }
 
 export interface NetworkMissionParticipant {

@@ -10,6 +10,7 @@ import {
   type DebugSnapshot
 } from '../shared/protocol/debug.ts';
 import {
+  MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
   MISSION_START_MESSAGE
@@ -29,6 +30,7 @@ import {DEVELOPMENT_WARDROBE_GRANTS} from '../shared/content/wardrobe-catalog.ts
 import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 import type {DistrictNetworkState} from '../src/game/types.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {PedestrianPathPlanner} from '../server/game/pedestrians/pedestrian-path-planner.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 import {AMBIENT_TRAFFIC_TARGET} from '../server/game/population/district-population-controller.ts';
 import {
@@ -52,6 +54,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   server.stderr?.on('data', (chunk) => { serverOutput += chunk.toString(); });
   context.after(() => stopServer(server));
   await waitForServer(port, server, () => serverOutput);
+  const world = CollisionMap.load();
 
   const joinedAppearance = {...cloneAppearance(), outfitName: 'Night Run', topColor: 'red' as const};
   const first = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {
@@ -151,12 +154,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.missions.get(mission.id)?.phase === 'steal');
   assert.equal(second.state.missions.get(mission.id)?.phase, 'steal');
   assert.ok((first.state.missions.get(mission.id)?.remainingMs ?? 0) > 170_000);
+  first.send(MISSION_ABANDON_MESSAGE, {missionId: mission.id});
+  await waitUntil(() => first.state.missions.get(mission.id)?.phase === 'failed');
 
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'smg');
   const smgAmmo = first.state.players.get(first.sessionId)?.ammoSmg;
   assert.equal(smgAmmo, 240);
-  first.send('aim', {angle: Math.PI});
+  first.send('aim', {angle: safeFireAngle(first, first.sessionId, world)});
   first.send('shoot');
   await waitUntil(() => first.state.players.get(first.sessionId)?.ammoSmg === 239);
   first.send('cycleWeapon', {direction: 1});
@@ -179,9 +184,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
       .filter(([, vehicle]) => vehicle.traffic)
       .map(([id, vehicle]) => [id, {x: vehicle.x, y: vehicle.y}])
   );
-  assert.ok(
-    trafficStarts.size > 0 && trafficStarts.size < AMBIENT_TRAFFIC_TARGET + STREAMED_TRAFFIC_RECORDS
-  );
+  assert.ok(trafficStarts.size > 0 && trafficStarts.size < AMBIENT_TRAFFIC_TARGET + STREAMED_TRAFFIC_RECORDS);
   await waitUntil(() => [...trafficStarts.entries()].some(([id, start]) => {
     const vehicle = first.state.vehicles.get(id);
     return Boolean(vehicle && Math.hypot(vehicle.x - start.x, vehicle.y - start.y) > 10);
@@ -205,8 +208,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   assert.equal(first.state.players.get(second.sessionId)?.vehicleSeat, 1);
   second.send('cycleWeapon', {direction: 1});
   await waitUntil(() => second.state.players.get(second.sessionId)?.weapon === 'smg');
-  second.send('aim', {angle: 0.4});
-  await waitUntil(() => Math.abs((second.state.players.get(second.sessionId)?.angle ?? 0) - 0.4) < 0.05);
+  const passengerAim = safeFireAngle(second, second.sessionId, world);
+  second.send('aim', {angle: passengerAim});
+  await waitUntil(() => Math.abs(
+    Math.atan2(
+      Math.sin((second.state.players.get(second.sessionId)?.angle ?? 0) - passengerAim),
+      Math.cos((second.state.players.get(second.sessionId)?.angle ?? 0) - passengerAim)
+    )
+  ) < 0.05);
   second.send('shoot');
   await waitUntil(() => second.state.players.get(second.sessionId)?.ammoSmg === 239);
   second.send('cycleWeapon', {direction: -1});
@@ -238,19 +247,34 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     (first.state.players.get(first.sessionId)?.y ?? startY)
   ) < 3);
 
-  const world = CollisionMap.load();
-  const attackDistance = await moveNear(
+  let attackDistance = await moveNear(
     first,
     first.sessionId,
     second.sessionId,
-    44,
-    (mover, target) => world.hasLineOfSight(mover.x, mover.y, target.x, target.y)
+    52,
+    (mover, target) => (
+      world.hasLineOfSight(mover.x, mover.y, target.x, target.y) &&
+      hasVehicleClearance(first, mover, target)
+    )
   );
-  assert.ok(attackDistance <= 70, `First attacker stopped ${Math.round(attackDistance)} units away.`);
+  if (attackDistance > 40) {
+    attackDistance = await moveNear(
+      second,
+      second.sessionId,
+      first.sessionId,
+      36,
+      (mover, target) => (
+        world.hasLineOfSight(mover.x, mover.y, target.x, target.y) &&
+        hasVehicleClearance(second, mover, target)
+      )
+    );
+  }
+  assert.ok(attackDistance <= 44, `Players stopped ${Math.round(attackDistance)} units apart.`);
   const targetHealthBeforeMelee = first.state.players.get(second.sessionId)?.health ?? 100;
   const targetArmorBeforeMelee = first.state.players.get(second.sessionId)?.armor ?? 0;
   const targetReactionBeforeMelee = first.state.players.get(second.sessionId)?.reactionSequence ?? 0;
-  const bulletsBeforeMelee = first.state.bullets.size;
+  const attackerBulletsBeforeMelee = [...first.state.bullets.values()]
+    .filter((bullet) => bullet.ownerId === first.sessionId).length;
   const ammoBeforeMelee = {
     pistol: first.state.players.get(first.sessionId)?.ammoPistol,
     smg: first.state.players.get(first.sessionId)?.ammoSmg,
@@ -274,19 +298,34 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     (second.state.players.get(first.sessionId)?.attackSequence ?? 0) > sequenceBefore
   ));
   assert.equal(second.state.players.get(first.sessionId)?.action, 'melee');
-  await waitUntil(() => (
+  await delay(700);
+  const meleeReactionReplicated = (
     (first.state.players.get(second.sessionId)?.reactionSequence ?? 0) >
       targetReactionBeforeMelee &&
     (second.state.players.get(second.sessionId)?.reactionSequence ?? 0) >
       targetReactionBeforeMelee
-  ));
+  );
+  assert.ok(meleeReactionReplicated, JSON.stringify({
+    attacker: first.state.players.get(first.sessionId),
+    target: first.state.players.get(second.sessionId),
+    remoteTarget: second.state.players.get(second.sessionId),
+    vehicles: [...first.state.vehicles.values()].map((vehicle) => ({
+      id: vehicle.id,
+      x: vehicle.x,
+      y: vehicle.y,
+      destroyed: vehicle.destroyed
+    }))
+  }));
   const meleeDamageToHealth = Math.max(0, 34 - targetArmorBeforeMelee);
   assert.equal(first.state.players.get(second.sessionId)?.armor, 0);
   assert.equal(first.state.players.get(second.sessionId)?.health, targetHealthBeforeMelee - meleeDamageToHealth);
   assert.equal(first.state.players.get(second.sessionId)?.reactionKind, 'knockdown');
   assert.equal(second.state.players.get(second.sessionId)?.reactionKind, 'knockdown');
   assert.equal(first.state.players.get(second.sessionId)?.action, 'knockdown');
-  assert.equal(first.state.bullets.size, bulletsBeforeMelee);
+  assert.equal(
+    [...first.state.bullets.values()].filter((bullet) => bullet.ownerId === first.sessionId).length,
+    attackerBulletsBeforeMelee
+  );
   assert.deepEqual(
     {
       pistol: first.state.players.get(first.sessionId)?.ammoPistol,
@@ -348,6 +387,97 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     second.state.services.has('repair-garage') &&
     !second.state.services.has('hospital-mercy')
   ));
+  await waitUntil(() => first.state.players.get(first.sessionId)?.alive === true, 5000);
+  await returnToStreetIfNeeded(first, first.sessionId);
+  await waitUntil(() => (
+    first.state.players.get(first.sessionId)?.spaceId === STREET_SPACE_ID &&
+    first.state.npcs.size > 0
+  ));
+
+  await movePlayerTo(
+    second,
+    second.sessionId,
+    second.state.missionContactX,
+    second.state.missionContactY,
+    75
+  );
+  await waitUntil(() => second.state.missions.size === 0, 6000);
+  second.send(MISSION_START_MESSAGE, {templateId: 'crew-holdout'});
+  await waitUntil(() => [...second.state.missions.values()].some((entry) => (
+    entry.templateId === 'crew-holdout' && entry.phase === 'forming'
+  )));
+  const holdout = [...second.state.missions.values()].find((entry) => (
+    entry.templateId === 'crew-holdout'
+  ));
+  assert.ok(holdout);
+  const targetBeforeNpcApproach = second.state.players.get(second.sessionId);
+  assert.ok(targetBeforeNpcApproach);
+  const npcContactSurvivability = targetBeforeNpcApproach.health + (targetBeforeNpcApproach.armor ?? 0);
+  const npcContactReaction = targetBeforeNpcApproach.reactionSequence ?? 0;
+  second.send(MISSION_LAUNCH_MESSAGE, {missionId: holdout.id});
+  await waitUntil(() => second.state.missions.get(holdout.id)?.phase === 'hold');
+  await waitUntil(() => [...second.state.npcs.values()].some((npc) => npc.kind === 'hostile'));
+  await waitUntil(() => {
+    const player = second.state.players.get(second.sessionId);
+    return Boolean(player && [...second.state.npcs.values()].some((npc) => (
+      npc.kind === 'hostile' && npc.alive &&
+      Math.hypot(npc.x - player.x, npc.y - player.y) < 170 &&
+      world.hasLineOfSight(player.x, player.y, npc.x, npc.y)
+    )));
+  }, 5000);
+  const hostile = [...second.state.npcs.values()]
+    .filter((npc) => {
+      const player = second.state.players.get(second.sessionId);
+      return Boolean(player && npc.kind === 'hostile' && npc.alive &&
+        world.hasLineOfSight(player.x, player.y, npc.x, npc.y));
+    })
+    .sort((left, right) => (
+      Math.hypot(
+        left.x - (second.state.players.get(second.sessionId)?.x ?? 0),
+        left.y - (second.state.players.get(second.sessionId)?.y ?? 0)
+      ) - Math.hypot(
+        right.x - (second.state.players.get(second.sessionId)?.x ?? 0),
+        right.y - (second.state.players.get(second.sessionId)?.y ?? 0)
+      ) || left.id.localeCompare(right.id)
+    ))[0];
+  assert.ok(hostile);
+  const hostileDistance = await movePlayerNearNpc(second, second.sessionId, hostile.id, 38);
+  assert.ok(hostileDistance <= 50, `Player stopped ${Math.round(hostileDistance)} px from hostile.`);
+  const playerAtHostile = second.state.players.get(second.sessionId);
+  const hostileAtContact = second.state.npcs.get(hostile.id);
+  assert.ok(playerAtHostile?.alive && hostileAtContact && world.hasLineOfSight(
+    playerAtHostile.x,
+    playerAtHostile.y,
+    hostileAtContact.x,
+    hostileAtContact.y
+  ), 'Player and hostile must finish on the same visible side of collision geometry.');
+  let meleeHostileId = '';
+  await waitUntil(() => {
+    const replicated = [...second.state.npcs.values()]
+      .filter((npc) => npc.kind === 'hostile' && (npc.attackSequence ?? 0) > 0)
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .find((npc) => (first.state.npcs.get(npc.id)?.attackSequence ?? 0) > 0);
+    meleeHostileId = replicated?.id ?? '';
+    return Boolean(replicated);
+  }, 5000);
+  await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.events.some((event) => (
+    event.type === 'npc.melee.started' && event.summary.includes(meleeHostileId)
+  ))), 3000);
+  await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.events.some((event) => (
+    event.type === 'damage.applied' &&
+    event.summary.startsWith(`${meleeHostileId} -> player:${second.sessionId}`)
+  ))), 3000);
+  await waitUntil(() => {
+    const target = second.state.players.get(second.sessionId);
+    const remote = first.state.players.get(second.sessionId);
+    return Boolean(
+      target && remote &&
+      target.health + (target.armor ?? 0) < npcContactSurvivability &&
+      (target.reactionSequence ?? 0) > npcContactReaction &&
+      (remote.reactionSequence ?? 0) > npcContactReaction
+    );
+  }, 3000);
+  second.send(MISSION_ABANDON_MESSAGE, {missionId: holdout.id});
 });
 
 async function returnToStreetIfNeeded(
@@ -428,9 +558,147 @@ async function moveNear(
     await delay(100);
   }
   room.send('input', {x: 0, y: 0});
+  await delay(100);
   const mover = room.state.players.get(moverId);
   const target = room.state.players.get(targetId);
   return mover && target ? Math.hypot(target.x - mover.x, target.y - mover.y) : Number.POSITIVE_INFINITY;
+}
+
+async function movePlayerTo(
+  room: Room<DistrictNetworkState>,
+  playerId: string,
+  x: number,
+  y: number,
+  targetDistance: number
+): Promise<void> {
+  for (let step = 0; step < 100; step++) {
+    const player = room.state.players.get(playerId);
+    assert.ok(player?.alive, 'Moving player must remain alive.');
+    const deltaX = x - player.x;
+    const deltaY = y - player.y;
+    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+    if (distance <= targetDistance) break;
+    room.send('input', {x: deltaX / distance, y: deltaY / distance});
+    await delay(60);
+  }
+  room.send('input', {x: 0, y: 0});
+}
+
+function hasVehicleClearance(
+  room: Room<DistrictNetworkState>,
+  from: {x: number; y: number},
+  to: {x: number; y: number}
+): boolean {
+  const segmentX = to.x - from.x;
+  const segmentY = to.y - from.y;
+  const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+  if (lengthSquared <= 0.0001) return true;
+  return ![...room.state.vehicles.values()].some((vehicle) => {
+    const progress = (
+      (vehicle.x - from.x) * segmentX +
+      (vehicle.y - from.y) * segmentY
+    ) / lengthSquared;
+    if (progress <= 0 || progress >= 1) return false;
+    const closestX = from.x + segmentX * progress;
+    const closestY = from.y + segmentY * progress;
+    return Math.hypot(vehicle.x - closestX, vehicle.y - closestY) < 18;
+  });
+}
+
+function safeFireAngle(
+  room: Room<DistrictNetworkState>,
+  shooterId: string,
+  world: CollisionMap
+): number {
+  const shooter = room.state.players.get(shooterId);
+  assert.ok(shooter, 'Safe firing requires a replicated shooter.');
+  const ignoredVehicleId = shooter.vehicleId;
+  let best = {angle: 0, wallDistance: Number.POSITIVE_INFINITY};
+  for (let sample = 0; sample < 64; sample++) {
+    const angle = sample / 64 * Math.PI * 2;
+    let wallDistance = 900;
+    for (let distance = 18; distance <= 900; distance += 12) {
+      if (world.isBlockedAt(
+        shooter.x + Math.cos(angle) * distance,
+        shooter.y + Math.sin(angle) * distance
+      )) {
+        wallDistance = distance;
+        break;
+      }
+    }
+    const actors = [
+      ...[...room.state.players.values()]
+        .filter((player) => player.id !== shooterId && player.alive && !player.vehicleId)
+        .map((player) => ({x: player.x, y: player.y, radius: 16})),
+      ...[...room.state.npcs.values()]
+        .filter((npc) => npc.alive)
+        .map((npc) => ({x: npc.x, y: npc.y, radius: 15})),
+      ...[...room.state.vehicles.values()]
+        .filter((vehicle) => vehicle.id !== ignoredVehicleId && !vehicle.destroyed)
+        .map((vehicle) => ({x: vehicle.x, y: vehicle.y, radius: 25}))
+    ];
+    const clear = actors.every((actor) => {
+      const offsetX = actor.x - shooter.x;
+      const offsetY = actor.y - shooter.y;
+      const projection = offsetX * Math.cos(angle) + offsetY * Math.sin(angle);
+      if (projection <= 0 || projection >= wallDistance) return true;
+      const perpendicular = Math.abs(-offsetX * Math.sin(angle) + offsetY * Math.cos(angle));
+      return perpendicular > actor.radius;
+    });
+    if (clear && wallDistance < best.wallDistance) best = {angle, wallDistance};
+  }
+  assert.ok(Number.isFinite(best.wallDistance), 'Expected one actor-safe firing lane into scenery.');
+  return best.angle;
+}
+
+async function movePlayerNearNpc(
+  room: Room<DistrictNetworkState>,
+  playerId: string,
+  npcId: string,
+  targetDistance: number
+): Promise<number> {
+  const world = CollisionMap.load();
+  const planner = new PedestrianPathPlanner(world, 768, 48);
+  let waypoints: Array<{x: number; y: number}> = [];
+  let waypointIndex = 0;
+  let plannedTarget = {x: Number.NaN, y: Number.NaN};
+  for (let step = 0; step < 160; step++) {
+    const player = room.state.players.get(playerId);
+    const npc = room.state.npcs.get(npcId);
+    assert.ok(
+      player?.alive && npc?.alive,
+      `Melee participants must remain alive (player=${player?.alive}/${player?.health}, ` +
+        `npc=${npc?.alive}/${npc?.health}).`
+    );
+    const deltaX = npc.x - player.x;
+    const deltaY = npc.y - player.y;
+    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+    if (distance <= targetDistance && world.hasLineOfSight(player.x, player.y, npc.x, npc.y)) break;
+    if (
+      waypoints.length === 0 ||
+      waypointIndex >= waypoints.length ||
+      Math.hypot(npc.x - plannedTarget.x, npc.y - plannedTarget.y) > 28
+    ) {
+      const path = planner.plan(player, npc, 11);
+      waypoints = path?.points ?? [{x: npc.x, y: npc.y}];
+      waypointIndex = 0;
+      plannedTarget = {x: npc.x, y: npc.y};
+    }
+    while (
+      waypointIndex < waypoints.length - 1 &&
+      Math.hypot(waypoints[waypointIndex].x - player.x, waypoints[waypointIndex].y - player.y) <= 18
+    ) waypointIndex++;
+    const waypoint = waypoints[waypointIndex] ?? npc;
+    const waypointX = waypoint.x - player.x;
+    const waypointY = waypoint.y - player.y;
+    const waypointDistance = Math.max(1, Math.hypot(waypointX, waypointY));
+    room.send('input', {x: waypointX / waypointDistance, y: waypointY / waypointDistance});
+    await delay(50);
+  }
+  room.send('input', {x: 0, y: 0});
+  const player = room.state.players.get(playerId);
+  const npc = room.state.npcs.get(npcId);
+  return player && npc ? Math.hypot(npc.x - player.x, npc.y - player.y) : Number.POSITIVE_INFINITY;
 }
 
 async function driveToSpace(

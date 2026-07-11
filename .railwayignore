@@ -1,0 +1,12 @@
+# Upload is run with --no-gitignore so the generated GTA2 assets in public/
+# (which .gitignore excludes) are included. This file controls what to skip.
+node_modules/
+.git/
+dist/
+coverage/
+art/
+docs/
+test/
+.env
+.DS_Store
+npm-debug.log*

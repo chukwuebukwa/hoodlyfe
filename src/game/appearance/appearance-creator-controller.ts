@@ -24,8 +24,17 @@ import type {DistrictNetworkState} from '../types.ts';
 import {saveAppearance} from './appearance-storage.ts';
 import {
   appearanceSpritePresentation,
-  renderAppearanceSheet
 } from './appearance-render-policy.ts';
+import {
+  compileCharacterSpriteSet,
+  type CompiledCharacterSpriteSet
+} from './character-sprite-compiler.ts';
+import {
+  CHARACTER_ATLASES,
+  CHARACTER_CLIPS,
+  characterClipFrame,
+  type CharacterClipId
+} from '../../../shared/content/character-animation-manifest.ts';
 import {WardrobeClientSession} from './wardrobe-client-session.ts';
 
 type ColorField = 'hairColor' | 'topColor' | 'accentColor' | 'bottomColor' | 'shoeColor';
@@ -44,13 +53,22 @@ export class AppearanceCreatorController {
   private readonly colorTargets: HTMLElement | null;
   private readonly swatches: HTMLElement | null;
   private readonly preview: HTMLCanvasElement | null;
-  private readonly previewSheet = document.createElement('canvas');
-  private readonly previewSource = new Image();
+  private readonly previewModes: HTMLElement | null;
+  private readonly previewSources = {
+    walk: new Image(),
+    actions: new Image(),
+    walkMask: new Image(),
+    actionsMask: new Image()
+  };
   private readonly wardrobeSession: WardrobeClientSession;
   private readonly selects: Record<string, HTMLSelectElement | null>;
   private state?: DistrictNetworkState;
   private draft?: PlayerAppearance;
   private colorField: ColorField = 'topColor';
+  private previewClip: CharacterClipId = 'idle';
+  private previewStartedAt = 0;
+  private previewTimer?: number;
+  private compiledPreview?: CompiledCharacterSpriteSet;
   private openState = false;
 
   constructor(
@@ -71,6 +89,7 @@ export class AppearanceCreatorController {
     this.colorTargets = root.querySelector<HTMLElement>('#appearance-color-targets');
     this.swatches = root.querySelector<HTMLElement>('#appearance-swatches');
     this.preview = root.querySelector<HTMLCanvasElement>('#appearance-preview');
+    this.previewModes = root.querySelector<HTMLElement>('#appearance-preview-modes');
     this.selects = {
       bodyType: root.querySelector('#appearance-body'),
       skinTone: root.querySelector('#appearance-skin'),
@@ -96,8 +115,13 @@ export class AppearanceCreatorController {
       onApplyResult: this.handleAppearanceResult
     });
     this.wardrobeSession.start();
-    this.previewSource.addEventListener('load', this.renderPreview);
-    this.previewSource.src = '/assets/original/sprites/player-base.png';
+    for (const image of Object.values(this.previewSources)) {
+      image.addEventListener('load', this.renderPreview);
+    }
+    this.previewSources.walk.src = CHARACTER_ATLASES.walk.source;
+    this.previewSources.actions.src = CHARACTER_ATLASES.actions.source;
+    this.previewSources.walkMask.src = CHARACTER_ATLASES.walk.materialMask;
+    this.previewSources.actionsMask.src = CHARACTER_ATLASES.actions.materialMask;
   }
 
   isOpen(): boolean {
@@ -125,7 +149,10 @@ export class AppearanceCreatorController {
     this.swatches?.removeEventListener('click', this.selectColor);
     this.modal?.removeEventListener('click', this.closeFromBackdrop);
     this.root.removeEventListener('keydown', this.handleKeydown);
-    this.previewSource.removeEventListener('load', this.renderPreview);
+    this.previewModes?.removeEventListener('click', this.selectPreviewClip);
+    for (const image of Object.values(this.previewSources)) {
+      image.removeEventListener('load', this.renderPreview);
+    }
     this.wardrobeSession.destroy();
     this.state = undefined;
     this.draft = undefined;
@@ -141,6 +168,7 @@ export class AppearanceCreatorController {
     this.form?.addEventListener('change', this.readForm);
     this.colorTargets?.addEventListener('click', this.selectColorField);
     this.swatches?.addEventListener('click', this.selectColor);
+    this.previewModes?.addEventListener('click', this.selectPreviewClip);
     this.modal?.addEventListener('click', this.closeFromBackdrop);
     this.root.addEventListener('keydown', this.handleKeydown);
   }
@@ -173,12 +201,14 @@ export class AppearanceCreatorController {
     this.room.send('input', {x: 0, y: 0});
     this.modal?.classList.remove('hidden');
     this.renderForm();
+    this.startPreviewAnimation();
     this.outfitName?.focus();
   }
 
   private readonly close = (event?: Event): void => {
     event?.stopPropagation();
     this.openState = false;
+    this.stopPreviewAnimation();
     this.modal?.classList.add('hidden');
   };
 
@@ -304,6 +334,19 @@ export class AppearanceCreatorController {
     this.renderPreview();
   }
 
+  private readonly selectPreviewClip = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+    const clip = target.dataset.previewClip;
+    if (!isPreviewClip(clip)) return;
+    this.previewClip = clip;
+    this.previewStartedAt = performance.now();
+    for (const button of this.previewModes?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
+      button.setAttribute('aria-selected', String(button.dataset.previewClip === clip));
+    }
+    this.drawPreviewFrame();
+  };
+
   private readonly renderOwnership = (): void => {
     const ownedItemIds = this.wardrobeSession.ownedItems();
     if (ownedItemIds.size === 0) return;
@@ -322,26 +365,49 @@ export class AppearanceCreatorController {
   }
 
   private readonly renderPreview = (): void => {
-    if (!this.preview || !this.draft || !this.previewSource.complete) return;
-    renderAppearanceSheet(this.previewSource, this.previewSheet, this.draft);
+    if (!this.preview || !this.draft || !previewSourcesReady(this.previewSources)) return;
+    this.compiledPreview = compileCharacterSpriteSet(this.previewSources, this.draft);
+    this.previewStartedAt = performance.now();
+    this.drawPreviewFrame();
+  };
+
+  private readonly drawPreviewFrame = (): void => {
+    if (!this.preview || !this.draft || !this.compiledPreview) return;
     const context = this.preview.getContext('2d');
     if (!context) return;
     const {bodyScaleX} = appearanceSpritePresentation(this.draft);
+    const clip = CHARACTER_CLIPS[this.previewClip];
+    const frame = characterClipFrame(this.previewClip, performance.now() - this.previewStartedAt);
+    const source = clip.atlas === 'walk' ? this.compiledPreview.walk : this.compiledPreview.actions;
+    const atlas = CHARACTER_ATLASES[clip.atlas];
+    const sourceX = frame % atlas.columns * atlas.frameSize;
+    const sourceY = Math.floor(frame / atlas.columns) * atlas.frameSize;
     context.imageSmoothingEnabled = false;
     context.clearRect(0, 0, this.preview.width, this.preview.height);
     const width = 132 * bodyScaleX;
     context.drawImage(
-      this.previewSheet,
-      0,
-      0,
-      72,
-      72,
+      source,
+      sourceX,
+      sourceY,
+      atlas.frameSize,
+      atlas.frameSize,
       (this.preview.width - width) / 2,
       6,
       width,
       132
     );
   };
+
+  private startPreviewAnimation(): void {
+    this.stopPreviewAnimation();
+    this.previewStartedAt = performance.now();
+    this.previewTimer = window.setInterval(this.drawPreviewFrame, 80);
+  }
+
+  private stopPreviewAnimation(): void {
+    if (this.previewTimer !== undefined) window.clearInterval(this.previewTimer);
+    this.previewTimer = undefined;
+  }
 }
 
 function populateSelect<T extends string>(
@@ -384,4 +450,14 @@ function isColorField(value: unknown): value is ColorField {
 
 function cssColor(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+function isPreviewClip(value: unknown): value is CharacterClipId {
+  return typeof value === 'string' && Object.hasOwn(CHARACTER_CLIPS, value);
+}
+
+function previewSourcesReady(
+  sources: Record<keyof AppearanceCreatorController['previewSources'], HTMLImageElement>
+): boolean {
+  return Object.values(sources).every((image) => image.complete && image.naturalWidth > 0);
 }

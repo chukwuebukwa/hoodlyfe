@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111416">
+  <meta name="description" content="NOCK0 standalone character sprite studio">
+  <title>NOCK0 Character Lab</title>
+</head>
+<body>
+  <main id="creator-app">
+    <header class="studio-header">
+      <div class="studio-brand">
+        <span class="brand-mark">N0</span>
+        <div><strong>CHARACTER LAB</strong><span>Sprite compiler / atlas v1</span></div>
+      </div>
+      <div class="compile-state" id="compile-state" role="status"><i></i> READY</div>
+      <nav aria-label="Studio actions">
+        <button id="randomize-look" type="button">RANDOM</button>
+        <button id="reset-look" type="button">RESET</button>
+        <button id="import-look" type="button">IMPORT</button>
+        <button id="save-look" class="primary" type="button">SAVE</button>
+      </nav>
+      <input id="import-recipe" type="file" accept="application/json,.json" hidden>
+    </header>
+
+    <aside class="parts-panel" aria-label="Character part catalog">
+      <header><span>01</span><div><strong>PARTS</strong><small id="part-count">0 OPTIONS</small></div></header>
+      <section class="preset-rail" aria-label="Preset builds">
+        <div class="section-label"><strong>PRESETS</strong><span>GAME LOADOUTS</span></div>
+        <div id="preset-list"></div>
+      </section>
+      <label class="filter-field">FILTER PARTS<input id="part-filter" autocomplete="off" placeholder="hair, jacket, boots"></label>
+      <div id="part-categories" role="tablist" aria-label="Part category">
+        <button type="button" role="tab" data-category="body" aria-selected="true">BODY</button>
+        <button type="button" role="tab" data-category="skin" aria-selected="false">SKIN</button>
+        <button type="button" role="tab" data-category="hair" aria-selected="false">HAIR</button>
+        <button type="button" role="tab" data-category="headwear" aria-selected="false">HEAD</button>
+        <button type="button" role="tab" data-category="top" aria-selected="false">TOP</button>
+        <button type="button" role="tab" data-category="bottom" aria-selected="false">LEGS</button>
+        <button type="button" role="tab" data-category="shoes" aria-selected="false">SHOES</button>
+      </div>
+      <div class="part-readout" id="selected-part-meta"></div>
+      <div id="part-options" aria-live="polite"></div>
+    </aside>
+
+    <section class="preview-workbench" aria-label="Character preview workbench">
+      <header class="workbench-heading">
+        <div><span>02</span><div><strong id="clip-title">IDLE</strong><small id="frame-readout">FRAME 01 / 01</small></div></div>
+        <div class="asset-contract" aria-label="Runtime sprite contract">
+          <span>72PX</span>
+          <span>WALK 3x3</span>
+          <span>ACTION 4x3</span>
+        </div>
+        <div id="zoom-controls" role="group" aria-label="Preview zoom">
+          <button type="button" data-zoom="4">4X</button>
+          <button type="button" data-zoom="6" aria-pressed="true">6X</button>
+          <button type="button" data-zoom="7">7X</button>
+        </div>
+      </header>
+      <div class="sprite-stage">
+        <canvas id="character-stage" width="576" height="576" aria-label="Compiled character animation"></canvas>
+        <div class="stage-axis axis-x"></div>
+        <div class="stage-axis axis-y"></div>
+        <span class="stage-origin">ROOT 36:48</span>
+      </div>
+      <div id="clip-selector" role="tablist" aria-label="Animation clip">
+        <button type="button" role="tab" data-clip="idle" aria-selected="true">IDLE</button>
+        <button type="button" role="tab" data-clip="walk" aria-selected="false">WALK</button>
+        <button type="button" role="tab" data-clip="melee" aria-selected="false">MELEE</button>
+        <button type="button" role="tab" data-clip="hit" aria-selected="false">HIT</button>
+        <button type="button" role="tab" data-clip="knockdown" aria-selected="false">FALL</button>
+        <button type="button" role="tab" data-clip="vehicleEnter" aria-selected="false">ENTER</button>
+        <button type="button" role="tab" data-clip="carjack" aria-selected="false">CARJACK</button>
+        <button type="button" role="tab" data-clip="dead" aria-selected="false">DEAD</button>
+      </div>
+      <div class="timeline-shell">
+        <span>FRAMES</span>
+        <div id="frame-timeline"></div>
+      </div>
+    </section>
+
+    <aside class="inspector-panel" aria-label="Appearance recipe inspector">
+      <header><span>03</span><div><strong>RECIPE</strong><small>LOCAL DRAFT</small></div></header>
+      <label class="name-field">OUTFIT NAME<input id="outfit-name" maxlength="24" autocomplete="off"></label>
+
+      <section class="materials-section">
+        <div class="section-label"><strong>MATERIAL</strong><span id="material-name">TOP</span></div>
+        <div id="material-tabs" role="tablist" aria-label="Material channel">
+          <button type="button" role="tab" data-material="hairColor" aria-selected="false">HAIR</button>
+          <button type="button" role="tab" data-material="topColor" aria-selected="true">TOP</button>
+          <button type="button" role="tab" data-material="accentColor" aria-selected="false">TRIM</button>
+          <button type="button" role="tab" data-material="bottomColor" aria-selected="false">LEGS</button>
+          <button type="button" role="tab" data-material="shoeColor" aria-selected="false">SHOES</button>
+        </div>
+        <div id="material-swatches" aria-label="Material palette"></div>
+      </section>
+
+      <section class="output-section">
+        <div class="section-label"><strong>OUTPUT</strong><span>RGBA / 72PX</span></div>
+        <dl>
+          <div><dt>WALK</dt><dd>216 x 216</dd></div>
+          <div><dt>ACTIONS</dt><dd>288 x 216</dd></div>
+          <div><dt>BODY</dt><dd id="body-family">STANDARD-01</dd></div>
+          <div><dt>CACHE</dt><dd id="recipe-key">---</dd></div>
+          <div><dt>JSON</dt><dd id="recipe-bytes">0 B</dd></div>
+          <div><dt>READY</dt><dd id="recipe-status">VALID</dd></div>
+        </dl>
+        <div class="export-actions">
+          <button id="export-recipe" type="button">RECIPE JSON</button>
+          <button id="copy-recipe" type="button">COPY JSON</button>
+          <button id="export-walk" type="button">WALK PNG</button>
+          <button id="export-actions" type="button">ACTIONS PNG</button>
+        </div>
+      </section>
+
+      <section class="compat-section">
+        <div class="section-label"><strong>GAME CONTRACT</strong><span id="coverage-summary">0 PARTS</span></div>
+        <ul id="validation-list"></ul>
+        <div id="layer-stack"></div>
+      </section>
+
+      <details class="recipe-details">
+        <summary>RAW RECIPE</summary>
+        <pre id="recipe-json"></pre>
+      </details>
+    </aside>
+  </main>
+  <script type="module" src="/src/creator-main.ts"></script>
+</body>
+</html>

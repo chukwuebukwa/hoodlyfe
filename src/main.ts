@@ -4,7 +4,10 @@ import {loadSavedAppearance} from './game/appearance/appearance-storage.ts';
 import './style.css';
 
 const serverProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const serverUrl = import.meta.env.VITE_GAME_SERVER_URL ?? `${serverProtocol}://${window.location.hostname}:2567`;
+const serverUrl = import.meta.env.VITE_GAME_SERVER_URL ??
+  (import.meta.env.DEV
+    ? `${serverProtocol}://${window.location.hostname}:2567`
+    : `${serverProtocol}://${window.location.host}`);
 const driverName = getDriverName();
 const nameElement = document.querySelector('#driver-name');
 let activeRoom: Room<DistrictNetworkState> | undefined;

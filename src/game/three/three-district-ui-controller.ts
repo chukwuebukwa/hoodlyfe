@@ -11,7 +11,6 @@ import {
   MISSION_START_MESSAGE
 } from '../../../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../../shared/protocol/notices.ts';
-import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import {
   projectInteractionAffordance,
   serviceMinimapPoints,
@@ -27,6 +26,9 @@ import {
 import {weaponPickupMinimapPoints} from '../rendering/weapon-pickup-render-policy.ts';
 import {cashPickupMinimapPoints} from '../rendering/cash-pickup-render-policy.ts';
 import type {DistrictNetworkState} from '../types.ts';
+import {RadioSystem} from '../audio/radio-system.ts';
+import {SfxSystem} from '../audio/sfx-system.ts';
+import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 
@@ -34,8 +36,10 @@ const UI_INTERVAL_MS = 100;
 
 export class ThreeDistrictUiController {
   private readonly hud = new LocalHudController();
+  private readonly radio: RadioSystem;
+  private readonly sfx: SfxSystem;
+  private readonly vehicleAudio: VehicleAudioSystem;
   private readonly medical: MedicalCarePresentationController;
-  private readonly appearance: AppearanceCreatorController;
   private readonly minimap?: MinimapRenderer;
   private readonly missionHud = document.querySelector<HTMLElement>('#mission-hud');
   private readonly missionTitle = document.querySelector('#mission-title');
@@ -56,8 +60,10 @@ export class ThreeDistrictUiController {
     worldWidth: number,
     worldHeight: number
   ) {
+    this.radio = new RadioSystem(document, room);
+    this.sfx = new SfxSystem(room);
+    this.vehicleAudio = new VehicleAudioSystem();
     this.medical = new MedicalCarePresentationController(room);
-    this.appearance = new AppearanceCreatorController(room, room.sessionId);
     const canvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (canvas) {
       this.minimap = new MinimapRenderer(
@@ -79,7 +85,7 @@ export class ThreeDistrictUiController {
   }
 
   isInputBlocked(): boolean {
-    return this.appearance.isOpen();
+    return false;
   }
 
   update(state: DistrictNetworkState, nowMs: number): void {
@@ -89,12 +95,14 @@ export class ThreeDistrictUiController {
     const vehicle = local?.vehicleId ? state.vehicles.get(local.vehicleId) : undefined;
     const onStreet = !local || (local.spaceId || STREET_SPACE_ID) === STREET_SPACE_ID;
     if (local) this.hud.update(local, vehicle);
+    this.radio.synchronize(local, vehicle);
+    this.sfx.synchronize(local, vehicle);
+    this.vehicleAudio.synchronize(local, vehicle, state.vehicles);
     document.querySelector('#minimap-hud')?.classList.toggle(
       'hidden',
       Boolean(local && local.spaceId !== STREET_SPACE_ID)
     );
     this.medical.synchronize(local);
-    this.appearance.synchronize(state);
     this.updateInteraction(state);
     if (onStreet) {
       this.updateMission(state);
@@ -120,8 +128,10 @@ export class ThreeDistrictUiController {
     this.removeNotice();
     this.room.onLeave.remove(this.handleDisconnected);
     this.room.onError.remove(this.handleDisconnected);
-    this.appearance.destroy();
     this.medical.destroy();
+    this.radio.destroy();
+    this.sfx.destroy();
+    this.vehicleAudio.destroy();
     this.hud.destroy();
   }
 

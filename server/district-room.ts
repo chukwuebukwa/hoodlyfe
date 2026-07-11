@@ -27,7 +27,12 @@ import {
 } from '../shared/protocol/medical-care.ts';
 import {isMedicalCareKind} from '../shared/content/medical-care.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
+import {
+  RADIO_STATION_MESSAGE,
+  type RadioStationMessage
+} from '../shared/protocol/radio.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
+import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
@@ -82,6 +87,8 @@ interface CycleWeaponMessage {
   direction?: number;
 }
 
+const RADIO_STATION_IDS = new Set(['station-0', 'station-1', 'station-3', 'radio-off']);
+
 interface DistrictRoomOptions {
   seed?: number;
 }
@@ -99,6 +106,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly events = new GameEventStream();
   private readonly debugSubscribers = new Set<string>();
   private debugProjection!: DebugSnapshotController;
+  private audioEvents!: AudioEventController;
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
   private medicalController!: MedicalCareController;
@@ -237,6 +245,10 @@ export class DistrictRoom extends Room<DistrictState> {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
         }
       }
+    });
+    this.audioEvents = new AudioEventController({
+      state: this.state,
+      clients: () => this.clients
     });
     this.vehicleAccess = new VehicleAccessController({
       state: this.state,
@@ -625,6 +637,13 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<CycleWeaponMessage>('cycleWeapon', (client, message) => {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
+    this.onMessage<RadioStationMessage>(RADIO_STATION_MESSAGE, (client, message) => {
+      const player = this.state.players.get(client.sessionId);
+      const vehicle = player?.vehicleId ? this.state.vehicles.get(player.vehicleId) : undefined;
+      const stationId = message?.stationId ?? '';
+      if (!player?.alive || !vehicle || !RADIO_STATION_IDS.has(stationId)) return;
+      vehicle.radioStation = stationId;
+    });
     this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
       const status = this.appearanceController.update(client.sessionId, message);
       client.send(APPEARANCE_RESULT_MESSAGE, {status});
@@ -714,6 +733,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.missionController.observeEvents(events);
       this.pedestrians.observeEvents(events);
       this.cashPickupController.observeEvents(events);
+      this.audioEvents.publish(events);
       this.debugProjection.update(events);
     });
   }
