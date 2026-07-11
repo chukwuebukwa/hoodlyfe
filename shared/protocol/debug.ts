@@ -98,6 +98,13 @@ export interface DebugPoliceVehicleEntry {
   waypoints: Array<{x: number; y: number}>;
 }
 
+export interface DebugPoliceFleetEntry {
+  desiredUnits: number;
+  availableUnits: number;
+  managedUnits: number;
+  nextSpawnAt: number;
+}
+
 export interface DebugReplicationEntry {
   playerId: string;
   spaceId: string;
@@ -134,6 +141,7 @@ export interface DebugSnapshot {
   trafficAi?: DebugTrafficAiEntry[];
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
+  policeFleet?: DebugPoliceFleetEntry;
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   events: DebugEventEntry[];

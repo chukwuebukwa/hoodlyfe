@@ -40,6 +40,7 @@ import {FreemodeMissionController} from './game/missions/freemode-mission-contro
 import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
+import {PoliceResponseFleetController} from './game/police/police-response-fleet-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {WorldClockController} from './game/world/world-clock-controller.ts';
@@ -139,6 +140,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
+  private policeResponseFleet!: PoliceResponseFleetController;
   private worldClock!: WorldClockController;
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
@@ -222,6 +224,13 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       targets: () => this.crimeController.policeVehicleTargets()
     });
+    this.policeResponseFleet = new PoliceResponseFleetController({
+      state: this.state,
+      world: this.world,
+      police: this.policeVehicleController,
+      onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
+      onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
+    });
     this.medicalController = new MedicalCareController({
       state: this.state,
       world: this.world,
@@ -246,6 +255,7 @@ export class DistrictRoom extends Room<DistrictState> {
       traffic: () => this.trafficController.diagnostics(),
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
+      policeFleet: () => this.policeResponseFleet.diagnostics(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       publish: (messageType, snapshot) => {
@@ -775,6 +785,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.trafficSignalController.beginTick();
     this.trafficSignalController.update(now);
     this.explosionController.update(now);
+    this.policeResponseFleet.update(now);
     this.vehicleSimulation.beginTick();
     this.state.vehicles.forEach((vehicle) => {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);

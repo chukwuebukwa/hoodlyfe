@@ -77,9 +77,14 @@ function trafficSignalSummary(snapshot?: DebugSnapshot): string {
 
 function policeVehicleSummary(snapshot?: DebugSnapshot): string {
   const units = snapshot?.policeVehicles ?? [];
-  if (units.length === 0) return '0';
+  const fleet = snapshot?.policeFleet;
+  const fleetSummary = fleet
+    ? `${fleet.availableUnits}/${fleet.desiredUnits} ready / ${fleet.managedUnits} dyn`
+    : '';
+  if (units.length === 0) return fleetSummary || '0';
   const active = units.filter((unit) => unit.strategy !== 'idle' && unit.strategy !== 'hijack');
-  return active.length === 0
+  const activity = active.length === 0
     ? `0/${units.length} idle`
     : `${active.length}/${units.length} ${active[0].strategy}`;
+  return fleetSummary ? `${activity} / ${fleetSummary}` : activity;
 }

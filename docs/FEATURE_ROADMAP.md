@@ -52,7 +52,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 
 - **Playable** crimes become bounded incidents; witnesses report after delay; unwitnessed incidents expire.
 - **Playable** wanted heat, response caps, police dispatch assignments, pursuit, last-known-position search, line-of-sight fire, heat decay, and respawn reset.
-- **Playable** first police cruiser response with report-based search, bounded road routing, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, hijack handoff, and F3 route/strategy diagnostics.
+- **Playable** bounded police response fleet with heat-scaled 1/2/3 unit budgets, delayed reinforcements, clear road-reachable placement, safe stand-down, hijack/destruction handoff, report-based search, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, and F3 fleet/route/strategy diagnostics.
 - **Playable** moving police sirens project a bounded response corridor: aligned civilian traffic pulls to a road-safe side, crossing/oncoming traffic waits, invalid sirens are ignored, and F3 exposes the temporary yielding relationship.
 - **Playable** ambient civilian/police population, ejected drivers, event stimuli, bravery, investigation, startle, sustained flee, recovery, death, and respawn.
 - **Playable** bounded deterministic pedestrian paths around large collision obstacles with per-tick work limits and private route memory.
@@ -111,11 +111,11 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
 - **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
 - **Delivered playable**: junction reservations serialize conflicting approaches and expire abandoned ownership; catalog-sized oriented rectangles replace circular vehicle-to-vehicle collision.
-- **Delivered playable**: one police cruiser consumes reported suspect facts without traffic/wanted coupling, uses bounded deterministic A*, searches last-known positions, intercepts visible targets, scales speed with heat, and permits occupied-vehicle ramming only at heat 3+.
+- **Delivered playable**: an authored cruiser plus bounded dynamic reinforcements consume reported suspect facts without traffic/wanted coupling, use bounded deterministic A*, search last-known positions, intercept visible targets, scale speed and unit count with heat, and permit occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
 - **Deferred note**: author lane centerlines, legal turn connectors, parking points, and lane-based overtaking later. The compatibility road mask is too broad to infer these safely, and this work is not the next selected feature slice.
-- Add multiple police units, coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
+- Add coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.

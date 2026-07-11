@@ -32,7 +32,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     eventsThisTick: 2,
     incidents: 1,
     pursuits: 1,
-    cruisers: '1/1 pursuit',
+    cruisers: '1/1 pursuit / 1/2 ready / 1 dyn',
     stimuli: 0,
     signals: '0',
     events: ['T41 driver committed vehicle-theft']
@@ -99,6 +99,12 @@ function createSnapshot(): DebugSnapshot {
       waypointIndex: 1,
       waypoints: [{x: 20, y: 20}]
     }],
+    policeFleet: {
+      desiredUnits: 2,
+      availableUnits: 1,
+      managedUnits: 1,
+      nextSpawnAt: 2000
+    },
     events: [{tick: 41, type: 'crime.committed', summary: 'driver committed vehicle-theft'}]
   };
 }
