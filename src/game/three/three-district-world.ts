@@ -140,7 +140,10 @@ export class ThreeDistrictWorld {
       present.add(id);
       let group = this.markers.get(id);
       if (!group) {
-        group = pickupMarker(pickup, this.grenadeTexture);
+        group = pickupMarker(
+          pickup,
+          pickup.weapon === 'molotov' ? this.molotovTexture : this.grenadeTexture
+        );
         this.addMarker(id, group);
       }
       positionAtSurface(group, pickup.x, pickup.y, this.surfaceHeightAt(pickup.x, pickup.y) + 8);
@@ -385,8 +388,9 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
 }
 
 function pickupMarker(pickup: NetworkWeaponPickup, texture: THREE.Texture): THREE.Group {
-  const group = ringMarker(20, 0xffd75a, `GRENADES x${pickup.quantity}`);
-  const icon = texturedPlane(texture, 17, 17, 24);
+  const label = pickup.weapon === 'molotov' ? 'MOLOTOVS' : 'GRENADES';
+  const group = ringMarker(20, 0xffd75a, `${label} x${pickup.quantity}`);
+  const icon = texturedPlane(texture, pickup.weapon === 'molotov' ? 14 : 17, pickup.weapon === 'molotov' ? 24 : 17, 24);
   icon.position.z = 2;
   group.add(icon);
   return group;

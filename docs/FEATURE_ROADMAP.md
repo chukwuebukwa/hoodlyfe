@@ -129,7 +129,7 @@ Exit gate: visibly different vehicle classes share the same authoritative physic
 - **Delivered playable**: hospitals own nearest-facility public/trauma admissions, one-time care debit, living treatment, respawn ammunition policy, and bounded spawn protection without moving medical policy into lifecycle or room code.
 - **Delivered playable**: Mercy owns the authored hospital space, treatment anchor, and recovery spawn; Threads opens the shared creator from a separate street marker until its own building is authored.
 - **Delivered foundation**: inventory uses private namespaced item IDs and targeted snapshots; equipped appearance alone remains public replicated state.
-- **Delivered playable**: a shared grenade cache proves proximity collection, bounded quantity, deterministic contention, transient availability, respawn, notice, event, world model, and minimap projection without entering the service/economy controller.
+- **Delivered playable**: catalog-driven grenade and Molotov caches prove proximity collection, weapon-specific capacity, bounded quantity, deterministic contention, transient availability, respawn, notice, event, world model, and minimap projection without entering the service/economy controller.
 - Carried street cash remains non-redeemable and session-local until durable identity exists.
 - Price and reward policies live in an economy domain; combat, missions, and vehicles emit facts rather than changing balances directly.
 - Extend the proven pickup boundary to money/items and risky cash loss/recovery only after exploit and spawn-camping scenarios are tested.

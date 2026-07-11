@@ -103,7 +103,7 @@ export interface NetworkFireZone {
 
 export interface NetworkWeaponPickup {
   id: string;
-  weapon: 'grenade';
+  weapon: 'grenade' | 'molotov';
   x: number;
   y: number;
   quantity: number;

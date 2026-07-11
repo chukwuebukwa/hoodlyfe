@@ -52,17 +52,6 @@ export const EXPLOSION_POLICIES: Readonly<Record<ExplosionKind, ExplosionPolicy>
 
 export const EXPLOSION_VISUAL_CAPACITY = 32;
 
-export const GRENADE_PICKUP = Object.freeze({
-  id: 'grenade-cache',
-  weapon: 'grenade',
-  quantity: 3,
-  capacity: 6,
-  radius: 26,
-  respawnMs: 20_000,
-  minimumSpawnDistance: 130,
-  maximumSpawnDistance: 220
-});
-
 export function blastFalloff(distance: number, radius: number): number {
   if (!Number.isFinite(distance) || !Number.isFinite(radius) || radius <= 0 || distance >= radius) {
     return 0;

@@ -47,7 +47,7 @@ import {
   serverPedestrianAngleToThree,
   serverVehicleAngleToThree,
   serverYToThree,
-  vehicleLampAnchor
+  renderedVehicleLampAnchor
 } from './three-prototype-policy.ts';
 import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
 
@@ -525,7 +525,7 @@ export class ThreeDistrictEntities {
       ),
       smoke: effectDisc(11, 0x3b4244, 0.72),
       fire: effectDisc(7, 0xff7a24, 0.92),
-      headlight: radialGlow(105, 0xfff2c7, 0, 12),
+      headlight: radialGlow(84, 0xfff2c7, 0, 12),
       taillight: radialGlow(34, 0xff1f2f, 0, 10),
       emergencyRed: definition.presentation.emergencyLights
         ? radialGlow(38, 0xff303f, 0, 9)
@@ -554,8 +554,8 @@ export class ThreeDistrictEntities {
     rendered.mesh.userData.worldX = vehicle.x;
     rendered.mesh.userData.worldY = vehicle.y;
     rendered.mesh.userData.vehicle = vehicle;
-    const frontLamp = vehicleLampAnchor(vehicle.x, vehicle.y, vehicle.angle, 43);
-    const rearLamp = vehicleLampAnchor(vehicle.x, vehicle.y, vehicle.angle, -31);
+    const frontLamp = renderedVehicleLampAnchor(vehicle.x, vehicle.y, rendered.mesh.rotation.z, 52);
+    const rearLamp = renderedVehicleLampAnchor(vehicle.x, vehicle.y, rendered.mesh.rotation.z, -34);
     if (rendered.headlight) {
       rendered.headlight.position.set(
         frontLamp.x,
@@ -563,7 +563,7 @@ export class ThreeDistrictEntities {
         z + 1
       );
       rendered.headlight.rotation.z = frontLamp.rotation;
-      rendered.headlight.scale.set(1.65, 0.58, 1);
+      rendered.headlight.scale.set(1.45, 0.52, 1);
     }
     if (rendered.taillight) {
       rendered.taillight.position.set(

@@ -24,8 +24,9 @@ export class WeaponPickupRenderer {
       if (!rendered) {
         const ring = this.scene.add.circle(0, 0, 20, 0xffd75a, 0.1)
           .setStrokeStyle(2, 0xffd75a, 0.9);
-        const icon = this.scene.add.image(0, -4, 'weapon-grenade').setScale(0.58);
-        const label = this.scene.add.text(0, 23, `GRENADES x${pickup.quantity}`, {
+        const icon = this.scene.add.image(0, -4, `weapon-${pickup.weapon}`)
+          .setScale(pickup.weapon === 'molotov' ? 0.7 : 0.58);
+        const label = this.scene.add.text(0, 23, `${pickupLabel(pickup.weapon)} x${pickup.quantity}`, {
           color: '#fff2a8',
           fontFamily: 'Inter, Arial, sans-serif',
           fontSize: '10px',
@@ -61,4 +62,8 @@ export class WeaponPickupRenderer {
     this.rendered.clear();
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
+}
+
+function pickupLabel(weapon: NetworkWeaponPickup['weapon']): string {
+  return weapon === 'molotov' ? 'MOLOTOVS' : 'GRENADES';
 }
