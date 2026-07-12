@@ -1,4 +1,5 @@
 import {
+  createPrivyEmbeddedWallet,
   getPrivyProfile,
   isPrivyBrowserAuthConfigured,
   loginPrivyWithEmailCode,
@@ -31,20 +32,41 @@ export function mountPrivyProfilePopup(): {destroy(): void} {
     button.setAttribute('aria-expanded', 'true');
     const closeButton = required<HTMLButtonElement>(activePopup, '#profile-close');
     const homeButton = required<HTMLButtonElement>(activePopup, '#phone-home-button');
+    const walletHomeButton = required<HTMLButtonElement>(activePopup, '#wallet-home-button');
     const profileApp = required<HTMLButtonElement>(activePopup, '#phone-profile-app');
+    const walletApp = required<HTMLButtonElement>(activePopup, '#phone-wallet-app');
     const refreshButton = required<HTMLButtonElement>(activePopup, '#profile-refresh');
     const logoutButton = required<HTMLButtonElement>(activePopup, '#profile-logout');
     const sendCodeButton = required<HTMLButtonElement>(activePopup, '#profile-send-code');
     const loginButton = required<HTMLButtonElement>(activePopup, '#profile-login');
+    const body = required<HTMLElement>(activePopup, '#profile-body');
+    const walletRefreshButton = required<HTMLButtonElement>(activePopup, '#wallet-refresh');
+    const walletBody = required<HTMLElement>(activePopup, '#wallet-body');
     closeButton.addEventListener('click', close);
     homeButton.addEventListener('click', () => showPhoneHome(activePopup));
+    walletHomeButton.addEventListener('click', () => showPhoneHome(activePopup));
     profileApp.addEventListener('click', () => {
       showPhoneApp(activePopup, 'profile');
       void refresh(activePopup);
     });
+    walletApp.addEventListener('click', () => {
+      showPhoneApp(activePopup, 'wallet');
+      void refreshWallet(activePopup);
+    });
     refreshButton.addEventListener('click', () => void refresh(activePopup));
+    walletRefreshButton.addEventListener('click', () => void refreshWallet(activePopup));
     sendCodeButton.addEventListener('click', () => void sendProfileCode(activePopup));
     loginButton.addEventListener('click', () => void loginProfile(activePopup));
+    body.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLButtonElement) || target.id !== 'profile-create-wallet') return;
+      void createWallet(activePopup, target);
+    });
+    walletBody.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLButtonElement) || target.id !== 'wallet-create-wallet') return;
+      void createWallet(activePopup, target).then(() => refreshWallet(activePopup));
+    });
     logoutButton.addEventListener('click', () => {
       logoutButton.disabled = true;
       void logoutPrivyProfile().then(() => refresh(activePopup)).finally(() => {
@@ -113,6 +135,36 @@ async function loginProfile(root: HTMLElement | undefined): Promise<void> {
   }
 }
 
+async function createWallet(root: HTMLElement, button: HTMLButtonElement): Promise<void> {
+  button.disabled = true;
+  setProfileStatus(root, 'Creating embedded wallet...');
+  try {
+    const profile = await createPrivyEmbeddedWallet();
+    renderProfile(required<HTMLElement>(root, '#profile-body'), profile);
+    setProfileStatus(root, profile.walletAddress ? 'Wallet created.' : 'Wallet creation returned no address.');
+  } catch (error) {
+    setProfileStatus(root, error instanceof Error ? error.message : 'Unable to create wallet.');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function refreshWallet(root: HTMLElement): Promise<void> {
+  const body = required<HTMLElement>(root, '#wallet-body');
+  body.innerHTML = '<p class="wallet-muted">Loading wallet...</p>';
+  try {
+    const profile = await getPrivyProfile();
+    renderWallet(body, profile);
+    const [balance, dexTokens] = await Promise.all([
+      profile.walletAddress ? fetchRobinhoodNativeBalance(profile.walletAddress) : Promise.resolve(undefined),
+      fetchDexscreenerRobinhoodTokens()
+    ]);
+    renderWallet(body, profile, balance, dexTokens);
+  } catch (error) {
+    body.innerHTML = `<p class="wallet-muted">${escapeHtml(error instanceof Error ? error.message : 'Unable to load wallet.')}</p>`;
+  }
+}
+
 function renderShell(): HTMLElement {
   const popup = document.createElement('section');
   popup.id = 'profile-popup';
@@ -130,7 +182,7 @@ function renderShell(): HTMLElement {
         <header><strong>NOCKPHONE</strong><span>District OS</span></header>
         <div id="phone-app-grid">
           <button id="phone-profile-app" type="button"><i>PR</i><span>Profile</span></button>
-          <button type="button" disabled><i>MS</i><span>Messages</span></button>
+          <button id="phone-wallet-app" type="button"><i>WA</i><span>Wallet</span></button>
           <button type="button" disabled><i>JB</i><span>Jobs</span></button>
           <button type="button" disabled><i>MP</i><span>Map</span></button>
           <button type="button" disabled><i>GR</i><span>Garage</span></button>
@@ -159,6 +211,14 @@ function renderShell(): HTMLElement {
           <button id="profile-logout" type="button">LOG OUT</button>
         </footer>
       </section>
+      <section id="phone-wallet-app-screen" class="hidden" aria-label="Wallet app">
+        <header id="wallet-app-header">
+          <button id="wallet-home-button" type="button" aria-label="Back to phone home">&lt;</button>
+          <div><strong>Wallet</strong><span>Robinhood Chain</span></div>
+          <button id="wallet-refresh" type="button">SYNC</button>
+        </header>
+        <div id="wallet-body"></div>
+      </section>
     </main>
     <footer id="phone-nav">
       <button id="phone-home-button-visual" type="button" aria-hidden="true" tabindex="-1"></button>
@@ -170,13 +230,13 @@ function renderShell(): HTMLElement {
 function showPhoneHome(root: HTMLElement): void {
   required<HTMLElement>(root, '#phone-home').classList.remove('hidden');
   required<HTMLElement>(root, '#phone-profile-app-screen').classList.add('hidden');
+  required<HTMLElement>(root, '#phone-wallet-app-screen').classList.add('hidden');
 }
 
-function showPhoneApp(root: HTMLElement, app: 'profile'): void {
+function showPhoneApp(root: HTMLElement, app: 'profile' | 'wallet'): void {
   required<HTMLElement>(root, '#phone-home').classList.add('hidden');
-  if (app === 'profile') {
-    required<HTMLElement>(root, '#phone-profile-app-screen').classList.remove('hidden');
-  }
+  required<HTMLElement>(root, '#phone-profile-app-screen').classList.toggle('hidden', app !== 'profile');
+  required<HTMLElement>(root, '#phone-wallet-app-screen').classList.toggle('hidden', app !== 'wallet');
 }
 
 function phoneTime(): string {
@@ -214,7 +274,7 @@ function renderProfile(root: HTMLElement, profile: PrivyProfileSummary): void {
       <header><strong>Wallet</strong><span>${profile.walletAddress ? 'Linked' : 'Not created'}</span></header>
       <p>${escapeHtml(profile.walletAddress ?? 'No wallet address linked to this Privy user yet.')}</p>
       ${profile.status === 'privy' && !profile.walletAddress
-        ? '<small>Email login is working. Next step is creating or linking an embedded wallet.</small>'
+        ? '<small>Email login is working. Create an embedded wallet to get an address.</small><button id="profile-create-wallet" type="button">CREATE WALLET</button>'
         : ''}
     </section>
     <section class="profile-card">
@@ -237,6 +297,165 @@ function renderProfile(root: HTMLElement, profile: PrivyProfileSummary): void {
       </dl>
     </details>
   `;
+}
+
+function renderWallet(
+  root: HTMLElement,
+  profile: PrivyProfileSummary,
+  nativeBalance?: {formatted: string; symbol: string},
+  dexTokens: DexscreenerTokenMeta[] = []
+): void {
+  const hasWallet = Boolean(profile.walletAddress);
+  const ethAmount = nativeBalance?.formatted ?? '0.0000';
+  const tokenRows = [
+    nativeTokenRow(ethAmount),
+    ...dexTokens.slice(0, 6).map(dexTokenRow)
+  ].join('');
+  root.innerHTML = `
+    <section class="wallet-hero ${hasWallet ? 'ready' : 'missing'}">
+      <header>
+        <span>Robinhood Chain</span>
+        <b>${hasWallet ? escapeHtml(compactWallet(profile.walletAddress ?? '')) : 'No wallet'}</b>
+      </header>
+      <strong>${ethAmount} ${nativeBalance?.symbol ?? 'ETH'}</strong>
+      <p>${hasWallet ? 'Native balance on chain 4663' : 'Create a wallet to start tracking balances.'}</p>
+      <div class="wallet-actions">
+        <button type="button" ${hasWallet ? '' : 'disabled'}>Receive</button>
+        <button type="button" disabled>Send</button>
+        <button type="button" disabled>Swap</button>
+        <button type="button" disabled>Buy</button>
+      </div>
+    </section>
+    ${hasWallet ? `
+      <section class="wallet-address-card">
+        <span>Address</span>
+        <strong>${escapeHtml(profile.walletAddress ?? '')}</strong>
+        <a href="${robinhoodExplorerAddress(profile.walletAddress ?? '')}" target="_blank" rel="noreferrer">View Explorer</a>
+      </section>
+    ` : `
+      <section class="wallet-address-card missing">
+        <span>Wallet setup</span>
+        <strong>Create an embedded wallet to receive a Robinhood Chain address.</strong>
+        <button id="wallet-create-wallet" type="button">CREATE WALLET</button>
+      </section>
+    `}
+    <section class="wallet-search-card">
+      <span>${dexTokens.length ? 'Images loaded from Dexscreener where available.' : 'Dexscreener has no Robinhood token images yet; add contracts/indexer for live token rows.'}</span>
+    </section>
+    <section class="wallet-token-card">
+      <header><strong>Tokens</strong><span>${dexTokens.length ? 'Dexscreener metadata' : 'Live native balance'}</span></header>
+      <ul>${tokenRows}</ul>
+    </section>
+  `;
+}
+
+function nativeTokenRow(amount: string): string {
+  return `
+    <li>
+      <i>ETH</i>
+      <div><strong>Ethereum</strong><span>${amount} ETH</span></div>
+      <b>${amount}</b>
+    </li>
+  `;
+}
+
+function dexTokenRow(token: DexscreenerTokenMeta): string {
+  const icon = token.imageUrl
+    ? `<img src="${escapeHtml(token.imageUrl)}" alt="">`
+    : `<i>${escapeHtml(token.symbol.slice(0, 3).toUpperCase())}</i>`;
+  return `
+    <li class="dex-token">
+      ${icon}
+      <div><strong>${escapeHtml(token.name)}</strong><span>${escapeHtml(token.symbol)} / ${escapeHtml(token.chainId)}</span></div>
+      <b>${token.priceUsd ? `$${escapeHtml(token.priceUsd)}` : '--'}</b>
+    </li>
+  `;
+}
+
+interface DexscreenerTokenMeta {
+  chainId: string;
+  name: string;
+  symbol: string;
+  imageUrl?: string;
+  priceUsd?: string;
+}
+
+async function fetchDexscreenerRobinhoodTokens(): Promise<DexscreenerTokenMeta[]> {
+  const queries = ['Robinhood Chain', 'Robinhood', 'RH'];
+  const results = await Promise.allSettled(queries.map(fetchDexscreenerSearch));
+  const tokens = new Map<string, DexscreenerTokenMeta>();
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    for (const token of result.value) {
+      const key = `${token.chainId}:${token.symbol}:${token.name}`;
+      if (!tokens.has(key)) tokens.set(key, token);
+    }
+  }
+  return [...tokens.values()].filter((token) => {
+    const haystack = `${token.chainId} ${token.name} ${token.symbol}`.toLowerCase();
+    return haystack.includes('robinhood') || haystack.includes('rh');
+  });
+}
+
+async function fetchDexscreenerSearch(query: string): Promise<DexscreenerTokenMeta[]> {
+  const response = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);
+  if (!response.ok) return [];
+  const payload = await response.json() as {pairs?: DexscreenerPair[]};
+  return (payload.pairs ?? []).map((pair) => ({
+    chainId: pair.chainId ?? 'unknown',
+    name: pair.baseToken?.name ?? pair.baseToken?.symbol ?? 'Token',
+    symbol: pair.baseToken?.symbol ?? 'TOKEN',
+    imageUrl: pair.info?.imageUrl,
+    priceUsd: pair.priceUsd
+  }));
+}
+
+interface DexscreenerPair {
+  chainId?: string;
+  priceUsd?: string;
+  baseToken?: {
+    name?: string;
+    symbol?: string;
+  };
+  info?: {
+    imageUrl?: string;
+  };
+}
+
+async function fetchRobinhoodNativeBalance(address: string): Promise<{formatted: string; symbol: string}> {
+  const response = await fetch(robinhoodRpcUrl(), {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_getBalance',
+      params: [address, 'latest']
+    })
+  });
+  if (!response.ok) throw new Error('Robinhood RPC request failed.');
+  const payload = await response.json() as {result?: string; error?: {message?: string}};
+  if (payload.error) throw new Error(payload.error.message ?? 'Robinhood RPC returned an error.');
+  return {
+    formatted: formatWei(payload.result ?? '0x0'),
+    symbol: 'ETH'
+  };
+}
+
+function robinhoodRpcUrl(): string {
+  return import.meta.env.VITE_ROBINHOOD_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com';
+}
+
+function robinhoodExplorerAddress(address: string): string {
+  return `https://robinhoodchain.blockscout.com/address/${encodeURIComponent(address)}`;
+}
+
+function formatWei(hexValue: string): string {
+  const wei = BigInt(hexValue);
+  const whole = wei / 1_000_000_000_000_000_000n;
+  const fraction = wei % 1_000_000_000_000_000_000n;
+  const decimals = (fraction / 100_000_000_000_000n).toString().padStart(4, '0');
+  return `${whole}.${decimals}`;
 }
 
 function guestProfile(): PrivyProfileSummary {
@@ -279,6 +498,11 @@ function compactId(value: string | undefined): string {
   if (!value) return 'None';
   if (value.length <= 18) return value;
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
+}
+
+function compactWallet(address: string): string {
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function required<T extends Element>(root: ParentNode, selector: string): T {

@@ -4,9 +4,15 @@ const DEFAULT_PRIVY_APP_ID = 'cmrh69i1o00mw0ckymhuo9qd7';
 
 interface PrivyCoreClient {
   initialize(): Promise<void>;
+  setMessagePoster(poster: unknown): void;
   getAccessToken(): Promise<string | null>;
   user: {
     get(): Promise<{user: unknown | null}>;
+  };
+  embeddedWallet: {
+    create(input: Record<string, never>): Promise<{user: unknown}>;
+    getURL(): string;
+    onMessage(event: unknown): void;
   };
   auth: {
     logout(o?: {userId: string}): Promise<void>;
@@ -18,6 +24,8 @@ interface PrivyCoreClient {
 }
 
 let clientPromise: Promise<PrivyCoreClient> | undefined;
+let embeddedWalletFrame: HTMLIFrameElement | undefined;
+let embeddedWalletListener: ((event: MessageEvent) => void) | undefined;
 
 export interface PrivyLoginResult {
   auth: ClientAuthPayload;
@@ -88,6 +96,28 @@ export async function logoutPrivyProfile(): Promise<void> {
   await client.auth.logout(userId ? {userId} : undefined);
 }
 
+export async function createPrivyEmbeddedWallet(): Promise<PrivyProfileSummary> {
+  const client = await getPrivyClient();
+  const {user: currentUser} = await client.user.get();
+  if (!currentUser) throw new Error('Log in before creating a wallet.');
+  const {user} = await client.embeddedWallet.create({});
+  const userRecord = isRecord(user) ? user : {};
+  const accessToken = await client.getAccessToken();
+  const accounts = linkedAccounts(userRecord);
+  const walletAddress = firstWalletAddress(accounts);
+  const emailAddress = firstEmailAddress(accounts);
+  const userId = typeof userRecord.id === 'string' ? userRecord.id : undefined;
+  return {
+    status: 'privy',
+    userId,
+    emailAddress,
+    walletAddress,
+    label: walletAddress ? compactWallet(walletAddress) : emailAddress ?? userId ?? 'Privy user',
+    accessTokenPresent: Boolean(accessToken),
+    accounts
+  };
+}
+
 export async function sendPrivyEmailCode(email: string): Promise<void> {
   const normalized = normalizeEmail(email);
   if (!normalized) throw new Error('Enter an email address first.');
@@ -121,9 +151,30 @@ async function createPrivyClient(): Promise<PrivyCoreClient> {
     appId,
     clientId: import.meta.env.VITE_PRIVY_CLIENT_ID,
     storage: new LocalStorage()
-  }) as PrivyCoreClient;
+  }) as unknown as PrivyCoreClient;
   await client.initialize();
+  mountEmbeddedWalletFrame(client);
   return client;
+}
+
+function mountEmbeddedWalletFrame(client: PrivyCoreClient): void {
+  if (embeddedWalletFrame) {
+    client.setMessagePoster(embeddedWalletFrame.contentWindow);
+    return;
+  }
+  const iframe = document.createElement('iframe');
+  iframe.src = client.embeddedWallet.getURL();
+  iframe.title = 'Privy embedded wallet';
+  iframe.style.display = 'none';
+  document.body.append(iframe);
+  embeddedWalletFrame = iframe;
+  client.setMessagePoster(iframe.contentWindow);
+  embeddedWalletListener = (event: MessageEvent) => {
+    if (event.source !== iframe.contentWindow) return;
+    const payload = typeof event.data === 'string' ? safeJsonParse(event.data) : event.data;
+    if (payload) client.embeddedWallet.onMessage(payload);
+  };
+  window.addEventListener('message', embeddedWalletListener);
 }
 
 async function loginResultFromUser(client: PrivyCoreClient, user: unknown): Promise<PrivyLoginResult> {
@@ -203,4 +254,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function stringField(record: Record<string, unknown>, field: string): string | undefined {
   const value = record[field];
   return typeof value === 'string' && value ? value : undefined;
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
