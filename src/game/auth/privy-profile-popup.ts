@@ -374,27 +374,29 @@ function dexTokenRow(token: DexscreenerTokenMeta): string {
 
 interface DexscreenerTokenMeta {
   chainId: string;
+  address?: string;
   name: string;
   symbol: string;
   imageUrl?: string;
   priceUsd?: string;
+  volume24h?: number;
 }
 
 async function fetchDexscreenerRobinhoodTokens(): Promise<DexscreenerTokenMeta[]> {
-  const queries = ['Robinhood Chain', 'Robinhood', 'RH'];
+  const queries = ['cashcat', 'Robinhood Chain', 'Robinhood'];
   const results = await Promise.allSettled(queries.map(fetchDexscreenerSearch));
   const tokens = new Map<string, DexscreenerTokenMeta>();
   for (const result of results) {
     if (result.status !== 'fulfilled') continue;
     for (const token of result.value) {
-      const key = `${token.chainId}:${token.symbol}:${token.name}`;
-      if (!tokens.has(key)) tokens.set(key, token);
+      if (token.chainId !== 'robinhood') continue;
+      const key = token.address ? `${token.chainId}:${token.address.toLowerCase()}` : `${token.chainId}:${token.symbol}:${token.name}`;
+      const existing = tokens.get(key);
+      if (!existing || (token.volume24h ?? 0) > (existing.volume24h ?? 0)) tokens.set(key, token);
     }
   }
-  return [...tokens.values()].filter((token) => {
-    const haystack = `${token.chainId} ${token.name} ${token.symbol}`.toLowerCase();
-    return haystack.includes('robinhood') || haystack.includes('rh');
-  });
+  return [...tokens.values()]
+    .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0));
 }
 
 async function fetchDexscreenerSearch(query: string): Promise<DexscreenerTokenMeta[]> {
@@ -403,10 +405,12 @@ async function fetchDexscreenerSearch(query: string): Promise<DexscreenerTokenMe
   const payload = await response.json() as {pairs?: DexscreenerPair[]};
   return (payload.pairs ?? []).map((pair) => ({
     chainId: pair.chainId ?? 'unknown',
+    address: pair.baseToken?.address,
     name: pair.baseToken?.name ?? pair.baseToken?.symbol ?? 'Token',
     symbol: pair.baseToken?.symbol ?? 'TOKEN',
     imageUrl: pair.info?.imageUrl,
-    priceUsd: pair.priceUsd
+    priceUsd: pair.priceUsd,
+    volume24h: pair.volume?.h24
   }));
 }
 
@@ -414,8 +418,12 @@ interface DexscreenerPair {
   chainId?: string;
   priceUsd?: string;
   baseToken?: {
+    address?: string;
     name?: string;
     symbol?: string;
+  };
+  volume?: {
+    h24?: number;
   };
   info?: {
     imageUrl?: string;
