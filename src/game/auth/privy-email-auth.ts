@@ -9,6 +9,7 @@ interface PrivyCoreClient {
     get(): Promise<{user: unknown | null}>;
   };
   auth: {
+    logout(o?: {userId: string}): Promise<void>;
     email: {
       sendCode(email: string): Promise<{success: boolean}>;
       loginWithCode(email: string, code: string, mode?: 'login-or-sign-up'): Promise<{user: unknown}>;
@@ -23,6 +24,21 @@ export interface PrivyLoginResult {
   label: string;
 }
 
+export interface PrivyLinkedAccountSummary {
+  type: string;
+  address?: string;
+  email?: string;
+  subject?: string;
+}
+
+export interface PrivyProfileSummary {
+  status: 'guest' | 'privy';
+  userId?: string;
+  label: string;
+  accessTokenPresent: boolean;
+  accounts: PrivyLinkedAccountSummary[];
+}
+
 export function isPrivyBrowserAuthConfigured(): boolean {
   return Boolean(privyAppId());
 }
@@ -32,6 +48,38 @@ export async function restorePrivyLogin(): Promise<PrivyLoginResult | undefined>
   const {user} = await client.user.get();
   if (!user) return undefined;
   return loginResultFromUser(client, user);
+}
+
+export async function getPrivyProfile(): Promise<PrivyProfileSummary> {
+  const client = await getPrivyClient();
+  const {user} = await client.user.get();
+  if (!user) {
+    return {
+      status: 'guest',
+      label: 'Guest driver',
+      accessTokenPresent: false,
+      accounts: []
+    };
+  }
+  const userRecord = isRecord(user) ? user : {};
+  const accessToken = await client.getAccessToken();
+  const walletAddress = firstWalletAddress(userRecord);
+  const userId = typeof userRecord.id === 'string' ? userRecord.id : undefined;
+  return {
+    status: 'privy',
+    userId,
+    label: walletAddress ? compactWallet(walletAddress) : userId ?? 'Privy user',
+    accessTokenPresent: Boolean(accessToken),
+    accounts: linkedAccounts(userRecord)
+  };
+}
+
+export async function logoutPrivyProfile(): Promise<void> {
+  const client = await getPrivyClient();
+  const {user} = await client.user.get();
+  const userRecord = isRecord(user) ? user : {};
+  const userId = typeof userRecord.id === 'string' ? userRecord.id : undefined;
+  await client.auth.logout(userId ? {userId} : undefined);
 }
 
 export async function sendPrivyEmailCode(email: string): Promise<void> {
@@ -90,17 +138,24 @@ async function loginResultFromUser(client: PrivyCoreClient, user: unknown): Prom
 }
 
 function firstWalletAddress(user: Record<string, unknown>): string | undefined {
-  const linkedAccounts = Array.isArray(user.linkedAccounts)
+  for (const account of linkedAccounts(user)) {
+    if (account.address) return account.address;
+  }
+  return undefined;
+}
+
+function linkedAccounts(user: Record<string, unknown>): PrivyLinkedAccountSummary[] {
+  const rawAccounts = Array.isArray(user.linkedAccounts)
     ? user.linkedAccounts
     : Array.isArray(user.linked_accounts)
       ? user.linked_accounts
       : [];
-  for (const account of linkedAccounts) {
-    if (!isRecord(account)) continue;
-    const address = account.address;
-    if (typeof address === 'string' && address) return address;
-  }
-  return undefined;
+  return rawAccounts.filter(isRecord).map((account) => ({
+    type: stringField(account, 'type') ?? stringField(account, 'connectorType') ?? 'account',
+    address: stringField(account, 'address'),
+    email: stringField(account, 'email') ?? stringField(account, 'emailAddress'),
+    subject: stringField(account, 'subject')
+  }));
 }
 
 function privyAppId(): string | undefined {
@@ -118,4 +173,9 @@ function compactWallet(address: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
+}
+
+function stringField(record: Record<string, unknown>, field: string): string | undefined {
+  const value = record[field];
+  return typeof value === 'string' && value ? value : undefined;
 }

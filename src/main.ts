@@ -5,6 +5,7 @@ import {
   runOnboardingOverlay,
   shouldShowOnboarding
 } from './game/onboarding/onboarding-flow.ts';
+import {mountPrivyProfilePopup} from './game/auth/privy-profile-popup.ts';
 import {PLAYER_SPAWN_MESSAGE} from '../shared/protocol/onboarding.ts';
 import './style.css';
 
@@ -22,6 +23,7 @@ const nameElement = document.querySelector('#driver-name');
 let activeRoom: Room<DistrictNetworkState> | undefined;
 let activeGame: {destroy(removeCanvas?: boolean): void} | undefined;
 let activeThree: {start(): Promise<void>; destroy(): void} | undefined;
+const profilePopup = mountPrivyProfilePopup();
 if (nameElement) {
   nameElement.textContent = driverName;
 }
@@ -113,4 +115,5 @@ function disposeRuntime(): void {
   activeThree = undefined;
   void activeRoom?.leave(true);
   activeRoom = undefined;
+  profilePopup.destroy();
 }
