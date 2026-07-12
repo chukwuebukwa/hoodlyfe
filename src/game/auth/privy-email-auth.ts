@@ -34,6 +34,8 @@ export interface PrivyLinkedAccountSummary {
 export interface PrivyProfileSummary {
   status: 'guest' | 'privy';
   userId?: string;
+  emailAddress?: string;
+  walletAddress?: string;
   label: string;
   accessTokenPresent: boolean;
   accounts: PrivyLinkedAccountSummary[];
@@ -63,14 +65,18 @@ export async function getPrivyProfile(): Promise<PrivyProfileSummary> {
   }
   const userRecord = isRecord(user) ? user : {};
   const accessToken = await client.getAccessToken();
-  const walletAddress = firstWalletAddress(userRecord);
+  const accounts = linkedAccounts(userRecord);
+  const walletAddress = firstWalletAddress(accounts);
+  const emailAddress = firstEmailAddress(accounts);
   const userId = typeof userRecord.id === 'string' ? userRecord.id : undefined;
   return {
     status: 'privy',
     userId,
-    label: walletAddress ? compactWallet(walletAddress) : userId ?? 'Privy user',
+    emailAddress,
+    walletAddress,
+    label: walletAddress ? compactWallet(walletAddress) : emailAddress ?? userId ?? 'Privy user',
     accessTokenPresent: Boolean(accessToken),
-    accounts: linkedAccounts(userRecord)
+    accounts
   };
 }
 
@@ -124,7 +130,8 @@ async function loginResultFromUser(client: PrivyCoreClient, user: unknown): Prom
   const accessToken = await client.getAccessToken();
   if (!accessToken) throw new Error('Privy did not return an access token.');
   const userRecord = isRecord(user) ? user : {};
-  const walletAddress = firstWalletAddress(userRecord);
+  const accounts = linkedAccounts(userRecord);
+  const walletAddress = firstWalletAddress(accounts);
   const userId = typeof userRecord.id === 'string' ? userRecord.id : undefined;
   return {
     auth: {
@@ -137,9 +144,16 @@ async function loginResultFromUser(client: PrivyCoreClient, user: unknown): Prom
   };
 }
 
-function firstWalletAddress(user: Record<string, unknown>): string | undefined {
-  for (const account of linkedAccounts(user)) {
-    if (account.address) return account.address;
+function firstWalletAddress(accounts: PrivyLinkedAccountSummary[]): string | undefined {
+  for (const account of accounts) {
+    if (account.address && isWalletAccount(account)) return account.address;
+  }
+  return undefined;
+}
+
+function firstEmailAddress(accounts: PrivyLinkedAccountSummary[]): string | undefined {
+  for (const account of accounts) {
+    if (account.email) return account.email;
   }
   return undefined;
 }
@@ -156,6 +170,17 @@ function linkedAccounts(user: Record<string, unknown>): PrivyLinkedAccountSummar
     email: stringField(account, 'email') ?? stringField(account, 'emailAddress'),
     subject: stringField(account, 'subject')
   }));
+}
+
+function isWalletAccount(account: PrivyLinkedAccountSummary): boolean {
+  const type = account.type.toLowerCase();
+  return Boolean(account.address) && (
+    type.includes('wallet') ||
+    type.includes('ethereum') ||
+    type.includes('solana') ||
+    type.includes('metamask') ||
+    type.includes('coinbase')
+  );
 }
 
 function privyAppId(): string | undefined {

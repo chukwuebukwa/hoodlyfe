@@ -185,30 +185,57 @@ function phoneTime(): string {
 }
 
 function renderProfile(root: HTMLElement, profile: PrivyProfileSummary): void {
+  const appScreen = root.closest<HTMLElement>('#phone-profile-app-screen');
+  if (appScreen) appScreen.dataset.auth = profile.status;
   const local = localCharacterSummary();
   const accounts = profile.accounts.length
     ? profile.accounts.map((account) => `
-      <li>
-        <span>${escapeHtml(account.type)}</span>
-        <strong>${escapeHtml(account.address ?? account.email ?? account.subject ?? 'linked')}</strong>
+      <li class="profile-account-row">
+        <i>${escapeHtml(accountBadge(account.type))}</i>
+        <div>
+          <span>${escapeHtml(accountLabel(account.type))}</span>
+          <strong>${escapeHtml(account.address ?? account.email ?? account.subject ?? 'Linked account')}</strong>
+        </div>
       </li>
     `).join('')
-    : '<li><span>Accounts</span><strong>None linked</strong></li>';
+    : '<li class="profile-empty">No wallet or email account is linked yet.</li>';
 
   root.innerHTML = `
-    <dl>
-      <div><dt>Status</dt><dd>${profile.status === 'privy' ? 'Logged in' : 'Guest'}</dd></div>
-      <div><dt>Label</dt><dd>${escapeHtml(profile.label)}</dd></div>
-      <div><dt>User ID</dt><dd>${escapeHtml(profile.userId ?? 'None')}</dd></div>
-      <div><dt>Access Token</dt><dd>${profile.accessTokenPresent ? 'Present' : 'Missing'}</dd></div>
-      <div><dt>Driver</dt><dd>${escapeHtml(local.driverName)}</dd></div>
-      <div><dt>Outfit</dt><dd>${escapeHtml(local.outfitName)}</dd></div>
-      <div><dt>Recipe</dt><dd>${local.hasLpcRecipe ? 'Saved LPC recipe' : 'Default character'}</dd></div>
-    </dl>
-    <section>
-      <strong>Linked Accounts</strong>
+    <section class="profile-hero-card ${profile.status === 'privy' ? 'connected' : 'guest'}">
+      <span>${profile.status === 'privy' ? 'Privy Login Connected' : 'Guest Session'}</span>
+      <strong>${escapeHtml(profile.status === 'privy' ? profile.emailAddress ?? profile.label : local.driverName)}</strong>
+      <p>${profile.status === 'privy'
+        ? profile.walletAddress
+          ? 'This driver has a wallet address linked for future inventory and persistence.'
+          : 'This driver is logged in with Privy, but no wallet address exists yet.'
+        : 'Sign in to attach this local driver to a persistent account and wallet.'}</p>
+    </section>
+    <section class="profile-wallet-card ${profile.walletAddress ? 'ready' : 'missing'}">
+      <header><strong>Wallet</strong><span>${profile.walletAddress ? 'Linked' : 'Not created'}</span></header>
+      <p>${escapeHtml(profile.walletAddress ?? 'No wallet address linked to this Privy user yet.')}</p>
+      ${profile.status === 'privy' && !profile.walletAddress
+        ? '<small>Email login is working. Next step is creating or linking an embedded wallet.</small>'
+        : ''}
+    </section>
+    <section class="profile-card">
+      <header><strong>Driver</strong><span>Local Save</span></header>
+      <dl>
+        <div><dt>Name</dt><dd>${escapeHtml(local.driverName)}</dd></div>
+        <div><dt>Outfit</dt><dd>${escapeHtml(local.outfitName)}</dd></div>
+        <div><dt>Character</dt><dd>${local.hasLpcRecipe ? 'Saved LPC recipe' : 'Default character'}</dd></div>
+      </dl>
+    </section>
+    <section class="profile-card">
+      <header><strong>Accounts</strong><span>${profile.accounts.length} linked</span></header>
       <ul>${accounts}</ul>
     </section>
+    <details class="profile-tech-card">
+      <summary>Privy details</summary>
+      <dl>
+        <div><dt>User ID</dt><dd>${escapeHtml(compactId(profile.userId))}</dd></div>
+        <div><dt>Token</dt><dd>${profile.accessTokenPresent ? 'Ready for server verification' : 'Not available'}</dd></div>
+      </dl>
+    </details>
   `;
 }
 
@@ -232,6 +259,26 @@ function localCharacterSummary(): {driverName: string; outfitName: string; hasLp
 
 function setProfileStatus(root: HTMLElement, value: string): void {
   required<HTMLElement>(root, '#profile-status').textContent = value;
+}
+
+function accountBadge(type: string): string {
+  const normalized = type.toLowerCase();
+  if (normalized.includes('wallet')) return 'WA';
+  if (normalized.includes('email')) return 'EM';
+  if (normalized.includes('phone')) return 'PH';
+  if (normalized.includes('google')) return 'GO';
+  if (normalized.includes('discord')) return 'DI';
+  return 'AC';
+}
+
+function accountLabel(type: string): string {
+  return type.replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function compactId(value: string | undefined): string {
+  if (!value) return 'None';
+  if (value.length <= 18) return value;
+  return `${value.slice(0, 10)}...${value.slice(-6)}`;
 }
 
 function required<T extends Element>(root: ParentNode, selector: string): T {
