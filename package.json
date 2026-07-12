@@ -12,6 +12,7 @@
     "assets:export": "bash scripts/export-gta2-assets.sh",
     "assets:original-map": "python3 scripts/render-original-district.py",
     "build": "tsc --noEmit && vite build",
+    "deploy:railway": "railway up --service nock0 --environment production --no-gitignore",
     "dev": "concurrently -k -n server,client -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite --host 0.0.0.0",
     "dev:server": "tsx watch server/index.ts",

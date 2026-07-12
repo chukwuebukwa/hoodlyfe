@@ -9,9 +9,12 @@ import {monitorEventLoopDelay} from 'node:perf_hooks';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {DistrictRoom} from './district-room.ts';
+import {CollisionMap} from './world-map.ts';
 
 const port = Number(process.env.PORT ?? process.env.GAME_PORT ?? 2567);
 const processStartedAt = Date.now();
+// Fail the process before Railway marks it healthy if required runtime map assets are absent.
+CollisionMap.load();
 const eventLoopDelay = monitorEventLoopDelay({resolution: 10});
 eventLoopDelay.enable();
 const app = express();

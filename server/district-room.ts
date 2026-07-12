@@ -856,7 +856,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   onBeforePatch(): void {
-    this.replicationController.synchronize();
+    this.replicationController?.synchronize();
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
