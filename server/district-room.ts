@@ -35,11 +35,13 @@ import {
   PLAYER_SPAWN_MESSAGE,
   type PlayerSpawnMessage
 } from '../shared/protocol/onboarding.ts';
+import type {ClientAuthPayload, VerifiedAuthIdentity} from '../shared/protocol/auth.ts';
 import {
   NETWORK_PING_MESSAGE,
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
+import {verifyClientAuth} from './auth/privy-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
@@ -90,6 +92,11 @@ import {
 } from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
+import {VehicleInputController} from './game/vehicles/vehicle-input-controller.ts';
+import {
+  VEHICLE_INPUT_MESSAGE,
+  type VehicleInputBatchMessage
+} from '../shared/protocol/vehicle-input.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
@@ -110,6 +117,7 @@ interface DistrictRoomOptions {
 interface DistrictJoinOptions {
   name?: string;
   appearance?: unknown;
+  auth?: ClientAuthPayload;
   spectator?: boolean;
 }
 
@@ -125,9 +133,11 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
   private readonly debugSubscribers = new Set<string>();
+  private readonly authIdentities = new Map<string, VerifiedAuthIdentity>();
   private readonly networkProbe = new NetworkProbeController({
     region: process.env.RAILWAY_REPLICA_REGION ?? process.env.GAME_REGION ?? 'local',
-    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? 'development'
+    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
+      process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
@@ -140,6 +150,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private trafficController!: TrafficController;
   private trafficSignalController!: TrafficSignalController;
   private vehicleSimulation!: VehicleSimulationController;
+  private vehicleInput!: VehicleInputController;
   private playerControl!: PlayerControlController;
   private appearanceController!: PlayerAppearanceController;
   private wardrobeController!: WardrobeInventoryController;
@@ -209,6 +220,7 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       interiors: this.interiorController
     });
+    this.vehicleInput = new VehicleInputController(this.state);
     this.wardrobeController = new WardrobeInventoryController();
     this.appearanceController = new PlayerAppearanceController({
       state: this.state,
@@ -379,7 +391,15 @@ export class DistrictRoom extends Room<DistrictState> {
       signals: this.trafficSignalController,
       policeVehicles: this.policeVehicleController,
       clock: () => ({tick: this.simulationClock.tick}),
-      inputFor: (playerId) => this.playerControl.inputFor(playerId),
+      inputFor: (playerId) => {
+        const player = this.state.players.get(playerId);
+        return player?.vehicleId
+          ? this.vehicleInput.consume(playerId, player.vehicleId) ?? this.playerControl.inputFor(playerId)
+          : this.playerControl.inputFor(playerId);
+      },
+      acknowledgeInput: (playerId, vehicleId, sequence) => {
+        this.vehicleInput.acknowledge(playerId, vehicleId, sequence);
+      },
       nearbyPlayers,
       nearbyNpcs,
       nearbyVehicles,
@@ -678,6 +698,9 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
     });
+    this.onMessage<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
+      this.vehicleInput.accept(client.sessionId, message);
+    });
     this.onMessage<NetworkPingMessage>(NETWORK_PING_MESSAGE, (client, message) => {
       const response = this.networkProbe.accept(
         client.sessionId,
@@ -711,9 +734,10 @@ export class DistrictRoom extends Room<DistrictState> {
       client.send(APPEARANCE_RESULT_MESSAGE, {status});
     });
     this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, (client, message) => {
-      this.spawnPlayer(client, {
+      void this.spawnPlayerWithAuth(client, {
         name: message?.name,
-        appearance: message?.appearance
+        appearance: message?.appearance,
+        auth: message?.auth
       });
     });
     this.onMessage(WARDROBE_REQUEST_MESSAGE, (client) => sendWardrobeState(client.sessionId));
@@ -756,6 +780,16 @@ export class DistrictRoom extends Room<DistrictState> {
       });
       return;
     }
+    void this.spawnPlayerWithAuth(client, options);
+  }
+
+  private async spawnPlayerWithAuth(
+    client: Client,
+    options: {name?: string; appearance?: unknown; auth?: ClientAuthPayload} = {}
+  ): Promise<void> {
+    if (this.state.players.has(client.sessionId)) return;
+    const identity = await verifyClientAuth(options.auth);
+    this.authIdentities.set(client.sessionId, identity);
     this.spawnPlayer(client, options);
   }
 
@@ -781,10 +815,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.replicationController.detach(client.sessionId);
     this.debugSubscribers.delete(client.sessionId);
     this.networkProbe.clear(client.sessionId);
+    this.authIdentities.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
+    this.vehicleInput.clear(client.sessionId);
     this.playerLifecycle.clearPlayer(client.sessionId);
     this.appearanceController.clearPlayer(client.sessionId);
     this.wardrobeController.clearPlayer(client.sessionId);
@@ -824,6 +860,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.state.serverTimeMs = now;
     this.populationStreaming.update(
       [...this.state.players.values()]
         .filter((player) => player.spaceId === 'street')

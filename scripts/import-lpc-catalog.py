@@ -17,18 +17,44 @@ OUT_DIR = ROOT / "public/assets/custom/lpc-catalog"
 PUBLIC_ROOT = "/assets/custom/lpc-catalog"
 ANIMATIONS = ["idle", "walk", "slash", "hurt", "sit"]
 COLORS = ["black", "charcoal", "white", "maroon", "orange", "red", "navy", "blue", "green", "brown", "leather"]
+COLOR_RGB = {
+    "black": (27, 30, 32),
+    "charcoal": (48, 55, 58),
+    "white": (232, 233, 223),
+    "maroon": (114, 45, 59),
+    "orange": (201, 95, 22),
+    "red": (185, 64, 62),
+    "navy": (38, 63, 102),
+    "blue": (66, 105, 184),
+    "green": (60, 122, 76),
+    "brown": (122, 81, 54),
+    "leather": (154, 99, 57),
+}
 
 BASE_LAYERS = [
     "spritesheets/body/bodies/male",
+    "spritesheets/body/bodies/female",
     "spritesheets/head/heads/human/male",
+    "spritesheets/head/heads/human/female",
     "spritesheets/head/faces/male/neutral",
     "spritesheets/head/faces/male/happy",
     "spritesheets/head/faces/male/anger",
+    "spritesheets/head/faces/female/neutral",
+    "spritesheets/head/faces/female/happy",
+    "spritesheets/head/faces/female/anger",
     "spritesheets/hair/pixie/adult",
     "spritesheets/hair/buzzcut/adult",
     "spritesheets/hair/messy1/adult",
     "spritesheets/hair/afro/adult",
+    "spritesheets/hair/cornrows/adult",
+    "spritesheets/hair/curly_short/adult",
+    "spritesheets/hair/dreadlocks_short/adult",
+    "spritesheets/hair/twists_fade/adult",
     "spritesheets/hair/long/adult",
+    "spritesheets/hair/braid/adult/bg",
+    "spritesheets/hair/braid/adult/fg",
+    "spritesheets/hair/braid2/adult/bg",
+    "spritesheets/hair/braid2/adult/fg",
     "spritesheets/hair/ponytail/adult/bg",
     "spritesheets/hair/ponytail/adult/fg",
     "spritesheets/hat/cloth/leather_cap/adult",
@@ -42,12 +68,22 @@ COLOR_LAYERS = [
     "spritesheets/torso/clothes/longsleeve/laced/male",
     "spritesheets/torso/clothes/sleeveless/sleeveless/male",
     "spritesheets/torso/clothes/vest_open/male",
+    "spritesheets/torso/clothes/shortsleeve/tshirt/female",
+    "spritesheets/torso/clothes/longsleeve/longsleeve/female",
+    "spritesheets/torso/clothes/sleeveless/sleeveless/female",
+    "spritesheets/torso/clothes/blouse/female",
     "spritesheets/legs/pants/male",
+    "spritesheets/legs/pants/female",
     "spritesheets/legs/formal_striped/male",
+    "spritesheets/legs/formal_striped/thin",
     "spritesheets/legs/shorts/shorts/male",
+    "spritesheets/legs/shorts/shorts/thin",
     "spritesheets/feet/shoes/basic/male",
+    "spritesheets/feet/shoes/basic/thin",
     "spritesheets/feet/boots/basic/male",
+    "spritesheets/feet/boots/basic/thin",
     "spritesheets/feet/sandals/male",
+    "spritesheets/feet/sandals/thin",
     "spritesheets/hat/holiday/christmas/adult",
     "spritesheets/hat/pirate/cavalier/adult",
 ]
@@ -81,6 +117,7 @@ def main() -> int:
             for color in COLORS:
                 copied.extend(copy_candidates(lpc_root, out_dir, layer, animation, color))
     copied.extend(create_smiley_tee(lpc_root, out_dir))
+    copied.extend(create_puffer_jacket(lpc_root, out_dir))
     copied.extend(create_timbs(lpc_root, out_dir))
     copied.extend(create_yarmulke(lpc_root, out_dir))
 
@@ -122,38 +159,72 @@ def copy_candidates(
 
 
 def create_smiley_tee(lpc_root: Path, out_dir: Path) -> list[str]:
-    layer = "spritesheets/torso/clothes/custom/smiley_tee/male"
-    source_layer = Path("spritesheets/torso/clothes/shortsleeve/tshirt/male")
     copied = []
-    for animation in ANIMATIONS:
-        source = lpc_root / source_layer / f"{animation}.png"
-        if not source.exists():
-            source = lpc_root / source_layer / "walk.png"
-        sheet = Image.open(source).convert("RGBA")
-        draw_smiley_marks(sheet)
-        relative = Path(layer) / f"{animation}.png"
-        target = out_dir / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        sheet.save(target)
-        copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
+    for shape, source_layer in [
+        ("male", Path("spritesheets/torso/clothes/shortsleeve/tshirt/male")),
+        ("thin", Path("spritesheets/torso/clothes/shortsleeve/tshirt/female")),
+    ]:
+        layer = f"spritesheets/torso/clothes/custom/smiley_tee/{shape}"
+        for animation in ANIMATIONS:
+            source = lpc_root / source_layer / f"{animation}.png"
+            if not source.exists():
+                source = lpc_root / source_layer / "walk.png"
+            sheet = Image.open(source).convert("RGBA")
+            draw_smiley_marks(sheet)
+            relative = Path(layer) / f"{animation}.png"
+            target = out_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            sheet.save(target)
+            copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
     return copied
 
 
 def create_timbs(lpc_root: Path, out_dir: Path) -> list[str]:
-    layer = "spritesheets/feet/boots/custom/timbs/male"
-    source_layer = Path("spritesheets/feet/boots/basic/male")
     copied = []
-    for animation in ANIMATIONS:
-        source = lpc_root / source_layer / f"{animation}.png"
-        if not source.exists():
-            source = lpc_root / source_layer / "walk.png"
-        sheet = Image.open(source).convert("RGBA")
-        paint_timbs(sheet)
-        relative = Path(layer) / f"{animation}.png"
-        target = out_dir / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        sheet.save(target)
-        copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
+    for shape in ["male", "thin"]:
+        layer = f"spritesheets/feet/boots/custom/timbs/{shape}"
+        source_layer = Path(f"spritesheets/feet/boots/basic/{shape}")
+        for animation in ANIMATIONS:
+            source = lpc_root / source_layer / f"{animation}.png"
+            if not source.exists():
+                source = lpc_root / source_layer / "walk.png"
+            sheet = Image.open(source).convert("RGBA")
+            paint_timbs(sheet)
+            relative = Path(layer) / f"{animation}.png"
+            target = out_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            sheet.save(target)
+            copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
+    return copied
+
+
+def create_puffer_jacket(lpc_root: Path, out_dir: Path) -> list[str]:
+    copied = []
+    for shape, source_layer in [
+        ("male", Path("spritesheets/torso/clothes/longsleeve/longsleeve/male")),
+        ("thin", Path("spritesheets/torso/clothes/longsleeve/longsleeve/female")),
+    ]:
+        layer = f"spritesheets/torso/clothes/custom/puffer/{shape}"
+        for animation in ANIMATIONS:
+            source = lpc_root / source_layer / f"{animation}.png"
+            if not source.exists():
+                source = lpc_root / source_layer / "walk.png"
+            base_sheet = Image.open(source).convert("RGBA")
+            relative = Path(layer) / f"{animation}.png"
+            target = out_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            fallback = Image.new("RGBA", base_sheet.size, (0, 0, 0, 0))
+            paint_puffer(fallback, base_sheet, COLOR_RGB["black"])
+            fallback.save(target)
+            copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
+            for color in COLORS:
+                sheet = Image.new("RGBA", base_sheet.size, (0, 0, 0, 0))
+                paint_puffer(sheet, base_sheet, COLOR_RGB[color])
+                relative = Path(layer) / animation / f"{color}.png"
+                target = out_dir / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                sheet.save(target)
+                copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
     return copied
 
 
@@ -287,6 +358,124 @@ def paint_timbs(sheet: Image.Image) -> None:
                 y = max_y
                 if pixels[x, y][3] > 0:
                     pixels[x, y] = sole
+
+
+def paint_puffer(sheet: Image.Image, source_sheet: Image.Image, base_color: tuple[int, int, int]) -> None:
+    pixels = sheet.load()
+    source_pixels = source_sheet.load()
+    frame = 64
+    rows = max(1, sheet.height // frame)
+    columns = max(1, sheet.width // frame)
+    trim = (8, 10, 12, 255)
+    trim_soft = (16, 18, 20, 235)
+    zipper = (225, 220, 198, 255)
+    shadow = (0, 0, 0, 120)
+    sweater = (225, 214, 185, 255)
+    for row in range(rows):
+        for column in range(columns):
+            x0 = column * frame
+            y0 = row * frame
+            points = [
+                (x, y)
+                for y in range(y0, y0 + frame)
+                for x in range(x0, x0 + frame)
+                if source_pixels[x, y][3] > 0
+            ]
+            if not points:
+                continue
+            min_x = min(x for x, _ in points)
+            max_x = max(x for x, _ in points)
+            min_y = min(y for _, y in points)
+            max_y = max(y for _, y in points)
+            if max_y - min_y < 8 or max_x - min_x < 8:
+                continue
+            cx = (min_x + max_x) // 2
+            jacket_points = dilated_points(points, x0, y0, frame, 1)
+            for x, y in jacket_points:
+                source_alpha = max_source_alpha(source_pixels, x, y, x0, y0, frame)
+                edge = x <= min_x - 1 or x >= max_x + 1 or y <= min_y or y >= max_y
+                y_local = y - min_y
+                band = y_local % 7
+                horizontal_gloss = 1.0 + max(0, 1.0 - abs((x - (min_x + 4)) / 8)) * 0.42
+                shade = 0.72 if edge else 0.92
+                if band in (0, 1):
+                    shade *= 0.50
+                elif band in (3, 4):
+                    shade *= 1.28
+                shade *= horizontal_gloss
+                pixels[x, y] = (
+                    min(255, round(base_color[0] * shade)),
+                    min(255, round(base_color[1] * shade)),
+                    min(255, round(base_color[2] * shade)),
+                    max(210, source_alpha),
+                )
+            panel_top = min_y + 4
+            panel_bottom = max_y - 3
+            if row == 2:
+                for y in range(panel_top + 2, panel_bottom + 1):
+                    for x in range(cx - 3, cx + 4):
+                        if (x, y) in jacket_points:
+                            pixels[x, y] = sweater
+            for y in range(min_y + 5, max_y - 1, 7):
+                for x in range(min_x + 1, max_x):
+                    if (x, y) in jacket_points:
+                        pixels[x, y] = shadow
+                    if (x, y + 2) in jacket_points:
+                        pixels[x, y + 2] = highlight_for(base_color)
+            for y in range(min_y + 2, max_y - 1):
+                for x in (cx - 4, cx + 4):
+                    if (x, y) in jacket_points:
+                        pixels[x, y] = trim
+                if (cx, y) in jacket_points:
+                    pixels[cx, y] = zipper if (y - min_y) % 4 in (0, 1) else trim
+            for x, y in list(jacket_points):
+                if y >= max_y - 1:
+                    pixels[x, y] = trim_soft
+                elif y <= min_y + 2 and abs(x - cx) <= 9:
+                    pixels[x, y] = trim
+                elif y <= min_y + 7 and (x <= min_x + 1 or x >= max_x - 1):
+                    pixels[x, y] = trim
+
+
+def dilated_points(
+    points: list[tuple[int, int]],
+    x0: int,
+    y0: int,
+    frame: int,
+    radius: int,
+) -> set[tuple[int, int]]:
+    source = set(points)
+    output: set[tuple[int, int]] = set()
+    for x, y in source:
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if abs(dx) + abs(dy) > radius + 1:
+                    continue
+                nx = x + dx
+                ny = y + dy
+                if x0 <= nx < x0 + frame and y0 <= ny < y0 + frame:
+                    output.add((nx, ny))
+    return output
+
+
+def max_source_alpha(pixels, x: int, y: int, x0: int, y0: int, frame: int) -> int:
+    alpha = 0
+    for dy in range(-1, 2):
+        for dx in range(-1, 2):
+            nx = x + dx
+            ny = y + dy
+            if x0 <= nx < x0 + frame and y0 <= ny < y0 + frame:
+                alpha = max(alpha, pixels[nx, ny][3])
+    return alpha
+
+
+def highlight_for(color: tuple[int, int, int]) -> tuple[int, int, int, int]:
+    return (
+        min(255, round(color[0] * 1.55 + 22)),
+        min(255, round(color[1] * 1.55 + 22)),
+        min(255, round(color[2] * 1.55 + 22)),
+        165,
+    )
 
 
 def draw_smiley_marks(sheet: Image.Image) -> None:

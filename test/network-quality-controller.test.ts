@@ -41,7 +41,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   now = 230;
   stateChanged();
   controller.observePrediction(7.25, false);
-  controller.observePrediction(182, true);
+  controller.observePrediction(182, true, 4, 27, true);
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -51,8 +51,15 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     jitterMs: 0,
     patchGapP95Ms: 80,
     serverTick: 90,
+    clockOffsetMs: 5,
+    estimatedServerTimeMs: 235,
+    interpolationDelayMs: 120,
+    clockSynchronized: true,
     predictionError: 182,
-    reconciliations: 1
+    reconciliations: 1,
+    vehicleResimulations: 1,
+    vehiclePendingMoves: 4,
+    vehicleAcknowledgedMove: 27
   });
   controller.destroy();
 });

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {VEHICLE_INPUT_MESSAGE} from '../../../shared/protocol/vehicle-input.ts';
 import type {Room} from 'colyseus.js';
 import type {DistrictNetworkState} from '../types.ts';
 import {ThreeDistrictEntities} from './three-district-entities.ts';
@@ -10,6 +11,7 @@ import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
 import {ThreeDayNightController} from './three-day-night-controller.ts';
 import {NetworkQualityController} from '../network/network-quality-controller.ts';
+import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {
   atlasUv,
@@ -112,6 +114,7 @@ export class ThreePrototypeViewer {
     const payload = await loadPayload('/assets/maps/three/prototype.json');
     this.payload = payload;
     const metadata = await loadMapMetadata('/assets/maps/district-map.metadata.json');
+    const collision = await ClientCollisionMap.load();
     const textureUrl = new URL(payload.atlas.image, `${window.location.origin}/assets/maps/three/`).toString();
     const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -124,7 +127,11 @@ export class ThreePrototypeViewer {
     if (this.room) {
       this.interiors = new ThreeInteriorRenderer(this.scene);
       this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
-      this.entities = await ThreeDistrictEntities.create(this.scene, this.surfaceHeightAt);
+      this.entities = await ThreeDistrictEntities.create(
+        this.scene,
+        this.surfaceHeightAt,
+        (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius)
+      );
       this.world = await ThreeDistrictWorld.create(
         this.scene,
         this.room.sessionId,
@@ -135,7 +142,8 @@ export class ThreePrototypeViewer {
         this.scene,
         this.room,
         this.surfaceHeightAt,
-        () => this.networkQuality?.snapshot()
+        () => this.networkQuality?.snapshot(),
+        (vehicleId) => this.entities?.vehiclePose(vehicleId)
       );
       if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
@@ -271,19 +279,50 @@ export class ThreePrototypeViewer {
     const delta = Math.min(this.clock.getDelta(), 0.05);
     if (this.room) {
       const now = performance.now();
+      const quality = this.networkQuality?.snapshot();
+      const renderServerTime = quality
+        ? quality.estimatedServerTimeMs - quality.interpolationDelayMs
+        : this.room.state.serverTimeMs ?? 0;
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
       for (const [id, occluder] of this.mapOccluders) occluder.visible = id !== localSpaceId;
-      this.entities?.synchronize(this.room.state, localSpaceId, this.room.sessionId);
+      this.entities?.synchronize(
+        this.room.state,
+        localSpaceId,
+        this.room.sessionId,
+        renderServerTime
+      );
       this.world?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0};
       const local = this.room.state.players.get(this.room.sessionId);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
+      if (local && !localVehicle) {
+        this.entities?.predictLocalPlayer(
+          this.room.sessionId,
+          movement,
+          delta,
+          now,
+          quality?.clockOffsetMs ?? 0,
+          quality?.clockSynchronized ?? false
+        );
+      }
       if (local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
-        const reconciliation = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);
-        if (reconciliation) {
-          this.networkQuality?.observePrediction(reconciliation.error, reconciliation.snapped);
+        const prediction = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);
+        if (prediction?.outboundMoves.length) {
+          this.room.send(VEHICLE_INPUT_MESSAGE, {
+            vehicleId: local.vehicleId,
+            moves: prediction.outboundMoves
+          });
+        }
+        if (prediction?.correction) {
+          this.networkQuality?.observePrediction(
+            prediction.correction.positionError,
+            prediction.correction.hardCorrection,
+            prediction.correction.pendingMoveCount,
+            local.lastVehicleInputSequence ?? 0,
+            prediction.correction.resimulated
+          );
         }
       }
       this.networkQuality?.update(now);
@@ -292,8 +331,9 @@ export class ThreePrototypeViewer {
       this.ui?.update(this.room.state, now);
       this.followLocalPlayer();
       const vehiclePose = local?.vehicleId ? this.entities?.vehiclePose(local.vehicleId) : undefined;
-      const focusX = vehiclePose?.x ?? localVehicle?.x ?? local?.x ?? this.center.x;
-      const focusY = vehiclePose?.y ?? localVehicle?.y ?? local?.y ?? serverYToThree(this.center.y);
+      const playerPose = local ? this.entities?.playerPose(this.room.sessionId) : undefined;
+      const focusX = vehiclePose?.x ?? localVehicle?.x ?? playerPose?.x ?? local?.x ?? this.center.x;
+      const focusY = vehiclePose?.y ?? localVehicle?.y ?? playerPose?.y ?? local?.y ?? serverYToThree(this.center.y);
       const nightIntensity = this.lighting?.update({
         worldTimeStartedAt: this.room.state.worldTimeStartedAt ?? Date.now(),
         worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
@@ -361,12 +401,15 @@ export class ThreePrototypeViewer {
   };
 
   private followLocalPlayer(): void {
-    const player = this.room?.state.players.get(this.room.sessionId);
+    const room = this.room;
+    if (!room) return;
+    const player = room.state.players.get(room.sessionId);
     if (!player) return;
-    const vehicle = player.vehicleId ? this.room?.state.vehicles.get(player.vehicleId) : undefined;
+    const vehicle = player.vehicleId ? room.state.vehicles.get(player.vehicleId) : undefined;
     const vehiclePose = player.vehicleId ? this.entities?.vehiclePose(player.vehicleId) : undefined;
-    const x = vehiclePose?.x ?? vehicle?.x ?? player.x;
-    const y = vehiclePose?.y ?? vehicle?.y ?? player.y;
+    const playerPose = this.entities?.playerPose(room.sessionId);
+    const x = vehiclePose?.x ?? vehicle?.x ?? playerPose?.x ?? player.x;
+    const y = vehiclePose?.y ?? vehicle?.y ?? playerPose?.y ?? player.y;
     this.renderer.domElement.dataset.localX = x.toFixed(2);
     this.renderer.domElement.dataset.localY = y.toFixed(2);
     this.renderer.domElement.dataset.localMode = vehicle ? 'vehicle' : 'foot';

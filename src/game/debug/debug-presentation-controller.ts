@@ -6,10 +6,11 @@ import type {DistrictNetworkState} from '../types.ts';
 import {projectDebugPanel} from './debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
-const VEHICLE_RADIUS = 20;
 const SPATIAL_CELL_SIZE = 256;
 const DRAW_INTERVAL_MS = 100;
 
@@ -34,6 +35,7 @@ export class DebugPresentationController {
     private readonly tilemap: Phaser.Tilemaps.Tilemap,
     private readonly collisionLayer: Phaser.Tilemaps.TilemapLayer,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
+    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
     private readonly root: Document = document
   ) {
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
@@ -63,7 +65,8 @@ export class DebugPresentationController {
       region: this.root.querySelector('#debug-region'),
       latency: this.root.querySelector('#debug-latency'),
       patchGap: this.root.querySelector('#debug-patch-gap'),
-      prediction: this.root.querySelector('#debug-prediction')
+      prediction: this.root.querySelector('#debug-prediction'),
+      clockSync: this.root.querySelector('#debug-clock-sync')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -350,11 +353,11 @@ export class DebugPresentationController {
           `v:${Math.round(police.desiredSpeed)}${police.canSeeTarget ? ' LOS' : ''}` +
           (police.obstacleId ? ` blocked:${shortId(police.obstacleId)}` : '')
         : '';
-      this.drawEntity(
+      this.drawVehicleEntity(
         vehicle.x,
         vehicle.y,
-        VEHICLE_RADIUS,
         vehicle.angle,
+        vehicle.kind,
         0x9d8bff,
         `vehicle:${vehicleId}`,
         `${vehicleId} ${mode} hp:${vehicle.health}/${vehicle.maxHealth} ` +
@@ -364,6 +367,22 @@ export class DebugPresentationController {
         vehicle.health > 0
       );
     });
+    const localVehicleId = this.state?.players?.get(this.room.sessionId)?.vehicleId;
+    const predicted = localVehicleId ? this.predictedVehiclePose(localVehicleId) : undefined;
+    if (localVehicleId && predicted) {
+      const kind = this.state?.vehicles?.get(localVehicleId)?.kind ?? 'sedan';
+      this.drawVehicleEntity(
+        predicted.x,
+        predicted.y,
+        predicted.angle,
+        kind,
+        0x36f1d0,
+        `predicted-vehicle:${localVehicleId}`,
+        `PRED ${localVehicleId}`,
+        present,
+        true
+      );
+    }
   }
 
   private drawPoliceVehicleRoutes(): void {
@@ -489,6 +508,40 @@ export class DebugPresentationController {
       y + Math.sin(angle) * (radius + 9)
     );
     this.updateLabel(key, x, y - radius - 4, text, color, alpha);
+    present.add(key);
+  }
+
+  private drawVehicleEntity(
+    x: number,
+    y: number,
+    angle: number,
+    kind: string,
+    color: number,
+    key: string,
+    text: string,
+    present: Set<string>,
+    active: boolean
+  ): void {
+    const collision = vehicleDefinition(kind).collision;
+    const halfLength = collision.length / 2;
+    const halfWidth = collision.width / 2;
+    const forwardX = Math.cos(angle);
+    const forwardY = Math.sin(angle);
+    const sideX = -forwardY;
+    const sideY = forwardX;
+    const points = [
+      new Phaser.Math.Vector2(x + forwardX * halfLength + sideX * halfWidth, y + forwardY * halfLength + sideY * halfWidth),
+      new Phaser.Math.Vector2(x + forwardX * halfLength - sideX * halfWidth, y + forwardY * halfLength - sideY * halfWidth),
+      new Phaser.Math.Vector2(x - forwardX * halfLength - sideX * halfWidth, y - forwardY * halfLength - sideY * halfWidth),
+      new Phaser.Math.Vector2(x - forwardX * halfLength + sideX * halfWidth, y - forwardY * halfLength + sideY * halfWidth)
+    ];
+    const alpha = active ? 0.95 : 0.38;
+    this.graphics.fillStyle(color, active ? 0.08 : 0.03);
+    this.graphics.fillPoints(points, true);
+    this.graphics.lineStyle(1, color, alpha);
+    this.graphics.strokePoints(points, true);
+    this.graphics.lineBetween(x, y, x + forwardX * (halfLength + 9), y + forwardY * (halfLength + 9));
+    this.updateLabel(key, x, y - Math.max(halfLength, halfWidth) - 4, text, color, alpha);
     present.add(key);
   }
 

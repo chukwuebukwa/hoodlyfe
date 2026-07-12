@@ -1,5 +1,6 @@
 import {
   DEFAULT_LPC_RECIPE,
+  LPC_BODY_OPTIONS,
   LPC_COLOR_OPTIONS,
   LPC_COLOR_VALUES,
   LPC_FACE_OPTIONS,
@@ -7,6 +8,8 @@ import {
   LPC_HAIR_OPTIONS,
   LPC_LEGS_OPTIONS,
   LPC_SHOE_OPTIONS,
+  LPC_SKIN_COLOR_OPTIONS,
+  LPC_SKIN_COLOR_VALUES,
   LPC_TOP_OPTIONS,
   cloneLpcRecipe,
   parseLpcRecipe,
@@ -14,12 +17,20 @@ import {
   validateLpcCharacterRecipe,
   type LpcCharacterRecipe,
   type LpcColorId,
-  type LpcOption
+  type LpcOption,
+  type LpcSkinColorId
 } from '../../../shared/content/lpc-character-catalog.ts';
 import {
   cloneAppearance,
   type PlayerAppearance
 } from '../../../shared/content/appearance-catalog.ts';
+import type {ClientAuthPayload} from '../../../shared/protocol/auth.ts';
+import {
+  isPrivyBrowserAuthConfigured,
+  loginPrivyWithEmailCode,
+  restorePrivyLogin,
+  sendPrivyEmailCode
+} from '../auth/privy-email-auth.ts';
 import {
   compileLpcCharacterSpriteSet,
   loadLpcSpriteSources,
@@ -32,12 +43,13 @@ const ONBOARDING_KEY = 'nock0-onboarding-v1';
 const DRIVER_NAME_KEY = 'nock0-driver-name';
 const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
 
-type RecipeField = 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
-type ColorField = 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
+type RecipeField = 'body' | 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
+type ColorField = 'skinColor' | 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
 
 export interface OnboardingResult {
   driverName: string;
   appearance: PlayerAppearance;
+  auth: ClientAuthPayload;
 }
 
 const PART_GROUPS: ReadonlyArray<{
@@ -45,6 +57,7 @@ const PART_GROUPS: ReadonlyArray<{
   label: string;
   options: readonly LpcOption<string>[];
 }> = [
+  {field: 'body', label: 'Body', options: LPC_BODY_OPTIONS},
   {field: 'face', label: 'Face', options: LPC_FACE_OPTIONS},
   {field: 'hair', label: 'Hair', options: LPC_HAIR_OPTIONS},
   {field: 'hat', label: 'Hat', options: LPC_HAT_OPTIONS},
@@ -54,6 +67,7 @@ const PART_GROUPS: ReadonlyArray<{
 ];
 
 const COLOR_GROUPS: ReadonlyArray<{field: ColorField; label: string}> = [
+  {field: 'skinColor', label: 'Skin'},
   {field: 'hairColor', label: 'Hair'},
   {field: 'hatColor', label: 'Hat'},
   {field: 'topColor', label: 'Top'},
@@ -64,7 +78,8 @@ const COLOR_GROUPS: ReadonlyArray<{field: ColorField; label: string}> = [
 export function loadOnboardingIdentity(): OnboardingResult {
   return {
     driverName: readStorage(DRIVER_NAME_KEY) ?? generatedDriverName(),
-    appearance: loadSavedAppearance()
+    appearance: loadSavedAppearance(),
+    auth: {provider: 'guest'}
   };
 }
 
@@ -78,6 +93,7 @@ export function runOnboardingOverlay(
   initialAppearance: PlayerAppearance
 ): Promise<OnboardingResult> {
   let recipe = recipeFromStorage(initialAppearance);
+  let auth: ClientAuthPayload = {provider: 'guest'};
   let sources: LpcSpriteSources | undefined;
   let compiled: CompiledLpcCharacterSpriteSet | undefined;
   let animationStartedAt = performance.now();
@@ -87,42 +103,69 @@ export function runOnboardingOverlay(
   overlay.id = 'onboarding-flow';
   overlay.setAttribute('aria-label', 'NOCK0 onboarding');
   overlay.innerHTML = `
-    <div class="onboarding-title" data-step="title">
-      <div>
-        <span>Industrial District</span>
-        <strong>NOCK0</strong>
-        <p>Claim a driver, cut a first look, and enter the city.</p>
-      </div>
-      <button id="onboarding-start" type="button">START</button>
-    </div>
-    <div class="onboarding-creator hidden" data-step="creator">
-      <header>
-        <div><strong>Create Driver</strong><span id="onboarding-status">LOADING LPC</span></div>
-        <button id="onboarding-skip" type="button">SKIP</button>
+    <div class="onboarding-window">
+      <header class="onboarding-window-header">
+        <div><strong>NOCK0</strong><span>Industrial District</span></div>
+        <i>Driver Intake</i>
       </header>
-      <div class="onboarding-body">
-        <section class="onboarding-controls">
-          <label>Driver Name<input id="onboarding-name" maxlength="24" autocomplete="off"></label>
-          <div id="onboarding-parts"></div>
-        </section>
-        <section class="onboarding-preview">
-          <canvas id="onboarding-canvas" width="224" height="184"></canvas>
-          <div id="onboarding-summary"></div>
-        </section>
-        <section class="onboarding-palette">
-          <div id="onboarding-colors"></div>
+      <div class="onboarding-title" data-step="title">
+        <div>
+          <span>First Run</span>
+          <strong>Enter The District</strong>
+          <p>Login now or continue as guest, then build your driver before spawning into the street.</p>
+        </div>
+        <section class="onboarding-auth-panel" aria-label="Privy login">
+          <strong>Driver Account</strong>
+          <span id="onboarding-auth-status">Checking Privy session</span>
+          <div class="onboarding-auth-row">
+            <input id="onboarding-email" type="email" autocomplete="email" placeholder="email@domain.com">
+            <button id="onboarding-send-code" type="button">SEND CODE</button>
+          </div>
+          <div class="onboarding-auth-row">
+            <input id="onboarding-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+            <button id="onboarding-login" type="button">LOGIN</button>
+          </div>
+          <div class="onboarding-title-actions">
+            <button id="onboarding-guest" type="button">CONTINUE GUEST</button>
+            <button id="onboarding-start" type="button">CREATE DRIVER</button>
+          </div>
         </section>
       </div>
-      <footer>
-        <button id="onboarding-randomize" type="button">RANDOM</button>
-        <button id="onboarding-enter" type="button">ENTER DISTRICT</button>
-      </footer>
+      <div class="onboarding-creator hidden" data-step="creator">
+        <header>
+          <div><strong>Create Driver</strong><span id="onboarding-status">LOADING LPC</span></div>
+          <button id="onboarding-skip" type="button">SKIP</button>
+        </header>
+        <div class="onboarding-body">
+          <section class="onboarding-controls">
+            <label>Driver Name<input id="onboarding-name" maxlength="24" autocomplete="off"></label>
+            <div id="onboarding-parts"></div>
+          </section>
+          <section class="onboarding-preview">
+            <canvas id="onboarding-canvas" width="224" height="184"></canvas>
+            <div id="onboarding-summary"></div>
+          </section>
+          <section class="onboarding-palette">
+            <div id="onboarding-colors"></div>
+          </section>
+        </div>
+        <footer>
+          <button id="onboarding-randomize" type="button">RANDOM</button>
+          <button id="onboarding-enter" type="button">ENTER DISTRICT</button>
+        </footer>
+      </div>
     </div>
   `;
   document.body.append(overlay);
 
   const titleStep = required<HTMLElement>(overlay, '.onboarding-title');
   const creatorStep = required<HTMLElement>(overlay, '.onboarding-creator');
+  const authStatus = required<HTMLElement>(overlay, '#onboarding-auth-status');
+  const emailInput = required<HTMLInputElement>(overlay, '#onboarding-email');
+  const codeInput = required<HTMLInputElement>(overlay, '#onboarding-code');
+  const sendCodeButton = required<HTMLButtonElement>(overlay, '#onboarding-send-code');
+  const loginButton = required<HTMLButtonElement>(overlay, '#onboarding-login');
+  const guestButton = required<HTMLButtonElement>(overlay, '#onboarding-guest');
   const startButton = required<HTMLButtonElement>(overlay, '#onboarding-start');
   const skipButton = required<HTMLButtonElement>(overlay, '#onboarding-skip');
   const enterButton = required<HTMLButtonElement>(overlay, '#onboarding-enter');
@@ -171,7 +214,7 @@ export function runOnboardingOverlay(
     }));
     saveAppearance(appearance);
     cleanup();
-    return {driverName: name, appearance};
+    return {driverName: name, appearance, auth};
   };
 
   function updateRecipe(value: unknown): void {
@@ -182,21 +225,69 @@ export function runOnboardingOverlay(
   }
 
   return new Promise((resolve) => {
-    startButton.addEventListener('click', () => {
+    const showCreator = (): void => {
       titleStep.classList.add('hidden');
       creatorStep.classList.remove('hidden');
       nameInput.focus();
+    };
+    const setGuest = (): void => {
+      auth = {provider: 'guest'};
+      authStatus.textContent = 'Guest driver selected';
+      showCreator();
+    };
+
+    if (!isPrivyBrowserAuthConfigured()) {
+      authStatus.textContent = 'Privy app id missing; guest mode available';
+      sendCodeButton.disabled = true;
+      loginButton.disabled = true;
+    } else {
+      restorePrivyLogin().then((result) => {
+        if (!result) {
+          authStatus.textContent = 'Enter email for Privy code';
+          return;
+        }
+        auth = result.auth;
+        authStatus.textContent = `Privy session ready: ${result.label}`;
+      }).catch((error) => {
+        authStatus.textContent = 'Privy session unavailable';
+        console.error(error);
+      });
+    }
+
+    sendCodeButton.addEventListener('click', () => {
+      authStatus.textContent = 'Sending Privy code';
+      sendPrivyEmailCode(emailInput.value).then(() => {
+        authStatus.textContent = 'Code sent. Check email.';
+        codeInput.focus();
+      }).catch((error) => {
+        authStatus.textContent = messageFromError(error);
+      });
+    });
+    loginButton.addEventListener('click', () => {
+      authStatus.textContent = 'Verifying Privy code';
+      loginPrivyWithEmailCode(emailInput.value, codeInput.value).then((result) => {
+        auth = result.auth;
+        authStatus.textContent = `Privy ready: ${result.label}`;
+      }).catch((error) => {
+        authStatus.textContent = messageFromError(error);
+      });
+    });
+    guestButton.addEventListener('click', setGuest);
+    startButton.addEventListener('click', () => {
+      showCreator();
     });
     skipButton.addEventListener('click', () => resolve(finish()));
     enterButton.addEventListener('click', () => resolve(finish()));
     randomizeButton.addEventListener('click', () => {
       updateRecipe({
         ...recipe,
+        body: randomOption(LPC_BODY_OPTIONS),
         hair: randomOption(LPC_HAIR_OPTIONS),
         hat: randomOption(LPC_HAT_OPTIONS),
         top: randomOption(LPC_TOP_OPTIONS),
         legs: randomOption(LPC_LEGS_OPTIONS),
         shoes: randomOption(LPC_SHOE_OPTIONS),
+        skinColor: randomOption(LPC_SKIN_COLOR_OPTIONS),
         hairColor: randomOption(LPC_COLOR_OPTIONS),
         hatColor: randomOption(LPC_COLOR_OPTIONS),
         topColor: randomOption(LPC_COLOR_OPTIONS),
@@ -258,10 +349,10 @@ function renderColors(
     label.textContent = fixed ?? group.label;
     const grid = document.createElement('div');
     grid.className = 'onboarding-swatch-grid';
-    grid.replaceChildren(...LPC_COLOR_OPTIONS.map((option) => {
+    grid.replaceChildren(...colorOptionsFor(group.field).map((option) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.style.setProperty('--swatch', LPC_COLOR_VALUES[option.id]);
+      button.style.setProperty('--swatch', colorValueFor(group.field, option.id));
       button.setAttribute('aria-label', option.label);
       button.setAttribute('aria-pressed', String(recipe[group.field] === option.id));
       button.disabled = Boolean(fixed);
@@ -314,6 +405,16 @@ function fixedColor(field: ColorField, recipe: LpcCharacterRecipe): string | und
   return undefined;
 }
 
+function colorOptionsFor(field: ColorField): readonly LpcOption<LpcColorId | LpcSkinColorId>[] {
+  return field === 'skinColor' ? LPC_SKIN_COLOR_OPTIONS : LPC_COLOR_OPTIONS;
+}
+
+function colorValueFor(field: ColorField, color: LpcColorId | LpcSkinColorId): string {
+  return field === 'skinColor'
+    ? LPC_SKIN_COLOR_VALUES[color as LpcSkinColorId]
+    : LPC_COLOR_VALUES[color as LpcColorId];
+}
+
 function sanitizeDriverName(value: string): string {
   return value.replace(/[^A-Za-z0-9 '-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 }
@@ -350,4 +451,8 @@ function writeStorage(key: string, value: string): void {
   } catch {
     // Onboarding still returns the selected appearance for the active join.
   }
+}
+
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Privy login failed';
 }

@@ -23,6 +23,7 @@ export interface DebugPanelProjection {
   latency: string;
   patchGap: string;
   prediction: string;
+  clockSync: string;
   events: string[];
 }
 
@@ -55,8 +56,13 @@ export function projectDebugPanel(
       : '0/0ms',
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
     prediction: network
-      ? `${network.predictionError}px / ${network.reconciliations} snap`
+      ? `${network.predictionError}px / ${network.vehicleResimulations} resim / ` +
+        `${network.reconciliations} snap / A${network.vehicleAcknowledgedMove} ` +
+        `P${network.vehiclePendingMoves}`
       : '0px',
+    clockSync: network
+      ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer`
+      : 'unsynced',
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']

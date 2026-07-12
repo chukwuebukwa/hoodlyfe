@@ -11,6 +11,8 @@ import type {VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
 import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
+import {MotionSnapshotBuffer} from '../network/motion-snapshot-buffer.ts';
+import {LocalMovementReplay} from '../prediction/local-movement-replay.ts';
 
 const PLAYER_SPEED = 190;
 
@@ -38,6 +40,10 @@ interface RenderPlayer {
   attackCombo: number;
   meleeActive: boolean;
   reactionActive: boolean;
+  authorityDirty: boolean;
+  motion: MotionSnapshotBuffer;
+  movementReplay: LocalMovementReplay;
+  authoritativeServerTime: number;
 }
 
 interface PlayerRendererOptions {
@@ -66,12 +72,12 @@ export class PlayerRenderer {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
-  synchronize(players?: Map<string, NetworkPlayer>): void {
+  synchronize(players?: Map<string, NetworkPlayer>, serverTimeMs = 0): void {
     this.latestPlayers = players;
     const present = new Set<string>();
     players?.forEach((player, playerId) => {
       present.add(playerId);
-      this.synchronizeOne(playerId, player);
+      this.synchronizeOne(playerId, player, serverTimeMs);
     });
     for (const [playerId, rendered] of this.rendered) {
       if (present.has(playerId)) continue;
@@ -83,24 +89,62 @@ export class PlayerRenderer {
     ));
   }
 
-  interpolate(time: number): void {
+  interpolate(
+    time: number,
+    renderServerTimeMs = 0,
+    clockOffsetMs = 0,
+    clockSynchronized = false
+  ): void {
     for (const [playerId, rendered] of this.rendered) {
       const player = this.latestPlayers?.get(playerId);
-      const position = interpolatePosition(
-        rendered.sprite.x,
-        rendered.sprite.y,
-        rendered.targetX,
-        rendered.targetY,
-        rendered.isLocal ? 0.08 : 0.24,
-        120
-      );
+      const previousX = rendered.sprite.x;
+      const previousY = rendered.sprite.y;
+      const buffered = !rendered.isLocal && renderServerTimeMs > 0
+        ? rendered.motion.sample(renderServerTimeMs)
+        : undefined;
+      const replayed = rendered.isLocal && rendered.authorityDirty && clockSynchronized
+        ? rendered.movementReplay.replay(
+          {x: rendered.targetX, y: rendered.targetY},
+          rendered.authoritativeServerTime - clockOffsetMs,
+          time,
+          PLAYER_SPEED
+        )
+        : undefined;
+      const safeReplayed = replayed && this.options.canOccupy(replayed.x, replayed.y)
+        ? replayed
+        : undefined;
+      const position = buffered
+        ? {
+          x: buffered.x,
+          y: buffered.y,
+          distance: Math.hypot(buffered.x - previousX, buffered.y - previousY),
+          snapped: false
+        }
+        : rendered.isLocal
+        ? rendered.authorityDirty
+          ? interpolatePosition(
+            rendered.sprite.x,
+            rendered.sprite.y,
+            safeReplayed?.x ?? rendered.targetX,
+            safeReplayed?.y ?? rendered.targetY,
+            0.35,
+            120
+          )
+          : {x: rendered.sprite.x, y: rendered.sprite.y, distance: 0, snapped: false}
+        : interpolatePosition(
+          rendered.sprite.x,
+          rendered.sprite.y,
+          rendered.targetX,
+          rendered.targetY,
+          0.24,
+          120
+        );
+      if (rendered.isLocal) rendered.authorityDirty = false;
       rendered.sprite.setPosition(position.x, position.y);
       if (!rendered.isLocal) {
-        rendered.sprite.rotation = rotateTowards(
-          rendered.sprite.rotation,
-          rendered.targetAngle - Math.PI / 2,
-          0.16
-        );
+        rendered.sprite.rotation = buffered
+          ? buffered.angle - Math.PI / 2
+          : rotateTowards(rendered.sprite.rotation, rendered.targetAngle - Math.PI / 2, 0.16);
         this.updateWalkAnimation(rendered, position.distance);
       }
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 100);
@@ -113,11 +157,12 @@ export class PlayerRenderer {
     this.resolveNameplateOverlaps();
   }
 
-  predictLocalMovement(x: number, y: number, deltaSeconds: number): void {
+  predictLocalMovement(x: number, y: number, deltaSeconds: number, timeMs: number): void {
     const state = this.latestPlayers?.get(this.options.localPlayerId);
     const local = this.rendered.get(this.options.localPlayerId);
     if (!local || !state?.alive || state.vehicleId || state.action ||
       combatReactionPresentation(state).stopMovement) return;
+    local.movementReplay.record(timeMs, {x, y});
     const distance = PLAYER_SPEED * Math.min(deltaSeconds, 0.05);
     if (x !== 0 || y !== 0) local.sprite.play(local.animationKey, true);
     else if (local.sprite.anims.isPlaying) local.sprite.stop().setFrame(0);
@@ -169,7 +214,7 @@ export class PlayerRenderer {
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
-  private synchronizeOne(playerId: string, player: NetworkPlayer): void {
+  private synchronizeOne(playerId: string, player: NetworkPlayer, serverTimeMs: number): void {
     let rendered = this.rendered.get(playerId);
     const isLocal = playerId === this.options.localPlayerId;
     if (!rendered) {
@@ -184,9 +229,18 @@ export class PlayerRenderer {
       rendered.animationKey = appearance.animationKey;
       rendered.bodyScaleX = appearance.bodyScaleX;
     }
+    const authorityChanged = rendered.targetX !== player.x || rendered.targetY !== player.y;
     rendered.targetX = player.x;
     rendered.targetY = player.y;
+    if (isLocal && authorityChanged && !player.vehicleId) rendered.authorityDirty = true;
+    if (isLocal && authorityChanged) rendered.authoritativeServerTime = serverTimeMs;
+    if (isLocal && rendered.authoritativeServerTime === 0) {
+      rendered.authoritativeServerTime = serverTimeMs;
+    }
     rendered.targetAngle = player.angle;
+    if (!isLocal && serverTimeMs > 0) {
+      rendered.motion.push({timeMs: serverTimeMs, x: player.x, y: player.y, angle: player.angle});
+    }
     const attackSequence = player.attackSequence ?? 0;
     if (rendered.attackSequence !== attackSequence) {
       rendered.attackSequence = attackSequence;
@@ -277,7 +331,11 @@ export class PlayerRenderer {
       attackWeapon: player.weapon,
       attackCombo: 0,
       meleeActive: false,
-      reactionActive: false
+      reactionActive: false,
+      authorityDirty: false,
+      motion: new MotionSnapshotBuffer(),
+      movementReplay: new LocalMovementReplay(),
+      authoritativeServerTime: 0
     };
   }
 

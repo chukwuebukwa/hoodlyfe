@@ -128,6 +128,9 @@ Current custom items:
 - `Smiley Tee`
   Generated from an LPC shirt base with a fixed chest decal.
 
+- `Puffer Jacket`
+  Generated from LPC long-sleeve torso sheets for male/thin bodies. The importer preserves the source alpha and frame alignment, then emits per-color variant sheets under `custom/puffer/.../{animation}/{color}.png` so the normal `topColor` swatches stay enabled.
+
 - `Timbs`
   Generated from LPC boot frames, recolored as wheat boots with darker collar/sole pixels.
 
@@ -144,6 +147,14 @@ Current custom items:
 6. Return a custom fixed layer from `layerForTop`.
 7. Disable or ignore color swatches if the item is fixed-color.
 8. Add a regression test for `lpcAssetCandidates`.
+
+For colorable custom shirts, generate the same variant layout as LPC color assets:
+
+```text
+spritesheets/torso/clothes/custom/<item>/<shape>/<animation>/<color>.png
+```
+
+Then return a layer with `variant: recipe.topColor`. The puffer jacket follows this path, so it works with the existing material controls instead of custom UI.
 
 ## Adding Custom Shoes
 

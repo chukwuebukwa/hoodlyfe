@@ -6,11 +6,12 @@ import type {VehicleRenderPose} from './render-types.ts';
 import {vehicleFrame, vehicleVisualState} from './vehicle-render-policy.ts';
 import type {MovementVector} from '../input/client-input-policy.ts';
 import {
-  predictVehiclePose,
-  reconcileVehiclePose
-} from '../prediction/vehicle-prediction-policy.ts';
+  SavedVehiclePrediction,
+  type VehicleInputMove
+} from '../prediction/saved-vehicle-prediction.ts';
 
 interface RenderVehicle {
+  vehicleId: string;
   container: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Sprite;
   smoke: Phaser.GameObjects.Arc;
@@ -25,6 +26,12 @@ interface RenderVehicle {
   kind: string;
   localOccupant: boolean;
   localDriver: boolean;
+  authorityDirty: boolean;
+  prediction: SavedVehiclePrediction;
+  visualOffsetX: number;
+  visualOffsetY: number;
+  visualOffsetAngle: number;
+  acknowledgedSequence: number;
 }
 
 interface VehicleRendererOptions {
@@ -33,11 +40,20 @@ interface VehicleRendererOptions {
     container: Phaser.GameObjects.Container,
     vehicle: NetworkVehicle
   ) => void;
-  onPrediction?: (error: number, snapped: boolean) => void;
+  onPrediction?: (
+    error: number,
+    snapped: boolean,
+    pendingMoves: number,
+    acknowledgedMove: number,
+    resimulated: boolean
+  ) => void;
+  canOccupy?: (x: number, y: number, radius: number) => boolean;
+  sendVehicleMoves?: (vehicleId: string, moves: VehicleInputMove[]) => void;
 }
 
 export class VehicleRenderer {
   private readonly rendered = new Map<string, RenderVehicle>();
+  private localMovement: MovementVector = {x: 0, y: 0};
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -49,7 +65,8 @@ export class VehicleRenderer {
   synchronize(
     vehicles?: Map<string, NetworkVehicle>,
     localVehicleId = '',
-    localDriverVehicleId = ''
+    localDriverVehicleId = '',
+    acknowledgedSequence = 0
   ): void {
     const present = new Set<string>();
     vehicles?.forEach((vehicle, vehicleId) => {
@@ -58,7 +75,8 @@ export class VehicleRenderer {
         vehicleId,
         vehicle,
         localVehicleId === vehicleId,
-        localDriverVehicleId === vehicleId
+        localDriverVehicleId === vehicleId,
+        acknowledgedSequence
       );
     });
     for (const [vehicleId, rendered] of this.rendered) {
@@ -71,23 +89,8 @@ export class VehicleRenderer {
   interpolate(time: number, deltaSeconds = 1 / 60): void {
     for (const rendered of this.rendered.values()) {
       if (rendered.localDriver) {
-        const reconciliation = reconcileVehiclePose({
-          x: rendered.container.x,
-          y: rendered.container.y,
-          angle: rendered.container.rotation - Math.PI / 2,
-          speed: rendered.predictedSpeed
-        }, {
-          x: rendered.targetX,
-          y: rendered.targetY,
-          angle: rendered.targetAngle,
-          speed: rendered.targetSpeed
-        }, deltaSeconds);
-        rendered.container.setPosition(reconciliation.pose.x, reconciliation.pose.y);
-        rendered.container.rotation = reconciliation.pose.angle + Math.PI / 2;
-        rendered.predictedSpeed = reconciliation.pose.speed;
         rendered.container.setDepth(Math.round(rendered.container.y) + 90);
         this.animateEffects(rendered, time);
-        this.options.onPrediction?.(reconciliation.error, reconciliation.snapped);
         continue;
       }
       const position = interpolatePosition(
@@ -110,17 +113,28 @@ export class VehicleRenderer {
   }
 
   predictLocalVehicle(movement: MovementVector, deltaSeconds: number): void {
+    this.localMovement = movement;
     const rendered = [...this.rendered.values()].find((candidate) => candidate.localDriver);
     if (!rendered) return;
-    const predicted = predictVehiclePose({
-      x: rendered.container.x,
-      y: rendered.container.y,
-      angle: rendered.container.rotation - Math.PI / 2,
-      speed: rendered.predictedSpeed
-    }, movement, rendered.kind, deltaSeconds);
-    rendered.container.setPosition(predicted.x, predicted.y);
-    rendered.container.rotation = predicted.angle + Math.PI / 2;
-    rendered.predictedSpeed = predicted.speed;
+    const advanced = rendered.prediction.advance(
+      movement,
+      rendered.kind,
+      deltaSeconds,
+      this.options.canOccupy ?? (() => true)
+    );
+    if (advanced.outboundMoves.length > 0) {
+      this.options.sendVehicleMoves?.(rendered.vehicleId, advanced.outboundMoves);
+    }
+    const decay = Math.exp(-12 * Math.min(Math.max(deltaSeconds, 0), 0.05));
+    rendered.visualOffsetX *= decay;
+    rendered.visualOffsetY *= decay;
+    rendered.visualOffsetAngle *= decay;
+    rendered.container.setPosition(
+      advanced.pose.x + rendered.visualOffsetX,
+      advanced.pose.y + rendered.visualOffsetY
+    );
+    rendered.container.rotation = advanced.pose.angle + rendered.visualOffsetAngle + Math.PI / 2;
+    rendered.predictedSpeed = advanced.pose.speed;
   }
 
   pose(vehicleId: string): VehicleRenderPose | undefined {
@@ -129,7 +143,7 @@ export class VehicleRenderer {
     return {
       x: rendered.container.x,
       y: rendered.container.y,
-      angle: rendered.targetAngle
+      angle: rendered.container.rotation - Math.PI / 2
     };
   }
 
@@ -143,7 +157,8 @@ export class VehicleRenderer {
     vehicleId: string,
     vehicle: NetworkVehicle,
     localOccupant: boolean,
-    localDriver: boolean
+    localDriver: boolean,
+    acknowledgedSequence: number
   ): void {
     let rendered = this.rendered.get(vehicleId);
     if (!rendered) {
@@ -151,6 +166,11 @@ export class VehicleRenderer {
       this.rendered.set(vehicleId, rendered);
     }
     const becameLocalDriver = localDriver && !rendered.localDriver;
+    const authorityChanged = (
+      rendered.targetX !== vehicle.x || rendered.targetY !== vehicle.y ||
+      rendered.targetAngle !== vehicle.angle || rendered.targetSpeed !== vehicle.speed
+    );
+    const acknowledgementChanged = rendered.acknowledgedSequence !== acknowledgedSequence;
     rendered.targetX = vehicle.x;
     rendered.targetY = vehicle.y;
     rendered.targetAngle = vehicle.angle;
@@ -162,6 +182,40 @@ export class VehicleRenderer {
       rendered.container.setPosition(vehicle.x, vehicle.y);
       rendered.container.rotation = vehicle.angle + Math.PI / 2;
       rendered.predictedSpeed = vehicle.speed;
+      rendered.authorityDirty = false;
+      rendered.prediction.initialize({
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.speed
+      }, acknowledgedSequence);
+      rendered.visualOffsetX = 0;
+      rendered.visualOffsetY = 0;
+      rendered.visualOffsetAngle = 0;
+      rendered.acknowledgedSequence = acknowledgedSequence;
+    } else if (localDriver && (authorityChanged || acknowledgementChanged)) {
+      const beforeX = rendered.container.x;
+      const beforeY = rendered.container.y;
+      const beforeAngle = rendered.container.rotation - Math.PI / 2;
+      const correction = rendered.prediction.reconcile({
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.speed
+      }, acknowledgedSequence, vehicle.kind, this.options.canOccupy ?? (() => true));
+      rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
+      rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
+      rendered.visualOffsetAngle = correction.hardCorrection
+        ? 0
+        : normalizeAngle(beforeAngle - correction.pose.angle);
+      this.options.onPrediction?.(
+        correction.positionError,
+        correction.hardCorrection,
+        correction.pendingMoveCount,
+        acknowledgedSequence,
+        correction.resimulated
+      );
+      rendered.acknowledgedSequence = acknowledgedSequence;
     }
     const visual = vehicleVisualState(vehicle);
     rendered.sprite.setFrame(visual.frame).setAlpha(visual.alpha);
@@ -199,6 +253,7 @@ export class VehicleRenderer {
     const container = this.scene.add.container(vehicle.x, vehicle.y, children)
       .setDepth(Math.round(vehicle.y) + 90);
     return {
+      vehicleId: vehicle.id,
       container,
       sprite,
       smoke,
@@ -212,7 +267,13 @@ export class VehicleRenderer {
       predictedSpeed: vehicle.speed,
       kind: vehicle.kind,
       localOccupant: false,
-      localDriver: false
+      localDriver: false,
+      authorityDirty: false,
+      prediction: new SavedVehiclePrediction(),
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      visualOffsetAngle: 0,
+      acknowledgedSequence: 0
     };
   }
 
@@ -231,4 +292,8 @@ export class VehicleRenderer {
       rendered.fire.setScale(0.78 + (Math.sin(time / 52) + 1) * 0.22);
     }
   }
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }

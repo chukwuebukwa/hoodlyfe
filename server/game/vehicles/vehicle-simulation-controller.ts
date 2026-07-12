@@ -11,6 +11,7 @@ import {VEHICLE_COLLISION_BOUNDING_RADIUS, vehicleConfig} from './vehicle-config
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
+import {resolveSweptVehicleWorldCollision} from '../../../shared/physics/vehicle-world-collision.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -20,6 +21,7 @@ const RESPAWN_DELAY_MS = 8000;
 interface DriverInput {
   inputX: number;
   inputY: number;
+  sequence?: number;
 }
 
 interface SimulationClock {
@@ -36,6 +38,7 @@ interface VehicleSimulationControllerOptions {
   policeVehicles?: Pick<PoliceVehicleController, 'has' | 'update'>;
   clock: () => SimulationClock;
   inputFor: (playerId: string) => DriverInput | undefined;
+  acknowledgeInput?: (playerId: string, vehicleId: string, sequence: number) => void;
   nearbyPlayers: (x: number, y: number, radius: number) => PlayerState[];
   nearbyNpcs: (x: number, y: number, radius: number) => NpcState[];
   nearbyVehicles: (x: number, y: number, radius: number) => VehicleState[];
@@ -116,6 +119,12 @@ export class VehicleSimulationController {
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
+      const movementStart = {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.speed
+      };
       vehicle.siren = false;
       const throttle = -input.inputY;
       if (throttle !== 0) {
@@ -161,10 +170,16 @@ export class VehicleSimulationController {
 
       const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
       const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
-      if (this.options.world.canOccupy(nextX, nextY, VEHICLE_RADIUS)) {
-        vehicle.x = nextX;
-        vehicle.y = nextY;
-      } else {
+      const worldMovement = resolveSweptVehicleWorldCollision(
+        movementStart,
+        {x: nextX, y: nextY, angle: vehicle.angle, speed: vehicle.speed},
+        vehicle.kind,
+        (x, y, radius) => this.options.world.canOccupy(x, y, radius)
+      );
+      vehicle.x = worldMovement.pose.x;
+      vehicle.y = worldMovement.pose.y;
+      vehicle.angle = worldMovement.pose.angle;
+      if (worldMovement.collided) {
         this.damage(
           vehicle,
           this.damageSystem.wallImpactDamage(vehicle.speed),
@@ -173,9 +188,14 @@ export class VehicleSimulationController {
           nowMs,
           vehicle.speed >= 0 ? 'front' : 'rear'
         );
-        vehicle.speed *= -0.2;
+        vehicle.speed = worldMovement.pose.speed;
+      } else {
+        vehicle.speed = worldMovement.pose.speed;
       }
       if (!vehicle.destroyed) this.handleDriverImpacts(vehicle, driver, nowMs);
+      if (input.sequence !== undefined) {
+        this.options.acknowledgeInput?.(driver.id, vehicle.id, input.sequence);
+      }
     } else {
       if (vehicle.driverId) {
         vehicle.driverId = '';

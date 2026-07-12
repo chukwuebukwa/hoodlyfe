@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101415">
+  <title>NOCK0 Interior Author</title>
+</head>
+<body>
+  <main id="author-shell">
+    <aside id="author-sidebar" aria-label="Interior author controls">
+      <header>
+        <strong>Interior Author</strong>
+        <span>Pick a building, place a door, shape the room</span>
+      </header>
+      <section class="panel">
+        <label>
+          Interior
+          <select id="interior-select"></select>
+        </label>
+        <div class="button-row">
+          <button id="new-vehicle-store" type="button">New Interior</button>
+          <button id="duplicate-interior" type="button">Duplicate</button>
+        </div>
+        <div class="button-row">
+          <button id="delete-interior" class="danger" type="button">Delete Custom</button>
+          <button id="push-game-draft" type="button">Push Game Draft</button>
+        </div>
+        <p id="publish-status" role="status">Draft only. Nothing has been pushed to game storage.</p>
+        <div class="button-row">
+          <button id="undo-change" type="button" disabled>Undo</button>
+          <button id="redo-change" type="button" disabled>Redo</button>
+        </div>
+        <button id="revert-interior" type="button">Revert Selected Interior</button>
+      </section>
+      <section class="panel guide-panel">
+        <h2>Build Flow</h2>
+        <ol id="build-flow">
+          <li data-step="door"><strong>Door</strong><span>Click the outside doorway on the map.</span></li>
+          <li data-step="bounds"><strong>Room</strong><span>Click the center of the interior room.</span></li>
+          <li data-step="exit"><strong>Exit</strong><span>Click where walking out should trigger.</span></li>
+          <li data-step="entry"><strong>Spawn</strong><span>Click where the player appears inside.</span></li>
+          <li data-step="obstacle"><strong>Fixtures</strong><span>Add counters, pads, walls, shelves.</span></li>
+          <li data-step="service"><strong>Service</strong><span>Add the interaction counter if needed.</span></li>
+        </ol>
+      </section>
+      <section class="panel">
+        <label>
+          ID
+          <input id="interior-id" type="text" spellcheck="false">
+        </label>
+        <label>
+          Label
+          <input id="interior-label" type="text" spellcheck="false">
+        </label>
+        <label>
+          Kind
+          <select id="interior-kind">
+            <option value="vehicle-store">Vehicle Store</option>
+            <option value="hospital">Hospital</option>
+            <option value="clothing">Clothing</option>
+            <option value="ammunition">Ammunition</option>
+          </select>
+        </label>
+        <label>
+          Door Side
+          <select id="door-side">
+            <option value="south">South</option>
+            <option value="east">East</option>
+          </select>
+        </label>
+      </section>
+      <section class="panel">
+        <h2>Tool</h2>
+        <div id="active-tool-card">
+          <strong id="active-tool-title">Door</strong>
+          <span id="active-tool-description">Click the outside doorway on the building facade.</span>
+        </div>
+        <div id="tool-buttons" class="tool-grid">
+          <button type="button" data-tool="door">Door</button>
+          <button type="button" data-tool="bounds">Bounds</button>
+          <button type="button" data-tool="exit">Exit</button>
+          <button type="button" data-tool="obstacle">Fixture</button>
+          <button type="button" data-tool="service">Service</button>
+          <button type="button" data-tool="entry">Spawn</button>
+        </div>
+      </section>
+      <section class="panel readout">
+        <h2>Pointer</h2>
+        <dl>
+          <div><dt>World</dt><dd id="pointer-world">0, 0</dd></div>
+          <div><dt>Tile</dt><dd id="pointer-tile">0, 0</dd></div>
+          <div><dt>Zoom</dt><dd id="zoom-readout">100%</dd></div>
+        </dl>
+      </section>
+      <section class="panel">
+        <h2>Layers</h2>
+        <label class="check"><input id="show-existing" type="checkbox"> Other interiors</label>
+        <label class="check"><input id="show-roofs" type="checkbox"> Prototype roofs</label>
+        <label class="check"><input id="snap-grid" type="checkbox" checked> Snap to 8px</label>
+      </section>
+      <section class="panel">
+        <h2>Export</h2>
+        <div class="button-row">
+          <button id="copy-json" type="button">Copy JSON</button>
+          <button id="download-json" type="button">Download</button>
+        </div>
+        <textarea id="json-output" spellcheck="false"></textarea>
+      </section>
+    </aside>
+    <section id="map-stage" aria-label="District map authoring canvas">
+      <canvas id="author-canvas"></canvas>
+      <aside id="map-legend" aria-label="Authoring overlay legend">
+        <span><i class="door"></i>Door</span>
+        <span><i class="bounds"></i>Room</span>
+        <span><i class="exit"></i>Exit</span>
+        <span><i class="spawn"></i>Spawn</span>
+        <span><i class="fixture"></i>Fixture</span>
+        <span><i class="service"></i>Service</span>
+      </aside>
+      <div id="author-help">
+        <strong>Drag</strong> pan / <strong>wheel</strong> zoom / <strong>click</strong> place selected tool
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/tools/interior-author.ts"></script>
+</body>
+</html>

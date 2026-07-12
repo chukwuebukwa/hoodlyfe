@@ -48,6 +48,7 @@ export interface NetworkPlayer {
   fireStartedAt?: number;
   fireExpiresAt?: number;
   lastInputSequence?: number;
+  lastVehicleInputSequence?: number;
   appearance: PlayerAppearance;
 }
 
@@ -257,6 +258,7 @@ export interface DistrictNetworkState {
   worldTimeStartedAt?: number;
   worldTimeStartMinute?: number;
   worldTimeRate?: number;
+  serverTimeMs?: number;
   missionContactX: number;
   missionContactY: number;
 }

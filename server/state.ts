@@ -72,6 +72,7 @@ export class PlayerState extends Schema {
   fireStartedAt = 0;
   fireExpiresAt = 0;
   lastInputSequence = 0;
+  lastVehicleInputSequence = 0;
   appearance = new PlayerAppearanceState();
 }
 
@@ -113,6 +114,7 @@ defineTypes(PlayerState, {
   fireStartedAt: 'number',
   fireExpiresAt: 'number',
   lastInputSequence: 'number',
+  lastVehicleInputSequence: 'number',
   appearance: PlayerAppearanceState
 });
 
@@ -511,6 +513,7 @@ export class DistrictState extends Schema {
   worldTimeStartedAt = 0;
   worldTimeStartMinute = 0;
   worldTimeRate = 0;
+  serverTimeMs = 0;
   missionContactX = 0;
   missionContactY = 0;
 }
@@ -532,6 +535,7 @@ defineTypes(DistrictState, {
   worldTimeStartedAt: 'number',
   worldTimeStartMinute: 'number',
   worldTimeRate: 'number',
+  serverTimeMs: 'number',
   missionContactX: 'number',
   missionContactY: 'number'
 });

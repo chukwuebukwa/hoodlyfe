@@ -23,6 +23,8 @@
     "@colyseus/core": "0.16.24",
     "@colyseus/schema": "3.0.76",
     "@colyseus/ws-transport": "0.16.5",
+    "@privy-io/js-sdk-core": "^0.68.1",
+    "@privy-io/node": "^0.25.0",
     "colyseus.js": "0.16.22",
     "cors": "2.8.5",
     "express": "4.21.2",

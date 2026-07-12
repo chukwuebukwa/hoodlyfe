@@ -23,7 +23,8 @@ app.get('/health', (_request, response) => {
     room: 'district',
     region: process.env.RAILWAY_REPLICA_REGION ?? process.env.GAME_REGION ?? 'local',
     replicaId: process.env.RAILWAY_REPLICA_ID ?? 'local',
-    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? 'development',
+    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
+      process.env.RAILWAY_DEPLOYMENT_ID ?? 'development',
     startedAt: processStartedAt,
     uptimeSeconds: Math.round(process.uptime()),
     memoryRssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),

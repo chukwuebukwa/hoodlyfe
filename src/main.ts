@@ -16,6 +16,7 @@ const serverUrl = import.meta.env.VITE_GAME_SERVER_URL ??
 const onboarding = loadOnboardingIdentity();
 const driverName = onboarding.driverName;
 const playerAppearance = onboarding.appearance;
+const playerAuth = onboarding.auth;
 const onboardingRequired = shouldShowOnboarding();
 const nameElement = document.querySelector('#driver-name');
 let activeRoom: Room<DistrictNetworkState> | undefined;
@@ -38,6 +39,7 @@ try {
     activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
       name: driverName,
       appearance: playerAppearance,
+      auth: playerAuth,
       spectator: onboardingRequired
     });
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
@@ -49,6 +51,7 @@ try {
     activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
       name: driverName,
       appearance: playerAppearance,
+      auth: playerAuth,
       spectator: onboardingRequired
     });
     const [{default: Phaser}, {DistrictScene}] = await Promise.all([
@@ -91,7 +94,8 @@ function showOnboardingAfterStart(): void {
     if (nameElement) nameElement.textContent = result.driverName;
     activeRoom?.send(PLAYER_SPAWN_MESSAGE, {
       name: result.driverName,
-      appearance: result.appearance
+      appearance: result.appearance,
+      auth: result.auth
     });
   }).catch((error) => {
     console.error(error);

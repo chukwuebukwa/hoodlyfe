@@ -1,5 +1,6 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
+import {VEHICLE_INPUT_MESSAGE} from '../../shared/protocol/vehicle-input.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../shared/protocol/notices.ts';
 import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
 import {AppearanceCreatorController} from './appearance/appearance-creator-controller.ts';
@@ -156,7 +157,13 @@ export class DistrictScene extends Phaser.Scene {
       onLocalOccupant: (vehicleId, container) => {
         this.cameraController.followVehicle(vehicleId, container);
       },
-      onPrediction: (error, snapped) => this.networkQuality?.observePrediction(error, snapped)
+      onPrediction: (error, snapped, pending, acknowledged, resimulated) => {
+        this.networkQuality?.observePrediction(error, snapped, pending, acknowledged, resimulated);
+      },
+      canOccupy: (x, y, radius) => this.canOccupy(x, y, radius),
+      sendVehicleMoves: (vehicleId, moves) => {
+        if (vehicleId) this.room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves});
+      }
     });
     this.playerRenderer = new PlayerRenderer(this, {
       localPlayerId: this.room.sessionId,
@@ -198,7 +205,8 @@ export class DistrictScene extends Phaser.Scene {
       this.room,
       map,
       this.collisionLayer,
-      () => this.networkQuality.snapshot()
+      () => this.networkQuality.snapshot(),
+      (vehicleId) => this.vehicleRenderer.pose(vehicleId)
     );
     this.inputController = new ClientInputController({
       scene: this,
@@ -229,8 +237,8 @@ export class DistrictScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.networkQuality.update(time);
     const input = this.inputController.update(time);
-    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
     this.interpolateEntities(time, delta / 1000);
+    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000, time);
     this.vehicleRenderer.predictLocalVehicle(input, delta / 1000);
     this.debugController.update(time);
     this.updateMinimap(time);
@@ -249,13 +257,18 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   private synchronizeState(state: DistrictNetworkState): void {
-    this.playerRenderer.synchronize(state.players);
+    this.playerRenderer.synchronize(state.players, state.serverTimeMs ?? 0);
     this.pedestrianRenderer.synchronize(state.npcs);
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
     const localPlayer = state.players?.get(this.room.sessionId);
     const localDriverVehicleId = localPlayer?.vehicleSeat === 0 ? localVehicleId : '';
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
-    this.vehicleRenderer.synchronize(state.vehicles, localVehicleId, localDriverVehicleId);
+    this.vehicleRenderer.synchronize(
+      state.vehicles,
+      localVehicleId,
+      localDriverVehicleId,
+      localPlayer?.lastVehicleInputSequence ?? 0
+    );
     const local = localPlayer;
     this.radioSystem.synchronize(
       local,
@@ -297,8 +310,15 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   private interpolateEntities(time: number, deltaSeconds: number): void {
+    const quality = this.networkQuality.snapshot();
+    const renderServerTime = quality.estimatedServerTimeMs - quality.interpolationDelayMs;
     this.vehicleRenderer.interpolate(time, deltaSeconds);
-    this.playerRenderer.interpolate(time);
+    this.playerRenderer.interpolate(
+      time,
+      renderServerTime,
+      quality.clockOffsetMs,
+      quality.clockSynchronized
+    );
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();
     this.rocketProjectileRenderer.interpolate();
@@ -308,10 +328,15 @@ export class DistrictScene extends Phaser.Scene {
     this.cashPickupRenderer.interpolate();
   }
 
-  private canOccupy(x: number, y: number): boolean {
-    const diagonal = PLAYER_RADIUS * 0.72;
+  private canOccupy(x: number, y: number, radius = PLAYER_RADIUS): boolean {
+    if (
+      x - radius < 0 || y - radius < 0 ||
+      x + radius >= this.collisionLayer.tilemap.widthInPixels ||
+      y + radius >= this.collisionLayer.tilemap.heightInPixels
+    ) return false;
+    const diagonal = radius * 0.72;
     const samples = [
-      [x - PLAYER_RADIUS, y], [x + PLAYER_RADIUS, y], [x, y - PLAYER_RADIUS], [x, y + PLAYER_RADIUS],
+      [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
       [x - diagonal, y - diagonal], [x + diagonal, y - diagonal],
       [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
     ];

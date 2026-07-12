@@ -3,6 +3,7 @@ import {
   LPC_COLOR_VALUES,
   LPC_DIRECTIONS,
   LPC_FRAME_SIZE,
+  LPC_SKIN_COLOR_VALUES,
   NOCK0_FRAME_SIZE,
   lpcAssetCandidates,
   lpcLayerDefinitions,
@@ -13,6 +14,7 @@ import {
 } from '../../../shared/content/lpc-character-catalog.ts';
 
 const DOWN_ROW = 2;
+const LPC_IMAGE_LOAD_BATCH_SIZE = 32;
 
 export interface LpcSpriteSources {
   images: ReadonlyMap<string, HTMLImageElement>;
@@ -30,8 +32,22 @@ export async function loadLpcSpriteSources(): Promise<LpcSpriteSources> {
   const manifest = await response.json() as {assets?: unknown};
   if (!Array.isArray(manifest.assets)) throw new Error('LPC asset manifest is invalid.');
   const urls = manifest.assets.filter((value): value is string => typeof value === 'string');
-  const pairs = await Promise.all(urls.map(async (url) => [url, await loadImage(url)] as const));
+  const pairs: Array<readonly [string, HTMLImageElement]> = [];
+  for (let index = 0; index < urls.length; index += LPC_IMAGE_LOAD_BATCH_SIZE) {
+    const batch = urls.slice(index, index + LPC_IMAGE_LOAD_BATCH_SIZE);
+    const loaded = await Promise.all(batch.map(loadImagePair));
+    pairs.push(...loaded.filter((pair): pair is readonly [string, HTMLImageElement] => Boolean(pair)));
+  }
   return {images: new Map(pairs)};
+}
+
+async function loadImagePair(url: string): Promise<readonly [string, HTMLImageElement] | undefined> {
+  try {
+    return [url, await loadImage(url)] as const;
+  } catch (error) {
+    console.warn(`Skipping LPC asset ${url}`, error);
+    return undefined;
+  }
 }
 
 export function compileLpcCharacterSpriteSet(
@@ -89,7 +105,11 @@ function composeFrame(
     if (!image) continue;
     const sourceRow = image.height >= LPC_FRAME_SIZE * 4 ? row : 0;
     if (layer.id.startsWith('hair')) {
-      context.drawImage(tintedFrame(image, recipe.hairColor, column, sourceRow), 0, 0);
+      context.drawImage(tintedFrame(image, LPC_COLOR_VALUES[recipe.hairColor], column, sourceRow), 0, 0);
+      continue;
+    }
+    if (layer.id === 'body' || layer.id === 'head') {
+      context.drawImage(tintedFrame(image, LPC_SKIN_COLOR_VALUES[recipe.skinColor], column, sourceRow), 0, 0);
       continue;
     }
     context.drawImage(
@@ -119,7 +139,7 @@ function resolveLayerImage(
 
 function tintedFrame(
   image: HTMLImageElement,
-  color: LpcCharacterRecipe['hairColor'],
+  color: string,
   column: number,
   row: number
 ): HTMLCanvasElement {
@@ -140,7 +160,7 @@ function tintedFrame(
     LPC_FRAME_SIZE,
     LPC_FRAME_SIZE
   );
-  const target = hexToRgb(LPC_COLOR_VALUES[color]);
+  const target = hexToRgb(color);
   const pixels = context.getImageData(0, 0, LPC_FRAME_SIZE, LPC_FRAME_SIZE);
   for (let index = 0; index < pixels.data.length; index += 4) {
     if (pixels.data[index + 3] === 0) continue;

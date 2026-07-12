@@ -1,5 +1,6 @@
 import {
   DEFAULT_LPC_RECIPE,
+  LPC_BODY_OPTIONS,
   LPC_COLOR_OPTIONS,
   LPC_COLOR_VALUES,
   LPC_FACE_OPTIONS,
@@ -7,6 +8,8 @@ import {
   LPC_HAIR_OPTIONS,
   LPC_LEGS_OPTIONS,
   LPC_SHOE_OPTIONS,
+  LPC_SKIN_COLOR_OPTIONS,
+  LPC_SKIN_COLOR_VALUES,
   LPC_TOP_OPTIONS,
   cloneLpcRecipe,
   lpcLayerDefinitions,
@@ -16,7 +19,8 @@ import {
   validateLpcCharacterRecipe,
   type LpcCharacterRecipe,
   type LpcColorId,
-  type LpcOption
+  type LpcOption,
+  type LpcSkinColorId
 } from '../shared/content/lpc-character-catalog.ts';
 import {
   compileLpcCharacterSpriteSet,
@@ -27,8 +31,8 @@ import {
 import {loadSavedAppearance, saveAppearance} from './game/appearance/appearance-storage.ts';
 import './creator.css';
 
-type PartCategory = 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
-type MaterialField = 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
+type PartCategory = 'body' | 'face' | 'hair' | 'hat' | 'top' | 'legs' | 'shoes';
+type MaterialField = 'skinColor' | 'hairColor' | 'hatColor' | 'topColor' | 'legsColor' | 'shoesColor';
 type PreviewClip = 'idle' | 'walk' | 'melee' | 'hit' | 'vehicle';
 
 interface PartCategoryDefinition<T extends string> {
@@ -38,6 +42,7 @@ interface PartCategoryDefinition<T extends string> {
 }
 
 const PART_CATEGORIES: Readonly<Record<PartCategory, PartCategoryDefinition<string>>> = {
+  body: {field: 'body', label: 'Body', options: LPC_BODY_OPTIONS},
   face: {field: 'face', label: 'Face', options: LPC_FACE_OPTIONS},
   hair: {field: 'hair', label: 'Hair', options: LPC_HAIR_OPTIONS},
   hat: {field: 'hat', label: 'Hat', options: LPC_HAT_OPTIONS},
@@ -244,11 +249,11 @@ function renderPartOptions(): void {
 
 function renderMaterialSwatches(): void {
   materialSwatches.replaceChildren();
-  for (const option of LPC_COLOR_OPTIONS) {
+  for (const option of colorOptionsFor(activeMaterial)) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.color = option.id;
-    button.style.setProperty('--swatch', LPC_COLOR_VALUES[option.id]);
+    button.style.setProperty('--swatch', colorValueFor(activeMaterial, option.id));
     button.setAttribute('aria-label', option.label);
     button.title = option.label;
     materialSwatches.append(button);
@@ -259,6 +264,7 @@ function renderMaterialSelection(): void {
   const fixedTop = activeMaterial === 'topColor' && recipe.top === 'smiley';
   const fixedHat = activeMaterial === 'hatColor' && !['winter_hat', 'cavalier'].includes(recipe.hat);
   const fixedShoes = activeMaterial === 'shoesColor' && recipe.shoes === 'timbs';
+  renderMaterialSwatches();
   materialName.textContent = fixedTop
     ? 'TOP FIXED'
     : fixedHat
@@ -298,7 +304,7 @@ function renderRecipe(): void {
   const serialized = serializeLpcRecipe(recipe);
   recipeJson.textContent = JSON.stringify(recipe, null, 2);
   recipeKey.textContent = shortHash(lpcRecipeKey(recipe));
-  bodyFamily.textContent = 'LPC-MALE';
+  bodyFamily.textContent = `LPC-${recipe.body.toUpperCase()}`;
   required<HTMLElement>('#recipe-bytes').textContent = `${serialized.length} B`;
   required<HTMLElement>('#recipe-status').textContent = 'VALID';
   required<HTMLElement>('#coverage-summary').textContent = `${lpcLayerDefinitions(recipe).length} LAYERS`;
@@ -362,12 +368,14 @@ function randomizeRecipe(): void {
   updateRecipe({
     ...recipe,
     name: 'LPC Driver',
+    body: randomOption(LPC_BODY_OPTIONS),
     face: randomOption(LPC_FACE_OPTIONS),
     hair: randomOption(LPC_HAIR_OPTIONS),
     hat: randomOption(LPC_HAT_OPTIONS),
     top: randomOption(LPC_TOP_OPTIONS),
     legs: randomOption(LPC_LEGS_OPTIONS),
     shoes: randomOption(LPC_SHOE_OPTIONS),
+    skinColor: randomOption(LPC_SKIN_COLOR_OPTIONS),
     hairColor: randomOption(LPC_COLOR_OPTIONS),
     hatColor: randomOption(LPC_COLOR_OPTIONS),
     topColor: randomOption(LPC_COLOR_OPTIONS),
@@ -457,7 +465,9 @@ function randomOption<T extends string>(options: readonly LpcOption<T>[]): T {
 }
 
 function materialLabel(field: MaterialField): string {
-  return field === 'hairColor'
+  return field === 'skinColor'
+    ? 'SKIN'
+    : field === 'hairColor'
     ? 'HAIR'
     : field === 'hatColor'
       ? 'HAT'
@@ -477,9 +487,22 @@ function isPreviewClip(value: unknown): value is PreviewClip {
 }
 
 function isMaterialField(value: unknown): value is MaterialField {
-  return ['hairColor', 'hatColor', 'topColor', 'legsColor', 'shoesColor'].includes(String(value));
+  return ['skinColor', 'hairColor', 'hatColor', 'topColor', 'legsColor', 'shoesColor'].includes(String(value));
 }
 
-function isLpcColor(value: unknown): value is LpcColorId {
-  return typeof value === 'string' && LPC_COLOR_OPTIONS.some((option) => option.id === value);
+function isLpcColor(value: unknown): value is LpcColorId | LpcSkinColorId {
+  return typeof value === 'string' && (
+    LPC_COLOR_OPTIONS.some((option) => option.id === value) ||
+    LPC_SKIN_COLOR_OPTIONS.some((option) => option.id === value)
+  );
+}
+
+function colorOptionsFor(field: MaterialField): readonly LpcOption<LpcColorId | LpcSkinColorId>[] {
+  return field === 'skinColor' ? LPC_SKIN_COLOR_OPTIONS : LPC_COLOR_OPTIONS;
+}
+
+function colorValueFor(field: MaterialField, color: LpcColorId | LpcSkinColorId): string {
+  return field === 'skinColor'
+    ? LPC_SKIN_COLOR_VALUES[color as LpcSkinColorId]
+    : LPC_COLOR_VALUES[color as LpcColorId];
 }

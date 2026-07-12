@@ -14,9 +14,7 @@ const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = [
   'sedan',
   'taxi',
   'sedan',
-  'r33',
   'sedan',
-  's15',
   'taxi',
   'sedan'
 ];
