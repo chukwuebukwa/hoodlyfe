@@ -813,8 +813,8 @@ canvas {
   min-height: 500px;
   display: grid;
   grid-template-rows: 42px minmax(0, 1fr) 44px;
-  border: 5px solid #111923;
-  border-radius: 32px;
+  border: 5px solid #0c1118;
+  border-radius: 42px;
   background:
     linear-gradient(180deg, #263246, #050608 16%, #050608 84%, #1b2634);
   color: #fff;
@@ -845,9 +845,22 @@ canvas {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 24px 7px;
+  position: relative;
+  padding: 13px 24px 7px;
   background: #050608;
   color: #fff;
+}
+
+#phone-status-bar::after {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 96px;
+  height: 22px;
+  border-radius: 999px;
+  background: #020304;
+  transform: translateX(-50%);
+  content: "";
 }
 
 #phone-status-bar span,
@@ -860,8 +873,16 @@ canvas {
 }
 
 #phone-status-bar strong {
+  position: relative;
+  z-index: 1;
   color: #fff;
   font-size: 13px;
+}
+
+#phone-status-bar span,
+#profile-close {
+  position: relative;
+  z-index: 1;
 }
 
 #profile-popup button {
@@ -877,6 +898,7 @@ canvas {
   width: 30px;
   min-height: 30px;
   padding: 0;
+  border-radius: 999px;
 }
 
 #phone-screen {
@@ -885,14 +907,23 @@ canvas {
   overflow: hidden auto;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(135deg, rgba(80, 26, 90, 0.72), rgba(12, 35, 65, 0.74)),
-    #0b1018;
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.82), transparent 18%),
+    radial-gradient(circle at 80% 28%, rgba(109, 153, 255, 0.78), transparent 26%),
+    radial-gradient(circle at 18% 72%, rgba(100, 230, 184, 0.84), transparent 34%),
+    linear-gradient(135deg, #73d7d2, #c9e9ff 42%, #2e69cb);
+}
+
+#phone-screen::-webkit-scrollbar,
+#wallet-body::-webkit-scrollbar,
+#profile-body::-webkit-scrollbar {
+  width: 0;
 }
 
 #phone-home {
   min-height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  padding: 18px 16px 12px;
 }
 
 #phone-home.hidden,
@@ -900,55 +931,46 @@ canvas {
   display: none;
 }
 
-#phone-home > header {
-  padding: 16px 16px 8px;
-}
-
-#phone-home > header strong {
-  display: block;
-  color: #f2c94c;
-  font-size: 17px;
-  font-weight: 950;
-}
-
-#phone-home > header span {
-  color: #aab4ba;
-  font: 900 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
 #phone-app-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 13px;
   align-content: start;
-  padding: 16px;
+  padding: 4px 0 0;
 }
 
-#phone-app-grid button {
+#phone-app-grid button,
+#phone-dock button {
   display: grid;
-  gap: 7px;
+  min-width: 0;
+  gap: 6px;
   justify-items: center;
   border: 0;
   background: transparent;
   color: #fff;
+  padding: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
 #phone-app-grid button:disabled {
   opacity: 0.48;
 }
 
-#phone-app-grid i {
+#phone-app-grid i,
+#phone-dock i {
   display: grid;
-  width: 54px;
+  width: 56px;
   aspect-ratio: 1;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f2c94c, #a3672d);
-  color: #111;
-  font: 950 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: 15px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 35%),
+    linear-gradient(180deg, #f2c94c, #a3672d);
+  color: #101112;
+  font: 950 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   font-style: normal;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.28);
 }
 
 #phone-app-grid button:nth-child(2) i { background: linear-gradient(180deg, #63df8a, #168a3b); }
@@ -957,8 +979,54 @@ canvas {
 #phone-app-grid button:nth-child(5) i { background: linear-gradient(180deg, #c8ccd0, #626c72); }
 #phone-app-grid button:nth-child(6) i { background: linear-gradient(180deg, #9d8bff, #432e8d); }
 
-#phone-app-grid span {
-  font: 950 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+#phone-app-grid button:nth-child(7) i { background: linear-gradient(180deg, #60dfff, #1d789a); }
+#phone-app-grid button:nth-child(8) i { background: linear-gradient(180deg, #eeeeee, #777); }
+
+#phone-app-grid span,
+#phone-dock span {
+  overflow: hidden;
+  max-width: 66px;
+  font: 850 9px/1 ui-sans-serif, system-ui, sans-serif;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+#phone-search-pill {
+  justify-self: center;
+  min-width: 96px;
+  margin: 12px 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  color: rgba(46, 64, 88, 0.82);
+  padding: 7px 14px;
+  font: 800 11px/1 ui-sans-serif, system-ui, sans-serif;
+  text-align: center;
+  text-transform: none;
+}
+
+#phone-dock {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  padding: 10px 11px 8px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.36);
+  backdrop-filter: blur(10px);
+}
+
+#phone-dock i {
+  width: 52px;
+  border-radius: 14px;
+}
+
+#phone-dock button:nth-child(1) i { background: linear-gradient(180deg, #5cf277, #1fab3c); }
+#phone-dock button:nth-child(2) i { background: linear-gradient(180deg, #d8f1ff, #4f9fe6); }
+#phone-dock button:nth-child(3) i { background: linear-gradient(180deg, #72ff82, #23aa3d); }
+#phone-dock button:nth-child(4) i { background: linear-gradient(180deg, #ff637a, #e0204d); color: #fff; }
+
+#phone-dock span {
+  display: none;
 }
 
 #phone-profile-app-screen {
@@ -994,6 +1062,10 @@ canvas {
   padding: 10px;
   border-bottom: 1px solid rgba(157, 139, 255, 0.35);
   background: rgba(9, 10, 17, 0.92);
+}
+
+#wallet-app-header #wallet-refresh {
+  color: #d8fff0;
 }
 
 #wallet-app-header button {
@@ -1118,6 +1190,12 @@ canvas {
 
 .wallet-actions button:disabled {
   opacity: 0.48;
+}
+
+.wallet-actions #wallet-receive:not(:disabled) {
+  border-color: rgba(99, 223, 138, 0.45);
+  background: rgba(99, 223, 138, 0.18);
+  color: #d8fff0;
 }
 
 .wallet-address-card,
@@ -1487,17 +1565,37 @@ canvas {
 
 #phone-nav {
   display: grid;
-  place-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  padding: 5px 18px 8px;
   background: #050608;
 }
 
-#phone-home-button-visual {
-  width: 42px;
-  min-height: 6px;
+#phone-nav button {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  min-height: 30px;
   border: 0;
-  border-radius: 999px;
-  background: #303b48;
+  background: transparent;
+  color: #7f8c95;
   padding: 0;
+}
+
+#phone-nav i {
+  font: 950 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+}
+
+#phone-nav span {
+  font: 850 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#profile-popup[data-app="home"] #phone-nav-home,
+#profile-popup[data-app="profile"] #phone-nav-profile,
+#profile-popup[data-app="wallet"] #phone-nav-wallet {
+  color: #f2c94c;
 }
 
 #debug-panel {

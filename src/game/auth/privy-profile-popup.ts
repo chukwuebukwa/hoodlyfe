@@ -42,9 +42,21 @@ export function mountPrivyProfilePopup(): {destroy(): void} {
     const body = required<HTMLElement>(activePopup, '#profile-body');
     const walletRefreshButton = required<HTMLButtonElement>(activePopup, '#wallet-refresh');
     const walletBody = required<HTMLElement>(activePopup, '#wallet-body');
+    const navHome = required<HTMLButtonElement>(activePopup, '#phone-nav-home');
+    const navProfile = required<HTMLButtonElement>(activePopup, '#phone-nav-profile');
+    const navWallet = required<HTMLButtonElement>(activePopup, '#phone-nav-wallet');
     closeButton.addEventListener('click', close);
     homeButton.addEventListener('click', () => showPhoneHome(activePopup));
     walletHomeButton.addEventListener('click', () => showPhoneHome(activePopup));
+    navHome.addEventListener('click', () => showPhoneHome(activePopup));
+    navProfile.addEventListener('click', () => {
+      showPhoneApp(activePopup, 'profile');
+      void refresh(activePopup);
+    });
+    navWallet.addEventListener('click', () => {
+      showPhoneApp(activePopup, 'wallet');
+      void refreshWallet(activePopup);
+    });
     profileApp.addEventListener('click', () => {
       showPhoneApp(activePopup, 'profile');
       void refresh(activePopup);
@@ -64,8 +76,14 @@ export function mountPrivyProfilePopup(): {destroy(): void} {
     });
     walletBody.addEventListener('click', (event) => {
       const target = event.target;
-      if (!(target instanceof HTMLButtonElement) || target.id !== 'wallet-create-wallet') return;
-      void createWallet(activePopup, target).then(() => refreshWallet(activePopup));
+      if (!(target instanceof HTMLButtonElement)) return;
+      if (target.id === 'wallet-create-wallet') {
+        void createWallet(activePopup, target).then(() => refreshWallet(activePopup));
+        return;
+      }
+      if (target.id === 'wallet-receive') {
+        void copyWalletAddress(target, activePopup);
+      }
     });
     logoutButton.addEventListener('click', () => {
       logoutButton.disabled = true;
@@ -179,7 +197,6 @@ function renderShell(): HTMLElement {
     </header>
     <main id="phone-screen">
       <section id="phone-home" aria-label="Phone apps">
-        <header><strong>NOCKPHONE</strong><span>District OS</span></header>
         <div id="phone-app-grid">
           <button id="phone-profile-app" type="button"><i>PR</i><span>Profile</span></button>
           <button id="phone-wallet-app" type="button"><i>WA</i><span>Wallet</span></button>
@@ -187,6 +204,15 @@ function renderShell(): HTMLElement {
           <button type="button" disabled><i>MP</i><span>Map</span></button>
           <button type="button" disabled><i>GR</i><span>Garage</span></button>
           <button type="button" disabled><i>ST</i><span>Settings</span></button>
+          <button type="button" disabled><i>MSG</i><span>Messages</span></button>
+          <button type="button" disabled><i>CAM</i><span>Camera</span></button>
+        </div>
+        <div id="phone-search-pill">Search</div>
+        <div id="phone-dock">
+          <button type="button" disabled><i>CALL</i><span>Phone</span></button>
+          <button type="button" disabled><i>WEB</i><span>Web</span></button>
+          <button type="button" disabled><i>TXT</i><span>Texts</span></button>
+          <button type="button" disabled><i>MUS</i><span>Radio</span></button>
         </div>
       </section>
       <section id="phone-profile-app-screen" class="hidden" aria-label="Profile app">
@@ -221,19 +247,23 @@ function renderShell(): HTMLElement {
       </section>
     </main>
     <footer id="phone-nav">
-      <button id="phone-home-button-visual" type="button" aria-hidden="true" tabindex="-1"></button>
+      <button id="phone-nav-home" type="button" aria-label="Phone home"><i>HM</i><span>Home</span></button>
+      <button id="phone-nav-profile" type="button" aria-label="Profile app"><i>PR</i><span>Profile</span></button>
+      <button id="phone-nav-wallet" type="button" aria-label="Wallet app"><i>WA</i><span>Wallet</span></button>
     </footer>
   `;
   return popup;
 }
 
 function showPhoneHome(root: HTMLElement): void {
+  root.dataset.app = 'home';
   required<HTMLElement>(root, '#phone-home').classList.remove('hidden');
   required<HTMLElement>(root, '#phone-profile-app-screen').classList.add('hidden');
   required<HTMLElement>(root, '#phone-wallet-app-screen').classList.add('hidden');
 }
 
 function showPhoneApp(root: HTMLElement, app: 'profile' | 'wallet'): void {
+  root.dataset.app = app;
   required<HTMLElement>(root, '#phone-home').classList.add('hidden');
   required<HTMLElement>(root, '#phone-profile-app-screen').classList.toggle('hidden', app !== 'profile');
   required<HTMLElement>(root, '#phone-wallet-app-screen').classList.toggle('hidden', app !== 'wallet');
@@ -320,7 +350,7 @@ function renderWallet(
       <strong>${ethAmount} ${nativeBalance?.symbol ?? 'ETH'}</strong>
       <p>${hasWallet ? 'Native balance on chain 4663' : 'Create a wallet to start tracking balances.'}</p>
       <div class="wallet-actions">
-        <button type="button" ${hasWallet ? '' : 'disabled'}>Receive</button>
+        <button id="wallet-receive" type="button" ${hasWallet ? `data-address="${escapeHtml(profile.walletAddress ?? '')}"` : 'disabled'}>Receive</button>
         <button type="button" disabled>Send</button>
         <button type="button" disabled>Swap</button>
         <button type="button" disabled>Buy</button>
@@ -329,7 +359,7 @@ function renderWallet(
     ${hasWallet ? `
       <section class="wallet-address-card">
         <span>Address</span>
-        <strong>${escapeHtml(profile.walletAddress ?? '')}</strong>
+        <strong>${escapeHtml(compactMiddle(profile.walletAddress ?? '', 14, 10))}</strong>
         <a href="${robinhoodExplorerAddress(profile.walletAddress ?? '')}" target="_blank" rel="noreferrer">View Explorer</a>
       </section>
     ` : `
@@ -347,6 +377,21 @@ function renderWallet(
       <ul>${tokenRows}</ul>
     </section>
   `;
+}
+
+async function copyWalletAddress(button: HTMLButtonElement, root: HTMLElement): Promise<void> {
+  const address = button.dataset.address;
+  if (!address) return;
+  try {
+    await navigator.clipboard.writeText(address);
+    button.textContent = 'Copied';
+    window.setTimeout(() => {
+      button.textContent = 'Receive';
+    }, 1200);
+  } catch {
+    const body = required<HTMLElement>(root, '#wallet-body');
+    body.insertAdjacentHTML('afterbegin', '<p class="wallet-muted">Could not copy address.</p>');
+  }
 }
 
 function nativeTokenRow(amount: string): string {
@@ -511,6 +556,11 @@ function compactId(value: string | undefined): string {
 function compactWallet(address: string): string {
   if (address.length <= 14) return address;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function compactMiddle(value: string, front: number, back: number): string {
+  if (value.length <= front + back + 3) return value;
+  return `${value.slice(0, front)}...${value.slice(-back)}`;
 }
 
 function required<T extends Element>(root: ParentNode, selector: string): T {
