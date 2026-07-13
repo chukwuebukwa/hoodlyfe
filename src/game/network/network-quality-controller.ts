@@ -23,6 +23,9 @@ export interface NetworkQualitySnapshot {
   interpolationDelayMs: number;
   clockSynchronized: boolean;
   predictionError: number;
+  predictionErrorP95: number;
+  predictionErrorMean: number;
+  predictionCorrections: number;
   reconciliations: number;
   vehicleResimulations: number;
   vehiclePendingMoves: number;
@@ -37,6 +40,7 @@ export class NetworkQualityController {
   private readonly rttSamples: number[] = [];
   private readonly patchGaps: number[] = [];
   private readonly clockOffsets: number[] = [];
+  private readonly predictionErrors: number[] = [];
   private readonly cleanup: Array<() => void> = [];
   private readonly now: () => number;
   private sequence = 0;
@@ -47,6 +51,7 @@ export class NetworkQualityController {
   private serverTick = 0;
   private clockOffsetMs = 0;
   private predictionError = 0;
+  private predictionCorrections = 0;
   private reconciliations = 0;
   private vehicleResimulations = 0;
   private vehiclePendingMoves = 0;
@@ -63,7 +68,7 @@ export class NetworkQualityController {
     );
     if (typeof removePong === 'function') this.cleanup.push(removePong as () => void);
     const removeState = room.onStateChange((state) => {
-      this.observePatch(this.now(), state?.serverTimeMs ?? 0);
+      this.observePatch(this.now(), state?.serverTimeMs ?? 0, state?.serverTick ?? 0);
     });
     if (typeof removeState === 'function') this.cleanup.push(removeState as () => void);
   }
@@ -76,9 +81,12 @@ export class NetworkQualityController {
     this.nextProbeAt = nowMs + PROBE_INTERVAL_MS;
   }
 
-  observePatch(nowMs = this.now(), _serverTimeMs = 0): void {
+  observePatch(nowMs = this.now(), _serverTimeMs = 0, serverTick = 0): void {
     if (this.lastPatchAt > 0) pushBounded(this.patchGaps, nowMs - this.lastPatchAt);
     this.lastPatchAt = nowMs;
+    if (Number.isSafeInteger(serverTick) && serverTick >= this.serverTick) {
+      this.serverTick = serverTick;
+    }
   }
 
   observePrediction(
@@ -90,6 +98,8 @@ export class NetworkQualityController {
   ): void {
     if (!Number.isFinite(error)) return;
     this.predictionError = Math.max(0, error);
+    pushBounded(this.predictionErrors, this.predictionError);
+    this.predictionCorrections++;
     if (snapped) this.reconciliations++;
     if (resimulated) this.vehicleResimulations++;
     this.vehiclePendingMoves = Math.max(0, Math.floor(pendingMoves));
@@ -103,6 +113,7 @@ export class NetworkQualityController {
       jitterSamples.push(Math.abs(this.rttSamples[index] - this.rttSamples[index - 1]));
     }
     const patchGapP95Ms = percentile([...this.patchGaps].sort((left, right) => left - right), 95);
+    const sortedPredictionErrors = [...this.predictionErrors].sort((left, right) => left - right);
     return {
       region: this.region,
       buildId: this.buildId,
@@ -116,6 +127,9 @@ export class NetworkQualityController {
       interpolationDelayMs: Math.max(75, Math.min(250, patchGapP95Ms * 1.5 || 100)),
       clockSynchronized: this.clockOffsets.length > 0,
       predictionError: Math.round(this.predictionError * 10) / 10,
+      predictionErrorP95: percentile(sortedPredictionErrors, 95),
+      predictionErrorMean: mean(this.predictionErrors),
+      predictionCorrections: this.predictionCorrections,
       reconciliations: this.reconciliations,
       vehicleResimulations: this.vehicleResimulations,
       vehiclePendingMoves: this.vehiclePendingMoves,
@@ -153,4 +167,9 @@ function percentile(sorted: readonly number[], requested: number): number {
   if (sorted.length === 0) return 0;
   const index = Math.min(sorted.length - 1, Math.ceil(requested / 100 * sorted.length) - 1);
   return Math.round(sorted[Math.max(0, index)] * 10) / 10;
+}
+
+function mean(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10;
 }

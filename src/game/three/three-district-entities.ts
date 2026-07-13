@@ -57,6 +57,7 @@ import {
   type VehicleInputMove,
   type VehiclePredictionCorrection
 } from '../prediction/saved-vehicle-prediction.ts';
+import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {MotionSnapshotBuffer} from '../network/motion-snapshot-buffer.ts';
 import {LocalMovementReplay} from '../prediction/local-movement-replay.ts';
@@ -336,7 +337,13 @@ export class ThreeDistrictEntities {
       movement,
       vehicle.kind,
       deltaSeconds,
-      (x, y, radius) => this.canOccupy('street', x, y, radius)
+      (x, y, radius) => this.canOccupy('street', x, y, radius),
+      {
+        maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(
+          vehicle.engineDamage,
+          vehicle.onFire
+        )
+      }
     );
     if (!advanced) return undefined;
     const decay = Math.exp(-12 * Math.min(Math.max(deltaSeconds, 0), 0.05));
@@ -801,7 +808,17 @@ export class ThreeDistrictEntities {
         y: vehicle.y,
         angle: vehicle.angle,
         speed: vehicle.speed
-      }, acknowledgedSequence, vehicle.kind, (x, y, radius) => this.canOccupy('street', x, y, radius));
+      }, acknowledgedSequence, vehicle.kind, (x, y, radius) => this.canOccupy(
+        'street',
+        x,
+        y,
+        radius
+      ), {
+        maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(
+          vehicle.engineDamage,
+          vehicle.onFire
+        )
+      });
       if (correction) {
         rendered.vehicleCorrection = correction;
         rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;

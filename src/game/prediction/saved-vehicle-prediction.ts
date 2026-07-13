@@ -3,9 +3,14 @@ import {
   predictVehiclePoseWithWorldCollision,
   type PredictedVehiclePose
 } from './vehicle-prediction-policy.ts';
+import {
+  VEHICLE_SIMULATION_HZ,
+  VEHICLE_SIMULATION_STEP_SECONDS,
+  type VehicleStepModifiers
+} from '../../../shared/simulation/vehicle-step.ts';
 
-export const VEHICLE_PREDICTION_HZ = 30;
-export const VEHICLE_PREDICTION_STEP_SECONDS = 1 / VEHICLE_PREDICTION_HZ;
+export const VEHICLE_PREDICTION_HZ = VEHICLE_SIMULATION_HZ;
+export const VEHICLE_PREDICTION_STEP_SECONDS = VEHICLE_SIMULATION_STEP_SECONDS;
 
 export interface VehicleInputMove extends MovementVector {
   sequence: number;
@@ -58,7 +63,8 @@ export class SavedVehiclePrediction {
     movement: MovementVector,
     kind: string,
     elapsedSeconds: number,
-    canOccupy: OccupancyQuery
+    canOccupy: OccupancyQuery,
+    modifiers: VehicleStepModifiers = {}
   ): VehiclePredictionAdvance {
     if (!this.physicsPose) throw new Error('Vehicle prediction must be initialized first.');
     this.accumulatorSeconds += clamp(elapsedSeconds, 0, VEHICLE_PREDICTION_STEP_SECONDS * MAX_STEPS_PER_FRAME);
@@ -79,7 +85,8 @@ export class SavedVehiclePrediction {
         move,
         kind,
         VEHICLE_PREDICTION_STEP_SECONDS,
-        canOccupy
+        canOccupy,
+        modifiers
       );
       this.history.push({...move, predicted: {...this.physicsPose}});
       outboundMoves.push(move);
@@ -94,7 +101,8 @@ export class SavedVehiclePrediction {
         movement,
         kind,
         this.accumulatorSeconds,
-        canOccupy
+        canOccupy,
+        modifiers
       )
       : this.physicsPose;
     return {pose: {...pose}, outboundMoves};
@@ -104,7 +112,8 @@ export class SavedVehiclePrediction {
     authoritative: PredictedVehiclePose,
     acknowledgedSequence: number,
     kind: string,
-    canOccupy: OccupancyQuery
+    canOccupy: OccupancyQuery,
+    modifiers: VehicleStepModifiers = {}
   ): VehiclePredictionCorrection {
     const acknowledged = validSequence(acknowledgedSequence);
     if (!this.physicsPose) this.initialize(authoritative, acknowledged);
@@ -145,7 +154,8 @@ export class SavedVehiclePrediction {
         move,
         kind,
         VEHICLE_PREDICTION_STEP_SECONDS,
-        canOccupy
+        canOccupy,
+        modifiers
       );
       move.predicted = {...replayed};
     }

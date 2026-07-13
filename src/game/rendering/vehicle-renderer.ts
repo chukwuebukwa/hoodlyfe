@@ -9,6 +9,7 @@ import {
   SavedVehiclePrediction,
   type VehicleInputMove
 } from '../prediction/saved-vehicle-prediction.ts';
+import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
 
 interface RenderVehicle {
   vehicleId: string;
@@ -23,6 +24,7 @@ interface RenderVehicle {
   targetAngle: number;
   targetSpeed: number;
   predictedSpeed: number;
+  maximumSpeedMultiplier: number;
   kind: string;
   localOccupant: boolean;
   localDriver: boolean;
@@ -120,7 +122,8 @@ export class VehicleRenderer {
       movement,
       rendered.kind,
       deltaSeconds,
-      this.options.canOccupy ?? (() => true)
+      this.options.canOccupy ?? (() => true),
+      {maximumSpeedMultiplier: rendered.maximumSpeedMultiplier}
     );
     if (advanced.outboundMoves.length > 0) {
       this.options.sendVehicleMoves?.(rendered.vehicleId, advanced.outboundMoves);
@@ -176,6 +179,10 @@ export class VehicleRenderer {
     rendered.targetAngle = vehicle.angle;
     rendered.targetSpeed = vehicle.speed;
     rendered.kind = vehicle.kind;
+    rendered.maximumSpeedMultiplier = vehicleMechanicalSpeedMultiplier(
+      vehicle.engineDamage,
+      vehicle.onFire
+    );
     rendered.localOccupant = localOccupant;
     rendered.localDriver = localDriver;
     if (becameLocalDriver) {
@@ -202,7 +209,9 @@ export class VehicleRenderer {
         y: vehicle.y,
         angle: vehicle.angle,
         speed: vehicle.speed
-      }, acknowledgedSequence, vehicle.kind, this.options.canOccupy ?? (() => true));
+      }, acknowledgedSequence, vehicle.kind, this.options.canOccupy ?? (() => true), {
+        maximumSpeedMultiplier: rendered.maximumSpeedMultiplier
+      });
       rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
       rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
       rendered.visualOffsetAngle = correction.hardCorrection
@@ -265,6 +274,7 @@ export class VehicleRenderer {
       targetAngle: vehicle.angle,
       targetSpeed: vehicle.speed,
       predictedSpeed: vehicle.speed,
+      maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(vehicle.engineDamage, vehicle.onFire),
       kind: vehicle.kind,
       localOccupant: false,
       localDriver: false,

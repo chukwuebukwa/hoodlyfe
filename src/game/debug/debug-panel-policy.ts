@@ -56,7 +56,8 @@ export function projectDebugPanel(
       : '0/0ms',
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
     prediction: network
-      ? `${network.predictionError}px / ${network.vehicleResimulations} resim / ` +
+      ? `${network.predictionError}px now / ${network.predictionErrorP95}px p95 / ` +
+        `${network.predictionCorrections} corr / ${network.vehicleResimulations} resim / ` +
         `${network.reconciliations} snap / A${network.vehicleAcknowledgedMove} ` +
         `P${network.vehiclePendingMoves}`
       : '0px',

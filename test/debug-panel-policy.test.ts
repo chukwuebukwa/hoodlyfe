@@ -58,6 +58,9 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     interpolationDelayMs: 96,
     clockSynchronized: true,
     predictionError: 8.4,
+    predictionErrorP95: 12.7,
+    predictionErrorMean: 6.2,
+    predictionCorrections: 14,
     reconciliations: 2,
     vehicleResimulations: 9,
     vehiclePendingMoves: 5,
@@ -66,7 +69,10 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
   assert.equal(panel.patchGap, '61ms / T340');
-  assert.equal(panel.prediction, '8.4px / 9 resim / 2 snap / A34 P5');
+  assert.equal(
+    panel.prediction,
+    '8.4px now / 12.7px p95 / 14 corr / 9 resim / 2 snap / A34 P5'
+  );
   assert.equal(panel.clockSync, '-18ms / 96ms buffer');
 });
 

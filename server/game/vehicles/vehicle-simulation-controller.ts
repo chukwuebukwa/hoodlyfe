@@ -11,7 +11,7 @@ import {VEHICLE_COLLISION_BOUNDING_RADIUS, vehicleConfig} from './vehicle-config
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
-import {resolveSweptVehicleWorldCollision} from '../../../shared/physics/vehicle-world-collision.ts';
+import {stepVehicleWithWorldCollision} from '../../../shared/simulation/vehicle-step.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -119,79 +119,39 @@ export class VehicleSimulationController {
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
-      const movementStart = {
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.speed
-      };
-      vehicle.siren = false;
-      const throttle = -input.inputY;
-      if (throttle !== 0) {
-        const changingDirection = vehicle.speed !== 0 && Math.sign(vehicle.speed) !== Math.sign(throttle);
-        if (changingDirection) {
-          vehicle.speed = approach(
-            vehicle.speed,
-            0,
-            configuration.handling.brakeDeceleration * deltaSeconds
-          );
-        } else {
-          const acceleration = throttle > 0
-            ? configuration.handling.forwardAcceleration
-            : configuration.handling.reverseAcceleration;
-          vehicle.speed += throttle * acceleration * deltaSeconds;
-        }
-      } else {
-        vehicle.speed = approach(
-          vehicle.speed,
-          0,
-          configuration.handling.coastDeceleration * deltaSeconds
-        );
-      }
-      const speedMultiplier = this.damageSystem.speedMultiplier(vehicle.engineDamage, vehicle.onFire);
-      vehicle.speed = clamp(
-        vehicle.speed,
-        -configuration.handling.maximumReverseSpeed * speedMultiplier,
-        configuration.handling.maximumForwardSpeed * speedMultiplier
-      );
-
-      if (Math.abs(vehicle.speed) > 4 && input.inputX !== 0) {
-        const grip = clamp(
-          Math.abs(vehicle.speed) / configuration.handling.steeringGripSpeed,
-          configuration.handling.steeringGripFloor,
-          1
-        );
-        const direction = vehicle.speed >= 0 ? 1 : -1;
-        vehicle.angle = normalizeAngle(
-          vehicle.angle + input.inputX * configuration.handling.steeringRate *
-            grip * direction * deltaSeconds
-        );
-      }
-
-      const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
-      const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
-      const worldMovement = resolveSweptVehicleWorldCollision(
-        movementStart,
-        {x: nextX, y: nextY, angle: vehicle.angle, speed: vehicle.speed},
+      const movement = stepVehicleWithWorldCollision(
+        {
+          x: vehicle.x,
+          y: vehicle.y,
+          angle: vehicle.angle,
+          speed: vehicle.speed
+        },
+        {steering: input.inputX, throttle: -input.inputY},
         vehicle.kind,
-        (x, y, radius) => this.options.world.canOccupy(x, y, radius)
+        deltaSeconds,
+        (x, y, radius) => this.options.world.canOccupy(x, y, radius),
+        {
+          maximumSpeedMultiplier: this.damageSystem.speedMultiplier(
+            vehicle.engineDamage,
+            vehicle.onFire
+          )
+        }
       );
-      vehicle.x = worldMovement.pose.x;
-      vehicle.y = worldMovement.pose.y;
-      vehicle.angle = worldMovement.pose.angle;
-      if (worldMovement.collided) {
+      vehicle.siren = false;
+      vehicle.x = movement.pose.x;
+      vehicle.y = movement.pose.y;
+      vehicle.angle = movement.pose.angle;
+      if (movement.collidedWithWorld) {
         this.damage(
           vehicle,
-          this.damageSystem.wallImpactDamage(vehicle.speed),
+          this.damageSystem.wallImpactDamage(movement.impactSpeed),
           '',
           'world',
           nowMs,
-          vehicle.speed >= 0 ? 'front' : 'rear'
+          movement.impactSpeed >= 0 ? 'front' : 'rear'
         );
-        vehicle.speed = worldMovement.pose.speed;
-      } else {
-        vehicle.speed = worldMovement.pose.speed;
       }
+      vehicle.speed = movement.pose.speed;
       if (!vehicle.destroyed) this.handleDriverImpacts(vehicle, driver, nowMs);
       if (input.sequence !== undefined) {
         this.options.acknowledgeInput?.(driver.id, vehicle.id, input.sequence);
@@ -511,10 +471,6 @@ export class VehicleSimulationController {
       if (player.vehicleSeat === 0) player.angle = vehicle.angle;
     }
   }
-}
-
-function normalizeAngle(angle: number): number {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
 function clamp(value: number, min: number, max: number): number {

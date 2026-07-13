@@ -860,6 +860,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private updateFixedStep(deltaSeconds: number, now: number): void {
+    this.state.serverTick = this.simulationClock.tick;
     this.state.serverTimeMs = now;
     this.populationStreaming.update(
       [...this.state.players.values()]

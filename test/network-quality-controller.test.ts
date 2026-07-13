@@ -7,7 +7,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   let now = 0;
   const sent: Array<{type: string; message: unknown}> = [];
   let pong: (message: any) => void = () => {};
-  let stateChanged: () => void = () => {};
+  let stateChanged: (state?: any) => void = () => {};
   const room = {
     send: (type: string, message: unknown) => sent.push({type, message}),
     onMessage: (type: string, handler: (message: any) => void) => {
@@ -15,7 +15,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
       pong = handler;
       return () => {};
     },
-    onStateChange: (handler: () => void) => {
+    onStateChange: (handler: (state?: any) => void) => {
       stateChanged = handler;
       return () => {};
     }
@@ -35,11 +35,11 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     buildId: 'abcdef123456789'
   });
   now = 100;
-  stateChanged();
+  stateChanged({serverTimeMs: 100, serverTick: 91});
   now = 150;
-  stateChanged();
+  stateChanged({serverTimeMs: 150, serverTick: 92});
   now = 230;
-  stateChanged();
+  stateChanged({serverTimeMs: 230, serverTick: 94});
   controller.observePrediction(7.25, false);
   controller.observePrediction(182, true, 4, 27, true);
 
@@ -50,12 +50,15 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     rttP95Ms: 80,
     jitterMs: 0,
     patchGapP95Ms: 80,
-    serverTick: 90,
+    serverTick: 94,
     clockOffsetMs: 5,
     estimatedServerTimeMs: 235,
     interpolationDelayMs: 120,
     clockSynchronized: true,
     predictionError: 182,
+    predictionErrorP95: 182,
+    predictionErrorMean: 94.6,
+    predictionCorrections: 2,
     reconciliations: 1,
     vehicleResimulations: 1,
     vehiclePendingMoves: 4,

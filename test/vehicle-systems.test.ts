@@ -7,6 +7,7 @@ import {BulletState, DistrictState, PlayerState, VehicleState} from '../server/s
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 import {attachTestProjectileController} from './support/projectile-controller.ts';
+import {VEHICLE_SIMULATION_STEP_SECONDS} from '../shared/simulation/vehicle-step.ts';
 
 test('vehicle collision separates overlaps and transfers forward momentum', () => {
   const collision = new VehicleCollisionSystem().resolve({
@@ -106,17 +107,19 @@ test('player driving consumes distinct model acceleration from the shared catalo
     drivenSpeed('taxi'),
     drivenSpeed('sedan'),
     drivenSpeed('police')
-  ], [360, 390, 440]);
+  ].map(Math.round), [360, 390, 440]);
 });
 
 test('opposite throttle brakes to zero before changing direction', () => {
   const {room, vehicle, player} = drivingFixture('sedan');
   room.playerControl.setMove(player.id, {x: 0, y: -1});
-  room.vehicleSimulation.update(vehicle, 0.1, 100);
+  updateVehicle(room, vehicle, 3);
   assert.equal(vehicle.speed, 39);
   room.playerControl.setMove(player.id, {x: 0, y: 1});
-  room.vehicleSimulation.update(vehicle, 1, 1100);
+  updateVehicle(room, vehicle, 5);
   assert.equal(vehicle.speed, 0);
+  updateVehicle(room, vehicle, 1);
+  assert.ok(vehicle.speed < 0);
 });
 
 test('district adapter applies collision movement and damage to both authoritative cars', () => {
@@ -185,8 +188,19 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
 function drivenSpeed(kind: string): number {
   const {room, vehicle, player} = drivingFixture(kind);
   room.playerControl.setMove(player.id, {x: 0, y: -1});
-  room.vehicleSimulation.update(vehicle, 1, 1000);
+  updateVehicle(room, vehicle, 30);
   return vehicle.speed;
+}
+
+function updateVehicle(room: any, vehicle: VehicleState, steps: number): void {
+  for (let step = 1; step <= steps; step++) {
+    room.vehicleSimulation.beginTick();
+    room.vehicleSimulation.update(
+      vehicle,
+      VEHICLE_SIMULATION_STEP_SECONDS,
+      step * VEHICLE_SIMULATION_STEP_SECONDS * 1_000
+    );
+  }
 }
 
 function drivingFixture(kind: string) {

@@ -258,6 +258,7 @@ export interface DistrictNetworkState {
   worldTimeStartedAt?: number;
   worldTimeStartMinute?: number;
   worldTimeRate?: number;
+  serverTick?: number;
   serverTimeMs?: number;
   missionContactX: number;
   missionContactY: number;

@@ -1,5 +1,6 @@
 import type {VehicleDamageSource} from '../events/game-events.ts';
 import type {VehicleDamageZone} from './vehicle-collision-system.ts';
+import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
 
 const ENGINE_STEAM_1 = 100;
 const ENGINE_STEAM_2 = 150;
@@ -82,9 +83,7 @@ export class VehicleDamageSystem {
   }
 
   speedMultiplier(engineDamage: number, onFire: boolean): number {
-    const engineRatio = Math.max(0, Math.min(1, engineDamage / 250));
-    const mechanicalLimit = 1 - engineRatio * 0.38;
-    return onFire ? Math.min(mechanicalLimit, 0.58) : mechanicalLimit;
+    return vehicleMechanicalSpeedMultiplier(engineDamage, onFire);
   }
 
   reset(maxHealth: number): VehicleMechanicalState {
