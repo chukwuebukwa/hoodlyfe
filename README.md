@@ -1,6 +1,6 @@
 # NOCK0
 
-NOCK0 is a custom browser-based, top-down multiplayer crime sandbox. It uses Phaser for the browser client, Colyseus for the authoritative game server, and the sibling OpenGTA2 project only as an offline converter for locally owned GTA2 data.
+NOCK0 is a custom browser-based, top-down multiplayer crime sandbox. It uses Three.js for the browser client, Colyseus for the authoritative game server, and the bundled OpenGTA2 converter source only as an offline converter for locally owned GTA2 data.
 
 The client, HUD, movement, combat, AI, wanted system, and vehicle handling are purpose-built for an action game.
 
@@ -28,10 +28,23 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - Node.js 20 or newer
 - npm
 - .NET 10 SDK/runtime
-- The `ikkentim/opengta2` repository next to this repository
 - A local GTA2 installation containing `data/bil.gmp` and `data/bil.sty`
 
-The default paths match this workspace. Override them with `OPENGTA2_REPO`, `OPENGTA2_PATH`, or `DOTNET` when needed.
+The repository includes the OpenGTA2 converter source under `opengta2/`. The GTA2 game files are not included and must stay local/private.
+
+The default local development layout is:
+
+```text
+nock0-action/
+  opengta2/        # bundled converter source, committed
+  GTA2_GAME/       # local GTA2 install, ignored by git
+    App_Executables/
+      data/
+        bil.gmp
+        bil.sty
+```
+
+If your GTA2 install lives somewhere else, set `OPENGTA2_PATH` to the directory that contains the `data/` folder. You can also override `OPENGTA2_REPO`, `DOTNET`, `GTA2_LEVEL`, or `GTA2_CROP_SIZE`.
 
 ## Run
 
@@ -56,10 +69,50 @@ Open `http://127.0.0.1:5173`. The WebSocket game server listens on port `2567`.
 
 ## Architecture
 
-- `src/` contains the Phaser client, action HUD, interpolation, prediction, and touch input.
+- `src/` contains the browser client, action HUD, interpolation, prediction, and touch input.
 - `server/` contains the Colyseus room, collision map, NPC AI, police response, combat, and vehicle simulation.
 - `test/` boots an isolated server and verifies two-client movement, driving, combat, death, and respawn.
+- `opengta2/` contains the converter source used by `npm run assets:export`.
 - `scripts/export-gta2-assets.sh` runs the OpenGTA2 web exporter into ignored local asset paths.
+
+## GTA2 Asset Export
+
+The export command reads the local GTA2 install and writes generated browser assets into `public/assets/`. These outputs are ignored by git because they are derived from GTA2 data.
+
+Default export:
+
+```bash
+npm run assets:export
+```
+
+Increase the map crop:
+
+```bash
+GTA2_CROP_SIZE=96 npm run assets:export
+GTA2_CROP_SIZE=128 npm run assets:export
+```
+
+The crop size is in GTA2 tiles. Each tile is `64` world pixels, so `96` produces a `6144 x 6144` world and `128` produces an `8192 x 8192` world. The converter currently accepts crop sizes from `16` through `128`.
+
+Export another GTA2 level if the matching `.gmp` and `.sty` files exist:
+
+```bash
+GTA2_LEVEL=wil npm run assets:export
+GTA2_LEVEL=ste GTA2_CROP_SIZE=96 npm run assets:export
+```
+
+Use a custom install location:
+
+```bash
+OPENGTA2_PATH=/path/to/GTA2/App_Executables npm run assets:export
+```
+
+After changing crop size or level, run:
+
+```bash
+npm test
+npm run dev
+```
 
 See [`docs/ENGINEERING_REPORT.md`](docs/ENGINEERING_REPORT.md) for the implementation report and staged production-scaling plan. See [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for the domain organization and extraction blueprint for pedestrian AI, driving AI, police, missions, economy, and other GTA-like systems. See [`docs/ONCHAIN_INTEGRATION.md`](docs/ONCHAIN_INTEGRATION.md) for the Robinhood Chain settlement-layer design, wallet identity plan, and the gates that precede any real-value mechanic.
 

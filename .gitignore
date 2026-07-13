@@ -7,6 +7,16 @@ tsconfig.tsbuildinfo
 .DS_Store
 npm-debug.log*
 
+# Local GTA2 install or extracted installer payload. Keep this private and untracked.
+GTA2_GAME/
+GTA2_EXTRACTED/
+GTA2INSTALLER/
+GTA2INSTALLER.ZIP
+
+# Build outputs from the vendored OpenGTA2 converter.
+opengta2/**/bin/
+opengta2/**/obj/
+
 # Generated locally from the user's GTA2 installation. Never commit these files.
 public/assets/maps/district-map.json
 public/assets/maps/district-tiles.png

@@ -2,7 +2,7 @@
 
 ## Repository Contents
 
-The source repository contains original NOCK0 code and converter changes only. GTA2-derived maps, textures, sprites, and vehicles are generated locally and excluded by `.gitignore`.
+The source repository contains original NOCK0 code and the OpenGTA2 converter source used for local asset export. GTA2 game data and GTA2-derived maps, textures, sprites, and vehicles are generated locally and excluded by `.gitignore`.
 
 Ignored outputs include:
 
@@ -12,6 +12,8 @@ Ignored outputs include:
 - `public/assets/maps/district-overlay.png`
 - `public/assets/maps/district-map.metadata.json`
 - `public/assets/custom/sprites/*.png`
+- `GTA2_GAME/`
+- `GTA2_EXTRACTED/`
 
 ## Original Runtime Sprites
 
@@ -23,7 +25,18 @@ These files replace the GTA2-derived pedestrian and vehicle sheets at runtime. T
 
 ## Local Development
 
-`npm run assets:export` reads `bil.gmp` and `bil.sty` from a local GTA2 installation. Keep the original game files outside this repository. The generated files are suitable for private development and compatibility testing only unless the operator has separate rights to distribute them.
+`npm run assets:export` reads `bil.gmp` and `bil.sty` from a local GTA2 installation. Keep the original game files untracked. By default the script looks for `GTA2_GAME/App_Executables/` inside the repository working tree, but that directory is ignored by git and must not be committed.
+
+Useful export options:
+
+```bash
+GTA2_CROP_SIZE=96 npm run assets:export
+GTA2_CROP_SIZE=128 npm run assets:export
+GTA2_LEVEL=wil npm run assets:export
+OPENGTA2_PATH=/path/to/GTA2/App_Executables npm run assets:export
+```
+
+The generated files are suitable for private development and compatibility testing only unless the operator has separate rights to distribute them.
 
 ## Public Builds
 
