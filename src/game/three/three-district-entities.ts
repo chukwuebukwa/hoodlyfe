@@ -19,7 +19,7 @@ import {CHARACTER_ATLASES} from '../../../shared/content/character-animation-man
 import {parseLpcRecipe} from '../../../shared/content/lpc-character-catalog.ts';
 import {
   meleeAttackPresentationAtProgress,
-  passengerPresentation,
+  playerAttachmentPresentation,
   weaponPresentation
 } from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
@@ -131,6 +131,7 @@ interface RenderedEntity {
     speed: number;
     baselineServerTimeMs: number;
   };
+  presentationPose?: VehicleRenderPose;
 }
 
 interface EntityTextures {
@@ -321,10 +322,14 @@ export class ThreeDistrictEntities {
     };
   }
 
-  playerPose(playerId: string): {x: number; y: number} | undefined {
+  playerPose(playerId: string): VehicleRenderPose | undefined {
     const rendered = this.rendered.get(`player:${playerId}`);
     if (!rendered) return undefined;
-    return {x: rendered.mesh.position.x, y: serverYToThree(rendered.mesh.position.y)};
+    return rendered.presentationPose ?? {
+      x: rendered.mesh.position.x,
+      y: serverYToThree(rendered.mesh.position.y),
+      angle: rendered.predictedAngle ?? 0
+    };
   }
 
   predictLocalPlayer(
@@ -698,21 +703,29 @@ export class ThreeDistrictEntities {
     const vehiclePose = vehicle
       ? this.vehiclePose(player.vehicleId) ?? vehicle
       : undefined;
-    const passenger = vehiclePose && player.vehicleSeat > 0
-      ? passengerPresentation(vehiclePose, player.vehicleSeat, player.angle, performance.now(), false)
-      : undefined;
     const buffered = !isLocal && !vehicle
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const x = passenger?.spriteX ?? buffered?.x ?? (
+    const actorX = buffered?.x ?? (
       localOnFoot ? rendered.mesh.position.x : player.x
     );
-    const y = passenger?.spriteY ?? buffered?.y ?? (
+    const actorY = buffered?.y ?? (
       localOnFoot ? serverYToThree(rendered.mesh.position.y) : player.y
     );
     const renderAngle = buffered?.angle ?? player.angle;
-    const z = this.surfaceHeightAt(x, y) + (passenger ? 8 : 4);
+    const attachments = playerAttachmentPresentation(
+      {x: actorX, y: actorY, angle: renderAngle},
+      vehiclePose,
+      player.vehicleSeat,
+      player.angle,
+      localNow,
+      false
+    );
+    rendered.presentationPose = attachments.root;
+    const x = attachments.body.x;
+    const y = attachments.body.y;
+    const z = this.surfaceHeightAt(x, y) + (attachments.passenger ? 8 : 4);
     if (localOnFoot) rendered.mesh.position.z = z;
     else positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
@@ -724,7 +737,7 @@ export class ThreeDistrictEntities {
       : reaction.active || melee?.active
         ? bodyRotation
         : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.22);
-    const bodyScale = passenger?.scale ?? 1;
+    const bodyScale = attachments.passenger?.scale ?? 1;
     const bodyScaleX = reaction.active ? reaction.scaleX : (melee?.bodyScaleX ?? 1);
     const bodyScaleY = reaction.active ? reaction.scaleY : (melee?.bodyScaleY ?? 1);
     rendered.mesh.scale.set(
@@ -733,7 +746,7 @@ export class ThreeDistrictEntities {
       bodyScale
     );
     rendered.mesh.material.color.setHex(reaction.tint ?? 0xffffff);
-    rendered.mesh.visible = !vehicle || player.vehicleSeat > 0;
+    rendered.mesh.visible = attachments.bodyVisible;
     if (actionSprite.sprite === 'walk') {
       const facingDirectionRow = appearanceTextures.directionalWalk && held.visible && player.alive && !vehicle
         ? lpcAimDirectionRow(renderAngle)
@@ -765,8 +778,8 @@ export class ThreeDistrictEntities {
       rendered.fire.material.opacity = burn.alpha;
     }
     if (rendered.weapon) {
-      const baseX = passenger?.baseX ?? x;
-      const baseY = passenger?.baseY ?? y;
+      const baseX = attachments.weaponBase.x;
+      const baseY = attachments.weaponBase.y;
       const weaponAngle = renderAngle + (melee?.weaponRotationOffset ?? 0);
       const weaponDistance = melee?.active ? melee.weaponDistance : 8;
       rendered.weapon.position.set(
@@ -780,8 +793,8 @@ export class ThreeDistrictEntities {
         (!player.action || player.action === 'melee');
     }
     if (rendered.label) {
-      const labelX = vehiclePose?.x ?? x;
-      const labelY = vehiclePose?.y ?? y;
+      const labelX = attachments.root.x;
+      const labelY = attachments.root.y;
       const labelZ = this.surfaceHeightAt(labelX, labelY) + 12;
       rendered.label.position.set(
         labelX,

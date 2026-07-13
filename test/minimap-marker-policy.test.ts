@@ -37,6 +37,24 @@ test('minimap shows one local marker and remote players at effective vehicle pos
   assert.equal(frame.markers.some((marker) => marker.id.includes('civilian')), false);
 });
 
+test('minimap origin and local marker use the effective predicted attachment root', () => {
+  const localPose = {x: 145, y: 82, angle: -0.75};
+  const frame = buildMinimapFrame({
+    localPlayerId: 'local',
+    localPose,
+    players,
+    vehicles,
+    npcs
+  });
+  assert.ok(frame);
+  assert.deepEqual(
+    {x: frame.originX, y: frame.originY, angle: frame.heading},
+    localPose
+  );
+  const local = frame.markers.find((marker) => marker.id === 'local:local');
+  assert.deepEqual(local && {x: local.x, y: local.y, angle: local.angle}, localPose);
+});
+
 test('police appear only for wanted local players and distant objectives clamp', () => {
   const wantedPlayers = players.map((player) => player.id === 'local' ? {...player, wanted: 2} : player);
   const frame = buildMinimapFrame({

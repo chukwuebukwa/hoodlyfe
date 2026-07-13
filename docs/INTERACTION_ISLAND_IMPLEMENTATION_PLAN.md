@@ -326,8 +326,10 @@ M9 is split into independently deployable checkpoints:
   missed control frame advances the revision. Client island history clears whenever
   either value changes, including passenger-to-driver promotion where the vehicle root
   ID remains unchanged.
-- M9b: one effective predicted transform for body, weapon, passenger, label, lights,
-  camera, minimap marker, and debug collider.
+- M9b - Complete: one effective predicted transform for body, weapon, passenger, label,
+  lights, camera, minimap marker, and debug collider. Phaser and Three use the same pure
+  attachment policy. Local minimap and active debug colliders consume the predicted
+  attachment root, and occupied players no longer expose a duplicate humanoid collider.
 - M9c: shared vehicle-to-humanoid contact and on-foot replay, with damage, knockdown,
   crime, and other lifecycle effects remaining server-only.
 

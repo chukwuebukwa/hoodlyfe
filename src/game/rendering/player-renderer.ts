@@ -3,11 +3,12 @@ import type {NetworkPlayer} from '../types.ts';
 import {interpolatePosition, rotateTowards} from './interpolation-policy.ts';
 import {
   meleeAttackPresentationAtProgress,
-  passengerPresentation,
+  playerAttachmentPresentation,
   weaponPresentation,
-  type MeleeAttackPresentation
+  type MeleeAttackPresentation,
+  type PlayerAttachmentPresentation
 } from './player-render-policy.ts';
-import type {VehicleRenderPose} from './render-types.ts';
+import type {ActorRenderPose, VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
 import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
@@ -151,8 +152,9 @@ export class PlayerRenderer {
       }
       rendered.sprite.setDepth(Math.round(rendered.sprite.y) + 100);
       this.presentAction(rendered, player, time);
-      this.presentWeaponAndPassenger(rendered, player, time);
-      this.positionNameplate(rendered, player);
+      const attachments = this.attachmentPresentation(rendered, player, time);
+      this.presentWeaponAndPassenger(rendered, player, attachments);
+      this.positionNameplate(rendered, player, attachments);
       this.presentSpawnProtection(rendered, time);
       this.presentBurn(rendered, time);
     }
@@ -200,20 +202,17 @@ export class PlayerRenderer {
     const rendered = this.rendered.get(playerId);
     const player = this.latestPlayers?.get(playerId);
     if (!rendered) return undefined;
-    if (player?.vehicleId && player.vehicleSeat > 0) {
-      const vehicle = this.options.vehiclePose(player.vehicleId);
-      if (vehicle) {
-        const passenger = passengerPresentation(
-          vehicle,
-          player.vehicleSeat,
-          rendered.targetAngle,
-          0,
-          false
-        );
-        return {x: passenger.baseX, y: passenger.baseY};
-      }
-    }
-    return {x: rendered.sprite.x, y: rendered.sprite.y};
+    return this.attachmentPresentation(rendered, player, 0).weaponBase;
+  }
+
+  pose(playerId: string): ActorRenderPose | undefined {
+    const rendered = this.rendered.get(playerId);
+    if (!rendered) return undefined;
+    return this.attachmentPresentation(
+      rendered,
+      this.latestPlayers?.get(playerId),
+      0
+    ).root;
   }
 
   setAim(playerId: string, angle: number): void {
@@ -446,7 +445,7 @@ export class PlayerRenderer {
   private presentWeaponAndPassenger(
     rendered: RenderPlayer,
     player: NetworkPlayer | undefined,
-    time: number
+    attachments: PlayerAttachmentPresentation
   ): void {
     const reaction = combatReactionPresentation(player ?? {});
     const melee = this.meleePresentation(rendered, player);
@@ -457,31 +456,19 @@ export class PlayerRenderer {
       : rendered.sprite.rotation + Math.PI / 2;
     const weaponAngle = aimAngle + melee.weaponRotationOffset;
     const weaponDistance = melee.active ? melee.weaponDistance : 7;
-    let weaponBaseX = rendered.sprite.x;
-    let weaponBaseY = rendered.sprite.y;
-    if (player?.vehicleId && player.vehicleSeat > 0) {
-      const vehicle = this.options.vehiclePose(player.vehicleId);
-      if (vehicle) {
-        const passenger = passengerPresentation(
-          vehicle,
-          player.vehicleSeat,
-          aimAngle,
-          time,
-          time < rendered.peekRecoilUntil
-        );
-        weaponBaseX = passenger.baseX;
-        weaponBaseY = passenger.baseY;
-        rendered.passengerSprite
-          .setPosition(passenger.spriteX, passenger.spriteY)
+    const weaponBaseX = attachments.weaponBase.x;
+    const weaponBaseY = attachments.weaponBase.y;
+    if (attachments.passenger) {
+      rendered.passengerSprite
+          .setPosition(attachments.body.x, attachments.body.y)
           .setRotation(aimAngle - Math.PI / 2 + reaction.rotationOffset)
           .setScale(
-            passenger.scale * rendered.bodyScaleX * reaction.scaleX,
-            passenger.scale * reaction.scaleY
+            attachments.passenger.scale * rendered.bodyScaleX * reaction.scaleX,
+            attachments.passenger.scale * reaction.scaleY
           )
           .setDepth(Math.round(weaponBaseY) + 101);
-        if (reaction.tint === undefined) rendered.passengerSprite.clearTint();
-        else rendered.passengerSprite.setTint(reaction.tint);
-      }
+      if (reaction.tint === undefined) rendered.passengerSprite.clearTint();
+      else rendered.passengerSprite.setTint(reaction.tint);
     }
     rendered.weaponSprite
       .setPosition(
@@ -506,13 +493,42 @@ export class PlayerRenderer {
     );
   }
 
-  private positionNameplate(rendered: RenderPlayer, player: NetworkPlayer | undefined): void {
-    const vehicle = player?.vehicleId ? this.options.vehiclePose(player.vehicleId) : undefined;
-    if (vehicle && player) {
-      rendered.label.setPosition(vehicle.x, vehicle.y - 34 - Math.max(0, player.vehicleSeat) * 12);
+  private positionNameplate(
+    rendered: RenderPlayer,
+    player: NetworkPlayer | undefined,
+    attachments: PlayerAttachmentPresentation
+  ): void {
+    if (attachments.occupied && player) {
+      rendered.label.setPosition(
+        attachments.root.x,
+        attachments.root.y - 34 - Math.max(0, player.vehicleSeat) * 12
+      );
     } else {
-      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 31);
+      rendered.label.setPosition(attachments.root.x, attachments.root.y - 31);
     }
+  }
+
+  private attachmentPresentation(
+    rendered: RenderPlayer,
+    player: NetworkPlayer | undefined,
+    time: number
+  ): PlayerAttachmentPresentation {
+    const actor = {
+      x: rendered.sprite.x,
+      y: rendered.sprite.y,
+      angle: rendered.sprite.rotation + Math.PI / 2
+    };
+    const vehicle = player?.vehicleId
+      ? this.options.vehiclePose(player.vehicleId)
+      : undefined;
+    return playerAttachmentPresentation(
+      actor,
+      vehicle,
+      player?.vehicleSeat ?? -1,
+      rendered.targetAngle,
+      time,
+      time < rendered.peekRecoilUntil
+    );
   }
 
   private presentSpawnProtection(rendered: RenderPlayer, time: number): void {

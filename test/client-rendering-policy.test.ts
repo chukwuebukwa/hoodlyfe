@@ -9,6 +9,7 @@ import {
   meleeAttackPresentation,
   meleeAttackPresentationAtProgress,
   passengerPresentation,
+  playerAttachmentPresentation,
   weaponPresentation
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
@@ -98,6 +99,33 @@ test('player weapon models and passenger seats preserve stable presentation anch
   const recoil = passengerPresentation(vehicle, 1, 0, 0, true);
   assert.equal(recoil.spriteX, frontRight.spriteX - 4);
   assert.equal(recoil.scale, 0.64);
+});
+
+test('one attachment root owns body, weapon, label, minimap, and collider presentation', () => {
+  const actor = {x: 10, y: 20, angle: 0.25};
+  const vehicle = {x: 100, y: 200, angle: 0.5};
+  const onFoot = playerAttachmentPresentation(actor, undefined, -1, 0.25, 0, false);
+  assert.deepEqual(onFoot.root, actor);
+  assert.deepEqual(onFoot.body, actor);
+  assert.deepEqual(onFoot.weaponBase, {x: 10, y: 20});
+  assert.equal(onFoot.humanoidColliderVisible, true);
+
+  const driver = playerAttachmentPresentation(actor, vehicle, 0, 1, 0, false);
+  assert.deepEqual(driver.root, vehicle);
+  assert.equal(driver.bodyVisible, false);
+  assert.equal(driver.humanoidColliderVisible, false);
+
+  const passenger = playerAttachmentPresentation(actor, vehicle, 1, 1, 0, true);
+  assert.deepEqual(passenger.root, vehicle);
+  assert.deepEqual(passenger.weaponBase, {
+    x: passenger.passenger?.baseX,
+    y: passenger.passenger?.baseY
+  });
+  assert.deepEqual(
+    {x: passenger.body.x, y: passenger.body.y},
+    {x: passenger.passenger?.spriteX, y: passenger.passenger?.spriteY}
+  );
+  assert.equal(passenger.humanoidColliderVisible, false);
 });
 
 test('melee attack presentation follows replicated combo and catalog strike timing', () => {

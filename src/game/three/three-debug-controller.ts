@@ -6,7 +6,7 @@ import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts
 import type {DistrictNetworkState} from '../types.ts';
 import {serverYToThree} from './three-prototype-policy.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
-import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 
 const DRAW_INTERVAL_MS = 100;
@@ -52,7 +52,8 @@ export class ThreeDebugController {
     private readonly room: Room<DistrictNetworkState>,
     private readonly surfaceHeightAt: (x: number, y: number) => number,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
-    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
+    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
+    private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -115,8 +116,18 @@ export class ThreeDebugController {
     const state = this.state;
     if (!state) return;
     for (const player of state.players.values()) {
-      if (!player.alive) continue;
-      this.group.add(entityGlyph(player.x, player.y, player.angle, 11, 0x70dcff, this.surfaceHeightAt));
+      if (!player.alive || player.vehicleId) continue;
+      const predicted = player.id === this.room.sessionId
+        ? this.predictedPlayerPose(player.id)
+        : undefined;
+      this.group.add(entityGlyph(
+        predicted?.x ?? player.x,
+        predicted?.y ?? player.y,
+        predicted?.angle ?? player.angle,
+        11,
+        0x70dcff,
+        this.surfaceHeightAt
+      ));
     }
     for (const npc of state.npcs.values()) {
       if (!npc.alive) continue;

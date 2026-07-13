@@ -184,7 +184,8 @@ export class ThreePrototypeViewer {
         this.room,
         this.surfaceHeightAt,
         () => this.networkQuality?.snapshot(),
-        (vehicleId) => this.entities?.vehiclePose(vehicleId)
+        (vehicleId) => this.entities?.vehiclePose(vehicleId),
+        (playerId) => this.entities?.playerPose(playerId)
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
@@ -192,7 +193,8 @@ export class ThreePrototypeViewer {
       this.ui = new ThreeDistrictUiController(
         this.room,
         payload.surfaces.width * payload.blockSize,
-        payload.surfaces.height * payload.blockSize
+        payload.surfaces.height * payload.blockSize,
+        () => this.entities?.playerPose(this.room?.sessionId ?? '')
       );
       this.input = new ThreeInputController({
         room: this.room,

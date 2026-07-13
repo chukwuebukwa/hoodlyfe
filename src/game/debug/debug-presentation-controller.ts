@@ -6,7 +6,7 @@ import type {DistrictNetworkState} from '../types.ts';
 import {projectDebugPanel} from './debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
-import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 
 const PLAYER_RADIUS = 11;
@@ -36,6 +36,7 @@ export class DebugPresentationController {
     private readonly collisionLayer: Phaser.Tilemaps.TilemapLayer,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
+    private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
     private readonly root: Document = document
   ) {
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
@@ -243,13 +244,17 @@ export class DebugPresentationController {
 
   private drawPlayers(present: Set<string>): void {
     this.state?.players?.forEach((player, playerId) => {
+      if (player.vehicleId) return;
       const mode = player.vehicleId ? `seat:${player.vehicleSeat}` : 'foot';
       const protection = player.spawnProtected ? ' SHIELD' : '';
+      const predicted = playerId === this.room.sessionId
+        ? this.predictedPlayerPose(playerId)
+        : undefined;
       this.drawEntity(
-        player.x,
-        player.y,
+        predicted?.x ?? player.x,
+        predicted?.y ?? player.y,
         PLAYER_RADIUS,
-        player.angle,
+        predicted?.angle ?? player.angle,
         0x70dcff,
         `player:${playerId}`,
         `${player.name} p:${shortId(playerId)} ${mode} w:${player.wanted}${protection}`,

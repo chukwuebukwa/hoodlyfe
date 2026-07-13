@@ -268,7 +268,8 @@ export class DistrictScene extends Phaser.Scene {
       map,
       this.collisionLayer,
       () => this.networkQuality.snapshot(),
-      (vehicleId) => this.vehicleRenderer.pose(vehicleId)
+      (vehicleId) => this.vehicleRenderer.pose(vehicleId),
+      (playerId) => this.playerRenderer.pose(playerId)
     );
     this.inputController = new ClientInputController({
       scene: this,
@@ -428,6 +429,7 @@ export class DistrictScene extends Phaser.Scene {
     this.lastMinimapDrawAt = time;
     const frame = buildMinimapFrame({
       localPlayerId: this.room.sessionId,
+      localPose: this.playerRenderer.pose(this.room.sessionId),
       players: this.latestState.players?.values() ?? [],
       vehicles: this.latestState.vehicles?.values() ?? [],
       npcs: this.latestState.npcs?.values() ?? [],
