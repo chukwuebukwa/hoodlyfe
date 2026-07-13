@@ -330,8 +330,14 @@ M9 is split into independently deployable checkpoints:
   lights, camera, minimap marker, and debug collider. Phaser and Three use the same pure
   attachment policy. Local minimap and active debug colliders consume the predicted
   attachment root, and occupied players no longer expose a duplicate humanoid collider.
-- M9c: shared vehicle-to-humanoid contact and on-foot replay, with damage, knockdown,
-  crime, and other lifecycle effects remaining server-only.
+- M9c-a - Complete: shared OBB-circle vehicle-to-humanoid contact. The authoritative
+  adapter resolves stable pairs after vehicle, player, and pedestrian body steps; uses
+  per-pair impact records; reindexes corrected actors; and keeps damage, knockdown,
+  crime, and other lifecycle effects server-only. Physical relative closing speed is
+  distinct from vehicle-caused impact speed so walking into a stationary car can never
+  become a server-authored ram.
+- M9c-b: on-foot saved-input island replay using the same vehicle-to-humanoid kernel,
+  including promoted remote humanoid poses and replay-side-effect suppression.
 
 Bullets initially predict recoil/tracer presentation while the server performs bounded
 rewound hit validation. Grenades and rockets may use deterministic predicted spawns.

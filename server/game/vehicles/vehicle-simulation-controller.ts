@@ -12,6 +12,10 @@ import {VehicleDamageSystem} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
 import {stepVehicleWithWorldCollision} from '../../../shared/simulation/vehicle-step.ts';
+import {
+  VehicleHumanoidContactSystem,
+  type VehicleHumanoidContactPhaseResult
+} from './vehicle-humanoid-contact-system.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -62,15 +66,18 @@ interface VehicleSimulationControllerOptions {
 
 export class VehicleSimulationController {
   private readonly collisions = new VehicleCollisionSystem();
+  private readonly humanoidContacts: VehicleHumanoidContactSystem;
   private readonly damageSystem = new VehicleDamageSystem();
-  private readonly impactAt = new Map<string, number>();
   private readonly collisionPairsThisTick = new Set<string>();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
 
-  constructor(private readonly options: VehicleSimulationControllerOptions) {}
+  constructor(private readonly options: VehicleSimulationControllerOptions) {
+    this.humanoidContacts = new VehicleHumanoidContactSystem(options);
+  }
 
   beginTick(): void {
     this.collisionPairsThisTick.clear();
+    this.humanoidContacts.beginTick();
   }
 
   finishTick(nowMs: number): readonly VehicleState[] {
@@ -89,6 +96,15 @@ export class VehicleSimulationController {
     return Object.freeze([...moved.values()]);
   }
 
+  finishHumanoidContacts(
+    deltaSeconds: number,
+    nowMs: number
+  ): VehicleHumanoidContactPhaseResult {
+    const result = this.humanoidContacts.resolve(deltaSeconds, nowMs);
+    for (const vehicle of result.vehicles) this.syncOccupants(vehicle);
+    return result;
+  }
+
   update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
     const configuration = vehicleConfig(vehicle.kind);
     if (!vehicle.destroyed && this.damageSystem.shouldExplode(vehicle, nowMs)) {
@@ -103,27 +119,23 @@ export class VehicleSimulationController {
       !vehicle.driverId &&
       this.options.policeVehicles?.has(vehicle.id)
     ) {
-      if (this.options.policeVehicles.update(
+      this.options.policeVehicles.update(
         vehicle,
         deltaSeconds,
         nowMs,
         this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs, true)
-      )) {
-        this.handleTrafficImpacts(vehicle, nowMs);
-      }
+      );
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
-      if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
+      this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
         obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs),
         emergencyVehicles: this.options.nearbyVehicles(
           vehicle.x,
           vehicle.y,
           Math.max(340, configuration.traffic.lookAhead)
         ).filter((candidate) => candidate.siren && !candidate.destroyed)
-      })) {
-        this.handleTrafficImpacts(vehicle, nowMs);
-      }
+      });
       return;
     }
 
@@ -163,7 +175,6 @@ export class VehicleSimulationController {
         );
       }
       vehicle.speed = movement.pose.speed;
-      if (!vehicle.destroyed) this.handleDriverImpacts(vehicle, driver, nowMs);
       if (input.sequence !== undefined) {
         this.options.acknowledgeInput?.(driver.id, vehicle.id, input.sequence);
       }
@@ -297,61 +308,6 @@ export class VehicleSimulationController {
       }));
     const signals = this.options.signals?.obstaclesFor(vehicle, nowMs, emergencyResponse) ?? [];
     return [...vehicles, ...players, ...npcs, ...signals];
-  }
-
-  private handleTrafficImpacts(vehicle: VehicleState, nowMs: number): void {
-    if (vehicle.speed < 70 || nowMs - (this.impactAt.get(vehicle.id) ?? 0) < 600) return;
-    for (const player of this.options.nearbyPlayers(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!player.alive || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.options.damagePlayer(player, 45, '', nowMs, undefined, vehicleImpact(vehicle));
-      vehicle.speed *= 0.55;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-    for (const npc of this.options.nearbyNpcs(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!npc.alive) continue;
-      if (Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
-      this.options.damageNpc(npc, 100, '', nowMs, undefined, vehicleImpact(vehicle));
-      vehicle.speed *= 0.62;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-  }
-
-  private handleDriverImpacts(vehicle: VehicleState, driver: PlayerState, nowMs: number): void {
-    if (Math.abs(vehicle.speed) < 90 || nowMs - (this.impactAt.get(vehicle.id) ?? 0) < 450) return;
-    for (const npc of this.options.nearbyNpcs(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!npc.alive || Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) {
-        continue;
-      }
-      this.options.damageNpc(
-        npc,
-        Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)),
-        driver.id,
-        nowMs,
-        npc.kind === 'police' ? 'hit-and-run-police' : 'hit-and-run',
-        vehicleImpact(vehicle)
-      );
-      vehicle.speed *= 0.72;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-    for (const player of this.options.nearbyPlayers(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!player.alive || player.id === driver.id || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.options.damagePlayer(
-        player,
-        50,
-        driver.id,
-        nowMs,
-        'hit-and-run',
-        vehicleImpact(vehicle)
-      );
-      vehicle.speed *= 0.68;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
   }
 
   private destroy(
@@ -503,15 +459,6 @@ export class VehicleSimulationController {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function vehicleImpact(vehicle: VehicleState): DamageImpact {
-  return {
-    family: 'vehicle',
-    force: 'heavy',
-    sourceX: vehicle.x,
-    sourceY: vehicle.y
-  };
 }
 
 function approach(value: number, target: number, amount: number): number {

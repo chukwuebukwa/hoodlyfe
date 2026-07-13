@@ -949,6 +949,10 @@ export class DistrictRoom extends Room<DistrictState> {
       this.pedestrians.update(npc, deltaSeconds, now);
       this.indexNpc(npc);
     });
+    const humanoidContacts = this.vehicleSimulation.finishHumanoidContacts(deltaSeconds, now);
+    for (const vehicle of humanoidContacts.vehicles) this.indexVehicle(vehicle);
+    for (const player of humanoidContacts.players) this.indexPlayer(player);
+    for (const npc of humanoidContacts.npcs) this.indexNpc(npc);
     this.state.bullets.forEach((bullet, bulletId) => {
       this.projectileController.update(bullet, bulletId, deltaSeconds, now);
     });
