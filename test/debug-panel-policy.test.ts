@@ -40,6 +40,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     patchGap: '0ms',
     prediction: '0px',
     clockSync: 'unsynced',
+    interactionIsland: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
 });
@@ -70,7 +71,14 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     onFootAcknowledgedMove: 37,
     remoteSnapshotAgeP95Ms: 104,
     remoteBufferUnderrunPercent: 2.5,
-    remoteExtrapolationPercent: 6.7
+    remoteExtrapolationPercent: 6.7,
+    interactionIslandSize: 5,
+    interactionIslandPoints: 14,
+    interactionIslandBudget: 32,
+    interactionIslandOverflow: 2,
+    interactionIslandOverflowPoints: 5,
+    interactionIslandHorizonMs: 190,
+    interactionSnapshotAgeTicks: 1
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
@@ -80,6 +88,10 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     '8.4px now / 12.7px p95 / 14 corr / 2 snap / V A34 P5 R9 / F A37 P4 R3'
   );
   assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
+  assert.equal(
+    panel.interactionIsland,
+    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon / 1t age'
+  );
 });
 
 function createState(): DistrictNetworkState {

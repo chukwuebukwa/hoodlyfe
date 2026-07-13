@@ -66,7 +66,8 @@ export class DebugPresentationController {
       latency: this.root.querySelector('#debug-latency'),
       patchGap: this.root.querySelector('#debug-patch-gap'),
       prediction: this.root.querySelector('#debug-prediction'),
-      clockSync: this.root.querySelector('#debug-clock-sync')
+      clockSync: this.root.querySelector('#debug-clock-sync'),
+      interactionIsland: this.root.querySelector('#debug-interaction-island')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({

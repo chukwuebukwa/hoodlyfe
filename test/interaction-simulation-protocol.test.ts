@@ -96,6 +96,10 @@ test('interaction snapshot validation fails closed on stale or incompatible base
   }, context).accepted, false);
   assert.equal(validateInteractionSnapshot({
     ...snapshot(),
+    entities: [{...vehicleEntity(), interactionPriority: 'secret-mission'}, playerEntity()]
+  }, context).accepted, false);
+  assert.equal(validateInteractionSnapshot({
+    ...snapshot(),
     remoteIntents: [{...remoteIntent(), entityId: 'missing'}]
   }, context).accepted, false);
 });
@@ -143,6 +147,7 @@ function vehicleEntity(): Record<string, unknown> {
     angularVelocity: 0.1,
     colliderRevision: 1,
     lifecycleRevision: 2,
+    interactionPriority: 'player-controlled',
     speed: 30,
     steering: 0.25,
     engineDamage: 12,
@@ -165,6 +170,7 @@ function playerEntity(): Record<string, unknown> {
     angularVelocity: 0,
     colliderRevision: 1,
     lifecycleRevision: 1,
+    interactionPriority: 'player-controlled',
     radius: 11,
     movementMode: 'idle',
     actionPhase: 'free',

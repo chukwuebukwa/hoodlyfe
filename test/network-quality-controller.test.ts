@@ -53,6 +53,15 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     bufferUnderrun: true,
     mode: 'held'
   });
+  controller.observeInteractionIsland({
+    serverTick: 93,
+    memberIds: ['local', 'car'],
+    weightedPoints: 8,
+    budget: 32,
+    overflowIds: ['pedestrian:ambient'],
+    overflowPoints: 1,
+    horizonMs: 180.25
+  });
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -79,7 +88,14 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     onFootAcknowledgedMove: 31,
     remoteSnapshotAgeP95Ms: 130,
     remoteBufferUnderrunPercent: 50,
-    remoteExtrapolationPercent: 0
+    remoteExtrapolationPercent: 0,
+    interactionIslandSize: 2,
+    interactionIslandPoints: 8,
+    interactionIslandBudget: 32,
+    interactionIslandOverflow: 1,
+    interactionIslandOverflowPoints: 1,
+    interactionIslandHorizonMs: 180.3,
+    interactionSnapshotAgeTicks: 1
   });
   controller.destroy();
 });

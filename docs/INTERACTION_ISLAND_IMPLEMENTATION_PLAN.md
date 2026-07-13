@@ -142,7 +142,7 @@ message, permits a bounded three-tick lead for 30 Hz simulation versus 20 Hz pat
 ordering, replaces duplicate ticks deterministically, reports rejection reasons, and
 owns listener teardown for both renderers.
 
-### M6: Generic Island Selection
+### M6: Generic Island Selection - Complete
 
 - Query swept candidates from the spatial index using RTT, interpolation delay, jitter,
   speed, collider reach, and current contact state.
@@ -150,6 +150,34 @@ owns listener teardown for both renderers.
 - Treat overflow as a measurable conservative fallback.
 
 Gate: membership is stable and bounded in dense traffic.
+
+Implemented with shared exact overlap tests for circles and oriented boxes, conservative
+swept-circle time-to-contact admission, and a renderer-independent stateful selector.
+The client horizon is derived from half RTT, interpolation delay, and doubled jitter,
+bounded to 100-500 ms; exit admission extends to 650 ms. Current contacts rank first,
+then six-tick retained contacts, then future contacts by adjusted time to contact,
+validated gameplay priority, and stable identity. One-hop contact closure includes a
+body touching a direct member without recursively absorbing an entire traffic queue.
+
+Desktop islands have a 32-point budget and mobile islands have 20 points. Vehicles cost
+4, movable props cost 2, and humanoids/projectiles cost 1; the controlled root counts
+against the same hard cap. Destroyed vehicles remain physical obstacles. Collider and
+lifecycle revision changes reset hysteresis, and every omitted eligible body is exposed
+as deterministic conservative overflow rather than silently disappearing.
+
+The interaction wire contract is now version 2 and carries a validated physical
+priority only: player-controlled, mission-critical, or ambient. Occupied remote vehicles
+therefore retain player priority without publishing private traffic or mission logic.
+The server ranks all same-tick candidates before its 64-entity transport cap so nearby
+stationary ambience cannot displace a slightly farther imminent contact. Both renderers
+compose the same controller and publish island size, weighted budget, overflow, horizon,
+and snapshot age through the existing F3 network diagnostics.
+
+Dense deterministic tests hold stable membership for 120 ticks under changing RTT,
+jitter, and reversed input order. The dedicated netcode gate passes 55 tests, the
+complete repository gate passes 344 tests, the production build passes, and the real
+two-client Colyseus scenario passes with protocol-v2 snapshots. M6 selects and measures
+islands only; dynamic replay begins in M7.
 
 ### M7: Whole-Island Replay
 

@@ -189,11 +189,16 @@ function parseKinematic(record: Record<string, unknown>): KinematicInteractionSt
   );
   const colliderRevision = safePositiveInteger(record.colliderRevision);
   const lifecycleRevision = safePositiveInteger(record.lifecycleRevision);
+  const interactionPriority = oneOf(record.interactionPriority, [
+    'player-controlled',
+    'mission-critical',
+    'ambient'
+  ]);
   if (
     !id || !kind || !spaceId || !layerId || x === undefined || y === undefined ||
     angle === undefined || velocityX === undefined || velocityY === undefined ||
     angularVelocity === undefined || colliderRevision === undefined ||
-    lifecycleRevision === undefined
+    lifecycleRevision === undefined || !interactionPriority
   ) return undefined;
   return Object.freeze({
     id,
@@ -207,7 +212,8 @@ function parseKinematic(record: Record<string, unknown>): KinematicInteractionSt
     velocityY,
     angularVelocity,
     colliderRevision,
-    lifecycleRevision
+    lifecycleRevision,
+    interactionPriority
   });
 }
 

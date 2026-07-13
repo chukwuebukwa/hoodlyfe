@@ -3,7 +3,7 @@ import type {VehicleKind} from '../content/vehicle-catalog.ts';
 export const PLAYER_INPUT_COMMAND_MESSAGE = 'simulation.input';
 export const APPLIED_INPUT_RECEIPT_MESSAGE = 'simulation.input.applied';
 export const INTERACTION_SNAPSHOT_MESSAGE = 'simulation.snapshot';
-export const INTERACTION_PROTOCOL_VERSION = 1;
+export const INTERACTION_PROTOCOL_VERSION = 2;
 export const MAX_INPUT_SEQUENCE_ADVANCE = 4_096;
 export const MAX_PREDICTED_SPAWN_IDS = 8;
 export const MAX_INTERACTION_ENTITIES = 64;
@@ -62,7 +62,10 @@ export interface KinematicInteractionState {
   readonly angularVelocity: number;
   readonly colliderRevision: number;
   readonly lifecycleRevision: number;
+  readonly interactionPriority: InteractionPhysicalPriority;
 }
+
+export type InteractionPhysicalPriority = 'player-controlled' | 'mission-critical' | 'ambient';
 
 export interface HumanoidInteractionState extends KinematicInteractionState {
   readonly kind: 'player' | 'pedestrian';

@@ -12,6 +12,8 @@ import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
 import {ThreeDayNightController} from './three-day-night-controller.ts';
 import {NetworkQualityController} from '../network/network-quality-controller.ts';
+import {InteractionIslandController} from '../network/interaction-island-controller.ts';
+import type {InteractionSnapshotInbox} from '../network/interaction-snapshot-inbox.ts';
 import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {
@@ -90,6 +92,7 @@ export class ThreePrototypeViewer {
   private world?: ThreeDistrictWorld;
   private debug?: ThreeDebugController;
   private networkQuality?: NetworkQualityController;
+  private interactionIslands?: InteractionIslandController;
   private interiors?: ThreeInteriorRenderer;
   private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
@@ -99,7 +102,8 @@ export class ThreePrototypeViewer {
 
   constructor(
     private readonly parent: HTMLElement,
-    private readonly room?: Room<DistrictNetworkState>
+    private readonly room?: Room<DistrictNetworkState>,
+    private readonly interactionSnapshots?: InteractionSnapshotInbox
   ) {
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -140,6 +144,19 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt
       );
       this.networkQuality = new NetworkQualityController(this.room);
+      if (this.interactionSnapshots) {
+        this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
+          networkConditions: () => {
+            const network = this.networkQuality?.snapshot();
+            return {
+              rttMs: network?.rttP95Ms ?? 0,
+              interpolationDelayMs: network?.interpolationDelayMs ?? 75,
+              jitterMs: network?.jitterMs ?? 0
+            };
+          },
+          onSelection: (selection) => this.networkQuality?.observeInteractionIsland(selection)
+        });
+      }
       this.debug = new ThreeDebugController(
         this.scene,
         this.room,
@@ -182,6 +199,7 @@ export class ThreePrototypeViewer {
     this.entities?.destroy();
     this.world?.destroy();
     this.debug?.destroy();
+    this.interactionIslands?.destroy();
     this.networkQuality?.destroy();
     this.interiors?.destroy();
     this.lighting?.destroy();

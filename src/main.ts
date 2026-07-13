@@ -112,7 +112,7 @@ class GameRuntimeController implements GameRuntime {
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
     this.loadingUi?.set(0.72, 'Building roads and rooftops');
-    this.activeThree = new ThreePrototypeViewer(game, this.activeRoom);
+    this.activeThree = new ThreePrototypeViewer(game, this.activeRoom, this.interactionSnapshots);
     await this.activeThree.start();
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
@@ -157,7 +157,7 @@ class GameRuntimeController implements GameRuntime {
         pixelArt: true,
         roundPixels: true
       },
-      scene: new DistrictScene(this.activeRoom)
+      scene: new DistrictScene(this.activeRoom, this.interactionSnapshots)
     });
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();

@@ -24,6 +24,7 @@ export interface DebugPanelProjection {
   patchGap: string;
   prediction: string;
   clockSync: string;
+  interactionIsland: string;
   events: string[];
 }
 
@@ -68,6 +69,13 @@ export function projectDebugPanel(
         `${network.remoteBufferUnderrunPercent}% under / ` +
         `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
+    interactionIsland: network
+      ? `${network.interactionIslandSize} bodies / ` +
+        `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
+        `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
+        `overflow / ${network.interactionIslandHorizonMs}ms horizon / ` +
+        `${network.interactionSnapshotAgeTicks}t age`
+      : 'off',
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']

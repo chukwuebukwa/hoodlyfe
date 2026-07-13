@@ -239,6 +239,7 @@ function snapshotFor(
       angularVelocity: 0,
       colliderRevision: 1,
       lifecycleRevision: 1,
+      interactionPriority: 'player-controlled',
       speed: pose.speed,
       steering: input.steering,
       engineDamage: 0,

@@ -7,6 +7,7 @@ import {
   MAX_INTERACTION_ENTITIES,
   type HumanoidInteractionState,
   type InteractionEntityState,
+  type InteractionPhysicalPriority,
   type InteractionSnapshot,
   type KinematicInteractionState,
   type RemoteIntentState
@@ -23,6 +24,7 @@ import type {
   VehicleState
 } from '../../state.ts';
 import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-config.ts';
+import {rankInteractionBaselineCandidates} from './interaction-baseline-admission.ts';
 
 export interface InteractionCandidateReference {
   kind: InteractionEntityState['kind'];
@@ -62,6 +64,10 @@ export interface InteractionSnapshotProjectorOptions {
     vehicleId: string
   ) => InteractionAppliedIntent | undefined;
   projectileMotionFor?: (projectileId: string) => InteractionProjectileMotion | undefined;
+  priorityFor?: (
+    kind: InteractionEntityState['kind'],
+    id: string
+  ) => InteractionPhysicalPriority | undefined;
   candidatesFor?: (
     playerId: string,
     anchor: InteractionProjectionAnchor
@@ -245,14 +251,22 @@ export class InteractionSnapshotProjector {
     const entities: InteractionEntityState[] = [root];
     const selectedKeys = new Set([rootKey]);
     const selectedIds = new Set([root.id]);
+    const candidateEntities: InteractionEntityState[] = [];
     for (const candidate of candidates) {
-      if (entities.length >= this.maximumEntities) break;
       const key = entityKey(candidate.kind, candidate.id);
       if (selectedKeys.has(key) || selectedIds.has(candidate.id)) continue;
       const entity = frame.entities.get(key);
       if (!entity || entity.spaceId !== root.spaceId || entity.layerId !== root.layerId) continue;
       selectedKeys.add(key);
       selectedIds.add(entity.id);
+      candidateEntities.push(entity);
+    }
+    selectedKeys.clear();
+    selectedKeys.add(rootKey);
+    for (const entity of rankInteractionBaselineCandidates(root, candidateEntities)) {
+      if (entities.length >= this.maximumEntities) break;
+      const key = entityKey(entity.kind, entity.id);
+      selectedKeys.add(key);
       entities.push(entity);
     }
     const remoteIntents = [...selectedKeys]
@@ -320,6 +334,7 @@ export class InteractionSnapshotProjector {
       player.x,
       player.y,
       player.angle,
+      'player-controlled',
       player.alive,
       `circle:${ON_FOOT_PLAYER_RADIUS}`,
       phase,
@@ -349,6 +364,7 @@ export class InteractionSnapshotProjector {
       npc.x,
       npc.y,
       npc.angle,
+      this.options.priorityFor?.('pedestrian', npc.id) ?? 'ambient',
       npc.alive,
       `circle:${PEDESTRIAN_RADIUS}`,
       phase,
@@ -387,6 +403,9 @@ export class InteractionSnapshotProjector {
       vehicle.x,
       vehicle.y,
       vehicle.angle,
+      vehicle.driverId && this.options.state.players.has(vehicle.driverId)
+        ? 'player-controlled'
+        : this.options.priorityFor?.('vehicle', vehicle.id) ?? 'ambient',
       !vehicle.destroyed,
       `obb:${vehicle.kind}:${definition.collision.length}:${definition.collision.width}`,
       'free',
@@ -425,6 +444,9 @@ export class InteractionSnapshotProjector {
       projectile.x,
       projectile.y,
       projectile.angle,
+      this.options.state.players.has(ownerId)
+        ? 'player-controlled'
+        : this.options.priorityFor?.('projectile', projectile.id) ?? 'ambient',
       true,
       `circle:${radius}`,
       'free',
@@ -444,6 +466,7 @@ export class InteractionSnapshotProjector {
     x: number,
     y: number,
     angle: number,
+    interactionPriority: InteractionPhysicalPriority,
     lifecycleActive: boolean,
     colliderSignature: string,
     actionPhase: HumanoidInteractionState['actionPhase'],
@@ -507,7 +530,8 @@ export class InteractionSnapshotProjector {
       velocityY: finite(velocityY),
       angularVelocity: finite(angularVelocity),
       colliderRevision,
-      lifecycleRevision
+      lifecycleRevision,
+      interactionPriority
     });
   }
 

@@ -39,7 +39,8 @@ export class ThreeDebugController {
     latency: document.querySelector('#debug-latency'),
     patchGap: document.querySelector('#debug-patch-gap'),
     prediction: document.querySelector('#debug-prediction'),
-    clockSync: document.querySelector('#debug-clock-sync')
+    clockSync: document.querySelector('#debug-clock-sync'),
+    interactionIsland: document.querySelector('#debug-interaction-island')
   };
   private snapshot?: DebugSnapshot;
   private state?: DistrictNetworkState;

@@ -28,6 +28,8 @@ import {RadioSystem} from './audio/radio-system.ts';
 import {SfxSystem} from './audio/sfx-system.ts';
 import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
 import {NetworkQualityController} from './network/network-quality-controller.ts';
+import {InteractionIslandController} from './network/interaction-island-controller.ts';
+import type {InteractionSnapshotInbox} from './network/interaction-snapshot-inbox.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 import {canOccupyClientInterior} from './world/client-collision-map.ts';
@@ -59,13 +61,17 @@ export class DistrictScene extends Phaser.Scene {
   private inputController!: ClientInputController;
   private interactionController!: InteractionPresentationController;
   private networkQuality!: NetworkQualityController;
+  private interactionIslands?: InteractionIslandController;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private minimap?: MinimapRenderer;
   private latestState?: DistrictNetworkState;
   private lastMinimapDrawAt = Number.NEGATIVE_INFINITY;
 
-  constructor(room: Room<DistrictNetworkState>) {
+  constructor(
+    room: Room<DistrictNetworkState>,
+    private readonly interactionSnapshots?: InteractionSnapshotInbox
+  ) {
     super('district');
     this.room = room;
   }
@@ -120,6 +126,24 @@ export class DistrictScene extends Phaser.Scene {
       this.networkQuality.destroy,
       this.networkQuality
     );
+    if (this.interactionSnapshots) {
+      this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
+        networkConditions: () => {
+          const network = this.networkQuality.snapshot();
+          return {
+            rttMs: network.rttP95Ms,
+            interpolationDelayMs: network.interpolationDelayMs,
+            jitterMs: network.jitterMs
+          };
+        },
+        onSelection: (selection) => this.networkQuality.observeInteractionIsland(selection)
+      });
+      this.events.once(
+        Phaser.Scenes.Events.SHUTDOWN,
+        this.interactionIslands.destroy,
+        this.interactionIslands
+      );
+    }
 
     this.cameraController = new CameraPresentationController(this);
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);

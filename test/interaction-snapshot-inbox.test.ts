@@ -96,6 +96,7 @@ function snapshot(serverTick: number, serverTimeMs: number): InteractionSnapshot
       angularVelocity: 0,
       colliderRevision: 1,
       lifecycleRevision: 1,
+      interactionPriority: 'player-controlled',
       radius: 11,
       movementMode: 'idle',
       actionPhase: 'free',

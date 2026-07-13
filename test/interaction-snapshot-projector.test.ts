@@ -67,15 +67,18 @@ test('projector freezes one complete same-tick baseline before later state mutat
   assert.deepEqual(snapshot.entities.map(({id}) => id), [
     'local',
     'remote',
-    'npc-1',
+    'rocket-1',
     'car-1',
-    'rocket-1'
+    'npc-1'
   ]);
   assert.equal(snapshot.acknowledgedLocalInputSequence, 12);
   assert.equal(snapshot.confirmedEventsThrough, 99);
   assert.equal(entity(snapshot, 'remote').x, 130);
+  assert.equal(entity(snapshot, 'remote').interactionPriority, 'player-controlled');
   assert.equal(entity(snapshot, 'car-1').kind, 'vehicle');
+  assert.equal(entity(snapshot, 'car-1').interactionPriority, 'ambient');
   assert.equal(entity(snapshot, 'rocket-1').velocityX, 400);
+  assert.equal(entity(snapshot, 'rocket-1').interactionPriority, 'player-controlled');
   assert.deepEqual(snapshot.remoteIntents.map(({entityId}) => entityId), ['remote']);
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot.entities), true);
@@ -160,6 +163,58 @@ test('projector publishes one root-first baseline per connected player', () => {
   assert.equal(projector.snapshotAt('one', 5), published.get('one'));
   projector.clearPlayer('one');
   assert.equal(projector.historyFor('one').length, 0);
+});
+
+test('projector capacity keeps imminent contacts ahead of closer stationary ambient actors', () => {
+  const state = new DistrictState();
+  const local = player('local', 0, 0);
+  const ambient = new NpcState();
+  ambient.id = 'ambient';
+  ambient.x = 100;
+  const approaching = new VehicleState();
+  approaching.id = 'approaching';
+  approaching.x = 200;
+  approaching.angle = Math.PI;
+  approaching.speed = 300;
+  state.players.set(local.id, local);
+  state.npcs.set(ambient.id, ambient);
+  state.vehicles.set(approaching.id, approaching);
+  const projector = new InteractionSnapshotProjector({
+    state,
+    clock: () => ({tick: 1, nowMs: 100}),
+    worldCollisionRevision: 1,
+    maximumEntities: 2
+  });
+
+  projector.capture();
+  const snapshot = projector.project(local.id, [
+    reference('pedestrian', ambient.id),
+    reference('vehicle', approaching.id)
+  ]);
+  assert.deepEqual(snapshot?.entities.map(({id}) => id), ['local', 'approaching']);
+});
+
+test('projector marks an occupied remote vehicle as player-controlled', () => {
+  const state = new DistrictState();
+  const local = player('local', 0, 0);
+  const remote = player('remote', 100, 0);
+  const vehicle = new VehicleState();
+  vehicle.id = 'remote-car';
+  vehicle.driverId = remote.id;
+  remote.vehicleId = vehicle.id;
+  remote.vehicleSeat = 0;
+  state.players.set(local.id, local);
+  state.players.set(remote.id, remote);
+  state.vehicles.set(vehicle.id, vehicle);
+  const projector = new InteractionSnapshotProjector({
+    state,
+    clock: () => ({tick: 1, nowMs: 100}),
+    worldCollisionRevision: 1
+  });
+
+  projector.capture();
+  const snapshot = projector.project(local.id, [reference('vehicle', vehicle.id)]);
+  assert.equal(entity(snapshot!, vehicle.id).interactionPriority, 'player-controlled');
 });
 
 function player(id: string, x: number, y: number): PlayerState {

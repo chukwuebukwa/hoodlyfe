@@ -38,6 +38,23 @@ export interface NetworkQualitySnapshot {
   remoteSnapshotAgeP95Ms: number;
   remoteBufferUnderrunPercent: number;
   remoteExtrapolationPercent: number;
+  interactionIslandSize: number;
+  interactionIslandPoints: number;
+  interactionIslandBudget: number;
+  interactionIslandOverflow: number;
+  interactionIslandOverflowPoints: number;
+  interactionIslandHorizonMs: number;
+  interactionSnapshotAgeTicks: number;
+}
+
+export interface InteractionIslandObservation {
+  readonly serverTick: number;
+  readonly memberIds: readonly string[];
+  readonly weightedPoints: number;
+  readonly budget: number;
+  readonly overflowIds: readonly string[];
+  readonly overflowPoints: number;
+  readonly horizonMs: number;
 }
 
 interface NetworkQualityControllerOptions {
@@ -70,6 +87,13 @@ export class NetworkQualityController {
   private onFootResimulations = 0;
   private onFootPendingMoves = 0;
   private onFootAcknowledgedMove = 0;
+  private interactionIslandSize = 0;
+  private interactionIslandPoints = 0;
+  private interactionIslandBudget = 0;
+  private interactionIslandOverflow = 0;
+  private interactionIslandOverflowPoints = 0;
+  private interactionIslandHorizonMs = 0;
+  private interactionSnapshotTick = 0;
 
   constructor(
     private readonly room: Room<DistrictNetworkState>,
@@ -141,6 +165,16 @@ export class NetworkQualityController {
     );
   }
 
+  observeInteractionIsland(observation: InteractionIslandObservation): void {
+    this.interactionIslandSize = observation.memberIds.length;
+    this.interactionIslandPoints = nonnegativeInteger(observation.weightedPoints);
+    this.interactionIslandBudget = nonnegativeInteger(observation.budget);
+    this.interactionIslandOverflow = observation.overflowIds.length;
+    this.interactionIslandOverflowPoints = nonnegativeInteger(observation.overflowPoints);
+    this.interactionIslandHorizonMs = roundedNonnegative(observation.horizonMs);
+    this.interactionSnapshotTick = nonnegativeInteger(observation.serverTick);
+  }
+
   snapshot(): NetworkQualitySnapshot {
     const sortedRtt = [...this.rttSamples].sort((left, right) => left - right);
     const jitterSamples: number[] = [];
@@ -185,7 +219,16 @@ export class NetworkQualityController {
         95
       ),
       remoteBufferUnderrunPercent: percentage(this.remoteBufferUnderruns),
-      remoteExtrapolationPercent: percentage(this.remoteExtrapolations)
+      remoteExtrapolationPercent: percentage(this.remoteExtrapolations),
+      interactionIslandSize: this.interactionIslandSize,
+      interactionIslandPoints: this.interactionIslandPoints,
+      interactionIslandBudget: this.interactionIslandBudget,
+      interactionIslandOverflow: this.interactionIslandOverflow,
+      interactionIslandOverflowPoints: this.interactionIslandOverflowPoints,
+      interactionIslandHorizonMs: this.interactionIslandHorizonMs,
+      interactionSnapshotAgeTicks: this.interactionIslandBudget > 0
+        ? Math.max(0, this.serverTick - this.interactionSnapshotTick)
+        : 0
     };
   }
 
@@ -244,4 +287,12 @@ function percentage(values: readonly number[]): number {
 function meanRaw(values: readonly number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function nonnegativeInteger(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+function roundedNonnegative(value: number): number {
+  return Number.isFinite(value) ? Math.round(Math.max(0, value) * 10) / 10 : 0;
 }
