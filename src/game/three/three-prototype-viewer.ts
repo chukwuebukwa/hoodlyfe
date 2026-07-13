@@ -154,6 +154,7 @@ export class ThreePrototypeViewer {
               jitterMs: network?.jitterMs ?? 0
             };
           },
+          onHistory: (frames) => this.networkQuality?.observeInteractionHistory(frames),
           onSelection: (selection) => this.networkQuality?.observeInteractionIsland(selection)
         });
       }

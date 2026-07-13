@@ -62,6 +62,24 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     overflowPoints: 1,
     horizonMs: 180.25
   });
+  controller.observeInteractionHistory(12);
+  controller.observeInteractionReplay({
+    replayed: true,
+    baselineTick: 92,
+    targetServerTick: 94,
+    replayedTicks: 2,
+    bodySteps: 4,
+    pairSteps: 2,
+    confirmedEventsThrough: 92,
+    entities: [],
+    suppressedEffects: {
+      'idempotent-presentation': 0,
+      'one-shot-presentation': 2,
+      'authoritative-gameplay': 1,
+      'durable-transaction': 0
+    }
+  }, 1.25);
+  controller.observeInteractionReplay({replayed: false, reason: 'world-revision-mismatch'}, 0);
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -95,7 +113,14 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     interactionIslandOverflow: 1,
     interactionIslandOverflowPoints: 1,
     interactionIslandHorizonMs: 180.3,
-    interactionSnapshotAgeTicks: 1
+    interactionSnapshotAgeTicks: 1,
+    interactionHistoryFrames: 12,
+    interactionReplayCount: 1,
+    interactionReplayTicks: 2,
+    interactionReplayDurationP95Ms: 1.3,
+    interactionReplayPairSteps: 2,
+    interactionReplaySuppressedEffects: 3,
+    interactionReplayHardResets: 1
   });
   controller.destroy();
 });

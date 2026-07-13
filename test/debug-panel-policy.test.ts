@@ -78,7 +78,14 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     interactionIslandOverflow: 2,
     interactionIslandOverflowPoints: 5,
     interactionIslandHorizonMs: 190,
-    interactionSnapshotAgeTicks: 1
+    interactionSnapshotAgeTicks: 1,
+    interactionHistoryFrames: 12,
+    interactionReplayCount: 4,
+    interactionReplayTicks: 9,
+    interactionReplayDurationP95Ms: 1.7,
+    interactionReplayPairSteps: 18,
+    interactionReplaySuppressedEffects: 2,
+    interactionReplayHardResets: 1
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
@@ -90,7 +97,8 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
   assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
   assert.equal(
     panel.interactionIsland,
-    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon / 1t age'
+    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon / 1t age / ' +
+    'H12 / R4:9t 1.7ms p95 / 1 reset'
   );
 });
 

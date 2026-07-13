@@ -67,6 +67,13 @@ import {
 } from '../prediction/saved-on-foot-prediction.ts';
 import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
+import {
+  angleCorrectionOffset,
+  decayCorrectionOffset,
+  ON_FOOT_CORRECTION_DECAY_RATE,
+  positionCorrectionOffset,
+  VEHICLE_CORRECTION_DECAY_RATE
+} from '../rendering/correction-smoothing.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -324,9 +331,16 @@ export class ThreeDistrictEntities {
       this.canOccupy,
       movementScale
     );
-    const decay = Math.exp(-14 * Math.min(Math.max(deltaSeconds, 0), 0.05));
-    rendered.visualOffsetX = (rendered.visualOffsetX ?? 0) * decay;
-    rendered.visualOffsetY = (rendered.visualOffsetY ?? 0) * decay;
+    rendered.visualOffsetX = decayCorrectionOffset(
+      rendered.visualOffsetX ?? 0,
+      deltaSeconds,
+      ON_FOOT_CORRECTION_DECAY_RATE
+    );
+    rendered.visualOffsetY = decayCorrectionOffset(
+      rendered.visualOffsetY ?? 0,
+      deltaSeconds,
+      ON_FOOT_CORRECTION_DECAY_RATE
+    );
     const x = advanced.pose.x + rendered.visualOffsetX;
     const y = advanced.pose.y + rendered.visualOffsetY;
     rendered.predictedSpaceId = advanced.pose.spaceId;
@@ -359,10 +373,21 @@ export class ThreeDistrictEntities {
       }
     );
     if (!advanced) return undefined;
-    const decay = Math.exp(-12 * Math.min(Math.max(deltaSeconds, 0), 0.05));
-    rendered.visualOffsetX = (rendered.visualOffsetX ?? 0) * decay;
-    rendered.visualOffsetY = (rendered.visualOffsetY ?? 0) * decay;
-    rendered.visualOffsetAngle = (rendered.visualOffsetAngle ?? 0) * decay;
+    rendered.visualOffsetX = decayCorrectionOffset(
+      rendered.visualOffsetX ?? 0,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
+    rendered.visualOffsetY = decayCorrectionOffset(
+      rendered.visualOffsetY ?? 0,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
+    rendered.visualOffsetAngle = decayCorrectionOffset(
+      rendered.visualOffsetAngle ?? 0,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
     const predicted = {
       ...advanced.pose,
       x: advanced.pose.x + rendered.visualOffsetX,
@@ -513,8 +538,15 @@ export class ThreeDistrictEntities {
         this.canOccupy
       );
       if (correction) {
-        rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
-        rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
+        const offset = positionCorrectionOffset(
+          beforeX,
+          beforeY,
+          correction.pose.x,
+          correction.pose.y,
+          correction.hardCorrection
+        );
+        rendered.visualOffsetX = offset.x;
+        rendered.visualOffsetY = offset.y;
         rendered.onFootCorrection = correction;
         rendered.predictedSpaceId = correction.pose.spaceId;
         rendered.acknowledgedInputSequence = acknowledgedSequence;
@@ -903,11 +935,20 @@ export class ThreeDistrictEntities {
       });
       if (correction) {
         rendered.vehicleCorrection = correction;
-        rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
-        rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
-        rendered.visualOffsetAngle = correction.hardCorrection
-          ? 0
-          : normalizeAngle(beforeAngle - correction.pose.angle);
+        const offset = positionCorrectionOffset(
+          beforeX,
+          beforeY,
+          correction.pose.x,
+          correction.pose.y,
+          correction.hardCorrection
+        );
+        rendered.visualOffsetX = offset.x;
+        rendered.visualOffsetY = offset.y;
+        rendered.visualOffsetAngle = angleCorrectionOffset(
+          beforeAngle,
+          correction.pose.angle,
+          correction.hardCorrection
+        );
       }
       rendered.acknowledgedVehicleInputSequence = acknowledgedSequence;
     }

@@ -17,6 +17,11 @@ import {
   SavedOnFootPrediction,
   type OnFootPredictionCorrection
 } from '../prediction/saved-on-foot-prediction.ts';
+import {
+  decayCorrectionOffset,
+  ON_FOOT_CORRECTION_DECAY_RATE,
+  positionCorrectionOffset
+} from './correction-smoothing.ts';
 import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
 
@@ -171,9 +176,16 @@ export class PlayerRenderer {
       this.options.canOccupy,
       movementScale
     );
-    const decay = Math.exp(-14 * Math.min(Math.max(deltaSeconds, 0), 0.05));
-    local.visualOffsetX *= decay;
-    local.visualOffsetY *= decay;
+    local.visualOffsetX = decayCorrectionOffset(
+      local.visualOffsetX,
+      deltaSeconds,
+      ON_FOOT_CORRECTION_DECAY_RATE
+    );
+    local.visualOffsetY = decayCorrectionOffset(
+      local.visualOffsetY,
+      deltaSeconds,
+      ON_FOOT_CORRECTION_DECAY_RATE
+    );
     local.sprite.setPosition(
       advanced.pose.x + local.visualOffsetX,
       advanced.pose.y + local.visualOffsetY
@@ -267,8 +279,15 @@ export class PlayerRenderer {
         acknowledgedSequence,
         this.options.canOccupy
       );
-      rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
-      rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
+      const offset = positionCorrectionOffset(
+        beforeX,
+        beforeY,
+        correction.pose.x,
+        correction.pose.y,
+        correction.hardCorrection
+      );
+      rendered.visualOffsetX = offset.x;
+      rendered.visualOffsetY = offset.y;
       rendered.onFootCorrection = correction;
       rendered.predictedSpaceId = correction.pose.spaceId;
       rendered.acknowledgedInputSequence = acknowledgedSequence;

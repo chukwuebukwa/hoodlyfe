@@ -12,6 +12,12 @@ import {
 import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
 import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
+import {
+  angleCorrectionOffset,
+  decayCorrectionOffset,
+  positionCorrectionOffset,
+  VEHICLE_CORRECTION_DECAY_RATE
+} from './correction-smoothing.ts';
 
 interface RenderVehicle {
   vehicleId: string;
@@ -152,10 +158,21 @@ export class VehicleRenderer {
     if (advanced.outboundMoves.length > 0) {
       this.options.sendVehicleMoves?.(rendered.vehicleId, advanced.outboundMoves);
     }
-    const decay = Math.exp(-12 * Math.min(Math.max(deltaSeconds, 0), 0.05));
-    rendered.visualOffsetX *= decay;
-    rendered.visualOffsetY *= decay;
-    rendered.visualOffsetAngle *= decay;
+    rendered.visualOffsetX = decayCorrectionOffset(
+      rendered.visualOffsetX,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
+    rendered.visualOffsetY = decayCorrectionOffset(
+      rendered.visualOffsetY,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
+    rendered.visualOffsetAngle = decayCorrectionOffset(
+      rendered.visualOffsetAngle,
+      deltaSeconds,
+      VEHICLE_CORRECTION_DECAY_RATE
+    );
     rendered.container.setPosition(
       advanced.pose.x + rendered.visualOffsetX,
       advanced.pose.y + rendered.visualOffsetY
@@ -249,11 +266,20 @@ export class VehicleRenderer {
       }, acknowledgedSequence, vehicle.kind, this.options.canOccupy ?? (() => true), {
         maximumSpeedMultiplier: rendered.maximumSpeedMultiplier
       });
-      rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
-      rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
-      rendered.visualOffsetAngle = correction.hardCorrection
-        ? 0
-        : normalizeAngle(beforeAngle - correction.pose.angle);
+      const offset = positionCorrectionOffset(
+        beforeX,
+        beforeY,
+        correction.pose.x,
+        correction.pose.y,
+        correction.hardCorrection
+      );
+      rendered.visualOffsetX = offset.x;
+      rendered.visualOffsetY = offset.y;
+      rendered.visualOffsetAngle = angleCorrectionOffset(
+        beforeAngle,
+        correction.pose.angle,
+        correction.hardCorrection
+      );
       this.options.onPrediction?.(
         correction.positionError,
         correction.hardCorrection,

@@ -19,12 +19,41 @@ test('interaction island controller consumes the latest baseline and stops on de
   });
   assert.equal(controller.latest()?.serverTick, 1);
   assert.equal(controller.latest()?.budget, 20);
+  assert.equal(controller.latestBaseline()?.serverTick, 1);
   source.emit(snapshot(2));
   assert.deepEqual(observed, [1, 2]);
+  assert.equal(controller.latestBaseline()?.serverTick, 2);
   controller.destroy();
   source.emit(snapshot(3));
   assert.deepEqual(observed, [1, 2]);
   assert.equal(controller.latest(), undefined);
+  assert.equal(controller.latestBaseline(), undefined);
+});
+
+test('interaction island controller can replay through injected family kernels', () => {
+  const source = new FakeSnapshotSource();
+  const results: boolean[] = [];
+  let now = 5;
+  const controller = new InteractionIslandController(source, {
+    budget: 20,
+    networkConditions: () => ({rttMs: 100, interpolationDelayMs: 90, jitterMs: 10}),
+    replay: {
+      currentServerTick: () => 3,
+      worldCollisionRevision: () => 1,
+      stepBody: (entity) => ({...entity, x: entity.x + 1}),
+      onReplay: (result, durationMs) => {
+        results.push(result.replayed);
+        assert.equal(durationMs, 1);
+      },
+      now: () => now++
+    }
+  });
+  source.emit(snapshot(1));
+  assert.deepEqual(results, [true]);
+  const replay = controller.latestReplay();
+  assert.equal(replay?.replayed, true);
+  if (replay?.replayed) assert.equal(replay.entities[0].x, 2);
+  controller.destroy();
 });
 
 class FakeSnapshotSource implements InteractionSnapshotSource {

@@ -8,6 +8,7 @@ import {
 import type {DistrictNetworkState} from '../types.ts';
 import type {RemoteMotionSample} from './remote-motion-timeline.ts';
 import {adaptiveInterpolationDelayMs} from './remote-timeline-policy.ts';
+import type {InteractionIslandReplayResult} from '../prediction/interaction-island-replay.ts';
 
 const PROBE_INTERVAL_MS = 1_000;
 const SAMPLE_LIMIT = 30;
@@ -45,6 +46,13 @@ export interface NetworkQualitySnapshot {
   interactionIslandOverflowPoints: number;
   interactionIslandHorizonMs: number;
   interactionSnapshotAgeTicks: number;
+  interactionHistoryFrames: number;
+  interactionReplayCount: number;
+  interactionReplayTicks: number;
+  interactionReplayDurationP95Ms: number;
+  interactionReplayPairSteps: number;
+  interactionReplaySuppressedEffects: number;
+  interactionReplayHardResets: number;
 }
 
 export interface InteractionIslandObservation {
@@ -69,6 +77,7 @@ export class NetworkQualityController {
   private readonly remoteSnapshotAges: number[] = [];
   private readonly remoteBufferUnderruns: number[] = [];
   private readonly remoteExtrapolations: number[] = [];
+  private readonly interactionReplayDurations: number[] = [];
   private readonly cleanup: Array<() => void> = [];
   private readonly now: () => number;
   private sequence = 0;
@@ -94,6 +103,12 @@ export class NetworkQualityController {
   private interactionIslandOverflowPoints = 0;
   private interactionIslandHorizonMs = 0;
   private interactionSnapshotTick = 0;
+  private interactionHistoryFrames = 0;
+  private interactionReplayCount = 0;
+  private interactionReplayTicks = 0;
+  private interactionReplayPairSteps = 0;
+  private interactionReplaySuppressedEffects = 0;
+  private interactionReplayHardResets = 0;
 
   constructor(
     private readonly room: Room<DistrictNetworkState>,
@@ -175,6 +190,27 @@ export class NetworkQualityController {
     this.interactionSnapshotTick = nonnegativeInteger(observation.serverTick);
   }
 
+  observeInteractionHistory(historyFrames: number): void {
+    this.interactionHistoryFrames = nonnegativeInteger(historyFrames);
+  }
+
+  observeInteractionReplay(result: InteractionIslandReplayResult, durationMs: number): void {
+    if (!result.replayed) {
+      this.interactionReplayHardResets++;
+      return;
+    }
+    this.interactionReplayCount++;
+    this.interactionReplayTicks += nonnegativeInteger(result.replayedTicks);
+    this.interactionReplayPairSteps += nonnegativeInteger(result.pairSteps);
+    this.interactionReplaySuppressedEffects += Object.values(result.suppressedEffects)
+      .reduce((sum, count) => sum + nonnegativeInteger(count), 0);
+    pushBounded(
+      this.interactionReplayDurations,
+      roundedNonnegative(durationMs),
+      SAMPLE_LIMIT
+    );
+  }
+
   snapshot(): NetworkQualitySnapshot {
     const sortedRtt = [...this.rttSamples].sort((left, right) => left - right);
     const jitterSamples: number[] = [];
@@ -228,7 +264,17 @@ export class NetworkQualityController {
       interactionIslandHorizonMs: this.interactionIslandHorizonMs,
       interactionSnapshotAgeTicks: this.interactionIslandBudget > 0
         ? Math.max(0, this.serverTick - this.interactionSnapshotTick)
-        : 0
+        : 0,
+      interactionHistoryFrames: this.interactionHistoryFrames,
+      interactionReplayCount: this.interactionReplayCount,
+      interactionReplayTicks: this.interactionReplayTicks,
+      interactionReplayDurationP95Ms: percentile(
+        [...this.interactionReplayDurations].sort((left, right) => left - right),
+        95
+      ),
+      interactionReplayPairSteps: this.interactionReplayPairSteps,
+      interactionReplaySuppressedEffects: this.interactionReplaySuppressedEffects,
+      interactionReplayHardResets: this.interactionReplayHardResets
     };
   }
 

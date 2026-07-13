@@ -179,7 +179,7 @@ complete repository gate passes 344 tests, the production build passes, and the 
 two-client Colyseus scenario passes with protocol-v2 snapshots. M6 selects and measures
 islands only; dynamic replay begins in M7.
 
-### M7: Whole-Island Replay
+### M7: Whole-Island Replay - Complete
 
 - Store immutable island state beside local command history.
 - Restore all members to one tick and replay in stable ordered pairs.
@@ -189,6 +189,32 @@ islands only; dynamic replay begins in M7.
 
 Gate: replaying the same baseline and commands produces the same state and no duplicate
 side effects.
+
+The client now retains 24 immutable same-tick island frames and resets that history on
+controlled-root or static-world revision changes. A renderer-independent replay owner
+restores every selected body from one baseline, advances fixed 30 Hz body steps in
+stable identity order, and resolves each unordered dynamic pair exactly once in stable
+order. Local saved commands take precedence. Remote physical intent is held for two
+ticks and then decays linearly to neutral over four ticks.
+
+Replay runs behind an explicit side-effect gate. Pure state transitions are allowed,
+while gameplay, durable transaction, one-shot presentation, and idempotent presentation
+callbacks are suppressed and counted. Invalid history windows, world or entity revision
+changes, non-finite commands, and invalid family-kernel results reject replay without
+partially publishing output. Phaser and Three now share one render-only correction
+smoothing policy, so canonical simulation corrections remain immediate while visual
+offsets decay.
+
+The F3 network diagnostics expose retained history, replay count and ticks, p95 replay
+duration, pair steps, suppressed effects, and hard resets. M7 deliberately enables live
+history capture and the generic replay coordinator only. No dynamic interaction family
+publishes replay output yet; M8 activates vehicle-to-vehicle contacts through the
+injected family hook.
+
+The dedicated netcode gate passes 68 tests, including the exact 32-body / 24-tick
+maximum work envelope of 768 body steps and 11,904 stable pair evaluations. The complete
+repository gate passes 357 tests, TypeScript and the optimized production build pass,
+and the real two-client Colyseus scenario passes in 18.8 seconds.
 
 ### M8-M10: Interaction Families
 

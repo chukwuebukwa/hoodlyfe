@@ -136,6 +136,7 @@ export class DistrictScene extends Phaser.Scene {
             jitterMs: network.jitterMs
           };
         },
+        onHistory: (frames) => this.networkQuality.observeInteractionHistory(frames),
         onSelection: (selection) => this.networkQuality.observeInteractionIsland(selection)
       });
       this.events.once(

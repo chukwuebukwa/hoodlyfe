@@ -74,7 +74,10 @@ export function projectDebugPanel(
         `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
         `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
         `overflow / ${network.interactionIslandHorizonMs}ms horizon / ` +
-        `${network.interactionSnapshotAgeTicks}t age`
+        `${network.interactionSnapshotAgeTicks}t age / H${network.interactionHistoryFrames} / ` +
+        `R${network.interactionReplayCount}:${network.interactionReplayTicks}t ` +
+        `${network.interactionReplayDurationP95Ms}ms p95 / ` +
+        `${network.interactionReplayHardResets} reset`
       : 'off',
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)

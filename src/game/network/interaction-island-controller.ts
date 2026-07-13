@@ -4,6 +4,12 @@ import {
   type InteractionIslandSelection
 } from '../prediction/interaction-island-selector.ts';
 import {
+  InteractionIslandReplayController,
+  type InteractionIslandReplayControllerOptions
+} from '../prediction/interaction-island-replay-controller.ts';
+import type {InteractionIslandReplayResult} from '../prediction/interaction-island-replay.ts';
+import type {InteractionIslandBaseline} from '../prediction/island-state-history.ts';
+import {
   DESKTOP_INTERACTION_ISLAND_BUDGET,
   MOBILE_INTERACTION_ISLAND_BUDGET,
   type InteractionNetworkConditions
@@ -13,6 +19,8 @@ export interface InteractionIslandControllerOptions {
   readonly networkConditions: () => InteractionNetworkConditions;
   readonly budget?: number;
   readonly onSelection?: (selection: InteractionIslandSelection) => void;
+  readonly onHistory?: (historyFrames: number) => void;
+  readonly replay?: InteractionIslandReplayControllerOptions;
 }
 
 export interface InteractionSnapshotSource {
@@ -22,6 +30,7 @@ export interface InteractionSnapshotSource {
 
 export class InteractionIslandController {
   private readonly selector = new InteractionIslandSelector();
+  private readonly replay: InteractionIslandReplayController;
   private readonly unsubscribe: () => void;
   private readonly budget: number;
 
@@ -30,6 +39,7 @@ export class InteractionIslandController {
     private readonly options: InteractionIslandControllerOptions
   ) {
     this.budget = options.budget ?? interactionIslandBudgetForEnvironment();
+    this.replay = new InteractionIslandReplayController(options.replay);
     this.unsubscribe = inbox.subscribe((snapshot) => this.receive(snapshot));
     const latest = inbox.latest();
     if (latest) this.receive(latest);
@@ -39,9 +49,18 @@ export class InteractionIslandController {
     return this.selector.latest();
   }
 
+  latestBaseline(): InteractionIslandBaseline | undefined {
+    return this.replay.latestBaseline();
+  }
+
+  latestReplay(): InteractionIslandReplayResult | undefined {
+    return this.replay.latestReplay();
+  }
+
   destroy(): void {
     this.unsubscribe();
     this.selector.reset();
+    this.replay.reset();
   }
 
   private receive(snapshot: InteractionSnapshot): void {
@@ -49,7 +68,10 @@ export class InteractionIslandController {
       budget: this.budget,
       network: this.options.networkConditions()
     });
-    if (selection) this.options.onSelection?.(selection);
+    if (!selection) return;
+    this.replay.record(snapshot, selection);
+    this.options.onHistory?.(this.replay.historySize());
+    this.options.onSelection?.(selection);
   }
 }
 
