@@ -46,7 +46,7 @@ actors remain server-authoritative obstacles and increment diagnostics.
 
 ## Milestones
 
-### M0: Baseline Diagnostics - In Progress
+### M0: Baseline Diagnostics - Complete
 
 - Replicate `serverTick` beside `serverTimeMs`.
 - Record current, mean, and p95 prediction correction error.

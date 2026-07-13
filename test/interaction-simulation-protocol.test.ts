@@ -7,7 +7,7 @@ import {
   validatePlayerInputCommand
 } from '../shared/protocol/interaction-simulation.ts';
 
-test('player input validation normalizes and freezes accepted commands', () => {
+test('player input validation clamps independent axes and freezes accepted commands', () => {
   const result = validatePlayerInputCommand({
     protocolVersion: INTERACTION_PROTOCOL_VERSION,
     sequence: 8,
@@ -28,7 +28,8 @@ test('player input validation normalizes and freezes accepted commands', () => {
   });
   assert.equal(result.accepted, true);
   if (!result.accepted) return;
-  assert.ok(Math.abs(Math.hypot(result.value.moveX, result.value.moveY) - 1) < 1e-12);
+  assert.equal(result.value.moveX, 1);
+  assert.equal(result.value.moveY, -1);
   assert.ok(Math.abs(result.value.aimAngle - Math.PI) < 1e-12);
   assert.equal(Object.isFrozen(result.value), true);
   assert.equal(Object.isFrozen(result.value.predictedSpawnIds), true);

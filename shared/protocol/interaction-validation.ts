@@ -61,12 +61,6 @@ export function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
-export function normalizedVector(x: number, y: number): {x: number; y: number} {
-  const magnitude = Math.hypot(x, y);
-  if (magnitude <= 1) return {x, y};
-  return {x: x / magnitude, y: y / magnitude};
-}
-
 export function accepted<T>(value: T): InteractionValidationResult<T> {
   return {accepted: true, value};
 }

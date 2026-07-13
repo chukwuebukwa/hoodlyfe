@@ -19,7 +19,8 @@
     "dev:web": "next dev -H 0.0.0.0 -p 5173",
     "start": "npm run dev",
     "start:prod": "tsx server/index.ts",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test test/**/*.test.ts",
+    "test:netcode": "tsx --test test/interaction-simulation-protocol.test.ts test/netcode-impairment.test.ts test/network-quality-controller.test.ts test/saved-vehicle-prediction.test.ts test/vehicle-step.test.ts"
   },
   "dependencies": {
     "@colyseus/core": "0.16.24",

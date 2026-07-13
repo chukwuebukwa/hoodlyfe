@@ -13,7 +13,6 @@ import {
   finiteInRange,
   finiteNumber,
   normalizeAngle,
-  normalizedVector,
   objectRecord,
   rejected,
   safeNonnegativeInteger,
@@ -69,14 +68,13 @@ export function validatePlayerInputCommand(
   if (!predictedSpawnIds) return rejected('invalid-predicted-spawn-id');
   const clampedX = clamp(moveX, -1, 1);
   const clampedY = clamp(moveY, -1, 1);
-  const movement = normalizedVector(clampedX, clampedY);
   return accepted(Object.freeze({
     protocolVersion: INTERACTION_PROTOCOL_VERSION,
     sequence,
     clientTick,
     clientSampleTimeMs,
-    moveX: movement.x,
-    moveY: movement.y,
+    moveX: clampedX,
+    moveY: clampedY,
     aimAngle: normalizeAngle(aimAngle),
     buttons,
     selectedWeaponSlot,
