@@ -18,6 +18,13 @@ import {
   positionCorrectionOffset,
   VEHICLE_CORRECTION_DECAY_RATE
 } from './correction-smoothing.ts';
+import type {InteractionIslandReplayResult} from '../prediction/interaction-island-replay.ts';
+import type {InteractionIslandBaseline} from '../prediction/island-state-history.ts';
+import {
+  applyVehicleInteractionReplay,
+  prepareVehicleInteractionReplay,
+  type VehicleInteractionReplayPreparation
+} from '../prediction/vehicle-interaction-replay.ts';
 
 interface RenderVehicle {
   vehicleId: string;
@@ -42,6 +49,14 @@ interface RenderVehicle {
   visualOffsetY: number;
   visualOffsetAngle: number;
   acknowledgedSequence: number;
+  interactionReplayAcknowledgedSequence?: number;
+  interactionPose?: {
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+    baselineServerTimeMs: number;
+  };
   motion: RemoteMotionTimeline;
 }
 
@@ -114,7 +129,8 @@ export class VehicleRenderer {
         this.animateEffects(rendered, time);
         continue;
       }
-      const buffered = !rendered.localOccupant && renderServerTimeMs > 0
+      const interaction = rendered.interactionPose;
+      const buffered = !interaction && !rendered.localOccupant && renderServerTimeMs > 0
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);
@@ -128,15 +144,15 @@ export class VehicleRenderer {
         : interpolatePosition(
           rendered.container.x,
           rendered.container.y,
-          rendered.targetX,
-          rendered.targetY,
+          interaction?.x ?? rendered.targetX,
+          interaction?.y ?? rendered.targetY,
           rendered.localOccupant ? 0.34 : 0.25,
           180
         );
       rendered.container.setPosition(position.x, position.y);
       rendered.container.rotation = rotateTowards(
         rendered.container.rotation,
-        (buffered?.angle ?? rendered.targetAngle) + Math.PI / 2,
+        (interaction?.angle ?? buffered?.angle ?? rendered.targetAngle) + Math.PI / 2,
         buffered ? 1 : 0.2
       );
       rendered.container.setDepth(Math.round(rendered.container.y) + 90);
@@ -179,6 +195,63 @@ export class VehicleRenderer {
     );
     rendered.container.rotation = advanced.pose.angle + rendered.visualOffsetAngle + Math.PI / 2;
     rendered.predictedSpeed = advanced.pose.speed;
+  }
+
+  prepareInteractionReplay(
+    baseline: InteractionIslandBaseline
+  ): VehicleInteractionReplayPreparation | undefined {
+    const rendered = this.rendered.get(baseline.rootId);
+    if (!rendered?.localDriver) return undefined;
+    return prepareVehicleInteractionReplay(rendered.prediction, baseline);
+  }
+
+  applyInteractionReplay(
+    baseline: InteractionIslandBaseline,
+    result: InteractionIslandReplayResult
+  ): void {
+    const rendered = this.rendered.get(baseline.rootId);
+    if (!rendered?.localDriver) return;
+    const beforeX = rendered.container.x;
+    const beforeY = rendered.container.y;
+    const beforeAngle = rendered.container.rotation - Math.PI / 2;
+    const correction = applyVehicleInteractionReplay(rendered.prediction, baseline, result);
+    if (!correction) return;
+    const offset = positionCorrectionOffset(
+      beforeX,
+      beforeY,
+      correction.pose.x,
+      correction.pose.y,
+      correction.hardCorrection
+    );
+    rendered.visualOffsetX = offset.x;
+    rendered.visualOffsetY = offset.y;
+    rendered.visualOffsetAngle = angleCorrectionOffset(
+      beforeAngle,
+      correction.pose.angle,
+      correction.hardCorrection
+    );
+    rendered.predictedSpeed = correction.pose.speed;
+    rendered.interactionReplayAcknowledgedSequence =
+      baseline.acknowledgedLocalInputSequence;
+    for (const entity of result.replayed ? result.entities : []) {
+      if (entity.kind !== 'vehicle' || entity.id === baseline.rootId) continue;
+      const remote = this.rendered.get(entity.id);
+      if (!remote || remote.localOccupant) continue;
+      remote.interactionPose = {
+        x: entity.x,
+        y: entity.y,
+        angle: entity.angle,
+        speed: entity.speed,
+        baselineServerTimeMs: baseline.serverTimeMs
+      };
+    }
+    this.options.onPrediction?.(
+      correction.positionError,
+      correction.hardCorrection,
+      correction.pendingMoveCount,
+      baseline.acknowledgedLocalInputSequence,
+      correction.resimulated
+    );
   }
 
   pose(vehicleId: string): VehicleRenderPose | undefined {
@@ -228,6 +301,10 @@ export class VehicleRenderer {
     );
     rendered.localOccupant = localOccupant;
     rendered.localDriver = localDriver;
+    if (
+      rendered.interactionPose &&
+      serverTimeMs > rendered.interactionPose.baselineServerTimeMs
+    ) rendered.interactionPose = undefined;
     if (!localDriver && serverTimeMs > 0) {
       if (wasLocalDriver) rendered.motion.clear();
       rendered.motion.push({
@@ -254,7 +331,11 @@ export class VehicleRenderer {
       rendered.visualOffsetY = 0;
       rendered.visualOffsetAngle = 0;
       rendered.acknowledgedSequence = acknowledgedSequence;
-    } else if (localDriver && (authorityChanged || acknowledgementChanged)) {
+    } else if (
+      localDriver &&
+      (authorityChanged || acknowledgementChanged) &&
+      rendered.interactionReplayAcknowledgedSequence !== acknowledgedSequence
+    ) {
       const beforeX = rendered.container.x;
       const beforeY = rendered.container.y;
       const beforeAngle = rendered.container.rotation - Math.PI / 2;
@@ -287,6 +368,10 @@ export class VehicleRenderer {
         acknowledgedSequence,
         correction.resimulated
       );
+      rendered.acknowledgedSequence = acknowledgedSequence;
+    }
+    if (rendered.interactionReplayAcknowledgedSequence === acknowledgedSequence) {
+      rendered.interactionReplayAcknowledgedSequence = undefined;
       rendered.acknowledgedSequence = acknowledgedSequence;
     }
     const visual = vehicleVisualState(vehicle);

@@ -72,6 +72,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     pairSteps: 2,
     confirmedEventsThrough: 92,
     entities: [],
+    rootStates: [],
     suppressedEffects: {
       'idempotent-presentation': 0,
       'one-shot-presentation': 2,

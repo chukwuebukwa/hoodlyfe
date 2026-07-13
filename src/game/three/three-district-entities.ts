@@ -74,6 +74,13 @@ import {
   positionCorrectionOffset,
   VEHICLE_CORRECTION_DECAY_RATE
 } from '../rendering/correction-smoothing.ts';
+import type {InteractionIslandReplayResult} from '../prediction/interaction-island-replay.ts';
+import type {InteractionIslandBaseline} from '../prediction/island-state-history.ts';
+import {
+  applyVehicleInteractionReplay,
+  prepareVehicleInteractionReplay,
+  type VehicleInteractionReplayPreparation
+} from '../prediction/vehicle-interaction-replay.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -116,6 +123,14 @@ interface RenderedEntity {
   visualOffsetY?: number;
   visualOffsetAngle?: number;
   acknowledgedVehicleInputSequence?: number;
+  interactionReplayAcknowledgedSequence?: number;
+  interactionVehiclePose?: {
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+    baselineServerTimeMs: number;
+  };
 }
 
 interface EntityTextures {
@@ -408,6 +423,61 @@ export class ThreeDistrictEntities {
     const correction = rendered.vehicleCorrection;
     rendered.vehicleCorrection = undefined;
     return {correction, outboundMoves: advanced.outboundMoves};
+  }
+
+  prepareInteractionReplay(
+    baseline: InteractionIslandBaseline
+  ): VehicleInteractionReplayPreparation | undefined {
+    const rendered = this.rendered.get(`vehicle:${baseline.rootId}`);
+    if (!rendered?.localDriver || !rendered.vehiclePrediction) return undefined;
+    return prepareVehicleInteractionReplay(rendered.vehiclePrediction, baseline);
+  }
+
+  applyInteractionReplay(
+    baseline: InteractionIslandBaseline,
+    result: InteractionIslandReplayResult
+  ): void {
+    const rendered = this.rendered.get(`vehicle:${baseline.rootId}`);
+    if (!rendered?.localDriver || !rendered.vehiclePrediction) return;
+    const beforeX = rendered.mesh.position.x;
+    const beforeY = serverYToThree(rendered.mesh.position.y);
+    const beforeAngle = rendered.predictedAngle ?? 0;
+    const correction = applyVehicleInteractionReplay(
+      rendered.vehiclePrediction,
+      baseline,
+      result
+    );
+    if (!correction) return;
+    const offset = positionCorrectionOffset(
+      beforeX,
+      beforeY,
+      correction.pose.x,
+      correction.pose.y,
+      correction.hardCorrection
+    );
+    rendered.visualOffsetX = offset.x;
+    rendered.visualOffsetY = offset.y;
+    rendered.visualOffsetAngle = angleCorrectionOffset(
+      beforeAngle,
+      correction.pose.angle,
+      correction.hardCorrection
+    );
+    rendered.predictedSpeed = correction.pose.speed;
+    rendered.vehicleCorrection = correction;
+    rendered.interactionReplayAcknowledgedSequence =
+      baseline.acknowledgedLocalInputSequence;
+    for (const entity of result.replayed ? result.entities : []) {
+      if (entity.kind !== 'vehicle' || entity.id === baseline.rootId) continue;
+      const remote = this.rendered.get(`vehicle:${entity.id}`);
+      if (!remote || remote.localDriver) continue;
+      remote.interactionVehiclePose = {
+        x: entity.x,
+        y: entity.y,
+        angle: entity.angle,
+        speed: entity.speed,
+        baselineServerTimeMs: baseline.serverTimeMs
+      };
+    }
   }
 
   updateVehicleLights(nightIntensity: number, focusX: number, focusY: number): void {
@@ -875,6 +945,10 @@ export class ThreeDistrictEntities {
     rendered.authoritativeY = vehicle.y;
     rendered.authoritativeAngle = vehicle.angle;
     rendered.authoritativeSpeed = vehicle.speed;
+    if (
+      rendered.interactionVehiclePose &&
+      serverTimeMs > rendered.interactionVehiclePose.baselineServerTimeMs
+    ) rendered.interactionVehiclePose = undefined;
     const wasLocalDriver = Boolean(rendered.localDriver);
     const becameLocalDriver = localDriver && !wasLocalDriver;
     rendered.localDriver = localDriver;
@@ -913,7 +987,11 @@ export class ThreeDistrictEntities {
       rendered.visualOffsetY = 0;
       rendered.visualOffsetAngle = 0;
       rendered.acknowledgedVehicleInputSequence = acknowledgedSequence;
-    } else if (localDriver && (authorityChanged || acknowledgementChanged)) {
+    } else if (
+      localDriver &&
+      (authorityChanged || acknowledgementChanged) &&
+      rendered.interactionReplayAcknowledgedSequence !== acknowledgedSequence
+    ) {
       const beforeX = rendered.mesh.position.x;
       const beforeY = serverYToThree(rendered.mesh.position.y);
       const beforeAngle = rendered.predictedAngle ?? vehicle.angle;
@@ -952,6 +1030,10 @@ export class ThreeDistrictEntities {
       }
       rendered.acknowledgedVehicleInputSequence = acknowledgedSequence;
     }
+    if (rendered.interactionReplayAcknowledgedSequence === acknowledgedSequence) {
+      rendered.interactionReplayAcknowledgedSequence = undefined;
+      rendered.acknowledgedVehicleInputSequence = acknowledgedSequence;
+    }
     const door = vehicleDoorPresentation(vehicle, playerList);
     setSpriteFrame(
       rendered.mesh,
@@ -959,13 +1041,14 @@ export class ThreeDistrictEntities {
       VEHICLE_DOOR_ROWS,
       vehicleDoorAtlasFrame(vehicle, door.frame)
     );
-    const buffered = !localDriver && !localOccupant
+    const interaction = rendered.interactionVehiclePose;
+    const buffered = !interaction && !localDriver && !localOccupant
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const x = buffered?.x ?? vehicle.x;
-    const y = buffered?.y ?? vehicle.y;
-    const angle = buffered?.angle ?? vehicle.angle;
+    const x = interaction?.x ?? buffered?.x ?? vehicle.x;
+    const y = interaction?.y ?? buffered?.y ?? vehicle.y;
+    const angle = interaction?.angle ?? buffered?.angle ?? vehicle.angle;
     const z = this.surfaceHeightAt(x, y) + 3;
     if (!localDriver) {
       positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.3);
@@ -975,7 +1058,7 @@ export class ThreeDistrictEntities {
         buffered ? 1 : 0.2
       );
       rendered.predictedAngle = angle;
-      rendered.predictedSpeed = vehicle.speed;
+      rendered.predictedSpeed = interaction?.speed ?? vehicle.speed;
     }
     rendered.mesh.visible = true;
     rendered.mesh.material.opacity = visual.alpha;

@@ -37,6 +37,14 @@ test('whole-island replay restores one tick, applies intent, and resolves stable
   assert.equal(replay.entities.find(({id}) => id === 'local')?.x, 2);
   assert.equal(replay.entities.find(({id}) => id === 'remote')?.x, 12);
   assert.equal(replay.entities.find(({id}) => id === 'npc')?.x, 30);
+  assert.deepEqual(replay.rootStates.map(({serverTick, entity}) => ({
+    serverTick,
+    id: entity.id,
+    x: entity.x
+  })), [
+    {serverTick: 11, id: 'local', x: 1},
+    {serverTick: 12, id: 'local', x: 2}
+  ]);
   assert.deepEqual(pairOrder, [
     'pedestrian:npc|vehicle:local',
     'pedestrian:npc|vehicle:remote',

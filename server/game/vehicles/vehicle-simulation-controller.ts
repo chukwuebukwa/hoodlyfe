@@ -73,6 +73,22 @@ export class VehicleSimulationController {
     this.collisionPairsThisTick.clear();
   }
 
+  finishTick(nowMs: number): readonly VehicleState[] {
+    const moved = new Map<string, VehicleState>();
+    const vehicles = [...this.options.state.vehicles.values()]
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const vehicle of vehicles) {
+      for (const other of this.stableCollisionCandidates(vehicle)) {
+        if (this.resolveCollisionPair(vehicle, other, nowMs)) {
+          moved.set(vehicle.id, vehicle);
+          moved.set(other.id, other);
+        }
+      }
+    }
+    for (const vehicle of vehicles) this.syncOccupants(vehicle);
+    return Object.freeze([...moved.values()]);
+  }
+
   update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
     const configuration = vehicleConfig(vehicle.kind);
     if (!vehicle.destroyed && this.damageSystem.shouldExplode(vehicle, nowMs)) {
@@ -81,7 +97,6 @@ export class VehicleSimulationController {
     }
     if (vehicle.destroyed) {
       this.updateDestroyed(vehicle, nowMs);
-      this.syncOccupants(vehicle);
       return;
     }
     if (
@@ -96,8 +111,6 @@ export class VehicleSimulationController {
       )) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }
-      this.handleCollision(vehicle, nowMs);
-      this.syncOccupants(vehicle);
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
@@ -111,8 +124,6 @@ export class VehicleSimulationController {
       })) {
         this.handleTrafficImpacts(vehicle, nowMs);
       }
-      this.handleCollision(vehicle, nowMs);
-      this.syncOccupants(vehicle);
       return;
     }
 
@@ -163,8 +174,6 @@ export class VehicleSimulationController {
       }
       vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
     }
-    this.handleCollision(vehicle, nowMs);
-    this.syncOccupants(vehicle);
   }
 
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
@@ -233,53 +242,12 @@ export class VehicleSimulationController {
   }
 
   handleCollision(vehicle: VehicleState, nowMs: number): void {
-    for (const other of this.options.nearbyVehicles(
-      vehicle.x,
-      vehicle.y,
-      VEHICLE_COLLISION_BOUNDING_RADIUS
-    )) {
+    for (const other of this.collisionCandidates(vehicle)) {
       if (other.id === vehicle.id) continue;
-      const pairKey = [vehicle.id, other.id].sort().join(':');
-      if (this.collisionPairsThisTick.has(pairKey)) continue;
-      const vehicleSettings = vehicleConfig(vehicle.kind);
-      const otherSettings = vehicleConfig(other.kind);
-      const result = this.collisions.resolve({
-        id: vehicle.id,
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.speed,
-        halfLength: vehicleSettings.collision.length / 2,
-        halfWidth: vehicleSettings.collision.width / 2,
-        mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
-        damageScale: vehicleSettings.collisionDamageScale
-      }, {
-        id: other.id,
-        x: other.x,
-        y: other.y,
-        angle: other.angle,
-        speed: other.destroyed ? 0 : other.speed,
-        halfLength: otherSettings.collision.length / 2,
-        halfWidth: otherSettings.collision.width / 2,
-        mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
-        damageScale: otherSettings.collisionDamageScale
-      });
-      if (!result.collided) continue;
-      this.collisionPairsThisTick.add(pairKey);
-      if (this.options.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
-        vehicle.x = result.primaryX;
-        vehicle.y = result.primaryY;
+      if (this.resolveCollisionPair(vehicle, other, nowMs)) {
+        this.syncOccupants(vehicle);
+        this.syncOccupants(other);
       }
-      if (this.options.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
-        other.x = result.otherX;
-        other.y = result.otherY;
-      }
-      if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
-      if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
-      this.damage(vehicle, result.primaryDamage, other.driverId, 'vehicle', nowMs, result.primaryZone);
-      this.damage(other, result.otherDamage, vehicle.driverId, 'vehicle', nowMs, result.otherZone);
-      this.syncOccupants(other);
-      return;
     }
   }
 
@@ -470,6 +438,66 @@ export class VehicleSimulationController {
       player.y = vehicle.y;
       if (player.vehicleSeat === 0) player.angle = vehicle.angle;
     }
+  }
+
+  private stableCollisionCandidates(vehicle: VehicleState): VehicleState[] {
+    return this.collisionCandidates(vehicle)
+      .filter((other) => other.id.localeCompare(vehicle.id) > 0);
+  }
+
+  private collisionCandidates(vehicle: VehicleState): VehicleState[] {
+    return this.options.nearbyVehicles(
+      vehicle.x,
+      vehicle.y,
+      VEHICLE_COLLISION_BOUNDING_RADIUS
+    ).sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  private resolveCollisionPair(
+    vehicle: VehicleState,
+    other: VehicleState,
+    nowMs: number
+  ): boolean {
+    const pairKey = [vehicle.id, other.id].sort().join(':');
+    if (this.collisionPairsThisTick.has(pairKey)) return false;
+    const vehicleSettings = vehicleConfig(vehicle.kind);
+    const otherSettings = vehicleConfig(other.kind);
+    const result = this.collisions.resolve({
+      id: vehicle.id,
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      speed: vehicle.destroyed ? 0 : vehicle.speed,
+      halfLength: vehicleSettings.collision.length / 2,
+      halfWidth: vehicleSettings.collision.width / 2,
+      mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
+      damageScale: vehicleSettings.collisionDamageScale
+    }, {
+      id: other.id,
+      x: other.x,
+      y: other.y,
+      angle: other.angle,
+      speed: other.destroyed ? 0 : other.speed,
+      halfLength: otherSettings.collision.length / 2,
+      halfWidth: otherSettings.collision.width / 2,
+      mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
+      damageScale: otherSettings.collisionDamageScale
+    });
+    if (!result.collided) return false;
+    this.collisionPairsThisTick.add(pairKey);
+    if (this.options.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
+      vehicle.x = result.primaryX;
+      vehicle.y = result.primaryY;
+    }
+    if (this.options.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
+      other.x = result.otherX;
+      other.y = result.otherY;
+    }
+    if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
+    if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
+    this.damage(vehicle, result.primaryDamage, other.driverId, 'vehicle', nowMs, result.primaryZone);
+    this.damage(other, result.otherDamage, vehicle.driverId, 'vehicle', nowMs, result.otherZone);
+    return true;
   }
 }
 

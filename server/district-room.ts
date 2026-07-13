@@ -923,6 +923,9 @@ export class DistrictRoom extends Room<DistrictState> {
       this.vehicleSimulation.update(vehicle, deltaSeconds, now);
       this.indexVehicle(vehicle);
     });
+    for (const vehicle of this.vehicleSimulation.finishTick(now)) {
+      this.indexVehicle(vehicle);
+    }
     this.combatReactions.update(now);
     this.meleeCombat.update(now);
     this.state.players.forEach((player) => {

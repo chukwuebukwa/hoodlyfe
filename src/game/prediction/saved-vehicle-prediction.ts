@@ -35,6 +35,11 @@ export interface VehiclePredictionCorrection {
   pendingMoveCount: number;
 }
 
+export interface VehiclePredictionReplaySample {
+  readonly sequence: number;
+  readonly pose: PredictedVehiclePose;
+}
+
 type OccupancyQuery = (x: number, y: number, radius: number) => boolean;
 
 const MAX_HISTORY_MOVES = 96;
@@ -169,6 +174,56 @@ export class SavedVehiclePrediction {
   pendingMoveCount(): number {
     return this.history.length;
   }
+
+  pendingMovesAfter(acknowledgedSequence: number): readonly VehicleInputMove[] | undefined {
+    const acknowledged = validSequence(acknowledgedSequence);
+    if (
+      acknowledged < this.lastAcknowledgedSequence ||
+      acknowledged > this.nextSequence
+    ) return undefined;
+    const pending = this.history.filter(({sequence}) => sequence > acknowledged);
+    if (pending.length !== this.nextSequence - acknowledged) return undefined;
+    for (let index = 0; index < pending.length; index++) {
+      if (pending[index].sequence !== acknowledged + index + 1) return undefined;
+    }
+    return Object.freeze(pending.map(({sequence, x, y}) => Object.freeze({sequence, x, y})));
+  }
+
+  applyInteractionReplay(
+    acknowledgedSequence: number,
+    samples: readonly VehiclePredictionReplaySample[]
+  ): VehiclePredictionCorrection | undefined {
+    if (!this.physicsPose) return undefined;
+    const acknowledged = validSequence(acknowledgedSequence);
+    const pending = this.history.filter(({sequence}) => sequence > acknowledged);
+    if (
+      acknowledged < this.lastAcknowledgedSequence ||
+      pending.length !== samples.length ||
+      pending.length !== this.nextSequence - acknowledged
+    ) return undefined;
+    for (let index = 0; index < samples.length; index++) {
+      const sample = samples[index];
+      const move = pending[index];
+      if (
+        sample.sequence !== move.sequence ||
+        sample.sequence !== acknowledged + index + 1 ||
+        !validPose(sample.pose)
+      ) return undefined;
+    }
+    if (samples.length === 0) {
+      return correction(this.physicsPose, this.physicsPose, false, pending.length);
+    }
+    const compared = {...this.physicsPose};
+    for (let index = 0; index < samples.length; index++) {
+      pending[index].predicted = {...samples[index].pose};
+    }
+    const pose = {...samples.at(-1)!.pose};
+    this.physicsPose = pose;
+    this.history = pending;
+    this.lastAcknowledgedSequence = acknowledged;
+    this.nextSequence = Math.max(this.nextSequence, acknowledged);
+    return correction(pose, compared, true, pending.length, pose);
+  }
 }
 
 function correction(
@@ -196,6 +251,11 @@ function validSequence(value: number): number {
 
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function validPose(pose: PredictedVehiclePose): boolean {
+  return Number.isFinite(pose?.x) && Number.isFinite(pose.y) &&
+    Number.isFinite(pose.angle) && Number.isFinite(pose.speed);
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

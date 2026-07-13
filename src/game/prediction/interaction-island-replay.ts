@@ -61,7 +61,13 @@ export interface InteractionIslandReplaySuccess {
   readonly pairSteps: number;
   readonly confirmedEventsThrough: number;
   readonly entities: readonly InteractionEntityState[];
+  readonly rootStates: readonly InteractionReplayRootState[];
   readonly suppressedEffects: ReplaySuppressionCounts;
+}
+
+export interface InteractionReplayRootState {
+  readonly serverTick: number;
+  readonly entity: InteractionEntityState;
 }
 
 export type InteractionIslandReplayRejection =
@@ -112,6 +118,7 @@ export function replayInteractionIsland(
   let states = new Map(
     request.baseline.entities.map((entity) => [entity.id, cloneEntity(entity)])
   );
+  const rootStates: InteractionReplayRootState[] = [];
   let bodySteps = 0;
   let pairSteps = 0;
   try {
@@ -153,6 +160,9 @@ export function replayInteractionIsland(
         }
         return stepped;
       });
+      const rootState = states.get(rootId);
+      if (!rootState) throw new Error('missing replay root');
+      rootStates.push(Object.freeze({serverTick, entity: cloneEntity(rootState)}));
     }
   } catch {
     return rejection('kernel-error');
@@ -170,6 +180,7 @@ export function replayInteractionIsland(
     pairSteps,
     confirmedEventsThrough: request.baseline.confirmedEventsThrough,
     entities: Object.freeze(ordered.map(cloneEntity)),
+    rootStates: Object.freeze(rootStates),
     suppressedEffects: suppressionDelta(beforeSuppression, sideEffects.suppressed())
   });
 }

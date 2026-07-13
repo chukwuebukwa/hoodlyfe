@@ -11,6 +11,57 @@ The island is not a server partition, replication AOI, or client authority bound
 Damage, death, occupancy, inventory, missions, economy, and persistence remain server
 outcomes.
 
+## Plain-English Technical Summary
+
+This project is replacing the situation where the browser displays one position while
+the server simulates another with proper prediction and reconciliation.
+
+The browser and server share the same movement functions for walking, driving, and
+static-world collision. When a player presses a movement key, the browser applies that
+input immediately, gives it a sequence number, saves it, and sends it to the server. The
+server processes the input and returns an authoritative state plus the last sequence it
+accepted. If the two simulations disagree, the browser restores the confirmed state and
+replays every input that the server has not acknowledged yet.
+
+Remote players, NPCs, and ordinary vehicles are handled differently. Their timestamped
+snapshots are buffered and rendered at a small controlled delay, which turns irregular
+packet arrival into smooth interpolation. Extrapolation is short and bounded so a
+missing packet cannot make an actor drift indefinitely.
+
+Predicting only the local car is insufficient when it collides with another moving car.
+The other car may be rendered from an older buffered snapshot, leaving the two cars on
+different physical timelines. An interaction island solves this by temporarily
+promoting only the nearby bodies that can physically affect the locally controlled body.
+Selection considers current contact, predicted time to contact, velocity, collider size,
+gameplay priority, and previous membership while enforcing a strict processing budget.
+
+The client retains 24 immutable fixed-tick island frames, approximately 800 ms. When an
+authoritative correction arrives, every island member is restored to the same server
+tick. The browser then replays the player's exact saved commands, briefly continues the
+last server-applied controls for relevant remote bodies, steps shared collision code,
+and resolves each pair once in stable ID order. This is actual resimulation, not merely
+moving a sprite toward a server coordinate.
+
+Canonical predicted physics is corrected immediately. A temporary render-only offset
+can decay over several frames so the correction is not shown as a harsh teleport. The
+visible actor, weapon, passengers, lights, labels, and debug presentation must all derive
+from that same final predicted transform.
+
+Replay is allowed to calculate temporary position, velocity, and collision response, but
+it cannot independently create damage, explosions, crime, money changes, mission
+progress, sounds, particles, or database writes. Those lasting outcomes remain server
+authoritative and replay suppresses them to prevent duplication.
+
+For vehicle collisions, the shared physical kernel calculates oriented-box overlap,
+mass-weighted separation, relative closing speed, impulse, transferred momentum, and
+impact direction. The browser uses the physical result for immediate responsiveness;
+the server uses the same calculation and remains the sole authority for damage,
+destruction, occupants, rewards, and other gameplay consequences.
+
+The intended result is immediate local controls, smooth remote movement, timely nearby
+collisions, and small corrections under latency without trusting clients with persistent
+game state or simulating the entire district in every browser.
+
 ## Non-Negotiable Boundaries
 
 - Shared infrastructure owns tick alignment, history, selection, restore/replay,
@@ -216,9 +267,54 @@ maximum work envelope of 768 body steps and 11,904 stable pair evaluations. The 
 repository gate passes 357 tests, TypeScript and the optimized production build pass,
 and the real two-client Colyseus scenario passes in 18.8 seconds.
 
-### M8-M10: Interaction Families
+### M8: Vehicle-to-Vehicle Interaction Replay - Complete
 
-- M8: vehicle-to-vehicle dynamic contacts as the first vertical slice.
+- Share one deterministic oriented-box contact kernel between authority and replay.
+- Advance every authoritative vehicle body before resolving stable dynamic pairs.
+- Replay local saved vehicle input and bounded remote physical intent from one baseline.
+- Replace saved prediction history atomically so the next state patch cannot undo replay.
+- Publish corrected local and promoted remote vehicle poses through both renderers.
+
+Gate: a two-player vehicle contact predicted through 150 ms RTT reaches the same contact
+tick, position, and speed as authority without replaying damage or other side effects.
+
+The existing production vehicle collision semantics now live in
+`shared/simulation/vehicle-dynamic-contact.ts`: oriented SAT overlap, mass-weighted
+separation, restitution impulse, speed projection, impact-zone classification, and
+damage calculation. The server adapter and client replay use that exact kernel. Static
+world collision and damaged-engine limits continue through the shared swept vehicle
+step.
+
+Authority now has explicit fixed-tick phases. Every vehicle first advances its body and
+updates its broad-phase record. `finishTick()` then traverses vehicle roots and nearby
+candidates in stable ID order, resolves each unordered pair once, synchronizes occupants,
+and returns moved bodies for spatial reindexing. This removes the previous ordering bug
+where one car could collide against another car's prior-tick pose. Tests prove that the
+result matches the shared kernel and is independent of state insertion or body-update
+order.
+
+The vehicle family adapter activates only when the controlled root is a vehicle, another
+vehicle is in the selected island, and contiguous saved local moves cover the baseline.
+Each replay tick maps one saved move sequence to one server tick. Successful replay
+replaces those historical predicted poses, advances canonical local prediction, retires
+the authoritative acknowledgement, and preserves newer pending moves as one atomic
+operation. A matching state patch is consumed without immediately re-running ordinary
+reconciliation. Corrected remote vehicle poses are promoted until a newer authoritative
+server time arrives.
+
+Replay collision damage is dispatched through the authoritative-gameplay side-effect
+class and suppressed. Invalid command coverage, revisions, root identity, result traces,
+or occupancy transitions reject replay without publishing partial state. Phaser and
+Three compose the same family adapter and correction policy.
+
+The dedicated netcode gate passes 74 tests. The 150 ms deterministic two-car impairment
+scenario has zero final position and speed divergence and identifies the same contact
+tick. The complete repository gate passes 363 tests, TypeScript and the optimized
+production build pass, and the isolated real two-client Colyseus scenario passes in
+18.9 seconds.
+
+### M9-M10: Remaining Interaction Families
+
 - M9: humanoid impacts, vehicle entry/exit, passenger constraints, and attachments.
 - M10: predicted projectile correlation plus server historical hit queries.
 

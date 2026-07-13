@@ -16,6 +16,11 @@ import {InteractionIslandController} from '../network/interaction-island-control
 import type {InteractionSnapshotInbox} from '../network/interaction-snapshot-inbox.ts';
 import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
+import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
+import {
+  createVehicleInteractionBodyStep,
+  createVehicleInteractionPairStep
+} from '../prediction/vehicle-interaction-replay.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -145,6 +150,12 @@ export class ThreePrototypeViewer {
       );
       this.networkQuality = new NetworkQualityController(this.room);
       if (this.interactionSnapshots) {
+        const canOccupyInteraction = (
+          spaceId: string,
+          x: number,
+          y: number,
+          radius: number
+        ) => collision.canOccupy(spaceId, x, y, radius);
         this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
           networkConditions: () => {
             const network = this.networkQuality?.snapshot();
@@ -155,7 +166,17 @@ export class ThreePrototypeViewer {
             };
           },
           onHistory: (frames) => this.networkQuality?.observeInteractionHistory(frames),
-          onSelection: (selection) => this.networkQuality?.observeInteractionIsland(selection)
+          onSelection: (selection) => this.networkQuality?.observeInteractionIsland(selection),
+          replay: {
+            prepare: (baseline) => this.entities?.prepareInteractionReplay(baseline),
+            worldCollisionRevision: () => WORLD_COLLISION_REVISION,
+            stepBody: createVehicleInteractionBodyStep(canOccupyInteraction),
+            resolvePair: createVehicleInteractionPairStep(canOccupyInteraction),
+            onReplay: (result, durationMs, baseline) => {
+              this.entities?.applyInteractionReplay(baseline, result);
+              this.networkQuality?.observeInteractionReplay(result, durationMs);
+            }
+          }
         });
       }
       this.debug = new ThreeDebugController(

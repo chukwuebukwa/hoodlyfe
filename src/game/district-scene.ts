@@ -33,6 +33,11 @@ import type {InteractionSnapshotInbox} from './network/interaction-snapshot-inbo
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 import {canOccupyClientInterior} from './world/client-collision-map.ts';
+import {WORLD_COLLISION_REVISION} from '../../shared/simulation/world-collision-revision.ts';
+import {
+  createVehicleInteractionBodyStep,
+  createVehicleInteractionPairStep
+} from './prediction/vehicle-interaction-replay.ts';
 
 const PLAYER_RADIUS = 11;
 
@@ -126,26 +131,6 @@ export class DistrictScene extends Phaser.Scene {
       this.networkQuality.destroy,
       this.networkQuality
     );
-    if (this.interactionSnapshots) {
-      this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
-        networkConditions: () => {
-          const network = this.networkQuality.snapshot();
-          return {
-            rttMs: network.rttP95Ms,
-            interpolationDelayMs: network.interpolationDelayMs,
-            jitterMs: network.jitterMs
-          };
-        },
-        onHistory: (frames) => this.networkQuality.observeInteractionHistory(frames),
-        onSelection: (selection) => this.networkQuality.observeInteractionIsland(selection)
-      });
-      this.events.once(
-        Phaser.Scenes.Events.SHUTDOWN,
-        this.interactionIslands.destroy,
-        this.interactionIslands
-      );
-    }
-
     this.cameraController = new CameraPresentationController(this);
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
     this.hudController = new LocalHudController();
@@ -196,6 +181,40 @@ export class DistrictScene extends Phaser.Scene {
       },
       onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample)
     });
+    if (this.interactionSnapshots) {
+      const canOccupyInteraction = (spaceId: string, x: number, y: number, radius: number) => (
+        spaceId === STREET_SPACE_ID
+          ? this.canOccupy(x, y, radius)
+          : canOccupyClientInterior(spaceId, x, y, radius)
+      );
+      this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
+        networkConditions: () => {
+          const network = this.networkQuality.snapshot();
+          return {
+            rttMs: network.rttP95Ms,
+            interpolationDelayMs: network.interpolationDelayMs,
+            jitterMs: network.jitterMs
+          };
+        },
+        onHistory: (frames) => this.networkQuality.observeInteractionHistory(frames),
+        onSelection: (selection) => this.networkQuality.observeInteractionIsland(selection),
+        replay: {
+          prepare: (baseline) => this.vehicleRenderer.prepareInteractionReplay(baseline),
+          worldCollisionRevision: () => WORLD_COLLISION_REVISION,
+          stepBody: createVehicleInteractionBodyStep(canOccupyInteraction),
+          resolvePair: createVehicleInteractionPairStep(canOccupyInteraction),
+          onReplay: (result, durationMs, baseline) => {
+            this.vehicleRenderer.applyInteractionReplay(baseline, result);
+            this.networkQuality.observeInteractionReplay(result, durationMs);
+          }
+        }
+      });
+      this.events.once(
+        Phaser.Scenes.Events.SHUTDOWN,
+        this.interactionIslands.destroy,
+        this.interactionIslands
+      );
+    }
     this.playerRenderer = new PlayerRenderer(this, {
       localPlayerId: this.room.sessionId,
       vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
