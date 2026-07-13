@@ -155,7 +155,9 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
     this.createPedestrianAnimation('hostile-walk', 'hostile');
-    this.pedestrianRenderer = new PedestrianRenderer(this);
+    this.pedestrianRenderer = new PedestrianRenderer(this, {
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample)
+    });
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {
         this.cameraController.followVehicle(vehicleId, container);
@@ -166,7 +168,8 @@ export class DistrictScene extends Phaser.Scene {
       canOccupy: (x, y, radius) => this.canOccupy(x, y, radius),
       sendVehicleMoves: (vehicleId, moves) => {
         if (vehicleId) this.room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves});
-      }
+      },
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample)
     });
     this.playerRenderer = new PlayerRenderer(this, {
       localPlayerId: this.room.sessionId,
@@ -183,6 +186,7 @@ export class DistrictScene extends Phaser.Scene {
           resimulated
         );
       },
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
       onLocalState: (playerId, player, sprite, damaged) => {
         const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
         this.hudController.update(player, vehicle);
@@ -273,7 +277,7 @@ export class DistrictScene extends Phaser.Scene {
 
   private synchronizeState(state: DistrictNetworkState): void {
     this.playerRenderer.synchronize(state.players, state.serverTimeMs ?? 0);
-    this.pedestrianRenderer.synchronize(state.npcs);
+    this.pedestrianRenderer.synchronize(state.npcs, state.serverTimeMs ?? 0);
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
     const localPlayer = state.players?.get(this.room.sessionId);
     const localDriverVehicleId = localPlayer?.vehicleSeat === 0 ? localVehicleId : '';
@@ -282,7 +286,8 @@ export class DistrictScene extends Phaser.Scene {
       state.vehicles,
       localVehicleId,
       localDriverVehicleId,
-      localPlayer?.lastVehicleInputSequence ?? 0
+      localPlayer?.lastVehicleInputSequence ?? 0,
+      state.serverTimeMs ?? 0
     );
     const local = localPlayer;
     this.radioSystem.synchronize(
@@ -327,12 +332,18 @@ export class DistrictScene extends Phaser.Scene {
   private interpolateEntities(time: number, deltaSeconds: number): void {
     const quality = this.networkQuality.snapshot();
     const renderServerTime = quality.estimatedServerTimeMs - quality.interpolationDelayMs;
-    this.vehicleRenderer.interpolate(time, deltaSeconds);
+    this.vehicleRenderer.interpolate(
+      time,
+      deltaSeconds,
+      renderServerTime,
+      quality.estimatedServerTimeMs
+    );
     this.playerRenderer.interpolate(
       time,
-      renderServerTime
+      renderServerTime,
+      quality.estimatedServerTimeMs
     );
-    this.pedestrianRenderer.interpolate();
+    this.pedestrianRenderer.interpolate(renderServerTime, quality.estimatedServerTimeMs);
     this.projectileRenderer.interpolate();
     this.rocketProjectileRenderer.interpolate();
     this.thrownProjectileRenderer.interpolate();

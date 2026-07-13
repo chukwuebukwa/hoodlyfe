@@ -10,6 +10,8 @@ import {
   type VehicleInputMove
 } from '../prediction/saved-vehicle-prediction.ts';
 import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
+import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
+import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
 
 interface RenderVehicle {
   vehicleId: string;
@@ -34,6 +36,7 @@ interface RenderVehicle {
   visualOffsetY: number;
   visualOffsetAngle: number;
   acknowledgedSequence: number;
+  motion: RemoteMotionTimeline;
 }
 
 interface VehicleRendererOptions {
@@ -51,6 +54,9 @@ interface VehicleRendererOptions {
   ) => void;
   canOccupy?: (x: number, y: number, radius: number) => boolean;
   sendVehicleMoves?: (vehicleId: string, moves: VehicleInputMove[]) => void;
+  onRemoteTimeline?: (
+    sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
+  ) => void;
 }
 
 export class VehicleRenderer {
@@ -68,7 +74,8 @@ export class VehicleRenderer {
     vehicles?: Map<string, NetworkVehicle>,
     localVehicleId = '',
     localDriverVehicleId = '',
-    acknowledgedSequence = 0
+    acknowledgedSequence = 0,
+    serverTimeMs = 0
   ): void {
     const present = new Set<string>();
     vehicles?.forEach((vehicle, vehicleId) => {
@@ -78,7 +85,8 @@ export class VehicleRenderer {
         vehicle,
         localVehicleId === vehicleId,
         localDriverVehicleId === vehicleId,
-        acknowledgedSequence
+        acknowledgedSequence,
+        serverTimeMs
       );
     });
     for (const [vehicleId, rendered] of this.rendered) {
@@ -88,26 +96,42 @@ export class VehicleRenderer {
     }
   }
 
-  interpolate(time: number, deltaSeconds = 1 / 60): void {
+  interpolate(
+    time: number,
+    deltaSeconds = 1 / 60,
+    renderServerTimeMs = 0,
+    estimatedServerTimeMs = renderServerTimeMs
+  ): void {
     for (const rendered of this.rendered.values()) {
       if (rendered.localDriver) {
         rendered.container.setDepth(Math.round(rendered.container.y) + 90);
         this.animateEffects(rendered, time);
         continue;
       }
-      const position = interpolatePosition(
-        rendered.container.x,
-        rendered.container.y,
-        rendered.targetX,
-        rendered.targetY,
-        rendered.localOccupant ? 0.34 : 0.25,
-        180
-      );
+      const buffered = !rendered.localOccupant && renderServerTimeMs > 0
+        ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
+        : undefined;
+      if (buffered) this.options.onRemoteTimeline?.(buffered);
+      const position = buffered
+        ? {
+          x: buffered.x,
+          y: buffered.y,
+          distance: Math.hypot(buffered.x - rendered.container.x, buffered.y - rendered.container.y),
+          snapped: buffered.mode === 'teleported'
+        }
+        : interpolatePosition(
+          rendered.container.x,
+          rendered.container.y,
+          rendered.targetX,
+          rendered.targetY,
+          rendered.localOccupant ? 0.34 : 0.25,
+          180
+        );
       rendered.container.setPosition(position.x, position.y);
       rendered.container.rotation = rotateTowards(
         rendered.container.rotation,
-        rendered.targetAngle + Math.PI / 2,
-        0.2
+        (buffered?.angle ?? rendered.targetAngle) + Math.PI / 2,
+        buffered ? 1 : 0.2
       );
       rendered.container.setDepth(Math.round(rendered.container.y) + 90);
       this.animateEffects(rendered, time);
@@ -161,14 +185,16 @@ export class VehicleRenderer {
     vehicle: NetworkVehicle,
     localOccupant: boolean,
     localDriver: boolean,
-    acknowledgedSequence: number
+    acknowledgedSequence: number,
+    serverTimeMs: number
   ): void {
     let rendered = this.rendered.get(vehicleId);
     if (!rendered) {
       rendered = this.create(vehicle);
       this.rendered.set(vehicleId, rendered);
     }
-    const becameLocalDriver = localDriver && !rendered.localDriver;
+    const wasLocalDriver = Boolean(rendered.localDriver);
+    const becameLocalDriver = localDriver && !wasLocalDriver;
     const authorityChanged = (
       rendered.targetX !== vehicle.x || rendered.targetY !== vehicle.y ||
       rendered.targetAngle !== vehicle.angle || rendered.targetSpeed !== vehicle.speed
@@ -185,6 +211,17 @@ export class VehicleRenderer {
     );
     rendered.localOccupant = localOccupant;
     rendered.localDriver = localDriver;
+    if (!localDriver && serverTimeMs > 0) {
+      if (wasLocalDriver) rendered.motion.clear();
+      rendered.motion.push({
+        timeMs: serverTimeMs,
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        velocityX: Math.cos(vehicle.angle) * vehicle.speed,
+        velocityY: Math.sin(vehicle.angle) * vehicle.speed
+      });
+    }
     if (becameLocalDriver) {
       rendered.container.setPosition(vehicle.x, vehicle.y);
       rendered.container.rotation = vehicle.angle + Math.PI / 2;
@@ -283,7 +320,8 @@ export class VehicleRenderer {
       visualOffsetX: 0,
       visualOffsetY: 0,
       visualOffsetAngle: 0,
-      acknowledgedSequence: 0
+      acknowledgedSequence: 0,
+      motion: createRemoteMotionTimeline('vehicle')
     };
   }
 

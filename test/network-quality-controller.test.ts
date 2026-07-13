@@ -43,6 +43,16 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   controller.observePrediction(7.25, false);
   controller.observePrediction(182, true, 4, 27, true);
   controller.observeOnFootPrediction(3, false, 2, 31, true);
+  controller.observeRemoteTimeline({
+    snapshotAgeMs: 70,
+    bufferUnderrun: false,
+    mode: 'interpolated'
+  });
+  controller.observeRemoteTimeline({
+    snapshotAgeMs: 130,
+    bufferUnderrun: true,
+    mode: 'held'
+  });
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -66,7 +76,10 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     vehicleAcknowledgedMove: 27,
     onFootResimulations: 1,
     onFootPendingMoves: 2,
-    onFootAcknowledgedMove: 31
+    onFootAcknowledgedMove: 31,
+    remoteSnapshotAgeP95Ms: 130,
+    remoteBufferUnderrunPercent: 50,
+    remoteExtrapolationPercent: 0
   });
   controller.destroy();
 });

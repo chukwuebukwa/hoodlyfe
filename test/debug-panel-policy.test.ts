@@ -67,7 +67,10 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     vehicleAcknowledgedMove: 34,
     onFootResimulations: 3,
     onFootPendingMoves: 4,
-    onFootAcknowledgedMove: 37
+    onFootAcknowledgedMove: 37,
+    remoteSnapshotAgeP95Ms: 104,
+    remoteBufferUnderrunPercent: 2.5,
+    remoteExtrapolationPercent: 6.7
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
@@ -76,7 +79,7 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     panel.prediction,
     '8.4px now / 12.7px p95 / 14 corr / 2 snap / V A34 P5 R9 / F A37 P4 R3'
   );
-  assert.equal(panel.clockSync, '-18ms / 96ms buffer');
+  assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
 });
 
 function createState(): DistrictNetworkState {

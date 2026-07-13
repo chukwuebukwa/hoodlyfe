@@ -94,13 +94,25 @@ for space transitions or errors above 120 px. Phaser and Three render the local 
 weapon, label, and debug collider from one predicted transform. Deterministic wall and
 interior collision are shared between browser and server.
 
-### M4: Remote Timelines
+### M4: Remote Timelines - Complete
 
 - Generalize timestamped snapshot buffers for players, vehicles, and NPCs.
 - Sample against estimated server time minus adaptive interpolation delay.
 - Bound extrapolation and report snapshot age and buffer underruns.
 
 Gate: remote movement is smooth under jitter without arrival-time interpolation.
+
+Implemented with one timestamped timeline primitive shared by Phaser and Three for
+remote players, NPCs, and vehicles. Rendering samples estimated server time minus an
+adaptive 75-250 ms delay derived from patch cadence, jitter, and RTT variation. Family
+configuration owns teleport thresholds and extrapolation speed limits; all families cap
+extrapolation at 100 ms and reset history across discontinuities. The local driver and
+local passenger vehicle paths remain responsive and bypass the remote timeline.
+
+Network diagnostics now report p95 snapshot age, buffer underrun percentage, and
+extrapolation percentage. Deterministic local through intercontinental impairment tests
+bound maximum error to 34.02 px, buffer underruns to 1.7%, and retained history to 32
+snapshots per actor.
 
 ### M5: Interaction Snapshot Projection
 

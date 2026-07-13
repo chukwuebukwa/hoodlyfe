@@ -131,7 +131,8 @@ export class ThreePrototypeViewer {
       this.entities = await ThreeDistrictEntities.create(
         this.scene,
         this.surfaceHeightAt,
-        (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius)
+        (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius),
+        (sample) => this.networkQuality?.observeRemoteTimeline(sample)
       );
       this.world = await ThreeDistrictWorld.create(
         this.scene,
@@ -290,7 +291,8 @@ export class ThreePrototypeViewer {
         this.room.state,
         localSpaceId,
         this.room.sessionId,
-        renderServerTime
+        renderServerTime,
+        quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
       this.world?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0};

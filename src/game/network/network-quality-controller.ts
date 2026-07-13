@@ -6,6 +6,8 @@ import {
   type NetworkPongMessage
 } from '../../../shared/protocol/network-quality.ts';
 import type {DistrictNetworkState} from '../types.ts';
+import type {RemoteMotionSample} from './remote-motion-timeline.ts';
+import {adaptiveInterpolationDelayMs} from './remote-timeline-policy.ts';
 
 const PROBE_INTERVAL_MS = 1_000;
 const SAMPLE_LIMIT = 30;
@@ -33,6 +35,9 @@ export interface NetworkQualitySnapshot {
   onFootResimulations: number;
   onFootPendingMoves: number;
   onFootAcknowledgedMove: number;
+  remoteSnapshotAgeP95Ms: number;
+  remoteBufferUnderrunPercent: number;
+  remoteExtrapolationPercent: number;
 }
 
 interface NetworkQualityControllerOptions {
@@ -44,6 +49,9 @@ export class NetworkQualityController {
   private readonly patchGaps: number[] = [];
   private readonly clockOffsets: number[] = [];
   private readonly predictionErrors: number[] = [];
+  private readonly remoteSnapshotAges: number[] = [];
+  private readonly remoteBufferUnderruns: number[] = [];
+  private readonly remoteExtrapolations: number[] = [];
   private readonly cleanup: Array<() => void> = [];
   private readonly now: () => number;
   private sequence = 0;
@@ -121,6 +129,18 @@ export class NetworkQualityController {
     this.onFootAcknowledgedMove = Math.max(0, Math.floor(acknowledgedMove));
   }
 
+  observeRemoteTimeline(
+    sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
+  ): void {
+    pushBounded(this.remoteSnapshotAges, sample.snapshotAgeMs, REMOTE_SAMPLE_LIMIT);
+    pushBounded(this.remoteBufferUnderruns, sample.bufferUnderrun ? 1 : 0, REMOTE_SAMPLE_LIMIT);
+    pushBounded(
+      this.remoteExtrapolations,
+      sample.mode === 'extrapolated' ? 1 : 0,
+      REMOTE_SAMPLE_LIMIT
+    );
+  }
+
   snapshot(): NetworkQualitySnapshot {
     const sortedRtt = [...this.rttSamples].sort((left, right) => left - right);
     const jitterSamples: number[] = [];
@@ -129,17 +149,25 @@ export class NetworkQualityController {
     }
     const patchGapP95Ms = percentile([...this.patchGaps].sort((left, right) => left - right), 95);
     const sortedPredictionErrors = [...this.predictionErrors].sort((left, right) => left - right);
+    const jitterMs = percentile(jitterSamples.sort((left, right) => left - right), 95);
+    const rttMedianMs = percentile(sortedRtt, 50);
+    const rttP95Ms = percentile(sortedRtt, 95);
     return {
       region: this.region,
       buildId: this.buildId,
-      rttMedianMs: percentile(sortedRtt, 50),
-      rttP95Ms: percentile(sortedRtt, 95),
-      jitterMs: percentile(jitterSamples.sort((left, right) => left - right), 95),
+      rttMedianMs,
+      rttP95Ms,
+      jitterMs,
       patchGapP95Ms,
       serverTick: this.serverTick,
       clockOffsetMs: Math.round(this.clockOffsetMs * 10) / 10,
       estimatedServerTimeMs: Math.round((this.now() + this.clockOffsetMs) * 10) / 10,
-      interpolationDelayMs: Math.max(75, Math.min(250, patchGapP95Ms * 1.5 || 100)),
+      interpolationDelayMs: adaptiveInterpolationDelayMs({
+        patchGapP95Ms,
+        jitterP95Ms: jitterMs,
+        rttMedianMs,
+        rttP95Ms
+      }),
       clockSynchronized: this.clockOffsets.length > 0,
       predictionError: Math.round(this.predictionError * 10) / 10,
       predictionErrorP95: percentile(sortedPredictionErrors, 95),
@@ -151,7 +179,13 @@ export class NetworkQualityController {
       vehicleAcknowledgedMove: this.vehicleAcknowledgedMove,
       onFootResimulations: this.onFootResimulations,
       onFootPendingMoves: this.onFootPendingMoves,
-      onFootAcknowledgedMove: this.onFootAcknowledgedMove
+      onFootAcknowledgedMove: this.onFootAcknowledgedMove,
+      remoteSnapshotAgeP95Ms: percentile(
+        [...this.remoteSnapshotAges].sort((left, right) => left - right),
+        95
+      ),
+      remoteBufferUnderrunPercent: percentage(this.remoteBufferUnderruns),
+      remoteExtrapolationPercent: percentage(this.remoteExtrapolations)
     };
   }
 
@@ -184,10 +218,12 @@ export class NetworkQualityController {
   }
 }
 
-function pushBounded(values: number[], value: number): void {
+const REMOTE_SAMPLE_LIMIT = 120;
+
+function pushBounded(values: number[], value: number, limit = SAMPLE_LIMIT): void {
   if (!Number.isFinite(value) || value < 0) return;
   values.push(value);
-  if (values.length > SAMPLE_LIMIT) values.splice(0, values.length - SAMPLE_LIMIT);
+  if (values.length > limit) values.splice(0, values.length - limit);
 }
 
 function percentile(sorted: readonly number[], requested: number): number {
@@ -199,4 +235,13 @@ function percentile(sorted: readonly number[], requested: number): number {
 function mean(values: readonly number[]): number {
   if (values.length === 0) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10;
+}
+
+function percentage(values: readonly number[]): number {
+  return Math.round(meanRaw(values) * 1_000) / 10;
+}
+
+function meanRaw(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }

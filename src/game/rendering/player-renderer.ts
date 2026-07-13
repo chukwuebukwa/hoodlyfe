@@ -11,7 +11,8 @@ import type {VehicleRenderPose} from './render-types.ts';
 import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-texture-factory.ts';
 import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
-import {MotionSnapshotBuffer} from '../network/motion-snapshot-buffer.ts';
+import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
+import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
 import {
   SavedOnFootPrediction,
   type OnFootPredictionCorrection
@@ -43,7 +44,7 @@ interface RenderPlayer {
   attackCombo: number;
   meleeActive: boolean;
   reactionActive: boolean;
-  motion: MotionSnapshotBuffer;
+  motion: RemoteMotionTimeline;
   onFootPrediction: SavedOnFootPrediction;
   onFootCorrection?: OnFootPredictionCorrection;
   visualOffsetX: number;
@@ -63,6 +64,9 @@ interface PlayerRendererOptions {
     pendingMoves: number,
     acknowledgedMove: number,
     resimulated: boolean
+  ) => void;
+  onRemoteTimeline?: (
+    sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
   onLocalState: (
     playerId: string,
@@ -105,15 +109,17 @@ export class PlayerRenderer {
 
   interpolate(
     time: number,
-    renderServerTimeMs = 0
+    renderServerTimeMs = 0,
+    estimatedServerTimeMs = renderServerTimeMs
   ): void {
     for (const [playerId, rendered] of this.rendered) {
       const player = this.latestPlayers?.get(playerId);
       const previousX = rendered.sprite.x;
       const previousY = rendered.sprite.y;
       const buffered = !rendered.isLocal && renderServerTimeMs > 0
-        ? rendered.motion.sample(renderServerTimeMs)
+        ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
+      if (buffered) this.options.onRemoteTimeline?.(buffered);
       const position = buffered
         ? {
           x: buffered.x,
@@ -370,7 +376,7 @@ export class PlayerRenderer {
       attackCombo: 0,
       meleeActive: false,
       reactionActive: false,
-      motion: new MotionSnapshotBuffer(),
+      motion: createRemoteMotionTimeline('player'),
       onFootPrediction: initializedOnFootPrediction(player),
       visualOffsetX: 0,
       visualOffsetY: 0,

@@ -9,6 +9,8 @@ import {
 import type {CombatReactionDirection, CombatReactionKind} from '../types.ts';
 import {npcMeleePresentation} from './npc-melee-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
+import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
+import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
@@ -23,20 +25,30 @@ interface RenderNpc {
   attackProgress: number;
   burning: boolean;
   burnExpiresAt: number;
+  motion: RemoteMotionTimeline;
+}
+
+interface PedestrianRendererOptions {
+  onRemoteTimeline?: (
+    sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
+  ) => void;
 }
 
 export class PedestrianRenderer {
   private readonly rendered = new Map<string, RenderNpc>();
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly options: PedestrianRendererOptions = {}
+  ) {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
-  synchronize(npcs?: Map<string, NetworkNpc>): void {
+  synchronize(npcs?: Map<string, NetworkNpc>, serverTimeMs = 0): void {
     const present = new Set<string>();
     npcs?.forEach((npc, npcId) => {
       present.add(npcId);
-      this.synchronizeOne(npcId, npc);
+      this.synchronizeOne(npcId, npc, serverTimeMs);
     });
     for (const [npcId, rendered] of this.rendered) {
       if (present.has(npcId)) continue;
@@ -46,16 +58,27 @@ export class PedestrianRenderer {
     }
   }
 
-  interpolate(): void {
+  interpolate(renderServerTimeMs = 0, estimatedServerTimeMs = renderServerTimeMs): void {
     for (const rendered of this.rendered.values()) {
-      const position = interpolatePosition(
-        rendered.sprite.x,
-        rendered.sprite.y,
-        rendered.targetX,
-        rendered.targetY,
-        0.22,
-        120
-      );
+      const buffered = renderServerTimeMs > 0
+        ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
+        : undefined;
+      if (buffered) this.options.onRemoteTimeline?.(buffered);
+      const position = buffered
+        ? {
+          x: buffered.x,
+          y: buffered.y,
+          distance: Math.hypot(buffered.x - rendered.sprite.x, buffered.y - rendered.sprite.y),
+          snapped: buffered.mode === 'teleported'
+        }
+        : interpolatePosition(
+          rendered.sprite.x,
+          rendered.sprite.y,
+          rendered.targetX,
+          rendered.targetY,
+          0.22,
+          120
+        );
       rendered.sprite.setPosition(position.x, position.y);
       const reaction = combatReactionPresentation(rendered);
       const melee = npcMeleePresentation({
@@ -65,7 +88,7 @@ export class PedestrianRenderer {
       const rotationOffset = reaction.active ? reaction.rotationOffset : melee.rotationOffset;
       const scaleX = reaction.active ? reaction.scaleX : melee.scaleX;
       const scaleY = reaction.active ? reaction.scaleY : melee.scaleY;
-      const targetRotation = rendered.targetAngle - Math.PI / 2 + rotationOffset;
+      const targetRotation = (buffered?.angle ?? rendered.targetAngle) - Math.PI / 2 + rotationOffset;
       rendered.sprite.rotation = reaction.active || melee.active
         ? targetRotation
         : rotateTowards(rendered.sprite.rotation, targetRotation, 0.14);
@@ -104,7 +127,7 @@ export class PedestrianRenderer {
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
-  private synchronizeOne(npcId: string, npc: NetworkNpc): void {
+  private synchronizeOne(npcId: string, npc: NetworkNpc, serverTimeMs: number): void {
     let rendered = this.rendered.get(npcId);
     if (!rendered) {
       const sprite = this.scene.add.sprite(npc.x, npc.y, npc.kind, 0)
@@ -127,7 +150,8 @@ export class PedestrianRenderer {
         reactionProgress: npc.reactionProgress ?? 0,
         attackProgress: npc.attackProgress ?? 1,
         burning: Boolean(npc.onFire),
-        burnExpiresAt: npc.fireExpiresAt ?? 0
+        burnExpiresAt: npc.fireExpiresAt ?? 0,
+        motion: createRemoteMotionTimeline('npc')
       };
       this.rendered.set(npcId, rendered);
     }
@@ -141,6 +165,14 @@ export class PedestrianRenderer {
     rendered.attackProgress = npc.attackProgress ?? 1;
     rendered.burning = Boolean(npc.onFire);
     rendered.burnExpiresAt = npc.fireExpiresAt ?? 0;
+    if (serverTimeMs > 0) {
+      rendered.motion.push({
+        timeMs: serverTimeMs,
+        x: npc.x,
+        y: npc.y,
+        angle: npc.angle
+      });
+    }
     rendered.sprite.setVisible(npc.alive);
   }
 

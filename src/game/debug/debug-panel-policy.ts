@@ -63,7 +63,10 @@ export function projectDebugPanel(
         `P${network.onFootPendingMoves} R${network.onFootResimulations}`
       : '0px',
     clockSync: network
-      ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer`
+      ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer / ` +
+        `${network.remoteSnapshotAgeP95Ms}ms age / ` +
+        `${network.remoteBufferUnderrunPercent}% under / ` +
+        `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
