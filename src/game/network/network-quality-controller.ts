@@ -30,6 +30,9 @@ export interface NetworkQualitySnapshot {
   vehicleResimulations: number;
   vehiclePendingMoves: number;
   vehicleAcknowledgedMove: number;
+  onFootResimulations: number;
+  onFootPendingMoves: number;
+  onFootAcknowledgedMove: number;
 }
 
 interface NetworkQualityControllerOptions {
@@ -56,6 +59,9 @@ export class NetworkQualityController {
   private vehicleResimulations = 0;
   private vehiclePendingMoves = 0;
   private vehicleAcknowledgedMove = 0;
+  private onFootResimulations = 0;
+  private onFootPendingMoves = 0;
+  private onFootAcknowledgedMove = 0;
 
   constructor(
     private readonly room: Room<DistrictNetworkState>,
@@ -96,14 +102,23 @@ export class NetworkQualityController {
     acknowledgedMove = 0,
     resimulated = false
   ): void {
-    if (!Number.isFinite(error)) return;
-    this.predictionError = Math.max(0, error);
-    pushBounded(this.predictionErrors, this.predictionError);
-    this.predictionCorrections++;
-    if (snapped) this.reconciliations++;
+    if (!this.observeCorrection(error, snapped)) return;
     if (resimulated) this.vehicleResimulations++;
     this.vehiclePendingMoves = Math.max(0, Math.floor(pendingMoves));
     this.vehicleAcknowledgedMove = Math.max(0, Math.floor(acknowledgedMove));
+  }
+
+  observeOnFootPrediction(
+    error: number,
+    snapped: boolean,
+    pendingMoves = 0,
+    acknowledgedMove = 0,
+    resimulated = false
+  ): void {
+    if (!this.observeCorrection(error, snapped)) return;
+    if (resimulated) this.onFootResimulations++;
+    this.onFootPendingMoves = Math.max(0, Math.floor(pendingMoves));
+    this.onFootAcknowledgedMove = Math.max(0, Math.floor(acknowledgedMove));
   }
 
   snapshot(): NetworkQualitySnapshot {
@@ -133,7 +148,10 @@ export class NetworkQualityController {
       reconciliations: this.reconciliations,
       vehicleResimulations: this.vehicleResimulations,
       vehiclePendingMoves: this.vehiclePendingMoves,
-      vehicleAcknowledgedMove: this.vehicleAcknowledgedMove
+      vehicleAcknowledgedMove: this.vehicleAcknowledgedMove,
+      onFootResimulations: this.onFootResimulations,
+      onFootPendingMoves: this.onFootPendingMoves,
+      onFootAcknowledgedMove: this.onFootAcknowledgedMove
     };
   }
 
@@ -155,6 +173,15 @@ export class NetworkQualityController {
     this.buildId = String(message.buildId || 'unknown').slice(0, 12);
     this.serverTick = Number.isFinite(message.serverTick) ? message.serverTick : this.serverTick;
   };
+
+  private observeCorrection(error: number, snapped: boolean): boolean {
+    if (!Number.isFinite(error)) return false;
+    this.predictionError = Math.max(0, error);
+    pushBounded(this.predictionErrors, this.predictionError);
+    this.predictionCorrections++;
+    if (snapped) this.reconciliations++;
+    return true;
+  }
 }
 
 function pushBounded(values: number[], value: number): void {

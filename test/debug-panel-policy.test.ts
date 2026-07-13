@@ -64,14 +64,17 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     reconciliations: 2,
     vehicleResimulations: 9,
     vehiclePendingMoves: 5,
-    vehicleAcknowledgedMove: 34
+    vehicleAcknowledgedMove: 34,
+    onFootResimulations: 3,
+    onFootPendingMoves: 4,
+    onFootAcknowledgedMove: 37
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
   assert.equal(panel.patchGap, '61ms / T340');
   assert.equal(
     panel.prediction,
-    '8.4px now / 12.7px p95 / 14 corr / 9 resim / 2 snap / A34 P5'
+    '8.4px now / 12.7px p95 / 14 corr / 2 snap / V A34 P5 R9 / F A37 P4 R3'
   );
   assert.equal(panel.clockSync, '-18ms / 96ms buffer');
 });

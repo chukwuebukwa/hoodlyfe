@@ -78,7 +78,7 @@ Gate: snapshot and command validation tests fail closed.
 
 Gate: full tests and production build pass with no deterministic trace divergence.
 
-### M3: Shared On-Foot Kernel
+### M3: Shared On-Foot Kernel - Complete
 
 - Replace presentation-only movement replay with fixed-tick saved-input state history.
 - Share normalization, movement scaling, interior/static collision, and action movement
@@ -87,6 +87,12 @@ Gate: full tests and production build pass with no deterministic trace divergenc
   interactions.
 
 Gate: local walking remains immediate without walking through walls before correction.
+
+Implemented with a 30 Hz shared movement kernel, sequenced batched input, server-applied
+acknowledgements, 96-move saved history, authoritative rewind/replay, and hard correction
+for space transitions or errors above 120 px. Phaser and Three render the local body,
+weapon, label, and debug collider from one predicted transform. Deterministic wall and
+interior collision are shared between browser and server.
 
 ### M4: Remote Timelines
 

@@ -12,9 +12,12 @@ import {PlayerAppearanceTextureFactory} from '../appearance/player-appearance-te
 import {combatReactionPresentation} from './combat-reaction-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
 import {MotionSnapshotBuffer} from '../network/motion-snapshot-buffer.ts';
-import {LocalMovementReplay} from '../prediction/local-movement-replay.ts';
-
-const PLAYER_SPEED = 190;
+import {
+  SavedOnFootPrediction,
+  type OnFootPredictionCorrection
+} from '../prediction/saved-on-foot-prediction.ts';
+import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
+import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
 
 interface RenderPlayer {
   sprite: Phaser.GameObjects.Sprite;
@@ -40,16 +43,27 @@ interface RenderPlayer {
   attackCombo: number;
   meleeActive: boolean;
   reactionActive: boolean;
-  authorityDirty: boolean;
   motion: MotionSnapshotBuffer;
-  movementReplay: LocalMovementReplay;
-  authoritativeServerTime: number;
+  onFootPrediction: SavedOnFootPrediction;
+  onFootCorrection?: OnFootPredictionCorrection;
+  visualOffsetX: number;
+  visualOffsetY: number;
+  acknowledgedInputSequence: number;
+  predictedSpaceId: string;
+  localOnFoot: boolean;
 }
 
 interface PlayerRendererOptions {
   localPlayerId: string;
   vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined;
-  canOccupy: (x: number, y: number) => boolean;
+  canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean;
+  onPrediction?: (
+    error: number,
+    snapped: boolean,
+    pendingMoves: number,
+    acknowledgedMove: number,
+    resimulated: boolean
+  ) => void;
   onLocalState: (
     playerId: string,
     player: NetworkPlayer,
@@ -91,9 +105,7 @@ export class PlayerRenderer {
 
   interpolate(
     time: number,
-    renderServerTimeMs = 0,
-    clockOffsetMs = 0,
-    clockSynchronized = false
+    renderServerTimeMs = 0
   ): void {
     for (const [playerId, rendered] of this.rendered) {
       const player = this.latestPlayers?.get(playerId);
@@ -101,17 +113,6 @@ export class PlayerRenderer {
       const previousY = rendered.sprite.y;
       const buffered = !rendered.isLocal && renderServerTimeMs > 0
         ? rendered.motion.sample(renderServerTimeMs)
-        : undefined;
-      const replayed = rendered.isLocal && rendered.authorityDirty && clockSynchronized
-        ? rendered.movementReplay.replay(
-          {x: rendered.targetX, y: rendered.targetY},
-          rendered.authoritativeServerTime - clockOffsetMs,
-          time,
-          PLAYER_SPEED
-        )
-        : undefined;
-      const safeReplayed = replayed && this.options.canOccupy(replayed.x, replayed.y)
-        ? replayed
         : undefined;
       const position = buffered
         ? {
@@ -121,16 +122,7 @@ export class PlayerRenderer {
           snapped: false
         }
         : rendered.isLocal
-        ? rendered.authorityDirty
-          ? interpolatePosition(
-            rendered.sprite.x,
-            rendered.sprite.y,
-            safeReplayed?.x ?? rendered.targetX,
-            safeReplayed?.y ?? rendered.targetY,
-            0.35,
-            120
-          )
-          : {x: rendered.sprite.x, y: rendered.sprite.y, distance: 0, snapped: false}
+        ? {x: rendered.sprite.x, y: rendered.sprite.y, distance: 0, snapped: false}
         : interpolatePosition(
           rendered.sprite.x,
           rendered.sprite.y,
@@ -139,7 +131,6 @@ export class PlayerRenderer {
           0.24,
           120
         );
-      if (rendered.isLocal) rendered.authorityDirty = false;
       rendered.sprite.setPosition(position.x, position.y);
       if (!rendered.isLocal) {
         rendered.sprite.rotation = buffered
@@ -157,19 +148,34 @@ export class PlayerRenderer {
     this.resolveNameplateOverlaps();
   }
 
-  predictLocalMovement(x: number, y: number, deltaSeconds: number, timeMs: number): void {
+  predictLocalMovement(
+    x: number,
+    y: number,
+    deltaSeconds: number
+  ): OnFootInputMoveMessage[] {
     const state = this.latestPlayers?.get(this.options.localPlayerId);
     const local = this.rendered.get(this.options.localPlayerId);
-    if (!local || !state?.alive || state.vehicleId || state.action ||
-      combatReactionPresentation(state).stopMovement) return;
-    local.movementReplay.record(timeMs, {x, y});
-    const distance = PLAYER_SPEED * Math.min(deltaSeconds, 0.05);
-    if (x !== 0 || y !== 0) local.sprite.play(local.animationKey, true);
+    if (!local || !state?.alive || state.vehicleId) return [];
+    const movementScale = combatReactionPresentation(state).stopMovement
+      ? 0
+      : onFootMovementScale(state.action, state.weapon, state.attackCombo ?? 0);
+    const advanced = local.onFootPrediction.advance(
+      {x, y},
+      deltaSeconds,
+      this.options.canOccupy,
+      movementScale
+    );
+    const decay = Math.exp(-14 * Math.min(Math.max(deltaSeconds, 0), 0.05));
+    local.visualOffsetX *= decay;
+    local.visualOffsetY *= decay;
+    local.sprite.setPosition(
+      advanced.pose.x + local.visualOffsetX,
+      advanced.pose.y + local.visualOffsetY
+    );
+    local.predictedSpaceId = advanced.pose.spaceId;
+    if (movementScale > 0 && (x !== 0 || y !== 0)) local.sprite.play(local.animationKey, true);
     else if (local.sprite.anims.isPlaying) local.sprite.stop().setFrame(0);
-    const nextX = local.sprite.x + x * distance;
-    if (this.options.canOccupy(nextX, local.sprite.y)) local.sprite.x = nextX;
-    const nextY = local.sprite.y + y * distance;
-    if (this.options.canOccupy(local.sprite.x, nextY)) local.sprite.y = nextY;
+    return advanced.outboundMoves;
   }
 
   aimOrigin(playerId: string): {x: number; y: number} | undefined {
@@ -229,14 +235,46 @@ export class PlayerRenderer {
       rendered.animationKey = appearance.animationKey;
       rendered.bodyScaleX = appearance.bodyScaleX;
     }
-    const authorityChanged = rendered.targetX !== player.x || rendered.targetY !== player.y;
+    const previousSpaceId = rendered.predictedSpaceId;
+    const authorityChanged = rendered.targetX !== player.x || rendered.targetY !== player.y ||
+      previousSpaceId !== (player.spaceId || 'street');
+    const acknowledgedSequence = player.lastInputSequence ?? 0;
+    const acknowledgementChanged = rendered.acknowledgedInputSequence !== acknowledgedSequence;
     rendered.targetX = player.x;
     rendered.targetY = player.y;
-    if (isLocal && authorityChanged && !player.vehicleId) rendered.authorityDirty = true;
-    if (isLocal && authorityChanged) rendered.authoritativeServerTime = serverTimeMs;
-    if (isLocal && rendered.authoritativeServerTime === 0) {
-      rendered.authoritativeServerTime = serverTimeMs;
+    const localOnFoot = isLocal && player.alive && !player.vehicleId;
+    if (localOnFoot && !rendered.localOnFoot) {
+      rendered.onFootPrediction.initialize(
+        {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
+        acknowledgedSequence
+      );
+      rendered.sprite.setPosition(player.x, player.y);
+      rendered.visualOffsetX = 0;
+      rendered.visualOffsetY = 0;
+      rendered.predictedSpaceId = player.spaceId || 'street';
+      rendered.acknowledgedInputSequence = acknowledgedSequence;
+    } else if (localOnFoot && (authorityChanged || acknowledgementChanged)) {
+      const beforeX = rendered.sprite.x;
+      const beforeY = rendered.sprite.y;
+      const correction = rendered.onFootPrediction.reconcile(
+        {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
+        acknowledgedSequence,
+        this.options.canOccupy
+      );
+      rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
+      rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
+      rendered.onFootCorrection = correction;
+      rendered.predictedSpaceId = correction.pose.spaceId;
+      rendered.acknowledgedInputSequence = acknowledgedSequence;
+      this.options.onPrediction?.(
+        correction.positionError,
+        correction.hardCorrection,
+        correction.pendingMoveCount,
+        acknowledgedSequence,
+        correction.resimulated
+      );
     }
+    rendered.localOnFoot = localOnFoot;
     rendered.targetAngle = player.angle;
     if (!isLocal && serverTimeMs > 0) {
       rendered.motion.push({timeMs: serverTimeMs, x: player.x, y: player.y, angle: player.angle});
@@ -332,10 +370,13 @@ export class PlayerRenderer {
       attackCombo: 0,
       meleeActive: false,
       reactionActive: false,
-      authorityDirty: false,
       motion: new MotionSnapshotBuffer(),
-      movementReplay: new LocalMovementReplay(),
-      authoritativeServerTime: 0
+      onFootPrediction: initializedOnFootPrediction(player),
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      acknowledgedInputSequence: player.lastInputSequence ?? 0,
+      predictedSpaceId: player.spaceId || 'street',
+      localOnFoot: false
     };
   }
 
@@ -496,6 +537,15 @@ export class PlayerRenderer {
       placed.push({x: label.x, y});
     }
   }
+}
+
+function initializedOnFootPrediction(player: NetworkPlayer): SavedOnFootPrediction {
+  const prediction = new SavedOnFootPrediction();
+  prediction.initialize(
+    {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
+    player.lastInputSequence ?? 0
+  );
+  return prediction;
 }
 
 function applyWeaponPresentation(

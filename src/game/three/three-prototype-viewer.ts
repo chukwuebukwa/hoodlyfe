@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {VEHICLE_INPUT_MESSAGE} from '../../../shared/protocol/vehicle-input.ts';
+import {ON_FOOT_INPUT_MESSAGE} from '../../../shared/protocol/on-foot-input.ts';
 import type {Room} from 'colyseus.js';
 import type {DistrictNetworkState} from '../types.ts';
 import {ThreeDistrictEntities} from './three-district-entities.ts';
@@ -298,14 +299,23 @@ export class ThreePrototypeViewer {
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
       if (local && !localVehicle) {
-        this.entities?.predictLocalPlayer(
+        const prediction = this.entities?.predictLocalPlayer(
           this.room.sessionId,
           movement,
-          delta,
-          now,
-          quality?.clockOffsetMs ?? 0,
-          quality?.clockSynchronized ?? false
+          delta
         );
+        if (prediction?.outboundMoves.length) {
+          this.room.send(ON_FOOT_INPUT_MESSAGE, {moves: prediction.outboundMoves});
+        }
+        if (prediction?.correction) {
+          this.networkQuality?.observeOnFootPrediction(
+            prediction.correction.positionError,
+            prediction.correction.hardCorrection,
+            prediction.correction.pendingMoveCount,
+            local.lastInputSequence ?? 0,
+            prediction.correction.resimulated
+          );
+        }
       }
       if (local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
         const prediction = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);

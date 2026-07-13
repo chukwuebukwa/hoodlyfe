@@ -1,6 +1,8 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
 import {VEHICLE_INPUT_MESSAGE} from '../../shared/protocol/vehicle-input.ts';
+import {ON_FOOT_INPUT_MESSAGE} from '../../shared/protocol/on-foot-input.ts';
+import {STREET_SPACE_ID} from '../../shared/content/interior-catalog.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../shared/protocol/notices.ts';
 import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
 import {AppearanceCreatorController} from './appearance/appearance-creator-controller.ts';
@@ -28,6 +30,7 @@ import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
 import {NetworkQualityController} from './network/network-quality-controller.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
+import {canOccupyClientInterior} from './world/client-collision-map.ts';
 
 const PLAYER_RADIUS = 11;
 
@@ -168,7 +171,18 @@ export class DistrictScene extends Phaser.Scene {
     this.playerRenderer = new PlayerRenderer(this, {
       localPlayerId: this.room.sessionId,
       vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
-      canOccupy: (x, y) => this.canOccupy(x, y),
+      canOccupy: (spaceId, x, y, radius) => spaceId === STREET_SPACE_ID
+        ? this.canOccupy(x, y, radius)
+        : canOccupyClientInterior(spaceId, x, y, radius),
+      onPrediction: (error, snapped, pending, acknowledged, resimulated) => {
+        this.networkQuality?.observeOnFootPrediction(
+          error,
+          snapped,
+          pending,
+          acknowledged,
+          resimulated
+        );
+      },
       onLocalState: (playerId, player, sprite, damaged) => {
         const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
         this.hudController.update(player, vehicle);
@@ -238,7 +252,8 @@ export class DistrictScene extends Phaser.Scene {
     this.networkQuality.update(time);
     const input = this.inputController.update(time);
     this.interpolateEntities(time, delta / 1000);
-    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000, time);
+    const onFootMoves = this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
+    if (onFootMoves.length > 0) this.room.send(ON_FOOT_INPUT_MESSAGE, {moves: onFootMoves});
     this.vehicleRenderer.predictLocalVehicle(input, delta / 1000);
     this.debugController.update(time);
     this.updateMinimap(time);
@@ -315,9 +330,7 @@ export class DistrictScene extends Phaser.Scene {
     this.vehicleRenderer.interpolate(time, deltaSeconds);
     this.playerRenderer.interpolate(
       time,
-      renderServerTime,
-      quality.clockOffsetMs,
-      quality.clockSynchronized
+      renderServerTime
     );
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();

@@ -42,6 +42,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   stateChanged({serverTimeMs: 230, serverTick: 94});
   controller.observePrediction(7.25, false);
   controller.observePrediction(182, true, 4, 27, true);
+  controller.observeOnFootPrediction(3, false, 2, 31, true);
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -55,14 +56,17 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     estimatedServerTimeMs: 235,
     interpolationDelayMs: 120,
     clockSynchronized: true,
-    predictionError: 182,
+    predictionError: 3,
     predictionErrorP95: 182,
-    predictionErrorMean: 94.6,
-    predictionCorrections: 2,
+    predictionErrorMean: 64.1,
+    predictionCorrections: 3,
     reconciliations: 1,
     vehicleResimulations: 1,
     vehiclePendingMoves: 4,
-    vehicleAcknowledgedMove: 27
+    vehicleAcknowledgedMove: 27,
+    onFootResimulations: 1,
+    onFootPendingMoves: 2,
+    onFootAcknowledgedMove: 31
   });
   controller.destroy();
 });

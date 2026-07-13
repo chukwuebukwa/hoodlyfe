@@ -57,9 +57,10 @@ export function projectDebugPanel(
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
     prediction: network
       ? `${network.predictionError}px now / ${network.predictionErrorP95}px p95 / ` +
-        `${network.predictionCorrections} corr / ${network.vehicleResimulations} resim / ` +
-        `${network.reconciliations} snap / A${network.vehicleAcknowledgedMove} ` +
-        `P${network.vehiclePendingMoves}`
+        `${network.predictionCorrections} corr / ${network.reconciliations} snap / ` +
+        `V A${network.vehicleAcknowledgedMove} P${network.vehiclePendingMoves} ` +
+        `R${network.vehicleResimulations} / F A${network.onFootAcknowledgedMove} ` +
+        `P${network.onFootPendingMoves} R${network.onFootResimulations}`
       : '0px',
     clockSync: network
       ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer`

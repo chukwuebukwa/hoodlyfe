@@ -16,6 +16,7 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
+import {ON_FOOT_INPUT_MESSAGE} from '../shared/protocol/on-foot-input.ts';
 import {
   APPEARANCE_RESULT_MESSAGE,
   APPEARANCE_UPDATE_MESSAGE,
@@ -241,9 +242,19 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const playerBeforeMove = first.state.players.get(first.sessionId);
   assert.ok(playerBeforeMove);
   const startY = playerBeforeMove.y;
-  first.send('input', {x: 0, y: 1});
-  await delay(420);
-  first.send('input', {x: 0, y: 0});
+  let onFootSequence = playerBeforeMove.lastInputSequence ?? 0;
+  for (let step = 0; step < 12; step++) {
+    first.send(ON_FOOT_INPUT_MESSAGE, {
+      moves: [{sequence: ++onFootSequence, x: 0, y: 1}]
+    });
+    await delay(35);
+  }
+  first.send(ON_FOOT_INPUT_MESSAGE, {
+    moves: [{sequence: ++onFootSequence, x: 0, y: 0}]
+  });
+  await waitUntil(() => (
+    first.state.players.get(first.sessionId)?.lastInputSequence === onFootSequence
+  ));
   await waitUntil(() => Math.abs((first.state.players.get(first.sessionId)?.y ?? startY) - startY) > 8);
   await waitUntil(() => Math.abs(
     (second.state.players.get(first.sessionId)?.y ?? startY) -

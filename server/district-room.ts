@@ -97,6 +97,10 @@ import {
   VEHICLE_INPUT_MESSAGE,
   type VehicleInputBatchMessage
 } from '../shared/protocol/vehicle-input.ts';
+import {
+  ON_FOOT_INPUT_MESSAGE,
+  type OnFootInputBatchMessage
+} from '../shared/protocol/on-foot-input.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
@@ -697,6 +701,9 @@ export class DistrictRoom extends Room<DistrictState> {
 
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
+    });
+    this.onMessage<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
+      this.playerControl.acceptBatch(client.sessionId, message);
     });
     this.onMessage<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
       this.vehicleInput.accept(client.sessionId, message);

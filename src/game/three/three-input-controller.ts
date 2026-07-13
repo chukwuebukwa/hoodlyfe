@@ -8,7 +8,6 @@ import {
 import {TouchControls} from '../touch-controls.ts';
 import {threePointToServerAimAngle} from './three-prototype-policy.ts';
 
-const MOVEMENT_HEARTBEAT_MS = 100;
 const AIM_INTERVAL_MS = 50;
 const FIRE_INTERVAL_MS = 90;
 
@@ -28,11 +27,8 @@ export class ThreeInputController {
   private readonly cleanup: Array<() => void> = [];
   private readonly touch = new TouchControls();
   private firing = false;
-  private lastMovement = {x: 0, y: 0};
-  private lastMovementAt = Number.NEGATIVE_INFINITY;
   private lastAimAt = Number.NEGATIVE_INFINITY;
   private lastFireAt = Number.NEGATIVE_INFINITY;
-  private inputSequence = 0;
 
   constructor(private readonly options: ThreeInputControllerOptions) {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -50,7 +46,6 @@ export class ThreeInputController {
   update(nowMs: number): {x: number; y: number} {
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) {
-      this.sendStoppedMovement(nowMs);
       return {x: 0, y: 0};
     }
     const movement = normalizeMovement(
@@ -61,14 +56,6 @@ export class ThreeInputController {
         (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0) -
         (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0)
     );
-    if (
-      movement.x !== this.lastMovement.x || movement.y !== this.lastMovement.y ||
-      nowMs - this.lastMovementAt >= MOVEMENT_HEARTBEAT_MS
-    ) {
-      this.sendMovement(movement);
-      this.lastMovement = movement;
-      this.lastMovementAt = nowMs;
-    }
     if (!player.alive || nowMs - this.lastAimAt < AIM_INTERVAL_MS) return movement;
     let angle: number | undefined;
     if (this.touch.active || this.touch.firing) {
@@ -98,7 +85,6 @@ export class ThreeInputController {
   }
 
   destroy(): void {
-    this.sendMovement({x: 0, y: 0});
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     this.options.canvas.removeEventListener('pointermove', this.handlePointerMove);
@@ -148,20 +134,6 @@ export class ThreeInputController {
   private cycleWeapon(direction: -1 | 1): void {
     if (this.options.isBlocked?.() || !this.options.player()?.alive) return;
     this.options.room.send('cycleWeapon', {direction});
-  }
-
-  private sendStoppedMovement(nowMs: number): void {
-    if (this.lastMovement.x === 0 && this.lastMovement.y === 0 &&
-      nowMs - this.lastMovementAt < MOVEMENT_HEARTBEAT_MS) return;
-    this.sendMovement({x: 0, y: 0});
-    this.lastMovement = {x: 0, y: 0};
-    this.lastMovementAt = nowMs;
-  }
-
-  private sendMovement(movement: {x: number; y: number}): void {
-    const acknowledged = this.options.player()?.lastInputSequence ?? 0;
-    this.inputSequence = Math.max(this.inputSequence, acknowledged) + 1;
-    this.options.room.send('input', {...movement, sequence: this.inputSequence});
   }
 
   private bindClick(selector: string, action: () => void): void {

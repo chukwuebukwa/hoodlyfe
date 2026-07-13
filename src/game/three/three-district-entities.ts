@@ -60,7 +60,12 @@ import {
 import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {MotionSnapshotBuffer} from '../network/motion-snapshot-buffer.ts';
-import {LocalMovementReplay} from '../prediction/local-movement-replay.ts';
+import {
+  SavedOnFootPrediction,
+  type OnFootPredictionCorrection
+} from '../prediction/saved-on-foot-prediction.ts';
+import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
+import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -91,9 +96,12 @@ interface RenderedEntity {
   authoritativeSpeed?: number;
   authorityDirty?: boolean;
   localPlayer?: boolean;
+  localOnFoot?: boolean;
   motion?: MotionSnapshotBuffer;
-  movementReplay?: LocalMovementReplay;
-  authoritativeServerTime?: number;
+  onFootPrediction?: SavedOnFootPrediction;
+  onFootCorrection?: OnFootPredictionCorrection;
+  predictedSpaceId?: string;
+  acknowledgedInputSequence?: number;
   vehiclePrediction?: SavedVehiclePrediction;
   vehicleCorrection?: VehiclePredictionCorrection;
   visualOffsetX?: number;
@@ -280,49 +288,34 @@ export class ThreeDistrictEntities {
   predictLocalPlayer(
     playerId: string,
     movement: MovementVector,
-    deltaSeconds: number,
-    nowMs: number,
-    clockOffsetMs: number,
-    clockSynchronized: boolean
-  ): void {
+    deltaSeconds: number
+  ): {correction?: OnFootPredictionCorrection; outboundMoves: OnFootInputMoveMessage[]} | undefined {
     const rendered = this.rendered.get(`player:${playerId}`);
     const player = rendered?.mesh.userData.player as NetworkPlayer | undefined;
-    if (!rendered?.localPlayer || !player?.alive || player.vehicleId || player.action) return;
-    rendered.movementReplay?.record(nowMs, movement);
-    let x = rendered.mesh.position.x;
-    let y = serverYToThree(rendered.mesh.position.y);
-    if (rendered.authorityDirty) {
-      const replayed = clockSynchronized ? rendered.movementReplay?.replay(
-        {
-          x: rendered.authoritativeX ?? player.x,
-          y: rendered.authoritativeY ?? player.y
-        },
-        (rendered.authoritativeServerTime ?? 0) - clockOffsetMs,
-        nowMs,
-        190
-      ) : undefined;
-      const replayIsSafe = replayed && this.canOccupy(player.spaceId || 'street', replayed.x, replayed.y, 11);
-      const targetX = replayIsSafe ? replayed.x : rendered.authoritativeX ?? player.x;
-      const targetY = replayIsSafe ? replayed.y : rendered.authoritativeY ?? player.y;
-      const error = Math.hypot(targetX - x, targetY - y);
-      if (error > 120) {
-        x = targetX;
-        y = targetY;
-      } else {
-        x += (targetX - x) * 0.2;
-        y += (targetY - y) * 0.2;
-      }
-      rendered.authorityDirty = false;
+    if (!rendered?.localPlayer || !player?.alive || player.vehicleId || !rendered.onFootPrediction) {
+      return undefined;
     }
-    const distance = 190 * Math.min(Math.max(deltaSeconds, 0), 0.05);
-    const spaceId = player.spaceId || 'street';
-    const nextX = x + movement.x * distance;
-    if (this.canOccupy(spaceId, nextX, y, 11)) x = nextX;
-    const nextY = y + movement.y * distance;
-    if (this.canOccupy(spaceId, x, nextY, 11)) y = nextY;
+    const movementScale = combatReactionPresentation(player).stopMovement
+      ? 0
+      : onFootMovementScale(player.action, player.weapon, player.attackCombo ?? 0);
+    const advanced = rendered.onFootPrediction.advance(
+      movement,
+      deltaSeconds,
+      this.canOccupy,
+      movementScale
+    );
+    const decay = Math.exp(-14 * Math.min(Math.max(deltaSeconds, 0), 0.05));
+    rendered.visualOffsetX = (rendered.visualOffsetX ?? 0) * decay;
+    rendered.visualOffsetY = (rendered.visualOffsetY ?? 0) * decay;
+    const x = advanced.pose.x + rendered.visualOffsetX;
+    const y = advanced.pose.y + rendered.visualOffsetY;
+    rendered.predictedSpaceId = advanced.pose.spaceId;
     rendered.mesh.position.set(x, serverYToThree(y), this.surfaceHeightAt(x, y) + 4);
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
+    const correction = rendered.onFootCorrection;
+    rendered.onFootCorrection = undefined;
+    return {correction, outboundMoves: advanced.outboundMoves};
   }
 
   predictLocalVehicle(
@@ -459,18 +452,54 @@ export class ThreeDistrictEntities {
         fire: effectDisc(9, 0xff762e, 0.78),
         appearanceKey: appearance.textureKey,
         motion: new MotionSnapshotBuffer(),
-        movementReplay: new LocalMovementReplay(),
-        authoritativeServerTime: state.serverTimeMs ?? 0
+        onFootPrediction: initializedOnFootPrediction(player),
+        predictedSpaceId: player.spaceId || 'street',
+        acknowledgedInputSequence: player.lastInputSequence ?? 0,
+        visualOffsetX: 0,
+        visualOffsetY: 0
       };
     });
-    const becameLocal = isLocal && !rendered.localPlayer;
-    const authorityChanged = rendered.authoritativeX !== player.x || rendered.authoritativeY !== player.y;
+    const playerSpaceId = player.spaceId || 'street';
+    const localOnFoot = isLocal && player.alive && !player.vehicleId;
+    const authorityChanged = rendered.authoritativeX !== player.x ||
+      rendered.authoritativeY !== player.y || rendered.predictedSpaceId !== playerSpaceId;
+    const acknowledgedSequence = player.lastInputSequence ?? 0;
+    const acknowledgementChanged = rendered.acknowledgedInputSequence !== acknowledgedSequence;
     rendered.localPlayer = isLocal;
     rendered.authoritativeX = player.x;
     rendered.authoritativeY = player.y;
     rendered.authoritativeAngle = player.angle;
-    if (isLocal && !player.vehicleId && authorityChanged) rendered.authorityDirty = true;
-    if (isLocal && authorityChanged) rendered.authoritativeServerTime = state.serverTimeMs ?? 0;
+    if (localOnFoot && !rendered.localOnFoot) {
+      rendered.onFootPrediction?.initialize(
+        {x: player.x, y: player.y, spaceId: playerSpaceId},
+        acknowledgedSequence
+      );
+      rendered.mesh.position.set(
+        player.x,
+        serverYToThree(player.y),
+        this.surfaceHeightAt(player.x, player.y) + 4
+      );
+      rendered.visualOffsetX = 0;
+      rendered.visualOffsetY = 0;
+      rendered.predictedSpaceId = playerSpaceId;
+      rendered.acknowledgedInputSequence = acknowledgedSequence;
+    } else if (localOnFoot && (authorityChanged || acknowledgementChanged)) {
+      const beforeX = rendered.mesh.position.x;
+      const beforeY = serverYToThree(rendered.mesh.position.y);
+      const correction = rendered.onFootPrediction?.reconcile(
+        {x: player.x, y: player.y, spaceId: playerSpaceId},
+        acknowledgedSequence,
+        this.canOccupy
+      );
+      if (correction) {
+        rendered.visualOffsetX = correction.hardCorrection ? 0 : beforeX - correction.pose.x;
+        rendered.visualOffsetY = correction.hardCorrection ? 0 : beforeY - correction.pose.y;
+        rendered.onFootCorrection = correction;
+        rendered.predictedSpaceId = correction.pose.spaceId;
+        rendered.acknowledgedInputSequence = acknowledgedSequence;
+      }
+    }
+    rendered.localOnFoot = localOnFoot;
     if (!isLocal && (state.serverTimeMs ?? 0) > 0) {
       rendered.motion?.push({
         timeMs: state.serverTimeMs ?? 0,
@@ -478,14 +507,6 @@ export class ThreeDistrictEntities {
         y: player.y,
         angle: player.angle
       });
-    }
-    if (becameLocal && !player.vehicleId) {
-      rendered.mesh.position.set(
-        player.x,
-        serverYToThree(player.y),
-        this.surfaceHeightAt(player.x, player.y) + 4
-      );
-      rendered.authorityDirty = false;
     }
     rendered.mesh.userData.player = player;
     const attackSequence = player.attackSequence ?? 0;
@@ -558,7 +579,6 @@ export class ThreeDistrictEntities {
       ? passengerPresentation(vehiclePose, player.vehicleSeat, player.angle, performance.now(), false)
       : undefined;
     const buffered = !isLocal && !vehicle ? rendered.motion?.sample(renderServerTimeMs) : undefined;
-    const localOnFoot = isLocal && !vehicle;
     const x = passenger?.spriteX ?? buffered?.x ?? (
       localOnFoot ? rendered.mesh.position.x : player.x
     );
@@ -593,8 +613,8 @@ export class ThreeDistrictEntities {
         : undefined;
       updateWalkingFrame(
         rendered.mesh,
-        player.x,
-        player.y,
+        x,
+        y,
         Boolean(!vehicle && player.alive && !player.action && !melee?.active && !reaction.stopMovement),
         appearanceTextures.walkColumns,
         appearanceTextures.walkRows,
@@ -618,8 +638,8 @@ export class ThreeDistrictEntities {
       rendered.fire.material.opacity = burn.alpha;
     }
     if (rendered.weapon) {
-      const baseX = passenger?.baseX ?? player.x;
-      const baseY = passenger?.baseY ?? player.y;
+      const baseX = passenger?.baseX ?? x;
+      const baseY = passenger?.baseY ?? y;
       const weaponAngle = player.angle + (melee?.weaponRotationOffset ?? 0);
       const weaponDistance = melee?.active ? melee.weaponDistance : 8;
       rendered.weapon.position.set(
@@ -633,8 +653,8 @@ export class ThreeDistrictEntities {
         (!player.action || player.action === 'melee');
     }
     if (rendered.label) {
-      const labelX = vehiclePose?.x ?? player.x;
-      const labelY = vehiclePose?.y ?? player.y;
+      const labelX = vehiclePose?.x ?? x;
+      const labelY = vehiclePose?.y ?? y;
       const labelZ = this.surfaceHeightAt(labelX, labelY) + 12;
       rendered.label.position.set(
         labelX,
@@ -1260,6 +1280,15 @@ function lpcAimDirectionRow(angle: number): number {
 
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function initializedOnFootPrediction(player: NetworkPlayer): SavedOnFootPrediction {
+  const prediction = new SavedOnFootPrediction();
+  prediction.initialize(
+    {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
+    player.lastInputSequence ?? 0
+  );
+  return prediction;
 }
 
 function configureTexture(texture: THREE.Texture): void {
