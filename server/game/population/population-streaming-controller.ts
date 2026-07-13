@@ -4,11 +4,20 @@ import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts
 import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-controller.ts';
 import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
+import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 
 export const STREAMED_CIVILIAN_RECORDS = 72;
 export const STREAMED_POLICE_RECORDS = 8;
 export const STREAMED_TRAFFIC_RECORDS = 64;
+const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = [
+  'sedan',
+  'taxi',
+  'sedan',
+  'sedan',
+  'taxi',
+  'sedan'
+];
 
 export const POPULATION_STREAMING = Object.freeze({
   materializeRadius: 1_536,
@@ -39,7 +48,7 @@ interface VirtualPedestrianRecord {
 
 interface VirtualTrafficRecord {
   id: string;
-  kind: 'sedan' | 'taxi';
+  kind: VehicleKind;
   spawn: TrafficSpawn;
   cruiseSpeed: number;
   active: boolean;
@@ -100,7 +109,7 @@ export class PopulationStreamingController {
       const id = `stream-traffic-${index + 1}`;
       this.traffic.set(id, {
         id,
-        kind: index % 4 === 2 ? 'taxi' : 'sedan',
+        kind: STREAMED_TRAFFIC_KINDS[index % STREAMED_TRAFFIC_KINDS.length],
         spawn: this.options.world.trafficSpawn(10_000 + index * 193, VEHICLE_RADIUS),
         cruiseSpeed: 104 + index % 8 * 7,
         active: false,

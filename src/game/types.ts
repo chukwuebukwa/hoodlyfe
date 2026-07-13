@@ -41,7 +41,14 @@ export interface NetworkPlayer {
   ammoPistol: number;
   ammoSmg: number;
   ammoShotgun: number;
+  ammoRocket?: number;
   ammoGrenade: number;
+  ammoMolotov?: number;
+  onFire?: boolean;
+  fireStartedAt?: number;
+  fireExpiresAt?: number;
+  lastInputSequence?: number;
+  lastVehicleInputSequence?: number;
   appearance: PlayerAppearance;
 }
 
@@ -59,7 +66,7 @@ export interface NetworkBullet {
 export interface NetworkThrownProjectile {
   id: string;
   ownerId: string;
-  kind: 'grenade';
+  kind: 'grenade' | 'molotov';
   x: number;
   y: number;
   height: number;
@@ -68,9 +75,18 @@ export interface NetworkThrownProjectile {
   fuseAt: number;
 }
 
+export interface NetworkRocketProjectile {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  angle: number;
+  createdAt: number;
+}
+
 export interface NetworkExplosion {
   id: string;
-  kind: 'grenade' | 'vehicle';
+  kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
   x: number;
@@ -80,14 +96,34 @@ export interface NetworkExplosion {
   expiresAt: number;
 }
 
+export interface NetworkFireZone {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  radius: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
 export interface NetworkWeaponPickup {
   id: string;
-  weapon: 'grenade';
+  weapon: 'grenade' | 'molotov';
   x: number;
   y: number;
   quantity: number;
   available: boolean;
   respawnAt: number;
+}
+
+export interface NetworkCashPickup {
+  id: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  amount: number;
+  availableAt: number;
+  expiresAt: number;
 }
 
 export interface NetworkTrafficSignal {
@@ -116,6 +152,9 @@ export interface NetworkNpc {
   reactionDirection?: CombatReactionDirection;
   reactionProgress?: number;
   ejectedAt?: number;
+  onFire?: boolean;
+  fireStartedAt?: number;
+  fireExpiresAt?: number;
 }
 
 export interface NetworkVehicle {
@@ -140,6 +179,7 @@ export interface NetworkVehicle {
   traffic: boolean;
   hijackBy: string;
   siren?: boolean;
+  radioStation?: string;
 }
 
 export interface NetworkMissionParticipant {
@@ -167,12 +207,13 @@ export interface NetworkMission {
   id: string;
   templateId: MissionTemplateId;
   leaderId: string;
-  phase: 'forming' | 'steal' | 'checkpoints' | 'hold' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
+  phase: 'forming' | 'steal' | 'checkpoints' | 'hold' | 'eliminate' | 'lose-heat' | 'deliver' | 'completed' | 'failed';
   objectiveId: string;
   objectiveKind: MissionObjectiveKind;
   objectiveIndex: number;
   objectiveCount: number;
   targetVehicleId: string;
+  targetNpcId?: string;
   checkpointIndex: number;
   checkpointCount: number;
   checkpointX: number;
@@ -203,14 +244,21 @@ export interface NetworkMission {
 export interface DistrictNetworkState {
   players: Map<string, NetworkPlayer>;
   bullets: Map<string, NetworkBullet>;
+  rockets?: Map<string, NetworkRocketProjectile>;
   thrownProjectiles: Map<string, NetworkThrownProjectile>;
   explosions: Map<string, NetworkExplosion>;
+  fires: Map<string, NetworkFireZone>;
   weaponPickups: Map<string, NetworkWeaponPickup>;
+  cashPickups?: Map<string, NetworkCashPickup>;
   trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
+  worldTimeStartedAt?: number;
+  worldTimeStartMinute?: number;
+  worldTimeRate?: number;
+  serverTimeMs?: number;
   missionContactX: number;
   missionContactY: number;
 }

@@ -238,5 +238,6 @@ function markerColor(kind: MinimapMarker['kind'], timeMs: number): string {
   if (kind === 'hospital') return '#63df8a';
   if (kind === 'repair') return '#55d6ff';
   if (kind === 'pickup') return '#ffd75a';
+  if (kind === 'cash') return '#55e58b';
   return '#d979ff';
 }

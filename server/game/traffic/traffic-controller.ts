@@ -9,6 +9,12 @@ import {
   type TrafficManeuverPhase,
   type TrafficManeuverRuntime
 } from './traffic-maneuver-system.ts';
+import {
+  EmergencyYieldSystem,
+  type EmergencyVehicleSnapshot,
+  type EmergencyYieldPhase,
+  type EmergencyYieldRuntime
+} from './emergency-yield-system.ts';
 
 interface TrafficRuntime {
   previousColumn: number;
@@ -24,10 +30,12 @@ interface TrafficRuntime {
   reversingUntil: number;
   recoveryCount: number;
   maneuver: TrafficManeuverRuntime;
+  emergencyYield: EmergencyYieldRuntime;
 }
 
 export interface TrafficUpdateContext {
   obstacles?: readonly TrafficObstacle[];
+  emergencyVehicles?: readonly EmergencyVehicleSnapshot[];
 }
 
 export interface TrafficDiagnostic {
@@ -41,6 +49,8 @@ export interface TrafficDiagnostic {
   recoveryCount: number;
   maneuverPhase: TrafficManeuverPhase;
   maneuverAttempts: number;
+  emergencyYieldPhase: EmergencyYieldPhase;
+  emergencyVehicleId: string;
 }
 
 interface TrafficControllerOptions {
@@ -53,10 +63,12 @@ export class TrafficController {
   private readonly driver: RoadDrivingSystem;
   private readonly maneuvers: TrafficManeuverSystem;
   private readonly junctions = new TrafficJunctionSystem();
+  private readonly emergencyYield: EmergencyYieldSystem;
 
   constructor(private readonly options: TrafficControllerOptions) {
     this.driver = new RoadDrivingSystem(options.world);
     this.maneuvers = new TrafficManeuverSystem(options.world);
+    this.emergencyYield = new EmergencyYieldSystem(options.world);
   }
 
   register(vehicleId: string, spawn: TrafficSpawn, cruiseSpeed: number): void {
@@ -73,7 +85,8 @@ export class TrafficController {
       blockedSince: 0,
       reversingUntil: 0,
       recoveryCount: 0,
-      maneuver: this.maneuvers.createRuntime()
+      maneuver: this.maneuvers.createRuntime(),
+      emergencyYield: this.emergencyYield.createRuntime()
     });
   }
 
@@ -97,7 +110,9 @@ export class TrafficController {
       blockedSince: runtime.blockedSince,
       recoveryCount: runtime.recoveryCount,
       maneuverPhase: runtime.maneuver.phase,
-      maneuverAttempts: runtime.maneuver.attempts
+      maneuverAttempts: runtime.maneuver.attempts,
+      emergencyYieldPhase: runtime.emergencyYield.phase,
+      emergencyVehicleId: runtime.emergencyYield.emergencyId
     })).sort((left, right) => left.vehicleId.localeCompare(right.vehicleId));
   }
 
@@ -111,6 +126,7 @@ export class TrafficController {
     if (!runtime) return false;
     if (vehicle.hijackBy) {
       this.maneuvers.reset(runtime.maneuver);
+      this.emergencyYield.reset(runtime.emergencyYield);
       this.driver.brake(vehicle, deltaSeconds);
       runtime.desiredSpeed = 0;
       runtime.speedReason = 'hijack';
@@ -124,6 +140,40 @@ export class TrafficController {
     const targetX = routeTarget.x;
     const targetY = routeTarget.y;
     const obstacles = context.obstacles ?? [];
+    const yieldCommand = this.emergencyYield.command(
+      vehicle,
+      runtime.emergencyYield,
+      context.emergencyVehicles ?? [],
+      nowMs
+    );
+    if (yieldCommand.phase !== 'none') {
+      this.maneuvers.reset(runtime.maneuver);
+      if (yieldCommand.phase === 'wait') {
+        this.driver.brake(vehicle, deltaSeconds);
+        runtime.desiredSpeed = 0;
+        runtime.speedReason = 'siren';
+        runtime.obstacleId = yieldCommand.emergencyId;
+        const emergency = context.emergencyVehicles?.find(({id}) => id === yieldCommand.emergencyId);
+        runtime.obstacleDistance = emergency
+          ? Math.hypot(vehicle.x - emergency.x, vehicle.y - emergency.y)
+          : -1;
+        return false;
+      }
+      const result = this.driver.update(vehicle, {
+        targetX: yieldCommand.targetX!,
+        targetY: yieldCommand.targetY!,
+        cruiseSpeed: Math.min(runtime.cruiseSpeed, yieldCommand.maximumSpeed ?? 72),
+        deltaSeconds,
+        obstacles,
+        ignoredObstacleIds: new Set([yieldCommand.emergencyId]),
+        minimumGapScale: 0.75
+      });
+      runtime.desiredSpeed = result.desiredSpeed;
+      runtime.speedReason = 'siren';
+      runtime.obstacleId = yieldCommand.emergencyId;
+      runtime.obstacleDistance = result.obstacleDistance;
+      return result.moved;
+    }
     const junctionKey = this.junctionKey(runtime.targetColumn, runtime.targetRow);
     const junctionDistance = Math.hypot(targetX - vehicle.x, targetY - vehicle.y);
     const junctionGranted = !junctionKey || junctionDistance > 150 ||

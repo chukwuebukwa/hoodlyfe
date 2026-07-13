@@ -37,6 +37,7 @@ interface ClientProjection {
   visible: Set<Schema>;
   awaitingCompleteSnapshot: Set<Schema>;
   diagnostic: DistrictReplicationDiagnostic;
+  anchor?: ReplicationAnchor;
 }
 
 interface DesiredSchema {
@@ -44,6 +45,12 @@ interface DesiredSchema {
   priority: number;
   distance: number;
   key: string;
+}
+
+export interface ReplicationAnchor {
+  x: number;
+  y: number;
+  spaceId?: string;
 }
 
 export class DistrictReplicationController {
@@ -65,13 +72,17 @@ export class DistrictReplicationController {
     );
   }
 
-  attach(playerId: string): StateView {
+  attach(playerId: string, anchor?: ReplicationAnchor): StateView {
     const existing = this.clients.get(playerId);
-    if (existing) return existing.view;
+    if (existing) {
+      existing.anchor = anchor;
+      return existing.view;
+    }
     const projection = {
       view: new StateView(),
       visible: new Set<Schema>(),
       awaitingCompleteSnapshot: new Set<Schema>(),
+      anchor,
       diagnostic: {
         playerId,
         spaceId: '',
@@ -107,8 +118,9 @@ export class DistrictReplicationController {
     const desired = new Map<Schema, DesiredSchema>();
     let nearbyActors = 0;
     let spaceId = '';
-    if (player) {
-      spaceId = player.spaceId || STREET_SPACE_ID;
+    const anchor = player ?? projection.anchor;
+    if (anchor) {
+      spaceId = anchor.spaceId || STREET_SPACE_ID;
       for (const candidate of this.state.players.values()) {
         if ((candidate.spaceId || STREET_SPACE_ID) === spaceId) {
           this.addDesired(desired, candidate, 0, 0, `player:${candidate.id}`);
@@ -120,7 +132,7 @@ export class DistrictReplicationController {
         }
       }
       if (spaceId === STREET_SPACE_ID) {
-        nearbyActors = this.addStreetState(playerId, player.x, player.y, projection, desired);
+        nearbyActors = this.addStreetState(playerId, anchor.x, anchor.y, projection, desired);
       }
     }
 
@@ -170,14 +182,25 @@ export class DistrictReplicationController {
     for (const pickup of this.state.weaponPickups.values()) {
       this.addDesired(desired, pickup, 2, distance(x, y, pickup.x, pickup.y), `pickup:${pickup.id}`);
     }
+    for (const pickup of this.state.cashPickups.values()) {
+      const pickupDistance = distance(x, y, pickup.x, pickup.y);
+      if (!shouldReplicateStreetEntity({
+        distance: pickupDistance,
+        visible: projection.visible.has(pickup),
+        alwaysRelevant: false
+      })) continue;
+      this.addDesired(desired, pickup, 2, pickupDistance, `cash:${pickup.id}`);
+    }
     for (const signal of this.state.trafficSignals.values()) {
       this.addDesired(desired, signal, 2, distance(x, y, signal.x, signal.y), `signal:${signal.id}`);
     }
     for (const mission of this.state.missions.values()) {
       this.addDesired(desired, mission, 1, 0, `mission:${mission.id}`);
-      if (!mission.participants.has(playerId) || !mission.targetVehicleId) continue;
+      if (!mission.participants.has(playerId)) continue;
       const target = this.state.vehicles.get(mission.targetVehicleId);
       if (target) this.addDesired(desired, target, 0, 0, `vehicle:${target.id}`);
+      const targetNpc = this.state.npcs.get(mission.targetNpcId);
+      if (targetNpc) this.addDesired(desired, targetNpc, 0, 0, `npc:${targetNpc.id}`);
     }
     for (const vehicle of this.state.vehicles.values()) {
       if (!this.isOccupiedByPlayer(vehicle.id)) continue;
@@ -213,6 +236,17 @@ export class DistrictReplicationController {
         `bullet:${bullet.id}`
       );
     }
+    for (const rocket of this.state.rockets.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        rocket,
+        x,
+        y,
+        rocket.ownerId === playerId,
+        `rocket:${rocket.id}`
+      );
+    }
     for (const projectile of this.state.thrownProjectiles.values()) {
       this.addTransientIfRelevant(
         desired,
@@ -233,6 +267,17 @@ export class DistrictReplicationController {
         y,
         explosion.sourceId === playerId,
         `explosion:${explosion.id}`
+      );
+    }
+    for (const fire of this.state.fires.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        fire,
+        x,
+        y,
+        fire.ownerId === playerId,
+        `fire:${fire.id}`
       );
     }
     return actors.length;

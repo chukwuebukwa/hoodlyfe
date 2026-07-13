@@ -1,0 +1,12 @@
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/bin/Release/net10.0/OpenGta2.GameData.deps.json
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/bin/Release/net10.0/OpenGta2.GameData.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/bin/Release/net10.0/OpenGta2.GameData.pdb
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.GeneratedMSBuildEditorConfig.editorconfig
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.AssemblyInfoInputs.cache
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.AssemblyInfo.cs
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.csproj.CoreCompileInputs.cache
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.sourcelink.json
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/refint/OpenGta2.GameData.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/OpenGta2.GameData.pdb
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.GameData/obj/Release/net10.0/ref/OpenGta2.GameData.dll

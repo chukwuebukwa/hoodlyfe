@@ -20,6 +20,14 @@ interface FireControlControllerOptions {
   events?: GameEventStream;
   cancelSpawnProtection?: (playerId: string) => void;
   throwExplosive?: (input: {
+    kind: 'grenade' | 'molotov';
+    ownerId: string;
+    x: number;
+    y: number;
+    angle: number;
+    nowMs: number;
+  }) => boolean;
+  launchRocket?: (input: {
     ownerId: string;
     x: number;
     y: number;
@@ -72,6 +80,22 @@ export class FireControlController {
     }
     if (weapon.fireMode === 'thrown') {
       const created = this.options.throwExplosive?.({
+        kind: weapon.id,
+        ownerId: playerId,
+        x: origin.x,
+        y: origin.y,
+        angle: player.angle,
+        nowMs: clock.nowMs
+      }) ?? false;
+      if (!created) return;
+      this.lastAttackAt.set(playerId, clock.nowMs);
+      this.options.cancelSpawnProtection?.(playerId);
+      setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
+      this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
+      return;
+    }
+    if (weapon.fireMode === 'rocket') {
+      const created = this.options.launchRocket?.({
         ownerId: playerId,
         x: origin.x,
         y: origin.y,
@@ -150,6 +174,9 @@ export class FireControlController {
     player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
     player.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
     player.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
+    player.ammoRocket = AMMUNITION_CAPACITY.ammoRocket;
+    player.ammoGrenade = AMMUNITION_CAPACITY.ammoGrenade;
+    player.ammoMolotov = AMMUNITION_CAPACITY.ammoMolotov;
   }
 
   private publishWeaponFired(

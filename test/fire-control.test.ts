@@ -132,3 +132,36 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   fire.shoot(player.id);
   assert.deepEqual(meleeAttacks, ['fists', 'fists'], 'Active melee input reaches the combo buffer.');
 });
+
+test('fire control consumes rocket ammo only after an authoritative launch is accepted', () => {
+  const state = new DistrictState();
+  const player = new PlayerState();
+  player.id = 'rocketeer';
+  player.weapon = 'rocket';
+  player.ammoRocket = 2;
+  state.players.set(player.id, player);
+  const clock = {tick: 1, nowMs: 1000};
+  const launched: string[] = [];
+  let accept = false;
+  const fire = new FireControlController({
+    state,
+    random: new DeterministicRandom('rocket-fire-test'),
+    clock: () => clock,
+    launchRocket: ({ownerId}) => {
+      launched.push(ownerId);
+      return accept;
+    }
+  });
+
+  fire.shoot(player.id);
+  assert.equal(player.ammoRocket, 2);
+  accept = true;
+  fire.shoot(player.id);
+  assert.equal(player.ammoRocket, 1);
+  assert.deepEqual(launched, ['rocketeer', 'rocketeer']);
+  player.vehicleId = 'car';
+  player.vehicleSeat = 1;
+  clock.nowMs += 1000;
+  fire.shoot(player.id);
+  assert.equal(player.ammoRocket, 1, 'Passengers cannot fire the launcher.');
+});

@@ -48,7 +48,22 @@ The current `PlayerState.cash` is temporary street cash:
 - Every successful mutation publishes `economy.changed` before applying state, with requested/applied amount, direction, reason, transaction ID, tick, and resulting balance.
 - Snapshot output is bounded and copied for future debug/persistence adapters.
 
-Current reasons cover player/civilian/police kills, mission payouts, ammunition, repair, hospital, and clothing. Kill rewards, mission payouts, ammunition restock, and vehicle repair are wired; hospital and clothing remain future service content.
+Current reasons cover player/civilian/police kills, mission payouts, death drops, cash pickups, ammunition, repair, hospital, and clothing. Kill rewards, mission payouts, death recovery, ammunition restock, vehicle repair, hospital care, and clothing are wired.
+
+## Player-Death Cash Recovery
+
+The pickup reference keeps world lifetime, availability, proximity, and inventory mutation as separate decisions. NOCK0 applies the same ownership boundary to an original zero-sum street-cash rule:
+
+- a player death drops 20% of street cash, capped at $500, only when the balance is at least $50;
+- the debit must apply before the pickup is created, so a failed or duplicate transaction cannot mint a world object;
+- drops have stable death-tick IDs, a one-second collection delay, a 60-second lifetime, and a room-wide capacity of 48;
+- only alive, on-foot, idle players in the street space may collect;
+- simultaneous candidates resolve by distance and then player ID;
+- the pickup is removed only after an applied or already-applied collection transaction;
+- full balances skip the candidate without destroying the pickup;
+- AOI hysteresis streams nearby drops rather than replicating them globally.
+
+The drop is intentionally recoverable by any eligible player, including the victim after respawn. It is session-local street cash and does not represent durable property or onchain value.
 
 ## Refactored Producers
 
@@ -85,3 +100,5 @@ Street cash remains isolated even after persistence. It is never bridged or rede
 - Mission participants still receive one payout each and repeated mission updates cannot duplicate it.
 - Player/NPC kill rewards still drive HUD cash through authoritative schema state.
 - Real two-client combat, mission, vehicle, death, and respawn behavior remains green.
+- Player death debits once, repeated kill events cannot duplicate a drop, and collection credits once under deterministic contention.
+- Collection delay, expiry, capacity, full-balance behavior, street/on-foot eligibility, AOI hysteresis, minimap projection, and both renderer contracts are covered.

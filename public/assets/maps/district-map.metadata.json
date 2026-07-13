@@ -1,0 +1,19 @@
+{
+  "source": "bil",
+  "tileSize": 64,
+  "origin": {
+    "x": 96,
+    "y": 97
+  },
+  "size": {
+    "width": 64,
+    "height": 64
+  },
+  "spawn": {
+    "x": 2080,
+    "y": 2080
+  },
+  "walkableCells": 3313,
+  "roadCells": 1861,
+  "elevatedPassageCells": 677
+}

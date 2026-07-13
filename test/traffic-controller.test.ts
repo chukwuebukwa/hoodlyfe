@@ -78,6 +78,35 @@ test('traffic controller brakes for an ahead obstacle and exposes its speed reas
   assert.ok(controller.diagnostics()[0].desiredSpeed > 0);
 });
 
+test('traffic controller yields away from an active police siren and reports the maneuver', () => {
+  const world = CollisionMap.load();
+  const fixture = createTraffic(world, 'traffic-yield', 211);
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('traffic-yield')
+  });
+  controller.register(fixture.vehicle.id, fixture.spawn, 118);
+  const emergencyX = fixture.vehicle.x - Math.cos(fixture.vehicle.angle) * 100;
+  const emergencyY = fixture.vehicle.y - Math.sin(fixture.vehicle.angle) * 100;
+  const before = {x: fixture.vehicle.x, y: fixture.vehicle.y};
+  controller.update(fixture.vehicle, 1 / 30, 100, {
+    emergencyVehicles: [{
+      id: 'police-cruiser',
+      x: emergencyX,
+      y: emergencyY,
+      angle: fixture.vehicle.angle,
+      speed: 140,
+      siren: true,
+      destroyed: false
+    }]
+  });
+  const diagnostic = controller.diagnostics()[0];
+  assert.equal(diagnostic.speedReason, 'siren');
+  assert.equal(diagnostic.emergencyVehicleId, 'police-cruiser');
+  assert.match(diagnostic.emergencyYieldPhase, /^yield-(left|right)$/);
+  assert.ok(Math.hypot(fixture.vehicle.x - before.x, fixture.vehicle.y - before.y) > 0);
+});
+
 test('traffic controller records blocked routes and selects a deterministic recovery edge', () => {
   const world = {
     tileWidth: 64,

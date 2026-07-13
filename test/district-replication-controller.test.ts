@@ -4,8 +4,12 @@ import {Encoder} from '@colyseus/schema';
 import {DistrictReplicationController} from '../server/game/replication/district-replication-controller.ts';
 import {
   DistrictState,
+  CashPickupState,
+  MissionParticipantState,
+  MissionState,
   NpcState,
   PlayerState,
+  RocketProjectileState,
   StreetServiceState,
   VehicleState
 } from '../server/state.ts';
@@ -48,6 +52,82 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(interiorView.has(vehicle), false);
   assert.equal(interiorView.has(streetService), false);
   assert.equal(interiorView.has(interiorService), true);
+});
+
+test('rocket replication pins the owner projectile and applies street AOI to other players', () => {
+  const state = new DistrictState();
+  const owner = player('owner', 'street');
+  const observer = player('observer', 'street');
+  observer.x = 3_000;
+  state.players.set(owner.id, owner);
+  state.players.set(observer.id, observer);
+  const rocket = new RocketProjectileState();
+  rocket.id = 'rocket-1';
+  rocket.ownerId = owner.id;
+  rocket.x = 3_000;
+  state.rockets.set(rocket.id, rocket);
+  const controller = new DistrictReplicationController(state);
+
+  assert.equal(controller.attach(owner.id).has(rocket), true);
+  assert.equal(controller.attach(observer.id).has(rocket), true);
+  observer.x = 6_000;
+  controller.synchronize();
+  assert.equal(controller.attach(observer.id).has(rocket), false);
+});
+
+test('district replication streams cash pickups with street AOI hysteresis', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  state.players.set(local.id, local);
+  const cash = new CashPickupState();
+  cash.id = 'cash:1';
+  cash.x = 1_200;
+  cash.amount = 100;
+  state.cashPickups.set(cash.id, cash);
+  const controller = new DistrictReplicationController(state);
+  const view = controller.attach(local.id);
+
+  assert.equal(view.has(cash), true);
+  cash.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(cash), true);
+  cash.x = 1_600;
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
+  cash.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
+  cash.x = 1_200;
+  controller.synchronize();
+  assert.equal(view.has(cash), true);
+
+  local.spaceId = 'threads-showroom';
+  controller.synchronize();
+  assert.equal(view.has(cash), false);
+});
+
+test('mission participants retain a marked NPC target outside ordinary street AOI', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  const outsider = player('outsider', 'street');
+  state.players.set(local.id, local);
+  state.players.set(outsider.id, outsider);
+  const target = new NpcState();
+  target.id = 'mission-1:target';
+  target.kind = 'hostile';
+  target.x = 3_000;
+  state.npcs.set(target.id, target);
+  const mission = new MissionState();
+  mission.id = 'mission-1';
+  mission.targetNpcId = target.id;
+  const participant = new MissionParticipantState();
+  participant.playerId = local.id;
+  mission.participants.set(local.id, participant);
+  state.missions.set(mission.id, mission);
+  const controller = new DistrictReplicationController(state);
+
+  assert.equal(controller.attach(local.id).has(target), true);
+  assert.equal(controller.attach(outsider.id).has(target), false);
 });
 
 test('district replication diffs a space transition and newly attached state', () => {

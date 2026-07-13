@@ -32,6 +32,7 @@ export class ThreeInputController {
   private lastMovementAt = Number.NEGATIVE_INFINITY;
   private lastAimAt = Number.NEGATIVE_INFINITY;
   private lastFireAt = Number.NEGATIVE_INFINITY;
+  private inputSequence = 0;
 
   constructor(private readonly options: ThreeInputControllerOptions) {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -46,10 +47,11 @@ export class ThreeInputController {
     this.bindClick('#vehicle-action-button', () => this.options.room.send('interact'));
   }
 
-  update(nowMs: number): void {
-    if (this.options.isBlocked?.()) {
+  update(nowMs: number): {x: number; y: number} {
+    const player = this.options.player();
+    if (this.options.isBlocked?.() || !player) {
       this.sendStoppedMovement(nowMs);
-      return;
+      return {x: 0, y: 0};
     }
     const movement = normalizeMovement(
       this.touch.movement.x +
@@ -63,12 +65,11 @@ export class ThreeInputController {
       movement.x !== this.lastMovement.x || movement.y !== this.lastMovement.y ||
       nowMs - this.lastMovementAt >= MOVEMENT_HEARTBEAT_MS
     ) {
-      this.options.room.send('input', movement);
+      this.sendMovement(movement);
       this.lastMovement = movement;
       this.lastMovementAt = nowMs;
     }
-    const player = this.options.player();
-    if (!player?.alive || nowMs - this.lastAimAt < AIM_INTERVAL_MS) return;
+    if (!player.alive || nowMs - this.lastAimAt < AIM_INTERVAL_MS) return movement;
     let angle: number | undefined;
     if (this.touch.active || this.touch.firing) {
       angle = Math.atan2(this.touch.aim.y, this.touch.aim.x);
@@ -93,10 +94,11 @@ export class ThreeInputController {
       this.lastFireAt = nowMs;
     }
     if (this.touch.consumeInteract()) this.options.room.send('interact');
+    return movement;
   }
 
   destroy(): void {
-    this.options.room.send('input', {x: 0, y: 0});
+    this.sendMovement({x: 0, y: 0});
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     this.options.canvas.removeEventListener('pointermove', this.handlePointerMove);
@@ -111,7 +113,7 @@ export class ThreeInputController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
     this.keys.add(event.code);
-    if (this.options.isBlocked?.()) return;
+    if (this.options.isBlocked?.() || !this.options.player()) return;
     if (event.code === 'KeyF') this.options.room.send('interact');
     if (event.code === 'KeyQ') this.cycleWeapon(-1);
     if (event.code === 'KeyE') this.cycleWeapon(1);
@@ -151,9 +153,15 @@ export class ThreeInputController {
   private sendStoppedMovement(nowMs: number): void {
     if (this.lastMovement.x === 0 && this.lastMovement.y === 0 &&
       nowMs - this.lastMovementAt < MOVEMENT_HEARTBEAT_MS) return;
-    this.options.room.send('input', {x: 0, y: 0});
+    this.sendMovement({x: 0, y: 0});
     this.lastMovement = {x: 0, y: 0};
     this.lastMovementAt = nowMs;
+  }
+
+  private sendMovement(movement: {x: number; y: number}): void {
+    const acknowledged = this.options.player()?.lastInputSequence ?? 0;
+    this.inputSequence = Math.max(this.inputSequence, acknowledged) + 1;
+    this.options.room.send('input', {...movement, sequence: this.inputSequence});
   }
 
   private bindClick(selector: string, action: () => void): void {

@@ -93,6 +93,39 @@ test('vehicle destruction queues a later-tick explosion and drops disconnected a
   }
 });
 
+test('rocket blasts use their own damage envelope and retain active-player attribution', () => {
+  const state = new DistrictState();
+  const source = player('source', 0, 0);
+  const target = player('target', 0, 0);
+  state.players.set(source.id, source);
+  state.players.set(target.id, target);
+  const damage: Array<{id: string; amount: number; sourceId: string}> = [];
+  const events = new GameEventStream();
+  const controller = new ExplosionController({
+    state,
+    events,
+    clock: () => ({tick: 12}),
+    damage: {
+      player: (value: PlayerState, amount: number, sourceId: string) => {
+        damage.push({id: value.id, amount, sourceId});
+      },
+      npc: () => undefined
+    } as unknown as DamageController,
+    vehicles: {damage: () => undefined} as unknown as VehicleSimulationController,
+    queryPlayers: () => [...state.players.values()],
+    queryNpcs: () => [],
+    queryVehicles: () => []
+  });
+  controller.detonate('rocket', 0, 0, source.id, 'player', 1200);
+  assert.deepEqual(damage, [
+    {id: 'source', amount: 165, sourceId: 'source'},
+    {id: 'target', amount: 165, sourceId: 'source'}
+  ]);
+  const event = events.drain()[0];
+  assert.equal(event?.type, 'explosion.created');
+  if (event?.type === 'explosion.created') assert.equal(event.kind, 'rocket');
+});
+
 function player(id: string, x: number, y: number): PlayerState {
   const value = new PlayerState();
   value.id = id;

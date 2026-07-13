@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "tC6H51wqrGY=",
+  "success": true,
+  "projectFilePath": "/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.WebExporter/OpenGta2.WebExporter.csproj",
+  "expectedPackageFiles": [
+    "/Users/jimmyjiggler/.nuget/packages/skiasharp/3.119.1/skiasharp.3.119.1.nupkg.sha512",
+    "/Users/jimmyjiggler/.nuget/packages/skiasharp.nativeassets.macos/3.119.1/skiasharp.nativeassets.macos.3.119.1.nupkg.sha512",
+    "/Users/jimmyjiggler/.nuget/packages/skiasharp.nativeassets.win32/3.119.1/skiasharp.nativeassets.win32.3.119.1.nupkg.sha512"
+  ],
+  "logs": []
+}

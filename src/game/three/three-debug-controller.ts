@@ -5,6 +5,9 @@ import {projectDebugPanel} from '../debug/debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {serverYToThree} from './three-prototype-policy.ts';
+import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -31,7 +34,12 @@ export class ThreeDebugController {
     pursuits: document.querySelector('#debug-pursuits'),
     cruisers: document.querySelector('#debug-cruisers'),
     stimuli: document.querySelector('#debug-stimuli'),
-    signals: document.querySelector('#debug-signals')
+    signals: document.querySelector('#debug-signals'),
+    region: document.querySelector('#debug-region'),
+    latency: document.querySelector('#debug-latency'),
+    patchGap: document.querySelector('#debug-patch-gap'),
+    prediction: document.querySelector('#debug-prediction'),
+    clockSync: document.querySelector('#debug-clock-sync')
   };
   private snapshot?: DebugSnapshot;
   private state?: DistrictNetworkState;
@@ -40,8 +48,10 @@ export class ThreeDebugController {
 
   constructor(
     scene: THREE.Scene,
-    room: Room<DistrictNetworkState>,
-    private readonly surfaceHeightAt: (x: number, y: number) => number
+    private readonly room: Room<DistrictNetworkState>,
+    private readonly surfaceHeightAt: (x: number, y: number) => number,
+    private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
+    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -87,7 +97,7 @@ export class ThreeDebugController {
   }
 
   private updatePanel(): void {
-    const projection = projectDebugPanel(this.state, this.snapshot);
+    const projection = projectDebugPanel(this.state, this.snapshot, this.networkQuality());
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);
     }
@@ -113,7 +123,27 @@ export class ThreeDebugController {
       this.group.add(entityGlyph(npc.x, npc.y, npc.angle, 10, color, this.surfaceHeightAt));
     }
     for (const vehicle of state.vehicles.values()) {
-      this.group.add(entityGlyph(vehicle.x, vehicle.y, vehicle.angle, 20, 0x9d8bff, this.surfaceHeightAt));
+      this.group.add(vehicleGlyph(
+        vehicle.x,
+        vehicle.y,
+        vehicle.angle,
+        vehicle.kind,
+        0x9d8bff,
+        this.surfaceHeightAt
+      ));
+    }
+    const localVehicleId = state.players.get(this.room.sessionId)?.vehicleId;
+    const predicted = localVehicleId ? this.predictedVehiclePose(localVehicleId) : undefined;
+    if (predicted) {
+      const kind = localVehicleId ? state.vehicles.get(localVehicleId)?.kind ?? 'sedan' : 'sedan';
+      this.group.add(vehicleGlyph(
+        predicted.x,
+        predicted.y,
+        predicted.angle,
+        kind,
+        0x36f1d0,
+        this.surfaceHeightAt
+      ));
     }
     for (const bullet of state.bullets.values()) {
       this.group.add(debugLine([
@@ -143,6 +173,16 @@ export class ThreeDebugController {
         points.push(point(waypoint.x, waypoint.y, this.surfaceHeightAt(waypoint.x, waypoint.y) + 27));
       }
       this.group.add(debugLine(points, entry.strategy === 'ram' ? 0xff5e68 : 0x5bbcff));
+    }
+    for (const entry of this.snapshot?.trafficAi ?? []) {
+      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
+      const vehicle = state.vehicles.get(entry.vehicleId);
+      const emergency = state.vehicles.get(entry.emergencyVehicleId);
+      if (!vehicle || !emergency) continue;
+      this.group.add(debugLine([
+        point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 29),
+        point(emergency.x, emergency.y, this.surfaceHeightAt(emergency.x, emergency.y) + 29)
+      ], entry.emergencyYieldPhase === 'wait' ? 0xffd45b : 0x52e8ff));
     }
     for (const stimulus of this.snapshot?.stimuli ?? []) {
       this.group.add(debugRing(
@@ -187,6 +227,40 @@ function entityGlyph(
   group.add(debugLine([
     new THREE.Vector3(),
     new THREE.Vector3(Math.cos(angle) * radius * 1.7, -Math.sin(angle) * radius * 1.7, 0)
+  ], color));
+  group.position.set(x, serverYToThree(y), surface(x, y) + 24);
+  return group;
+}
+
+function vehicleGlyph(
+  x: number,
+  y: number,
+  angle: number,
+  kind: string,
+  color: number,
+  surface: (x: number, y: number) => number
+): THREE.Group {
+  const collision = vehicleDefinition(kind).collision;
+  const halfLength = collision.length / 2;
+  const halfWidth = collision.width / 2;
+  const forward = new THREE.Vector2(Math.cos(angle), -Math.sin(angle));
+  const side = new THREE.Vector2(-forward.y, forward.x);
+  const points = [
+    new THREE.Vector3(forward.x * halfLength + side.x * halfWidth, forward.y * halfLength + side.y * halfWidth, 0),
+    new THREE.Vector3(forward.x * halfLength - side.x * halfWidth, forward.y * halfLength - side.y * halfWidth, 0),
+    new THREE.Vector3(-forward.x * halfLength - side.x * halfWidth, -forward.y * halfLength - side.y * halfWidth, 0),
+    new THREE.Vector3(-forward.x * halfLength + side.x * halfWidth, -forward.y * halfLength + side.y * halfWidth, 0)
+  ];
+  const group = new THREE.Group();
+  const box = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.9, depthTest: false})
+  );
+  box.renderOrder = 40;
+  group.add(box);
+  group.add(debugLine([
+    new THREE.Vector3(),
+    new THREE.Vector3(forward.x * (halfLength + 9), forward.y * (halfLength + 9), 0)
   ], color));
   group.position.set(x, serverYToThree(y), surface(x, y) + 24);
   return group;

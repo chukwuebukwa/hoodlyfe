@@ -19,7 +19,16 @@ export function explosionPresentation(explosion: NetworkExplosion): ExplosionPre
         shakeDurationMs: 260,
         shakeIntensity: 0.008
       }
-    : {
+    : explosion.kind === 'rocket'
+      ? {
+          coreColor: 0xffffff,
+          edgeColor: 0xff6028,
+          particleColor: 0x25292c,
+          durationMs: 700,
+          shakeDurationMs: 230,
+          shakeIntensity: 0.007
+        }
+      : {
         coreColor: 0xfff6be,
         edgeColor: 0xff7a2d,
         particleColor: 0x34383a,

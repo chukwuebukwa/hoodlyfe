@@ -188,7 +188,7 @@ It should not contain weapon math, pedestrian decisions, vehicle steering, missi
 The first room-facing facades are now live:
 
 - `FreemodeMissionController` adapts mission templates to district entities, deterministic route generation, state projection, notices, rewards, and cleanup.
-- `MissionSystem` owns Freemode roster/deadline/optional-target/contribution/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target, participant, and hold predicates; `MissionEncounterSystem` owns bounded wave/actor/kill-contribution runtime through narrow pedestrian ports. Shared mission content owns definitions and target/reward/encounter policy. Target-free jobs never fabricate a mission entity.
+- `MissionSystem` owns Freemode roster/deadline/optional-target/contribution/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target, participant, hold, and eliminate predicates; `MissionEncounterSystem` owns bounded wave/actor/role/kill-contribution runtime through narrow pedestrian ports. Shared mission content owns definitions and target/reward/encounter policy. Target-free jobs never fabricate a vehicle, while combat contracts expose one stable mission-owned NPC target without taking over pedestrian AI.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` owns deterministic ambient routes and driving targets.

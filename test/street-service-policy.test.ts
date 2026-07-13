@@ -24,6 +24,7 @@ import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
 test('street service quotes charge for missing ammunition and layered vehicle damage', () => {
   assert.equal(ammunitionRestockQuote(AMMUNITION_CAPACITY), 0);
   assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoPistol: 119}), 25);
+  assert.equal(ammunitionRestockQuote({...AMMUNITION_CAPACITY, ammoRocket: 0}), 300);
   assert.equal(ammunitionRestockQuote({ammoPistol: 0, ammoSmg: 0, ammoShotgun: 0}), 216);
   assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: ARMOR_CAPACITY}), 0);
   assert.equal(combatResupplyQuote({...AMMUNITION_CAPACITY, armor: 0}), 150);
@@ -55,12 +56,14 @@ test('interaction projection gives usable services priority over vehicle actions
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'ammunition',
-    label: 'RESUPPLY $175',
+    label: 'RESUPPLY $272',
     touchLabel: 'GEAR',
-    ariaLabel: 'Combat Supply, 175 dollars'
+    ariaLabel: 'Combat Supply, 272 dollars'
   });
 
   player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
+  player.ammoGrenade = AMMUNITION_CAPACITY.ammoGrenade;
+  player.ammoMolotov = AMMUNITION_CAPACITY.ammoMolotov;
   player.armor = ARMOR_CAPACITY;
   assert.equal(projectInteractionAffordance(state, player.id).kind, 'hidden');
 
@@ -161,6 +164,7 @@ function createState(): DistrictNetworkState {
     players: new Map([['local', createPlayer()]]),
     bullets: new Map(),
     thrownProjectiles: new Map(),
+    fires: new Map(),
     explosions: new Map(),
     weaponPickups: new Map(),
     npcs: new Map(),

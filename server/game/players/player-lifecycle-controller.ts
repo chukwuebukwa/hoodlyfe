@@ -60,6 +60,9 @@ export class PlayerLifecycleController {
     player.respawnAt = 0;
     player.respawnCare = '';
     player.spawnProtected = true;
+    player.onFire = false;
+    player.fireStartedAt = 0;
+    player.fireExpiresAt = 0;
     player.reactionKind = '';
     player.reactionProgress = 1;
     this.protectionUntil.set(player.id, nowMs + SPAWN_PROTECTION_MS);

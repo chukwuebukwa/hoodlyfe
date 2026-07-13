@@ -18,6 +18,7 @@ import {combatReactionPresentation} from '../src/game/rendering/combat-reaction-
 import {thrownProjectilePresentation} from '../src/game/rendering/thrown-projectile-render-policy.ts';
 import {explosionPresentation} from '../src/game/rendering/explosion-render-policy.ts';
 import {weaponPickupMinimapPoints} from '../src/game/rendering/weapon-pickup-render-policy.ts';
+import {actorBurnPresentation} from '../src/game/rendering/actor-burn-render-policy.ts';
 import type {
   NetworkBullet,
   NetworkExplosion,
@@ -74,6 +75,9 @@ test('player weapon models and passenger seats preserve stable presentation anch
   });
   assert.deepEqual(weaponPresentation('shotgun'), {
     texture: 'weapon-shotgun', width: 42, height: 10, visible: true, originX: 0.16
+  });
+  assert.deepEqual(weaponPresentation('rocket'), {
+    texture: 'weapon-rocket', width: 48, height: 14, visible: true, originX: 0.16
   });
   assert.deepEqual(weaponPresentation('grenade'), {
     texture: 'weapon-grenade', width: 15, height: 15, visible: true, originX: 0.16
@@ -180,7 +184,10 @@ test('explosive and pickup presentation follows replicated height, fuse, kind, a
   assert.notEqual(late.modelScale, 0.58);
 
   const grenadeExplosion = explosionPresentation(explosion('grenade'));
+  const rocketExplosion = explosionPresentation(explosion('rocket'));
   const vehicleExplosion = explosionPresentation(explosion('vehicle'));
+  assert.ok(rocketExplosion.durationMs > grenadeExplosion.durationMs);
+  assert.ok(rocketExplosion.shakeIntensity > grenadeExplosion.shakeIntensity);
   assert.ok(vehicleExplosion.durationMs > grenadeExplosion.durationMs);
   assert.ok(vehicleExplosion.shakeIntensity > grenadeExplosion.shakeIntensity);
 
@@ -197,6 +204,8 @@ test('vehicle presentation stages model, component damage, fire, and destruction
   });
   assert.equal(vehicleVisualState(createVehicle({kind: 'police'})).frame, 1);
   assert.equal(vehicleVisualState(createVehicle({kind: 'taxi'})).frame, 2);
+  assert.equal(vehicleVisualState(createVehicle({kind: 'r33'})).frame, 3);
+  assert.equal(vehicleVisualState(createVehicle({kind: 's15'})).frame, 4);
   assert.equal(vehicleVisualState(createVehicle({health: 300})).stage, 'damaged');
   assert.equal(vehicleVisualState(createVehicle({engineDamage: 100})).stage, 'smoking');
   assert.equal(vehicleVisualState(createVehicle({onFire: true})).stage, 'burning');
@@ -247,6 +256,16 @@ test('NPC melee presentation is progress-driven through windup, contact, and rec
   assert.ok(recovery.rotationOffset > 0 && recovery.rotationOffset < contact.rotationOffset);
   assert.equal(npcMeleePresentation({action: 'assault', attackProgress: 0.2}).active, false);
   assert.equal(npcMeleePresentation({action: 'melee', attackProgress: 1}).active, false);
+});
+
+test('actor burn presentation is replicated-state gated and locally animated', () => {
+  assert.equal(actorBurnPresentation({id: 'ped', alive: true, onFire: false}, 1000).visible, false);
+  assert.equal(actorBurnPresentation({id: 'ped', alive: false, onFire: true}, 1000).visible, false);
+  const first = actorBurnPresentation({id: 'ped', alive: true, onFire: true}, 1000);
+  const second = actorBurnPresentation({id: 'ped', alive: true, onFire: true}, 1120);
+  assert.equal(first.visible, true);
+  assert.ok(first.alpha > 0.4 && first.alpha < 0.8);
+  assert.notEqual(first.scaleY, second.scaleY);
 });
 
 function createBullet(weapon: NetworkBullet['weapon']): NetworkBullet {

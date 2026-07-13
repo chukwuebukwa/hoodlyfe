@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {
-  INTERIORS,
   STREET_SPACE_ID,
+  clientInteriorDefinition,
+  clientInteriorDefinitions,
   containsPoint,
-  interiorDefinition,
   type InteriorDefinition
 } from '../../../shared/content/interior-catalog.ts';
 import type {DistrictNetworkState} from '../types.ts';
@@ -14,15 +14,7 @@ export class ThreeInteriorRenderer {
   private readonly exteriorDoors = new Map<string, THREE.Group>();
 
   constructor(private readonly scene: THREE.Scene) {
-    for (const definition of INTERIORS) {
-      const interior = createInterior(definition);
-      interior.visible = false;
-      this.interiors.set(definition.id, interior);
-      this.scene.add(interior);
-      const door = createExteriorDoor(definition);
-      this.exteriorDoors.set(definition.id, door);
-      this.scene.add(door);
-    }
+    this.rebuild();
   }
 
   synchronize(state: DistrictNetworkState, localPlayerId: string): string {
@@ -30,12 +22,12 @@ export class ThreeInteriorRenderer {
     for (const [id, group] of this.interiors) group.visible = id === spaceId;
     for (const group of this.exteriorDoors.values()) group.visible = spaceId === STREET_SPACE_ID;
     const label = document.querySelector('#district-label span');
-    if (label) label.textContent = interiorDefinition(spaceId)?.label ?? 'Industrial District';
+    if (label) label.textContent = clientInteriorDefinition(spaceId)?.label ?? 'Industrial District';
     return spaceId;
   }
 
   surfaceHeightAt(x: number, y: number): number | undefined {
-    for (const definition of INTERIORS) {
+    for (const definition of clientInteriorDefinitions()) {
       if (containsPoint(definition.bounds, x, y)) return definition.floorZ;
     }
     return undefined;
@@ -47,6 +39,18 @@ export class ThreeInteriorRenderer {
     }
     this.interiors.clear();
     this.exteriorDoors.clear();
+  }
+
+  private rebuild(): void {
+    for (const definition of clientInteriorDefinitions()) {
+      const interior = createInterior(definition);
+      interior.visible = false;
+      this.interiors.set(definition.id, interior);
+      this.scene.add(interior);
+      const door = createExteriorDoor(definition);
+      this.exteriorDoors.set(definition.id, door);
+      this.scene.add(door);
+    }
   }
 }
 
@@ -84,6 +88,7 @@ function createInterior(definition: InteriorDefinition): THREE.Group {
 
   if (definition.kind === 'hospital') addHospitalFixtures(group, definition, floorZ);
   else if (definition.kind === 'clothing') addClothingFixtures(group, definition, floorZ);
+  else if (definition.kind === 'vehicle-store') addVehicleStoreFixtures(group, definition, floorZ);
   else addAmmunitionFixtures(group, definition, floorZ);
 
   const threshold = definition.exteriorDoor.side === 'south'
@@ -190,6 +195,21 @@ function addAmmunitionFixtures(
   }
 }
 
+function addVehicleStoreFixtures(
+  group: THREE.Group,
+  definition: InteriorDefinition,
+  floorZ: number
+): void {
+  definition.obstacles.forEach((obstacle, index) => {
+    const isCounter = index === definition.obstacles.length - 1;
+    addObstacleBox(group, obstacle, isCounter ? 28 : 8, isCounter ? 0x242a2d : 0x2f4146, floorZ);
+    if (!isCounter) addObstacleBox(group, inset(obstacle, 8), 4, 0x55d6ff, floorZ + 8);
+  });
+  for (const anchor of definition.serviceAnchors) {
+    group.add(box(34, 20, 4, 0xf2c94c, anchor.x, serverYToThree(anchor.y), floorZ + 3));
+  }
+}
+
 function addObstacleBox(
   group: THREE.Group,
   obstacle: {minX: number; minY: number; maxX: number; maxY: number},
@@ -226,6 +246,9 @@ function interiorPalette(kind: InteriorDefinition['kind']) {
   }
   if (kind === 'clothing') {
     return {floor: 0x633047, frame: 0xd9549b, accent: 0xff7fb6, sign: 0x3b1830};
+  }
+  if (kind === 'vehicle-store') {
+    return {floor: 0x253036, frame: 0x55d6ff, accent: 0x8df0ff, sign: 0x10272d};
   }
   return {floor: 0x44494b, frame: 0xc79e31, accent: 0xf2c94c, sign: 0x28230f};
 }

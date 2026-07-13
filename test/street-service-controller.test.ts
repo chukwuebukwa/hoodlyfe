@@ -104,13 +104,15 @@ test('combat supply atomically charges for ammunition and armor', () => {
   fixture.player.spaceId = counter.spaceId;
 
   assert.equal(fixture.services.interact(fixture.player.id, 3000), true);
-  assert.equal(fixture.player.cash, 660);
+  assert.equal(fixture.player.cash, 504);
   assert.equal(fixture.player.ammoPistol, AMMUNITION_CAPACITY.ammoPistol);
   assert.equal(fixture.player.ammoSmg, AMMUNITION_CAPACITY.ammoSmg);
   assert.equal(fixture.player.ammoShotgun, AMMUNITION_CAPACITY.ammoShotgun);
+  assert.equal(fixture.player.ammoGrenade, AMMUNITION_CAPACITY.ammoGrenade);
+  assert.equal(fixture.player.ammoMolotov, AMMUNITION_CAPACITY.ammoMolotov);
   assert.equal(fixture.player.armor, ARMOR_CAPACITY);
   assert.equal(fixture.restockCount(), 1);
-  assert.equal(fixture.notices.at(-1)?.message, 'Combat resupply -$340');
+  assert.equal(fixture.notices.at(-1)?.message, 'Combat resupply -$496');
 });
 
 test('clothing store opens only for an on-foot heat-free player without changing cash', () => {
@@ -193,6 +195,9 @@ function createFixture() {
       target.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
       target.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
       target.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
+      target.ammoRocket = AMMUNITION_CAPACITY.ammoRocket;
+      target.ammoGrenade = AMMUNITION_CAPACITY.ammoGrenade;
+      target.ammoMolotov = AMMUNITION_CAPACITY.ammoMolotov;
       target.armor = ARMOR_CAPACITY;
     },
     medical: {

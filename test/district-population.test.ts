@@ -18,14 +18,14 @@ test('district bootstrap creates deterministic valid population exactly once', (
   assert.deepEqual(first.population.populate(), {
     civilians: 10,
     police: 3,
-    parkedVehicles: 3,
+    parkedVehicles: 5,
     trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   second.population.populate();
 
   assert.equal(first.state.npcs.size, 13);
-  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 3);
-  assert.equal(first.spawnedVehicles.length, AMBIENT_TRAFFIC_TARGET + 3);
+  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 5);
+  assert.equal(first.spawnedVehicles.length, AMBIENT_TRAFFIC_TARGET + 5);
   assert.equal(first.state.missionContactX, first.world.spawn.x);
   assert.equal(first.state.missionContactY, first.world.spawn.y);
   assert.deepEqual(
@@ -72,7 +72,7 @@ test('district bootstrap creates deterministic valid population exactly once', (
   assert.deepEqual(first.population.populate(), {
     civilians: 10,
     police: 3,
-    parkedVehicles: 3,
+    parkedVehicles: 5,
     trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   assert.deepEqual({

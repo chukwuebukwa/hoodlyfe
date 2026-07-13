@@ -5,7 +5,7 @@ import {thrownProjectilePresentation} from './thrown-projectile-render-policy.ts
 
 interface RenderedThrownProjectile {
   container: Phaser.GameObjects.Container;
-  grenade: Phaser.GameObjects.Image;
+  model: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Ellipse;
   state: NetworkThrownProjectile;
   targetX: number;
@@ -26,12 +26,13 @@ export class ThrownProjectileRenderer {
       let rendered = this.rendered.get(projectileId);
       if (!rendered) {
         const shadow = this.scene.add.ellipse(0, 2, 16, 8, 0x050708, 0.45);
-        const grenade = this.scene.add.image(0, -projectile.height, 'weapon-grenade');
-        const container = this.scene.add.container(projectile.x, projectile.y, [shadow, grenade])
+        const presentation = thrownProjectilePresentation(projectile, this.scene.time.now);
+        const model = this.scene.add.image(0, -projectile.height, presentation.texture);
+        const container = this.scene.add.container(projectile.x, projectile.y, [shadow, model])
           .setDepth(900_020);
         rendered = {
           container,
-          grenade,
+          model,
           shadow,
           state: projectile,
           targetX: projectile.x,
@@ -42,7 +43,8 @@ export class ThrownProjectileRenderer {
       rendered.state = projectile;
       rendered.targetX = projectile.x;
       rendered.targetY = projectile.y;
-      rendered.grenade.setRotation(projectile.angle);
+      rendered.model.setTexture(thrownProjectilePresentation(projectile, this.scene.time.now).texture)
+        .setRotation(projectile.angle);
     });
     for (const [projectileId, rendered] of this.rendered) {
       if (present.has(projectileId)) continue;
@@ -63,7 +65,7 @@ export class ThrownProjectileRenderer {
       );
       rendered.container.setPosition(position.x, position.y);
       const presentation = thrownProjectilePresentation(rendered.state, nowMs);
-      rendered.grenade.setY(presentation.modelY).setScale(presentation.modelScale);
+      rendered.model.setY(presentation.modelY).setScale(presentation.modelScale);
       rendered.shadow.setScale(presentation.shadowScale).setAlpha(presentation.shadowAlpha);
     }
   }

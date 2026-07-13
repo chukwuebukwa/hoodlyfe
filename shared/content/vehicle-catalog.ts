@@ -1,4 +1,4 @@
-export type VehicleKind = 'sedan' | 'police' | 'taxi';
+export type VehicleKind = 'sedan' | 'police' | 'taxi' | 'r33' | 's15';
 export type VehicleClass = 'civilian' | 'service' | 'emergency';
 
 export interface VehicleHandlingDefinition {
@@ -146,6 +146,70 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       lookAhead: 250
     },
     presentation: {frame: 2, width: 96, height: 96, emergencyLights: false}
+  },
+  r33: {
+    id: 'r33',
+    label: 'R33 Coupe',
+    class: 'civilian',
+    seats: 2,
+    radius: 19,
+    maxHealth: 850,
+    mass: 0.92,
+    collisionDamageScale: 1.12,
+    collision: {length: 62, width: 30},
+    handling: {
+      forwardAcceleration: 535,
+      reverseAcceleration: 285,
+      coastDeceleration: 135,
+      brakeDeceleration: 370,
+      maximumForwardSpeed: 530,
+      maximumReverseSpeed: 120,
+      steeringRate: 2.86,
+      steeringGripFloor: 0.3,
+      steeringGripSpeed: 152
+    },
+    traffic: {
+      cruiseSpeed: 150,
+      acceleration: 118,
+      brakeDeceleration: 360,
+      minimumGap: 32,
+      followingTime: 0.52,
+      pedestrianGap: 40,
+      lookAhead: 300
+    },
+    presentation: {frame: 3, width: 96, height: 96, emergencyLights: false}
+  },
+  s15: {
+    id: 's15',
+    label: 'S15 Silvia',
+    class: 'civilian',
+    seats: 2,
+    radius: 18,
+    maxHealth: 780,
+    mass: 0.84,
+    collisionDamageScale: 1.2,
+    collision: {length: 60, width: 29},
+    handling: {
+      forwardAcceleration: 565,
+      reverseAcceleration: 292,
+      coastDeceleration: 128,
+      brakeDeceleration: 392,
+      maximumForwardSpeed: 545,
+      maximumReverseSpeed: 122,
+      steeringRate: 3.05,
+      steeringGripFloor: 0.33,
+      steeringGripSpeed: 158
+    },
+    traffic: {
+      cruiseSpeed: 156,
+      acceleration: 124,
+      brakeDeceleration: 372,
+      minimumGap: 31,
+      followingTime: 0.5,
+      pedestrianGap: 39,
+      lookAhead: 305
+    },
+    presentation: {frame: 4, width: 96, height: 96, emergencyLights: false}
   }
 };
 

@@ -1,0 +1,16 @@
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/bin/Release/net10.0/OpenGta2.Geometry.deps.json
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/bin/Release/net10.0/OpenGta2.Geometry.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/bin/Release/net10.0/OpenGta2.Geometry.pdb
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/bin/Release/net10.0/OpenGta2.GameData.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/bin/Release/net10.0/OpenGta2.GameData.pdb
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.csproj.AssemblyReference.cache
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.GeneratedMSBuildEditorConfig.editorconfig
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.AssemblyInfoInputs.cache
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.AssemblyInfo.cs
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.csproj.CoreCompileInputs.cache
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.sourcelink.json
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.3569A8BD.Up2Date
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/refint/OpenGta2.Geometry.dll
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/OpenGta2.Geometry.pdb
+/Users/jimmyjiggler/Documents/2026/opengta/nock0-action/opengta2/src/OpenGta2.Geometry/obj/Release/net10.0/ref/OpenGta2.Geometry.dll

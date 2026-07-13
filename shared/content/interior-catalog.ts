@@ -10,7 +10,7 @@ export interface InteriorObstacle {
 export interface InteriorDefinition {
   id: string;
   label: string;
-  kind: 'hospital' | 'clothing' | 'ammunition';
+  kind: InteriorKind;
   roofTriangleCount: number;
   floorZ: number;
   exteriorDoor: {
@@ -34,6 +34,16 @@ export interface InteriorServiceAnchor {
   x: number;
   y: number;
 }
+
+export type InteriorKind = 'hospital' | 'clothing' | 'ammunition' | 'vehicle-store';
+
+export interface InteriorDraftPayload {
+  version: number;
+  generatedBy: string;
+  interiors: InteriorDefinition[];
+}
+
+export const INTERIOR_GAME_DRAFT_STORAGE_KEY = 'nock0-interiors-game-draft-v1';
 
 export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
   Object.freeze({
@@ -149,6 +159,23 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
 
 export function interiorDefinition(spaceId: string): InteriorDefinition | undefined {
   return INTERIORS.find((interior) => interior.id === spaceId);
+}
+
+export function clientInteriorDefinitions(): readonly InteriorDefinition[] {
+  if (typeof window === 'undefined') return INTERIORS;
+  const stored = window.localStorage.getItem(INTERIOR_GAME_DRAFT_STORAGE_KEY);
+  if (!stored) return INTERIORS;
+  try {
+    const payload = JSON.parse(stored) as InteriorDraftPayload;
+    if (!Array.isArray(payload.interiors) || payload.interiors.length === 0) return INTERIORS;
+    return payload.interiors;
+  } catch {
+    return INTERIORS;
+  }
+}
+
+export function clientInteriorDefinition(spaceId: string): InteriorDefinition | undefined {
+  return clientInteriorDefinitions().find((interior) => interior.id === spaceId);
 }
 
 export function interiorServiceAnchor(

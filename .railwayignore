@@ -1,0 +1,13 @@
+# `npm run deploy:railway` uses --no-gitignore so generated GTA2 assets in
+# public/ are included. A plain `railway up` produces a broken server package.
+node_modules/
+.git/
+dist/
+coverage/
+tmp/
+art/
+docs/
+test/
+.env
+.DS_Store
+npm-debug.log*

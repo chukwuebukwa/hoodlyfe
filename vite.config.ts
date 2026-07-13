@@ -4,6 +4,10 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1400,
     rollupOptions: {
+      input: {
+        game: 'index.html',
+        creator: 'creator.html'
+      },
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/phaser/')) return 'phaser';

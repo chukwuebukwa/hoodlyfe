@@ -36,12 +36,22 @@ export interface NpcMeleeAttackStartedEvent extends EventMetadata {
 export interface ExplosionCreatedEvent extends EventMetadata {
   type: 'explosion.created';
   explosionId: string;
-  kind: 'grenade' | 'vehicle';
+  kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
   x: number;
   y: number;
   radius: number;
+}
+
+export interface FireCreatedEvent extends EventMetadata {
+  type: 'fire.created';
+  fireId: string;
+  sourceId: string;
+  x: number;
+  y: number;
+  radius: number;
+  expiresAt: number;
 }
 
 export interface WeaponPickupCollectedEvent extends EventMetadata {
@@ -50,6 +60,13 @@ export interface WeaponPickupCollectedEvent extends EventMetadata {
   playerId: string;
   weapon: string;
   quantity: number;
+}
+
+export interface CashPickupCollectedEvent extends EventMetadata {
+  type: 'cash-pickup.collected';
+  pickupId: string;
+  playerId: string;
+  amount: number;
 }
 
 export interface DamageAppliedEvent extends EventMetadata {
@@ -176,7 +193,9 @@ export type GameEvent =
   | MeleeAttackStartedEvent
   | NpcMeleeAttackStartedEvent
   | ExplosionCreatedEvent
+  | FireCreatedEvent
   | WeaponPickupCollectedEvent
+  | CashPickupCollectedEvent
   | DamageAppliedEvent
   | EntityKilledEvent
   | CrimeCommittedEvent

@@ -5,6 +5,7 @@ import {signalLampPresentation} from '../rendering/traffic-signal-render-policy.
 import {thrownProjectilePresentation} from '../rendering/thrown-projectile-render-policy.ts';
 import type {
   DistrictNetworkState,
+  NetworkCashPickup,
   NetworkExplosion,
   NetworkStreetService,
   NetworkTrafficSignal,
@@ -12,6 +13,7 @@ import type {
 } from '../types.ts';
 import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {radialGlow, updateRadialGlow} from './three-glow.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -22,18 +24,26 @@ interface TimedExplosion {
 export class ThreeDistrictWorld {
   private readonly markers = new Map<string, THREE.Group>();
   private readonly bullets = new Map<string, THREE.Mesh>();
+  private readonly rockets = new Map<string, THREE.Group>();
   private readonly grenades = new Map<string, THREE.Group>();
+  private readonly fires = new Map<string, THREE.Group>();
   private readonly explosions = new Map<string, TimedExplosion>();
   private readonly signals = new Map<string, THREE.Group>();
   private readonly grenadeTexture: THREE.Texture;
+  private readonly molotovTexture: THREE.Texture;
+  private readonly rocketTexture: THREE.Texture;
 
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly localPlayerId: string,
     private readonly surfaceHeightAt: (x: number, y: number) => number,
-    grenadeTexture: THREE.Texture
+    grenadeTexture: THREE.Texture,
+    molotovTexture: THREE.Texture,
+    rocketTexture: THREE.Texture
   ) {
     this.grenadeTexture = grenadeTexture;
+    this.molotovTexture = molotovTexture;
+    this.rocketTexture = rocketTexture;
   }
 
   static async create(
@@ -41,11 +51,18 @@ export class ThreeDistrictWorld {
     localPlayerId: string,
     surfaceHeightAt: (x: number, y: number) => number
   ): Promise<ThreeDistrictWorld> {
-    const grenade = await new THREE.TextureLoader().loadAsync('/assets/original/weapons/grenade.svg');
-    grenade.colorSpace = THREE.SRGBColorSpace;
-    grenade.magFilter = THREE.NearestFilter;
-    grenade.minFilter = THREE.NearestFilter;
-    return new ThreeDistrictWorld(scene, localPlayerId, surfaceHeightAt, grenade);
+    const loader = new THREE.TextureLoader();
+    const [grenade, molotov, rocket] = await Promise.all([
+      loader.loadAsync('/assets/original/weapons/grenade.svg'),
+      loader.loadAsync('/assets/original/weapons/molotov.svg'),
+      loader.loadAsync('/assets/original/weapons/rocket.svg')
+    ]);
+    for (const texture of [grenade, molotov, rocket]) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+    }
+    return new ThreeDistrictWorld(scene, localPlayerId, surfaceHeightAt, grenade, molotov, rocket);
   }
 
   synchronize(state: DistrictNetworkState, nowMs: number, localSpaceId = 'street'): void {
@@ -55,18 +72,24 @@ export class ThreeDistrictWorld {
       return;
     }
     this.synchronizeBullets(state);
+    this.synchronizeRockets(state);
     this.synchronizeGrenades(state, nowMs);
+    this.synchronizeFires(state, nowMs);
     this.synchronizeExplosions(state, nowMs);
     this.synchronizeSignals(state);
   }
 
   private clearStreetTransients(): void {
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
+    for (const group of this.fires.values()) disposeObject(group);
     for (const explosion of this.explosions.values()) disposeObject(explosion.group);
     for (const group of this.signals.values()) disposeObject(group);
     this.bullets.clear();
+    this.rockets.clear();
     this.grenades.clear();
+    this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
   }
@@ -74,15 +97,21 @@ export class ThreeDistrictWorld {
   destroy(): void {
     for (const group of this.markers.values()) disposeObject(group);
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
+    for (const group of this.fires.values()) disposeObject(group);
     for (const explosion of this.explosions.values()) disposeObject(explosion.group);
     for (const group of this.signals.values()) disposeObject(group);
     this.markers.clear();
     this.bullets.clear();
+    this.rockets.clear();
     this.grenades.clear();
+    this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
     this.grenadeTexture.dispose();
+    this.molotovTexture.dispose();
+    this.rocketTexture.dispose();
   }
 
   private synchronizeMarkers(
@@ -111,7 +140,23 @@ export class ThreeDistrictWorld {
       present.add(id);
       let group = this.markers.get(id);
       if (!group) {
-        group = pickupMarker(pickup, this.grenadeTexture);
+        group = pickupMarker(
+          pickup,
+          pickup.weapon === 'molotov' ? this.molotovTexture : this.grenadeTexture
+        );
+        this.addMarker(id, group);
+      }
+      positionAtSurface(group, pickup.x, pickup.y, this.surfaceHeightAt(pickup.x, pickup.y) + 8);
+      pulseMarker(group, nowMs, pickup.id.length);
+    }
+    for (const pickup of localSpaceId === STREET_SPACE_ID
+      ? state.cashPickups?.values() ?? []
+      : []) {
+      const id = `cash:${pickup.id}`;
+      present.add(id);
+      let group = this.markers.get(id);
+      if (!group) {
+        group = cashMarker(pickup);
         this.addMarker(id, group);
       }
       positionAtSurface(group, pickup.x, pickup.y, this.surfaceHeightAt(pickup.x, pickup.y) + 8);
@@ -196,6 +241,30 @@ export class ThreeDistrictWorld {
     removeAbsent(this.bullets, present);
   }
 
+  private synchronizeRockets(state: DistrictNetworkState): void {
+    const present = new Set<string>();
+    for (const [id, rocket] of state.rockets ?? []) {
+      present.add(id);
+      let group = this.rockets.get(id);
+      if (!group) {
+        const model = texturedPlane(this.rocketTexture, 35, 10, 27);
+        const exhaust = disc(5, 0xff9a32, 0.9, 26);
+        exhaust.position.x = -15;
+        group = new THREE.Group();
+        group.add(exhaust, model);
+        this.rockets.set(id, group);
+        this.scene.add(group);
+      }
+      group.position.set(
+        rocket.x,
+        serverYToThree(rocket.y),
+        this.surfaceHeightAt(rocket.x, rocket.y) + 14
+      );
+      group.rotation.z = serverAngleToThree(rocket.angle);
+    }
+    removeAbsent(this.rockets, present);
+  }
+
   private synchronizeGrenades(state: DistrictNetworkState, nowMs: number): void {
     const present = new Set<string>();
     for (const [id, grenade] of state.thrownProjectiles ?? []) {
@@ -204,7 +273,8 @@ export class ThreeDistrictWorld {
       if (!group) {
         const shadow = disc(8, 0x050708, 0.42, 22);
         shadow.userData.role = 'shadow';
-        const icon = texturedPlane(this.grenadeTexture, 16, 16, 24);
+        const texture = grenade.kind === 'molotov' ? this.molotovTexture : this.grenadeTexture;
+        const icon = texturedPlane(texture, grenade.kind === 'molotov' ? 14 : 16, grenade.kind === 'molotov' ? 24 : 16, 24);
         icon.userData.role = 'icon';
         group = new THREE.Group();
         group.add(shadow, icon);
@@ -225,6 +295,30 @@ export class ThreeDistrictWorld {
       }
     }
     removeAbsent(this.grenades, present);
+  }
+
+  private synchronizeFires(state: DistrictNetworkState, nowMs: number): void {
+    const present = new Set<string>();
+    for (const [id, fire] of state.fires ?? []) {
+      present.add(id);
+      let group = this.fires.get(id);
+      if (!group) {
+        group = new THREE.Group();
+        group.add(
+          radialGlow(fire.radius * 1.35, 0xff5a24, 0.2, 20),
+          disc(30, 0xff6a24, 0.7, 23),
+          disc(16, 0xffd15c, 0.9, 24)
+        );
+        this.fires.set(id, group);
+        this.scene.add(group);
+      }
+      positionAtSurface(group, fire.x, fire.y, this.surfaceHeightAt(fire.x, fire.y) + 10);
+      const remaining = Math.max(0, fire.expiresAt - nowMs);
+      const pulse = 0.88 + Math.sin(nowMs / 105 + id.length) * 0.12;
+      group.scale.setScalar(pulse * Math.min(1, remaining / 500));
+      group.rotation.z = Math.sin(nowMs / 230 + id.length) * 0.08;
+    }
+    removeAbsent(this.fires, present);
   }
 
   private synchronizeExplosions(state: DistrictNetworkState, nowMs: number): void {
@@ -294,10 +388,20 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
 }
 
 function pickupMarker(pickup: NetworkWeaponPickup, texture: THREE.Texture): THREE.Group {
-  const group = ringMarker(20, 0xffd75a, `GRENADES x${pickup.quantity}`);
-  const icon = texturedPlane(texture, 17, 17, 24);
+  const label = pickup.weapon === 'molotov' ? 'MOLOTOVS' : 'GRENADES';
+  const group = ringMarker(20, 0xffd75a, `${label} x${pickup.quantity}`);
+  const icon = texturedPlane(texture, pickup.weapon === 'molotov' ? 14 : 17, pickup.weapon === 'molotov' ? 24 : 17, 24);
   icon.position.z = 2;
   group.add(icon);
+  return group;
+}
+
+function cashMarker(pickup: NetworkCashPickup): THREE.Group {
+  const group = ringMarker(17, 0x55e58b, `$${Math.max(0, Math.floor(pickup.amount))}`);
+  const glyph = textLabel('$', 0x55e58b);
+  glyph.scale.setScalar(1.35);
+  glyph.position.set(0, 0, 2);
+  group.add(glyph);
   return group;
 }
 
@@ -320,6 +424,13 @@ function signalMarker(): THREE.Group {
     material(0x111719, 0.96, 18)
   );
   group.add(housing);
+  const glow = radialGlow(92, 0xff394f, 0.12, 17);
+  glow.position.z = -9;
+  glow.userData.role = 'signal-glow';
+  const cast = new THREE.PointLight(0xff394f, 1.1, 105, 2);
+  cast.position.z = 13;
+  cast.userData.role = 'signal-light';
+  group.add(glow, cast);
   for (const [role, y, color] of [
     ['red', 10, 0xff394f],
     ['yellow', 0, 0xffcc3d],
@@ -336,10 +447,26 @@ function signalMarker(): THREE.Group {
 function applySignal(group: THREE.Group, signal: NetworkTrafficSignal): void {
   const lamps = signalLampPresentation(signal.northSouth);
   for (const child of group.children) {
+    if (child.userData.role === 'signal-glow' && child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
+      const color = signalPhaseColor(signal.northSouth);
+      updateRadialGlow(child, color, signal.northSouth === 'yellow' ? 0.16 : 0.11);
+      continue;
+    }
+    if (child.userData.role === 'signal-light' && child instanceof THREE.PointLight) {
+      child.color.setHex(signalPhaseColor(signal.northSouth));
+      child.intensity = signal.northSouth === 'yellow' ? 1.4 : 1.05;
+      continue;
+    }
     if (!(child instanceof THREE.Mesh) || !(child.material instanceof THREE.MeshBasicMaterial)) continue;
     const role = child.userData.role as 'red' | 'yellow' | 'green' | undefined;
     if (role) child.material.opacity = lamps[role].alpha;
   }
+}
+
+function signalPhaseColor(phase: NetworkTrafficSignal['northSouth']): number {
+  if (phase === 'green') return 0x55e889;
+  if (phase === 'yellow') return 0xffcc3d;
+  return 0xff394f;
 }
 
 function pulseMarker(group: THREE.Group, nowMs: number, phase: number): void {
@@ -444,6 +571,10 @@ function removeAbsentExplosions(
 function disposeObject(object: THREE.Object3D): void {
   object.removeFromParent();
   object.traverse((child) => {
+    if (child instanceof THREE.PointLight) {
+      child.dispose();
+      return;
+    }
     if (!(child instanceof THREE.Mesh)) return;
     child.geometry.dispose();
     const materials = Array.isArray(child.material) ? child.material : [child.material];

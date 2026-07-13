@@ -1,9 +1,18 @@
-export const WEAPON_ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'grenade'] as const;
+export const WEAPON_ORDER = [
+  'fists', 'bat', 'pistol', 'smg', 'shotgun', 'rocket', 'grenade', 'molotov'
+] as const;
 
 export type WeaponId = typeof WEAPON_ORDER[number];
 export type BulletWeaponId = Extract<WeaponId, 'pistol' | 'smg' | 'shotgun'>;
+export type RocketWeaponId = Extract<WeaponId, 'rocket'>;
 export type MeleeWeaponId = Extract<WeaponId, 'fists' | 'bat'>;
-export type AmmunitionField = 'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoGrenade';
+export type AmmunitionField =
+  | 'ammoPistol'
+  | 'ammoSmg'
+  | 'ammoShotgun'
+  | 'ammoRocket'
+  | 'ammoGrenade'
+  | 'ammoMolotov';
 
 export interface WeaponPresentationDefinition {
   assetId: string;
@@ -24,7 +33,7 @@ interface WeaponDefinitionBase {
 export interface BulletWeaponDefinition extends WeaponDefinitionBase {
   id: BulletWeaponId;
   fireMode: 'bullet';
-  ammunitionField: Exclude<AmmunitionField, 'ammoGrenade'>;
+  ammunitionField: Extract<AmmunitionField, 'ammoPistol' | 'ammoSmg' | 'ammoShotgun'>;
   damage: number;
   projectileSpeed: number;
   lifetimeMs: number;
@@ -33,10 +42,19 @@ export interface BulletWeaponDefinition extends WeaponDefinitionBase {
 }
 
 export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
-  id: 'grenade';
+  id: Extract<WeaponId, 'grenade' | 'molotov'>;
   fireMode: 'thrown';
-  ammunitionField: 'ammoGrenade';
+  ammunitionField: Extract<AmmunitionField, 'ammoGrenade' | 'ammoMolotov'>;
   fuseMs: number;
+  impactTriggered: boolean;
+}
+
+export interface RocketWeaponDefinition extends WeaponDefinitionBase {
+  id: RocketWeaponId;
+  fireMode: 'rocket';
+  ammunitionField: 'ammoRocket';
+  projectileSpeed: number;
+  lifetimeMs: number;
 }
 
 export interface MeleeStrikeDefinition {
@@ -61,6 +79,7 @@ export interface MeleeWeaponDefinition extends WeaponDefinitionBase {
 
 export type WeaponDefinition =
   | BulletWeaponDefinition
+  | RocketWeaponDefinition
   | ThrownWeaponDefinition
   | MeleeWeaponDefinition;
 
@@ -175,6 +194,17 @@ export const WEAPONS = Object.freeze({
     spread: 0.3,
     presentation: Object.freeze({assetId: 'shotgun', heldWidth: 42, heldHeight: 10, heldVisible: true})
   } satisfies BulletWeaponDefinition),
+  rocket: Object.freeze({
+    id: 'rocket',
+    name: 'Rocket Launcher',
+    fireMode: 'rocket',
+    passengerAllowed: false,
+    cooldownMs: 950,
+    ammunitionField: 'ammoRocket',
+    projectileSpeed: 430,
+    lifetimeMs: 1400,
+    presentation: Object.freeze({assetId: 'rocket', heldWidth: 48, heldHeight: 14, heldVisible: true})
+  } satisfies RocketWeaponDefinition),
   grenade: Object.freeze({
     id: 'grenade',
     name: 'Grenade',
@@ -183,7 +213,19 @@ export const WEAPONS = Object.freeze({
     cooldownMs: 650,
     ammunitionField: 'ammoGrenade',
     fuseMs: 2000,
+    impactTriggered: false,
     presentation: Object.freeze({assetId: 'grenade', heldWidth: 15, heldHeight: 15, heldVisible: true})
+  } satisfies ThrownWeaponDefinition),
+  molotov: Object.freeze({
+    id: 'molotov',
+    name: 'Molotov',
+    fireMode: 'thrown',
+    passengerAllowed: false,
+    cooldownMs: 720,
+    ammunitionField: 'ammoMolotov',
+    fuseMs: 2000,
+    impactTriggered: true,
+    presentation: Object.freeze({assetId: 'molotov', heldWidth: 14, heldHeight: 25, heldVisible: true})
   } satisfies ThrownWeaponDefinition)
 }) satisfies Readonly<Record<WeaponId, WeaponDefinition>>;
 

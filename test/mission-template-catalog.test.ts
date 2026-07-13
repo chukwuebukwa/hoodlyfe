@@ -16,7 +16,8 @@ test('mission catalog exposes bounded composable templates with unique objective
     'boost-and-deliver',
     'getaway-run',
     'checkpoint-rush',
-    'crew-holdout'
+    'crew-holdout',
+    'most-wanted'
   ]);
   for (const templateId of MISSION_TEMPLATE_IDS) {
     const definition = missionTemplate(templateId);
@@ -33,12 +34,18 @@ test('mission catalog exposes bounded composable templates with unique objective
     if (definition.encounter) {
       assert.ok(definition.encounter.waves.length >= 1 && definition.encounter.waves.length <= 10);
       assert.ok(definition.encounter.waves.every((wave) => wave.count >= 1 && wave.count <= 16));
+      assert.ok(definition.encounter.waves.every((wave) => (
+        (wave.additionalPerParticipant ?? 0) >= 0 &&
+        (wave.role !== 'target' || (wave.count === 1 && !wave.additionalPerParticipant))
+      )));
+      assert.ok(definition.encounter.waves.filter((wave) => wave.role === 'target').length <= 1);
     }
   }
   assert.equal(missionCheckpointCount('boost-and-deliver'), 0);
   assert.equal(missionCheckpointCount('getaway-run'), 3);
   assert.equal(missionCheckpointCount('checkpoint-rush'), 5);
   assert.equal(missionHoldDuration('crew-holdout'), 25_000);
+  assert.equal(missionHoldDuration('most-wanted'), 0);
 });
 
 test('mission template selection validates and cycles deterministically', () => {
@@ -47,6 +54,7 @@ test('mission template selection validates and cycles deterministically', () => 
   assert.equal(cycleMissionTemplate('boost-and-deliver', 1), 'getaway-run');
   assert.equal(cycleMissionTemplate('getaway-run', 1), 'checkpoint-rush');
   assert.equal(cycleMissionTemplate('checkpoint-rush', 1), 'crew-holdout');
-  assert.equal(cycleMissionTemplate('crew-holdout', 1), 'boost-and-deliver');
-  assert.equal(cycleMissionTemplate('boost-and-deliver', -1), 'crew-holdout');
+  assert.equal(cycleMissionTemplate('crew-holdout', 1), 'most-wanted');
+  assert.equal(cycleMissionTemplate('most-wanted', 1), 'boost-and-deliver');
+  assert.equal(cycleMissionTemplate('boost-and-deliver', -1), 'most-wanted');
 });

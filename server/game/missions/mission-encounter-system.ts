@@ -1,4 +1,7 @@
-import type {MissionEncounterDefinition} from '../../../shared/content/mission-catalog.ts';
+import type {
+  MissionEncounterDefinition,
+  MissionEncounterRole
+} from '../../../shared/content/mission-catalog.ts';
 import type {GameEvent} from '../events/game-events.ts';
 
 export interface MissionEncounterParticipant {
@@ -19,6 +22,7 @@ export interface MissionEncounterActorSpawn {
   health: number;
   weapon: 'pistol' | 'smg';
   fireCooldownMs: number;
+  role: MissionEncounterRole;
   seed: number;
 }
 
@@ -30,6 +34,7 @@ export interface MissionEncounterSnapshot {
   complete: boolean;
   contested: boolean;
   actorIds: string[];
+  targetActorId: string;
   contributions: Array<{playerId: string; defeats: number}>;
 }
 
@@ -55,6 +60,7 @@ interface MissionEncounterRuntime {
   actorIds: Set<string>;
   activeActorIds: Set<string>;
   contributions: Map<string, number>;
+  targetActorId: string;
 }
 
 export class MissionEncounterSystem {
@@ -78,9 +84,28 @@ export class MissionEncounterSystem {
       !Number.isFinite(centerY) ||
       !Number.isFinite(radius) ||
       radius <= 0 ||
+      !Number.isFinite(definition.spawnMinDistance) ||
+      !Number.isFinite(definition.spawnMaxDistance) ||
+      definition.spawnMinDistance < 0 ||
+      definition.spawnMaxDistance < definition.spawnMinDistance ||
+      !Number.isFinite(definition.spawnCadenceMs) ||
+      definition.spawnCadenceMs < 0 ||
+      !Number.isFinite(definition.interWaveDelayMs) ||
+      definition.interWaveDelayMs < 0 ||
       definition.waves.length === 0 ||
       definition.waves.length > 10 ||
-      definition.waves.some((wave) => !Number.isInteger(wave.count) || wave.count <= 0)
+      definition.waves.some((wave) => (
+        !Number.isInteger(wave.count) ||
+        wave.count <= 0 || wave.count > 16 ||
+        !Number.isInteger(wave.additionalPerParticipant ?? 0) ||
+        (wave.additionalPerParticipant ?? 0) < 0 ||
+        (wave.additionalPerParticipant ?? 0) > 8 ||
+        !Number.isFinite(wave.health) || wave.health <= 0 || wave.health > 1_000 ||
+        !Number.isFinite(wave.fireCooldownMs) ||
+        wave.fireCooldownMs < 100 || wave.fireCooldownMs > 10_000 ||
+        (wave.role === 'target' && (wave.count !== 1 || (wave.additionalPerParticipant ?? 0) !== 0))
+      )) ||
+      definition.waves.filter((wave) => wave.role === 'target').length > 1
     ) return false;
     this.encounters.set(missionId, {
       missionId,
@@ -97,7 +122,8 @@ export class MissionEncounterSystem {
       complete: false,
       actorIds: new Set(),
       activeActorIds: new Set(),
-      contributions: new Map()
+      contributions: new Map(),
+      targetActorId: ''
     });
     return true;
   }
@@ -110,7 +136,7 @@ export class MissionEncounterSystem {
     const encounter = this.encounters.get(missionId);
     if (!encounter) return undefined;
     this.pruneDefeatedActors(encounter, nowMs);
-    if (!encounter.complete) this.advanceWave(encounter, nowMs);
+    if (!encounter.complete) this.advanceWave(encounter, participants, nowMs);
     if (!encounter.complete) this.spawnNextActor(encounter, nowMs);
     this.assignTargets(encounter, participants);
     return this.snapshot(encounter);
@@ -150,7 +176,11 @@ export class MissionEncounterSystem {
     this.actorMissions.clear();
   }
 
-  private advanceWave(encounter: MissionEncounterRuntime, nowMs: number): void {
+  private advanceWave(
+    encounter: MissionEncounterRuntime,
+    participants: readonly MissionEncounterParticipant[],
+    nowMs: number
+  ): void {
     if (
       !encounter.waitingForWave ||
       encounter.pendingSpawns > 0 ||
@@ -163,7 +193,13 @@ export class MissionEncounterSystem {
       return;
     }
     encounter.waveIndex = nextWaveIndex;
-    encounter.pendingSpawns = encounter.definition.waves[nextWaveIndex].count;
+    const wave = encounter.definition.waves[nextWaveIndex];
+    const activeParticipantCount = Math.max(1, participants.filter((participant) => (
+      participant.connected && participant.alive
+    )).length);
+    encounter.pendingSpawns = wave.count + Math.max(0, Math.floor(
+      wave.additionalPerParticipant ?? 0
+    )) * (activeParticipantCount - 1);
     encounter.nextSpawnAt = nowMs;
     encounter.waitingForWave = false;
   }
@@ -171,13 +207,17 @@ export class MissionEncounterSystem {
   private spawnNextActor(encounter: MissionEncounterRuntime, nowMs: number): void {
     if (encounter.pendingSpawns <= 0 || nowMs < encounter.nextSpawnAt) return;
     const wave = encounter.definition.waves[encounter.waveIndex];
-    const actorId = `${encounter.missionId}:hostile:${encounter.totalSpawned + 1}`;
+    const role = wave.role ?? 'guard';
+    const actorId = role === 'target'
+      ? `${encounter.missionId}:target`
+      : `${encounter.missionId}:hostile:${encounter.totalSpawned + 1}`;
     encounter.totalSpawned += 1;
     encounter.pendingSpawns -= 1;
     encounter.nextSpawnAt = nowMs + encounter.definition.spawnCadenceMs;
     encounter.actorIds.add(actorId);
     encounter.activeActorIds.add(actorId);
     this.actorMissions.set(actorId, encounter.missionId);
+    if (role === 'target') encounter.targetActorId = actorId;
     this.options.spawnActor({
       actorId,
       missionId: encounter.missionId,
@@ -188,6 +228,7 @@ export class MissionEncounterSystem {
       health: wave.health,
       weapon: wave.weapon,
       fireCooldownMs: wave.fireCooldownMs,
+      role,
       seed: encounter.totalSpawned * 101 + encounter.waveIndex * 1_009
     });
   }
@@ -215,7 +256,8 @@ export class MissionEncounterSystem {
   private pruneDefeatedActors(encounter: MissionEncounterRuntime, nowMs: number): void {
     let removed = false;
     for (const actorId of encounter.activeActorIds) {
-      if (this.options.actorState(actorId)?.alive) continue;
+      const actor = this.options.actorState(actorId);
+      if (!actor || actor.alive) continue;
       encounter.activeActorIds.delete(actorId);
       removed = true;
     }
@@ -249,6 +291,7 @@ export class MissionEncounterSystem {
       complete: encounter.complete,
       contested,
       actorIds: [...encounter.actorIds].sort(),
+      targetActorId: encounter.targetActorId,
       contributions: [...encounter.contributions.entries()]
         .map(([playerId, defeats]) => ({playerId, defeats}))
         .sort((left, right) => left.playerId.localeCompare(right.playerId))

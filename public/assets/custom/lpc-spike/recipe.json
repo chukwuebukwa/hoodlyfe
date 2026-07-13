@@ -1,0 +1,83 @@
+{
+  "source": "Universal LPC Spritesheet Character Generator",
+  "sourceUrl": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator",
+  "generatorRecipeUrl": "https://liberatedpixelcup.github.io/Universal-LPC-Spritesheet-Character-Generator/#sex=male&body=Body_Color_light&head=Human_Male_light&expression=Neutral_light&sleeves=Longsleeves_2_Overlay_maroon&clothes=Sleeveless_striped_white",
+  "recipeHash": "sex=male&body=Body_Color_light&head=Human_Male_light&expression=Neutral_light&sleeves=Longsleeves_2_Overlay_maroon&clothes=Sleeveless_striped_white",
+  "bodyType": "male",
+  "nock0Contract": {
+    "walk": "216x216, 3x3, 72px frames",
+    "walk4dir": "648x288, 9x4, 72px frames; rows are up,left,down,right",
+    "actions": "288x216, 4x3, 72px frames"
+  },
+  "mapping": {
+    "idle": "LPC idle/down column 0 -> NOCK0 walk frame 0",
+    "walk": "LPC walk/down columns 1-8 -> NOCK0 walk frames 1-8",
+    "melee": "LPC slash/down columns 0-3 -> NOCK0 action frames 0-3",
+    "hitKnockdownDead": "LPC hurt columns 0,1,3,5 -> NOCK0 action frames 4-7",
+    "vehicleEnterCarjack": "LPC sit/down columns 0,1,2,2 -> NOCK0 action frames 8-11"
+  },
+  "gaps": [
+    "LPC does not provide NOCK0-style top-down vehicle entry/carjacking frames.",
+    "LPC hurt is not a full knockdown/death sequence.",
+    "LPC frame size and camera angle are 64px RPG side/front/back, not NOCK0's current 72px near-overhead action art.",
+    "This recipe includes OGA-BY, CC-BY-SA, GPL-family asset credits; production use needs an attribution/license pass."
+  ],
+  "layers": [
+    {
+      "id": "body",
+      "name": "Body Color light / Human Male",
+      "path": "spritesheets/body/bodies/male",
+      "variant": null,
+      "zPos": 10
+    },
+    {
+      "id": "sandals",
+      "name": "Sandals black",
+      "path": "spritesheets/feet/sandals/male",
+      "variant": "black",
+      "zPos": 15
+    },
+    {
+      "id": "pants",
+      "name": "Formal striped pants navy",
+      "path": "spritesheets/legs/formal_striped/male",
+      "variant": "navy",
+      "zPos": 20
+    },
+    {
+      "id": "shirt",
+      "name": "Sleeveless striped white",
+      "path": "spritesheets/torso/clothes/sleeveless/striped/male",
+      "variant": "white",
+      "zPos": 35
+    },
+    {
+      "id": "sleeves",
+      "name": "Longsleeves 2 Overlay maroon",
+      "path": "spritesheets/torso/clothes/longsleeve/longsleeves2/male",
+      "variant": null,
+      "zPos": 36
+    },
+    {
+      "id": "head",
+      "name": "Human Male light",
+      "path": "spritesheets/head/heads/human/male",
+      "variant": null,
+      "zPos": 100
+    },
+    {
+      "id": "expression",
+      "name": "Neutral light",
+      "path": "spritesheets/head/faces/male/neutral",
+      "variant": null,
+      "zPos": 101
+    },
+    {
+      "id": "hair",
+      "name": "Pixie raven",
+      "path": "spritesheets/hair/pixie/adult",
+      "variant": null,
+      "zPos": 120
+    }
+  ]
+}

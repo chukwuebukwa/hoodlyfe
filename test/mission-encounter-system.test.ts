@@ -78,3 +78,57 @@ test('mission encounter owns bounded waves, target assignment, contribution, and
   ]);
   assert.equal(system.get('mission'), undefined);
 });
+
+test('mission encounter scales guards by living roster and exposes one stable target actor', () => {
+  const actors = new Map<string, {alive: boolean; x: number; y: number}>();
+  const spawns: MissionEncounterActorSpawn[] = [];
+  const system = new MissionEncounterSystem({
+    spawnActor: (spawn) => {
+      spawns.push(spawn);
+      actors.set(spawn.actorId, {alive: true, x: 0, y: 0});
+    },
+    actorState: (actorId) => actors.get(actorId),
+    setActorTarget: () => undefined
+  });
+  const scaled: MissionEncounterDefinition = {
+    spawnMinDistance: 100,
+    spawnMaxDistance: 200,
+    spawnCadenceMs: 0,
+    interWaveDelayMs: 0,
+    waves: [
+      {count: 2, additionalPerParticipant: 1, role: 'guard', health: 80, weapon: 'pistol', fireCooldownMs: 800},
+      {count: 1, role: 'target', health: 220, weapon: 'smg', fireCooldownMs: 560}
+    ]
+  };
+  assert.equal(system.start('contract', 0, 0, 120, scaled, 0), true);
+  const crew = [
+    {playerId: 'one', connected: true, alive: true, x: 0, y: 0},
+    {playerId: 'two', connected: true, alive: true, x: 0, y: 0},
+    {playerId: 'dead', connected: true, alive: false, x: 0, y: 0}
+  ];
+  for (let nowMs = 0; nowMs < 4; nowMs++) system.update('contract', crew, nowMs);
+  assert.equal(spawns.length, 3);
+  assert.ok(spawns.every((spawn) => spawn.role === 'guard'));
+  for (const spawn of spawns) actors.get(spawn.actorId)!.alive = false;
+  system.update('contract', crew, 4);
+  const targetSnapshot = system.update('contract', crew, 5);
+  assert.equal(spawns.at(-1)?.actorId, 'contract:target');
+  assert.equal(spawns.at(-1)?.role, 'target');
+  assert.equal(spawns.at(-1)?.health, 220);
+  assert.equal(targetSnapshot?.targetActorId, 'contract:target');
+
+  const invalid = {...scaled, waves: [{...scaled.waves[1], count: 2}]};
+  assert.equal(system.start('invalid', 0, 0, 120, invalid, 0), false);
+});
+
+test('missing mission actors fail closed instead of counting as defeated', () => {
+  const system = new MissionEncounterSystem({
+    spawnActor: () => undefined,
+    actorState: () => undefined,
+    setActorTarget: () => undefined
+  });
+  assert.equal(system.start('missing', 0, 0, 120, definition, 0), true);
+  assert.equal(system.update('missing', [], 0)?.remaining, 1);
+  assert.equal(system.update('missing', [], 10_000)?.complete, false);
+  assert.equal(system.update('missing', [], 10_000)?.remaining, 1);
+});

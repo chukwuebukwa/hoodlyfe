@@ -5,6 +5,7 @@ import {
   type BodyTypeId,
   type PlayerAppearance
 } from '../../../shared/content/appearance-catalog.ts';
+import {CHARACTER_ASSET_VERSION} from '../../../shared/content/character-animation-manifest.ts';
 
 const FRAME_SIZE = 72;
 
@@ -19,8 +20,8 @@ export function appearanceSpritePresentation(
 ): AppearanceSpritePresentation {
   const identity = appearanceTextureKey(appearance);
   return {
-    textureKey: `driver-look:${identity}`,
-    animationKey: `driver-walk:${identity}`,
+    textureKey: `driver-look:v${CHARACTER_ASSET_VERSION}:${identity}`,
+    animationKey: `driver-walk:v${CHARACTER_ASSET_VERSION}:${identity}`,
     bodyScaleX: bodyScaleX(appearance.bodyType)
   };
 }
@@ -61,7 +62,7 @@ export function renderAppearanceSheet(
     }
   }
   context.putImageData(pixels, 0, 0);
-  drawStyleDetails(context, appearance);
+  drawAppearanceStyleDetails(context, appearance);
 }
 
 export function appearancePixelColor(
@@ -86,7 +87,7 @@ export function appearancePixelColor(
   return shade(COLOR_VALUES[appearance.shoeColor], lightness, 0.38);
 }
 
-function drawStyleDetails(
+export function drawAppearanceStyleDetails(
   context: CanvasRenderingContext2D,
   appearance: PlayerAppearance
 ): void {

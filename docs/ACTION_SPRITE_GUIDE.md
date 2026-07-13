@@ -1,0 +1,53 @@
+# Action Sprite Guide
+
+The Three.js client keeps locomotion and action art separate. Walking remains on the original
+3x3 sheets; combat, death, and vehicle interactions use the atlases in
+`public/assets/custom/actions/`.
+
+## Character atlases
+
+`player-actions.png`, `civilian-actions.png`, and `police-actions.png` are 288x216 RGBA PNGs.
+Every frame is 72x72 in a 4-column by 3-row grid:
+
+| Row | Frames | Purpose |
+| --- | --- | --- |
+| 0 | 0-3 | melee windup, contact, extension, recovery |
+| 1 | 4-7 | stumble, fall, ground contact, prone/dead |
+| 2 | 8-11 | vehicle reach, door pull, lean-in, entry/carjack |
+
+Keep the body centered on the same foot/root point used by the 3x3 walking sheet. Upright poses
+should occupy roughly 34x30 pixels. Extended attacks may use up to 46x36, prone poses up to
+52x30, and vehicle poses up to 44x40. Transparent padding is part of the contract.
+
+## Blood atlas
+
+`bloodstain.png` is a 256x64 RGBA PNG with four 64x64 stages from fresh splatter to dried pool.
+The canonical renderer currently uses the final frame below dead players and pedestrians.
+
+## Vehicle doors
+
+`vehicle-doors.png` is a 480x288 RGBA PNG. Frames are 96x96 in a 5-column by 3-row grid.
+Rows follow `VehiclePresentationDefinition.frame`: sedan, police cruiser, taxi. Columns are:
+
+1. closed
+2. front-left open
+3. front-right open
+4. rear-left open
+5. rear-right open
+
+Four-seat cars may select all four doors. Two-seat cars must only select columns 1-3; the shared
+door policy enforces this from `VehicleDefinition.seats`. Add a new row whenever a new vehicle
+presentation frame is added, and update `VEHICLE_DOOR_ROWS` with the catalog row count.
+
+## Runtime ownership
+
+`src/game/rendering/action-sprite-policy.ts` owns deterministic frame and door selection.
+`src/game/three/three-district-entities.ts` only loads textures and applies those decisions.
+Carjacking victims receive a replicated `NpcState.ejectedAt` timestamp, which drives their
+fall-and-recovery sequence before normal pedestrian AI resumes.
+
+Run the focused contract checks with:
+
+```bash
+npx tsx --test test/action-sprite-policy.test.ts test/action-sprite-assets.test.ts
+```

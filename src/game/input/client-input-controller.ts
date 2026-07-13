@@ -29,6 +29,7 @@ export class ClientInputController {
   private nextWeaponKey!: Phaser.Input.Keyboard.Key;
   private touch?: TouchControls;
   private started = false;
+  private inputSequence = 0;
 
   constructor(private readonly options: ClientInputControllerOptions) {}
 
@@ -70,13 +71,13 @@ export class ClientInputController {
     if (this.options.isBlocked?.()) {
       const movement = {x: 0, y: 0};
       if (this.cadence.shouldSendMovement(movement, time)) {
-        this.options.room.send('input', movement);
+        this.sendMovement(movement);
       }
       return movement;
     }
     const movement = this.readMovement();
     if (this.cadence.shouldSendMovement(movement, time)) {
-      this.options.room.send('input', movement);
+      this.sendMovement(movement);
     }
     this.updateAim(time);
     this.updateShooting(time);
@@ -98,7 +99,7 @@ export class ClientInputController {
   destroy(): void {
     if (!this.started) return;
     this.started = false;
-    this.options.room.send('input', {x: 0, y: 0});
+    this.sendMovement({x: 0, y: 0});
     for (const remove of this.cleanup.splice(0)) remove();
     this.touch?.destroy();
     this.touch = undefined;
@@ -113,6 +114,12 @@ export class ClientInputController {
     if (this.cursors.up.isDown || this.wasd.up.isDown) y -= 1;
     if (this.cursors.down.isDown || this.wasd.down.isDown) y += 1;
     return normalizeMovement(x, y);
+  }
+
+  private sendMovement(movement: MovementVector): void {
+    const acknowledged = this.options.getPlayer()?.lastInputSequence ?? 0;
+    this.inputSequence = Math.max(this.inputSequence, acknowledged) + 1;
+    this.options.room.send('input', {...movement, sequence: this.inputSequence});
   }
 
   private updateAim(time: number): void {

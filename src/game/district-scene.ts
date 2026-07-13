@@ -1,5 +1,6 @@
 import type {Room} from 'colyseus.js';
 import Phaser from 'phaser';
+import {VEHICLE_INPUT_MESSAGE} from '../../shared/protocol/vehicle-input.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../shared/protocol/notices.ts';
 import {CameraPresentationController} from './camera/camera-presentation-controller.ts';
 import {AppearanceCreatorController} from './appearance/appearance-creator-controller.ts';
@@ -13,11 +14,18 @@ import {MedicalCarePresentationController} from './medical/medical-care-presenta
 import {PedestrianRenderer} from './rendering/pedestrian-renderer.ts';
 import {PlayerRenderer} from './rendering/player-renderer.ts';
 import {ProjectileRenderer} from './rendering/projectile-renderer.ts';
+import {RocketProjectileRenderer} from './rendering/rocket-projectile-renderer.ts';
 import {ExplosionRenderer} from './rendering/explosion-renderer.ts';
 import {ThrownProjectileRenderer} from './rendering/thrown-projectile-renderer.ts';
+import {FireZoneRenderer} from './rendering/fire-zone-renderer.ts';
 import {WeaponPickupRenderer} from './rendering/weapon-pickup-renderer.ts';
+import {CashPickupRenderer} from './rendering/cash-pickup-renderer.ts';
 import {TrafficSignalRenderer} from './rendering/traffic-signal-renderer.ts';
 import {VehicleRenderer} from './rendering/vehicle-renderer.ts';
+import {RadioSystem} from './audio/radio-system.ts';
+import {SfxSystem} from './audio/sfx-system.ts';
+import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
+import {NetworkQualityController} from './network/network-quality-controller.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 
@@ -33,14 +41,21 @@ export class DistrictScene extends Phaser.Scene {
   private pedestrianRenderer!: PedestrianRenderer;
   private playerRenderer!: PlayerRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private rocketProjectileRenderer!: RocketProjectileRenderer;
   private explosionRenderer!: ExplosionRenderer;
   private thrownProjectileRenderer!: ThrownProjectileRenderer;
+  private fireZoneRenderer!: FireZoneRenderer;
   private weaponPickupRenderer!: WeaponPickupRenderer;
+  private cashPickupRenderer!: CashPickupRenderer;
   private trafficSignalRenderer!: TrafficSignalRenderer;
   private vehicleRenderer!: VehicleRenderer;
+  private radioSystem!: RadioSystem;
+  private sfxSystem!: SfxSystem;
+  private vehicleAudioSystem!: VehicleAudioSystem;
   private hudController!: LocalHudController;
   private inputController!: ClientInputController;
   private interactionController!: InteractionPresentationController;
+  private networkQuality!: NetworkQualityController;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private minimap?: MinimapRenderer;
@@ -82,7 +97,9 @@ export class DistrictScene extends Phaser.Scene {
     this.load.svg('weapon-pistol', '/assets/original/weapons/pistol.svg');
     this.load.svg('weapon-smg', '/assets/original/weapons/smg.svg');
     this.load.svg('weapon-shotgun', '/assets/original/weapons/shotgun.svg');
+    this.load.svg('weapon-rocket', '/assets/original/weapons/rocket.svg');
     this.load.svg('weapon-grenade', '/assets/original/weapons/grenade.svg');
+    this.load.svg('weapon-molotov', '/assets/original/weapons/molotov.svg');
   }
 
   create(): void {
@@ -94,11 +111,27 @@ export class DistrictScene extends Phaser.Scene {
     const collisions = map.createLayer('collisions', tileset);
     if (!collisions) throw new Error('Industrial District collisions could not be loaded.');
     this.collisionLayer = collisions.setVisible(false);
+    this.networkQuality = new NetworkQualityController(this.room);
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.networkQuality.destroy,
+      this.networkQuality
+    );
 
     this.cameraController = new CameraPresentationController(this);
     this.cameraController.configure(map.widthInPixels, map.heightInPixels);
     this.hudController = new LocalHudController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.hudController.destroy, this.hudController);
+    this.radioSystem = new RadioSystem(document, this.room);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.radioSystem.destroy, this.radioSystem);
+    this.sfxSystem = new SfxSystem(this.room);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.sfxSystem.destroy, this.sfxSystem);
+    this.vehicleAudioSystem = new VehicleAudioSystem();
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.vehicleAudioSystem.destroy,
+      this.vehicleAudioSystem
+    );
     this.missionController = new MissionPresentationController(this, this.room);
     this.medicalController = new MedicalCarePresentationController(this.room);
     this.events.once(
@@ -123,6 +156,13 @@ export class DistrictScene extends Phaser.Scene {
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {
         this.cameraController.followVehicle(vehicleId, container);
+      },
+      onPrediction: (error, snapped, pending, acknowledged, resimulated) => {
+        this.networkQuality?.observePrediction(error, snapped, pending, acknowledged, resimulated);
+      },
+      canOccupy: (x, y, radius) => this.canOccupy(x, y, radius),
+      sendVehicleMoves: (vehicleId, moves) => {
+        if (vehicleId) this.room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves});
       }
     });
     this.playerRenderer = new PlayerRenderer(this, {
@@ -141,9 +181,12 @@ export class DistrictScene extends Phaser.Scene {
         this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
       }
     });
+    this.rocketProjectileRenderer = new RocketProjectileRenderer(this);
     this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
+    this.fireZoneRenderer = new FireZoneRenderer(this);
     this.explosionRenderer = new ExplosionRenderer(this);
     this.weaponPickupRenderer = new WeaponPickupRenderer(this);
+    this.cashPickupRenderer = new CashPickupRenderer(this);
     this.trafficSignalRenderer = new TrafficSignalRenderer(this);
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
@@ -161,7 +204,9 @@ export class DistrictScene extends Phaser.Scene {
       this,
       this.room,
       map,
-      this.collisionLayer
+      this.collisionLayer,
+      () => this.networkQuality.snapshot(),
+      (vehicleId) => this.vehicleRenderer.pose(vehicleId)
     );
     this.inputController = new ClientInputController({
       scene: this,
@@ -190,9 +235,11 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    this.networkQuality.update(time);
     const input = this.inputController.update(time);
-    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
-    this.interpolateEntities(time);
+    this.interpolateEntities(time, delta / 1000);
+    this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000, time);
+    this.vehicleRenderer.predictLocalVehicle(input, delta / 1000);
     this.debugController.update(time);
     this.updateMinimap(time);
     this.missionController.drawWorld(time);
@@ -210,15 +257,39 @@ export class DistrictScene extends Phaser.Scene {
   }
 
   private synchronizeState(state: DistrictNetworkState): void {
-    this.playerRenderer.synchronize(state.players);
+    this.playerRenderer.synchronize(state.players, state.serverTimeMs ?? 0);
     this.pedestrianRenderer.synchronize(state.npcs);
     const localVehicleId = state.players?.get(this.room.sessionId)?.vehicleId ?? '';
+    const localPlayer = state.players?.get(this.room.sessionId);
+    const localDriverVehicleId = localPlayer?.vehicleSeat === 0 ? localVehicleId : '';
     this.medicalController.synchronize(state.players?.get(this.room.sessionId));
-    this.vehicleRenderer.synchronize(state.vehicles, localVehicleId);
+    this.vehicleRenderer.synchronize(
+      state.vehicles,
+      localVehicleId,
+      localDriverVehicleId,
+      localPlayer?.lastVehicleInputSequence ?? 0
+    );
+    const local = localPlayer;
+    this.radioSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined
+    );
+    this.sfxSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined
+    );
+    this.vehicleAudioSystem.synchronize(
+      local,
+      local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined,
+      state.vehicles
+    );
     this.projectileRenderer.synchronize(state.bullets);
+    this.rocketProjectileRenderer.synchronize(state.rockets);
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
+    this.fireZoneRenderer.synchronize(state.fires);
     this.explosionRenderer.synchronize(state.explosions);
     this.weaponPickupRenderer.synchronize(state.weaponPickups);
+    this.cashPickupRenderer.synchronize(state.cashPickups);
     this.trafficSignalRenderer.synchronize(state.trafficSignals);
     const shell = document.querySelector<HTMLElement>('#game-shell');
     if (shell) {
@@ -226,7 +297,10 @@ export class DistrictScene extends Phaser.Scene {
       shell.dataset.npcs = String(state.npcs?.size ?? 0);
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
       shell.dataset.explosives = String(
-        (state.thrownProjectiles?.size ?? 0) + (state.explosions?.size ?? 0)
+        (state.rockets?.size ?? 0) +
+        (state.thrownProjectiles?.size ?? 0) +
+        (state.explosions?.size ?? 0) +
+        (state.fires?.size ?? 0)
       );
     }
     this.interactionController.synchronize(state);
@@ -235,19 +309,34 @@ export class DistrictScene extends Phaser.Scene {
     this.debugController.synchronize(state);
   }
 
-  private interpolateEntities(time: number): void {
-    this.vehicleRenderer.interpolate(time);
-    this.playerRenderer.interpolate(time);
+  private interpolateEntities(time: number, deltaSeconds: number): void {
+    const quality = this.networkQuality.snapshot();
+    const renderServerTime = quality.estimatedServerTimeMs - quality.interpolationDelayMs;
+    this.vehicleRenderer.interpolate(time, deltaSeconds);
+    this.playerRenderer.interpolate(
+      time,
+      renderServerTime,
+      quality.clockOffsetMs,
+      quality.clockSynchronized
+    );
     this.pedestrianRenderer.interpolate();
     this.projectileRenderer.interpolate();
+    this.rocketProjectileRenderer.interpolate();
     this.thrownProjectileRenderer.interpolate();
+    this.fireZoneRenderer.update(time);
     this.weaponPickupRenderer.interpolate();
+    this.cashPickupRenderer.interpolate();
   }
 
-  private canOccupy(x: number, y: number): boolean {
-    const diagonal = PLAYER_RADIUS * 0.72;
+  private canOccupy(x: number, y: number, radius = PLAYER_RADIUS): boolean {
+    if (
+      x - radius < 0 || y - radius < 0 ||
+      x + radius >= this.collisionLayer.tilemap.widthInPixels ||
+      y + radius >= this.collisionLayer.tilemap.heightInPixels
+    ) return false;
+    const diagonal = radius * 0.72;
     const samples = [
-      [x - PLAYER_RADIUS, y], [x + PLAYER_RADIUS, y], [x, y - PLAYER_RADIUS], [x, y + PLAYER_RADIUS],
+      [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
       [x - diagonal, y - diagonal], [x + diagonal, y - diagonal],
       [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
     ];
@@ -277,7 +366,8 @@ export class DistrictScene extends Phaser.Scene {
       points: [
         ...this.missionController.minimapPoints(),
         ...this.interactionController.minimapPoints(),
-        ...this.weaponPickupRenderer.minimapPoints()
+        ...this.weaponPickupRenderer.minimapPoints(),
+        ...this.cashPickupRenderer.minimapPoints()
       ]
     });
     if (frame) this.minimap.render(frame, time);

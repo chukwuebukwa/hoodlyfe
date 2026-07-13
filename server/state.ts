@@ -14,6 +14,7 @@ export class PlayerAppearanceState extends Schema {
   bottomColor = 'denim';
   shoeStyle = 'runners';
   shoeColor = 'white';
+  lpcRecipe = '';
 }
 
 defineTypes(PlayerAppearanceState, {
@@ -29,7 +30,8 @@ defineTypes(PlayerAppearanceState, {
   bottomStyle: 'string',
   bottomColor: 'string',
   shoeStyle: 'string',
-  shoeColor: 'string'
+  shoeColor: 'string',
+  lpcRecipe: 'string'
 });
 
 export class PlayerState extends Schema {
@@ -63,7 +65,14 @@ export class PlayerState extends Schema {
   ammoPistol = 120;
   ammoSmg = 240;
   ammoShotgun = 48;
+  ammoRocket = 4;
   ammoGrenade = 2;
+  ammoMolotov = 3;
+  onFire = false;
+  fireStartedAt = 0;
+  fireExpiresAt = 0;
+  lastInputSequence = 0;
+  lastVehicleInputSequence = 0;
   appearance = new PlayerAppearanceState();
 }
 
@@ -98,7 +107,14 @@ defineTypes(PlayerState, {
   ammoPistol: 'number',
   ammoSmg: 'number',
   ammoShotgun: 'number',
+  ammoRocket: 'number',
   ammoGrenade: 'number',
+  ammoMolotov: 'number',
+  onFire: 'boolean',
+  fireStartedAt: 'number',
+  fireExpiresAt: 'number',
+  lastInputSequence: 'number',
+  lastVehicleInputSequence: 'number',
   appearance: PlayerAppearanceState
 });
 
@@ -148,6 +164,24 @@ defineTypes(ThrownProjectileState, {
   fuseAt: 'number'
 });
 
+export class RocketProjectileState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  angle = 0;
+  createdAt = 0;
+}
+
+defineTypes(RocketProjectileState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  angle: 'number',
+  createdAt: 'number'
+});
+
 export class ExplosionState extends Schema {
   id = '';
   kind = 'grenade';
@@ -159,6 +193,26 @@ export class ExplosionState extends Schema {
   createdAt = 0;
   expiresAt = 0;
 }
+
+export class FireZoneState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  radius = 0;
+  createdAt = 0;
+  expiresAt = 0;
+}
+
+defineTypes(FireZoneState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  radius: 'number',
+  createdAt: 'number',
+  expiresAt: 'number'
+});
 
 defineTypes(ExplosionState, {
   id: 'string',
@@ -190,6 +244,26 @@ defineTypes(WeaponPickupState, {
   quantity: 'number',
   available: 'boolean',
   respawnAt: 'number'
+});
+
+export class CashPickupState extends Schema {
+  id = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  amount = 0;
+  availableAt = 0;
+  expiresAt = 0;
+}
+
+defineTypes(CashPickupState, {
+  id: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  amount: 'number',
+  availableAt: 'number',
+  expiresAt: 'number'
 });
 
 export class TrafficSignalState extends Schema {
@@ -227,6 +301,9 @@ export class NpcState extends Schema {
   reactionDirection = 'front';
   reactionProgress = 1;
   ejectedAt = 0;
+  onFire = false;
+  fireStartedAt = 0;
+  fireExpiresAt = 0;
 }
 
 defineTypes(NpcState, {
@@ -245,7 +322,10 @@ defineTypes(NpcState, {
   reactionKind: 'string',
   reactionDirection: 'string',
   reactionProgress: 'number',
-  ejectedAt: 'number'
+  ejectedAt: 'number',
+  onFire: 'boolean',
+  fireStartedAt: 'number',
+  fireExpiresAt: 'number'
 });
 
 export class VehicleState extends Schema {
@@ -270,6 +350,7 @@ export class VehicleState extends Schema {
   traffic = false;
   hijackBy = '';
   siren = false;
+  radioStation = 'station-0';
 }
 
 defineTypes(VehicleState, {
@@ -293,7 +374,8 @@ defineTypes(VehicleState, {
   driverId: 'string',
   traffic: 'boolean',
   hijackBy: 'string',
-  siren: 'boolean'
+  siren: 'boolean',
+  radioStation: 'string'
 });
 
 export class MissionParticipantState extends Schema {
@@ -348,6 +430,7 @@ export class MissionState extends Schema {
   objectiveIndex = 0;
   objectiveCount = 0;
   targetVehicleId = '';
+  targetNpcId = '';
   checkpointIndex = 0;
   checkpointCount = 0;
   checkpointX = 0;
@@ -385,6 +468,7 @@ defineTypes(MissionState, {
   objectiveIndex: 'number',
   objectiveCount: 'number',
   targetVehicleId: 'string',
+  targetNpcId: 'string',
   checkpointIndex: 'number',
   checkpointCount: 'number',
   checkpointX: 'number',
@@ -415,14 +499,21 @@ defineTypes(MissionState, {
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
+  rockets = new MapSchema<RocketProjectileState>();
   thrownProjectiles = new MapSchema<ThrownProjectileState>();
   explosions = new MapSchema<ExplosionState>();
+  fires = new MapSchema<FireZoneState>();
   weaponPickups = new MapSchema<WeaponPickupState>();
+  cashPickups = new MapSchema<CashPickupState>();
   trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
+  worldTimeStartedAt = 0;
+  worldTimeStartMinute = 0;
+  worldTimeRate = 0;
+  serverTimeMs = 0;
   missionContactX = 0;
   missionContactY = 0;
 }
@@ -430,14 +521,21 @@ export class DistrictState extends Schema {
 defineTypes(DistrictState, {
   players: {map: PlayerState},
   bullets: {map: BulletState},
+  rockets: {map: RocketProjectileState},
   thrownProjectiles: {map: ThrownProjectileState},
   explosions: {map: ExplosionState},
+  fires: {map: FireZoneState},
   weaponPickups: {map: WeaponPickupState},
+  cashPickups: {map: CashPickupState},
   trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
+  worldTimeStartedAt: 'number',
+  worldTimeStartMinute: 'number',
+  worldTimeRate: 'number',
+  serverTimeMs: 'number',
   missionContactX: 'number',
   missionContactY: 'number'
 });
@@ -447,7 +545,9 @@ for (const field of [
   'bullets',
   'thrownProjectiles',
   'explosions',
+  'fires',
   'weaponPickups',
+  'cashPickups',
   'trafficSignals',
   'npcs',
   'vehicles',

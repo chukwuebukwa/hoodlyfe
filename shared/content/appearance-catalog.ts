@@ -1,3 +1,5 @@
+import {parseLpcRecipe, serializeLpcRecipe} from './lpc-character-catalog.ts';
+
 export const BODY_TYPES = ['standard', 'slim', 'broad'] as const;
 export const SKIN_TONES = ['deep', 'umber', 'bronze', 'olive', 'warm', 'light'] as const;
 export const HAIR_STYLES = ['cropped', 'fade', 'curls'] as const;
@@ -41,6 +43,7 @@ export interface PlayerAppearance {
   bottomColor: AppearanceColorId;
   shoeStyle: ShoeStyleId;
   shoeColor: AppearanceColorId;
+  lpcRecipe?: string;
 }
 
 export interface AppearanceOption<T extends string> {
@@ -133,7 +136,8 @@ export const DEFAULT_APPEARANCE: Readonly<PlayerAppearance> = Object.freeze({
   bottomStyle: 'jeans',
   bottomColor: 'denim',
   shoeStyle: 'runners',
-  shoeColor: 'white'
+  shoeColor: 'white',
+  lpcRecipe: ''
 });
 
 export function validateAppearance(value: unknown): PlayerAppearance | undefined {
@@ -157,6 +161,7 @@ export function validateAppearance(value: unknown): PlayerAppearance | undefined
   ) {
     return undefined;
   }
+  const lpcRecipe = sanitizeLpcRecipe(input.lpcRecipe);
   return {
     outfitName,
     bodyType: input.bodyType,
@@ -170,7 +175,8 @@ export function validateAppearance(value: unknown): PlayerAppearance | undefined
     bottomStyle: input.bottomStyle,
     bottomColor: input.bottomColor,
     shoeStyle: input.shoeStyle,
-    shoeColor: input.shoeColor
+    shoeColor: input.shoeColor,
+    lpcRecipe
   };
 }
 
@@ -193,7 +199,8 @@ export function appearanceTextureKey(appearance: PlayerAppearance): string {
     appearance.bottomStyle,
     appearance.bottomColor,
     appearance.shoeStyle,
-    appearance.shoeColor
+    appearance.shoeColor,
+    appearance.lpcRecipe ?? ''
   ].join('-');
 }
 
@@ -208,4 +215,10 @@ function sanitizeOutfitName(value: unknown): string {
 
 function member<T extends string>(value: unknown, values: readonly T[]): value is T {
   return typeof value === 'string' && values.includes(value as T);
+}
+
+function sanitizeLpcRecipe(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const recipe = parseLpcRecipe(value);
+  return recipe ? serializeLpcRecipe(recipe) : '';
 }

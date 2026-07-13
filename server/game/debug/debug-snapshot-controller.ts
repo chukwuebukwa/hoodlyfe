@@ -3,6 +3,7 @@ import {
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
   type DebugPoliceVehicleEntry,
+  type DebugPoliceFleetEntry,
   type DebugReplicationEntry,
   type DebugPopulationStreamingEntry,
   type DebugSnapshot,
@@ -34,6 +35,7 @@ interface DebugSnapshotControllerOptions {
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
   trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
+  policeFleet?: () => DebugPoliceFleetEntry;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
@@ -117,6 +119,7 @@ export class DebugSnapshotController {
         ...unit,
         waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))
       })),
+      policeFleet: this.options.policeFleet?.(),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       events: this.recentEvents.map((event) => ({...event}))
@@ -134,8 +137,12 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.npcId} punched ${event.targetId}`;
     case 'explosion.created':
       return `${event.kind} explosion ${event.explosionId} by ${event.sourceId || event.sourceKind}`;
+    case 'fire.created':
+      return `fire ${event.fireId} by ${event.sourceId || 'world'}`;
     case 'pickup.collected':
       return `${event.playerId} collected ${event.quantity} ${event.weapon}`;
+    case 'cash-pickup.collected':
+      return `${event.playerId} collected $${event.amount}`;
     case 'damage.applied':
       return `${event.attackerId || 'world'} -> ${event.targetKind}:${event.targetId} -${event.amount}`;
     case 'entity.killed':

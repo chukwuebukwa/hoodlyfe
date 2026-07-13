@@ -63,13 +63,15 @@ export interface DebugTrafficAiEntry {
   vehicleId: string;
   cruiseSpeed: number;
   desiredSpeed: number;
-  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'blocked' | 'hijack';
+  speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren' | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
   blockedSince: number;
   recoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
   maneuverAttempts: number;
+  emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
+  emergencyVehicleId: string;
 }
 
 export interface DebugTrafficSignalEntry {
@@ -94,6 +96,13 @@ export interface DebugPoliceVehicleEntry {
   routeVisited: number;
   waypointIndex: number;
   waypoints: Array<{x: number; y: number}>;
+}
+
+export interface DebugPoliceFleetEntry {
+  desiredUnits: number;
+  availableUnits: number;
+  managedUnits: number;
+  nextSpawnAt: number;
 }
 
 export interface DebugReplicationEntry {
@@ -132,6 +141,7 @@ export interface DebugSnapshot {
   trafficAi?: DebugTrafficAiEntry[];
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
+  policeFleet?: DebugPoliceFleetEntry;
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   events: DebugEventEntry[];

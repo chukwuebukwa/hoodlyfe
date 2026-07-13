@@ -182,7 +182,9 @@ function createFixture(enabled: boolean) {
     blockedSince: 0,
     recoveryCount: 0,
     maneuverPhase: 'none',
-    maneuverAttempts: 0
+    maneuverAttempts: 0,
+    emergencyYieldPhase: 'none',
+    emergencyVehicleId: ''
   };
   const controller = new DebugSnapshotController({
     enabled,

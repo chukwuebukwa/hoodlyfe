@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "OpenGta2.Geometry/1.0.0": {
+        "dependencies": {
+          "OpenGta2.GameData": "1.0.0"
+        },
+        "runtime": {
+          "OpenGta2.Geometry.dll": {}
+        }
+      },
+      "OpenGta2.GameData/1.0.0": {
+        "runtime": {
+          "OpenGta2.GameData.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "OpenGta2.Geometry/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "OpenGta2.GameData/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

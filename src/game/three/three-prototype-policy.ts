@@ -44,6 +44,33 @@ export function serverVehicleAngleToThree(angle: number): number {
   return serverAngleToThree(angle) - Math.PI / 2;
 }
 
+export function vehicleLampAnchor(
+  x: number,
+  y: number,
+  angle: number,
+  forwardOffset: number
+): {x: number; y: number; rotation: number} {
+  return {
+    x: x + Math.cos(angle) * forwardOffset,
+    y: serverYToThree(y + Math.sin(angle) * forwardOffset),
+    rotation: serverAngleToThree(angle)
+  };
+}
+
+export function renderedVehicleLampAnchor(
+  x: number,
+  threeY: number,
+  spriteRotation: number,
+  forwardOffset: number
+): {x: number; y: number; rotation: number} {
+  const physicalRotation = spriteRotation + Math.PI / 2;
+  return {
+    x: x + Math.cos(physicalRotation) * forwardOffset,
+    y: threeY + Math.sin(physicalRotation) * forwardOffset,
+    rotation: physicalRotation
+  };
+}
+
 export function threePointToServerAimAngle(
   originX: number,
   originY: number,
