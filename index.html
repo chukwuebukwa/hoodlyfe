@@ -11,8 +11,15 @@
   <main id="game-shell">
     <div id="game"></div>
     <div id="loading" role="status">
-      <strong>NOCK0</strong>
-      <span>Connecting to Industrial District</span>
+      <div id="loading-panel">
+        <strong id="loading-title">NOCK0</strong>
+        <span id="loading-stage">Connecting to Industrial District</span>
+        <div id="loading-progress" aria-label="Loading progress">
+          <i id="loading-progress-fill"></i>
+        </div>
+        <small id="loading-percent">0%</small>
+        <p id="loading-tip">Tip: stay off the sidewalk when the heat meter starts climbing.</p>
+      </div>
     </div>
     <header id="district-label" class="hud-layer">
       <strong>NOCK0</strong>

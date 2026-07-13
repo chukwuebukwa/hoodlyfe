@@ -156,7 +156,7 @@ export class ThreeDayNightController {
 }
 
 function developmentTimeOverride(): number | undefined {
-  if (!import.meta.env.DEV) return undefined;
+  if (!isDevelopment()) return undefined;
   const value = new URLSearchParams(window.location.search).get('time');
   if (value === 'night') return 23 * 60;
   if (value === 'dawn') return 6 * 60;
@@ -164,4 +164,9 @@ function developmentTimeOverride(): number | undefined {
   if (value === 'dusk') return 19 * 60;
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric >= 0 && numeric < 24 ? numeric * 60 : undefined;
+}
+
+function isDevelopment(): boolean {
+  const metaEnv = (import.meta as unknown as {env?: {DEV?: boolean}}).env;
+  return metaEnv?.DEV ?? process.env.NODE_ENV !== 'production';
 }

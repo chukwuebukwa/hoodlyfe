@@ -1,6 +1,6 @@
 # NOCK0 Feature Roadmap and Status
 
-Updated: 2026-07-11
+Updated: 2026-07-12
 
 This is the canonical status list for the requested top-down multiplayer GTA-like experience. Research rationale remains in `GAMEPLAY_RESEARCH.md`; engineering ownership remains in `PROJECT_STRUCTURE.md`; the chain boundary remains in `ONCHAIN_INTEGRATION.md`.
 
@@ -45,6 +45,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** deterministic stopped-car recovery with legitimate-stop suppression, bounded reverse, collision/road clearance probes, left/right passing, route merge, and retry cooldown.
 - **Playable** opposite right-hand compatibility lanes, expiring deterministic junction reservations, non-road ambient pedestrian placement/wander, and one-minute circulation soak coverage.
 - **Playable** catalog-sized oriented-box car collisions with broad-phase bounds, minimum-axis separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
+- **Foundation** local driving uses sequenced fixed-step input, saved-move rewind/replay, swept oriented static-world collision, and render-only correction smoothing. Dynamic contacts remain server-only until the bounded nearby prediction island and timestamped remote vehicle buffers are complete.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
 - **Foundation** streamed traffic now owns 64 potential records with a 24-car active ceiling; additional vehicle classes, authored directed lane centerlines/turn connectors, segment capacity, and parking remain incomplete. A functional repair garage is playable.
 

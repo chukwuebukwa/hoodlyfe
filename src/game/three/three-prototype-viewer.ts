@@ -145,7 +145,7 @@ export class ThreePrototypeViewer {
         () => this.networkQuality?.snapshot(),
         (vehicleId) => this.entities?.vehiclePose(vehicleId)
       );
-      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('qa') === '1') {
+      if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
       }
       this.ui = new ThreeDistrictUiController(
@@ -456,6 +456,11 @@ export class ThreePrototypeViewer {
     this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
     this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerUp);
   }
+}
+
+function isDevelopment(): boolean {
+  const metaEnv = (import.meta as unknown as {env?: {DEV?: boolean}}).env;
+  return metaEnv?.DEV ?? process.env.NODE_ENV !== 'production';
 }
 
 function validateOccluder(occluder: PrototypeOccluder, blockSize: number): void {

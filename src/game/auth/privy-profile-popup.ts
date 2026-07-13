@@ -496,7 +496,17 @@ async function fetchRobinhoodNativeBalance(address: string): Promise<{formatted:
 }
 
 function robinhoodRpcUrl(): string {
-  return import.meta.env.VITE_ROBINHOOD_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com';
+  return publicEnv('VITE_ROBINHOOD_RPC_URL') ??
+    publicEnv('NEXT_PUBLIC_ROBINHOOD_RPC_URL') ??
+    'https://rpc.mainnet.chain.robinhood.com';
+}
+
+function publicEnv(name: string): string | undefined {
+  const metaEnv = (import.meta as unknown as {env?: Record<string, string | undefined>}).env;
+  const fromMeta = metaEnv?.[name];
+  if (fromMeta) return fromMeta;
+  if (typeof process === 'undefined') return undefined;
+  return process.env[name];
 }
 
 function robinhoodExplorerAddress(address: string): string {

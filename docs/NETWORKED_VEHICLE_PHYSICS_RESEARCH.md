@@ -1,5 +1,13 @@
 # Networked Vehicle Physics Research
 
+> **2026-07-12 refinement:** source-level review of Lance, Netick Rocket Cars,
+> SuperTuxKart, and Ring Racers confirmed that vehicles which can collide must be
+> restored and replayed on one prediction timeline. NOCK0 will keep remote
+> interpolation for distant vehicles but use a bounded nearby prediction island
+> for dynamic contacts. See
+> [`MULTIPLAYER_NETCODE_ENGINE_EVALUATION.md`](MULTIPLAYER_NETCODE_ENGINE_EVALUATION.md)
+> and [ADR 0005](decisions/0005-colyseus-native-prediction.md).
+
 ## Decision
 
 NOCK0 should use a server-authoritative, fixed-tick vehicle simulation with client-side prediction and saved-input resimulation for the local driver's car. Remote vehicles should use timestamped snapshot interpolation. Collision damage, occupancy, hijacking state, and final dynamic contact resolution remain authoritative.
@@ -66,7 +74,12 @@ Production collision should converge on one shared oriented body:
 - The same pure collision queries in browser and server builds.
 - Server-owned impulses, damage zones, occupant injury, and destruction.
 
-The local client may predict a provisional dynamic contact using the latest buffered pose of a nearby vehicle, but the server result wins. Prediction should prioritize contacts involving the owned car; simulating every traffic car ahead of authority is both expensive and unstable.
+The local client may first predict a provisional dynamic contact using a nearby
+vehicle's buffered pose, but this is only a transition step. Production dynamic
+contacts require the local car and bounded collision-relevant neighbors to be
+restored to the same authoritative tick and replayed together. The server result
+still owns impulse, damage, occupancy, and destruction. Distant traffic remains
+interpolated and outside the prediction island.
 
 ## Debug Contract
 
@@ -87,8 +100,10 @@ A gap between predicted and authoritative bodies is expected under latency. A pe
 4. Rewind and replay with post-simulation visual error smoothing: completed.
 5. Shared oriented-box static collision and swept movement for player-controlled vehicles: completed.
 6. Extend the shared sweep to autonomous traffic and police locomotion.
-7. Provisional local dynamic contacts and server correction.
-8. Packet-loss, jitter, and latency matrix with automated correction budgets.
+7. Timestamped remote vehicle snapshot buffers.
+8. Bounded whole-island replay for dynamic contacts, including remote last-input
+   hold and decay.
+9. Packet-loss, jitter, and latency matrix with automated correction budgets.
 
 ### Implemented Reconciliation Thresholds
 

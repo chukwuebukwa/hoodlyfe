@@ -145,11 +145,11 @@ async function getPrivyClient(): Promise<PrivyCoreClient> {
 
 async function createPrivyClient(): Promise<PrivyCoreClient> {
   const appId = privyAppId();
-  if (!appId) throw new Error('Missing VITE_PRIVY_APP_ID.');
+  if (!appId) throw new Error('Missing Privy app id.');
   const {default: Privy, LocalStorage} = await import('@privy-io/js-sdk-core');
   const client = new Privy({
     appId,
-    clientId: import.meta.env.VITE_PRIVY_CLIENT_ID,
+    clientId: publicEnv('VITE_PRIVY_CLIENT_ID') ?? publicEnv('NEXT_PUBLIC_PRIVY_CLIENT_ID'),
     storage: new LocalStorage()
   }) as unknown as PrivyCoreClient;
   await client.initialize();
@@ -235,7 +235,15 @@ function isWalletAccount(account: PrivyLinkedAccountSummary): boolean {
 }
 
 function privyAppId(): string | undefined {
-  return import.meta.env.VITE_PRIVY_APP_ID ?? DEFAULT_PRIVY_APP_ID;
+  return publicEnv('VITE_PRIVY_APP_ID') ?? publicEnv('NEXT_PUBLIC_PRIVY_APP_ID') ?? DEFAULT_PRIVY_APP_ID;
+}
+
+function publicEnv(name: string): string | undefined {
+  const metaEnv = (import.meta as unknown as {env?: Record<string, string | undefined>}).env;
+  const fromMeta = metaEnv?.[name];
+  if (fromMeta) return fromMeta;
+  if (typeof process === 'undefined') return undefined;
+  return process.env[name];
 }
 
 function normalizeEmail(value: string): string {

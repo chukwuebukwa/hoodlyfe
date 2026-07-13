@@ -90,10 +90,11 @@ export function shouldShowOnboarding(): boolean {
 
 export function runOnboardingOverlay(
   initialName: string,
-  initialAppearance: PlayerAppearance
+  initialAppearance: PlayerAppearance,
+  initialAuth: ClientAuthPayload = {provider: 'guest'}
 ): Promise<OnboardingResult> {
   let recipe = recipeFromStorage(initialAppearance);
-  let auth: ClientAuthPayload = {provider: 'guest'};
+  let auth: ClientAuthPayload = initialAuth;
   let sources: LpcSpriteSources | undefined;
   let compiled: CompiledLpcCharacterSpriteSet | undefined;
   let animationStartedAt = performance.now();
