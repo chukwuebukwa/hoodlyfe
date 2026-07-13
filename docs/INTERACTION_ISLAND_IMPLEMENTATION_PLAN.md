@@ -114,13 +114,33 @@ extrapolation percentage. Deterministic local through intercontinental impairmen
 bound maximum error to 34.02 px, buffer underruns to 1.7%, and retained history to 32
 snapshots per actor.
 
-### M5: Interaction Snapshot Projection
+### M5: Interaction Snapshot Projection - Complete
 
 - Add a server projector beside, not inside, replication AOI ownership.
 - Project complete candidate baselines from one tick for each client.
 - Pin required candidate state long enough to admit or reject promotion safely.
 
 Gate: an entity never enters replay without a complete same-tick baseline.
+
+Implemented with a dedicated server projector that captures players, pedestrians,
+vehicles, rockets, and thrown projectiles once after authoritative simulation and event
+processing. Per-client projection happens separately during the patch phase, keeps the
+controlled physical root first, excludes occupied humanoid bodies and mixed spaces, and
+selects only entities present in that immutable captured frame. Known applied on-foot
+and driver intents are included; private pedestrian and traffic plans are not.
+
+The broad-phase candidate source is independent of replication AOI ownership and uses a
+temporary deterministic 768 px admission radius. It filters stale spatial records,
+occupied players, cross-space actors, duplicate identities, and distant projectiles.
+M6 replaces distance ordering with bounded time-to-contact scoring, weighted budgets,
+hysteresis, and contact closure.
+
+Validated baselines carry collider and lifecycle revisions, static-world revision,
+acknowledged local input, confirmed event tick, derived/exact velocity, and one
+space/layer. Server and client retain a 24-tick window. The client inbox validates every
+message, permits a bounded three-tick lead for 30 Hz simulation versus 20 Hz patch
+ordering, replaces duplicate ticks deterministically, reports rejection reasons, and
+owns listener teardown for both renderers.
 
 ### M6: Generic Island Selection
 

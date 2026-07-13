@@ -1,7 +1,7 @@
 import {VehicleState, type DistrictState} from '../../state.ts';
 import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
-import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-controller.ts';
+import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-config.ts';
 import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';

@@ -2,6 +2,7 @@ import {Client, type Room} from 'colyseus.js';
 import type {PlayerAppearance} from '../shared/content/appearance-catalog.ts';
 import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
 import {PLAYER_SPAWN_MESSAGE} from '../shared/protocol/onboarding.ts';
+import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {mountPrivyProfilePopup} from './game/auth/privy-profile-popup.ts';
 import {
   loadOnboardingIdentity,
@@ -9,6 +10,7 @@ import {
   shouldShowOnboarding
 } from './game/onboarding/onboarding-flow.ts';
 import type {DistrictNetworkState} from './game/types.ts';
+import {InteractionSnapshotInbox} from './game/network/interaction-snapshot-inbox.ts';
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
@@ -32,6 +34,7 @@ class GameRuntimeController implements GameRuntime {
   private activeThree: {start(): Promise<void>; destroy(): void} | undefined;
   private profilePopup: {destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
+  private interactionSnapshots: InteractionSnapshotInbox | undefined;
 
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
@@ -75,6 +78,8 @@ class GameRuntimeController implements GameRuntime {
     this.activeGame = undefined;
     this.activeThree?.destroy();
     this.activeThree = undefined;
+    this.interactionSnapshots?.destroy();
+    this.interactionSnapshots = undefined;
     void this.activeRoom?.leave(true);
     this.activeRoom = undefined;
     this.profilePopup?.destroy();
@@ -102,6 +107,7 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
+    this.startInteractionSnapshots(this.activeRoom);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
@@ -127,6 +133,7 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
+    this.startInteractionSnapshots(this.activeRoom);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading street renderer');
     const [{default: Phaser}, {DistrictScene}] = await Promise.all([
@@ -173,6 +180,14 @@ class GameRuntimeController implements GameRuntime {
       });
     }).catch((error) => {
       console.error(error);
+    });
+  }
+
+  private startInteractionSnapshots(room: Room<DistrictNetworkState>): void {
+    this.interactionSnapshots?.destroy();
+    this.interactionSnapshots = new InteractionSnapshotInbox(room, {
+      currentServerTick: () => room.state.serverTick ?? 0,
+      worldCollisionRevision: WORLD_COLLISION_REVISION
     });
   }
 }

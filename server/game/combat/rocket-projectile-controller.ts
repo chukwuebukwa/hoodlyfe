@@ -40,6 +40,16 @@ export class RocketProjectileController {
 
   constructor(private readonly options: RocketProjectileControllerOptions) {}
 
+  motionFor(projectileId: string): {velocityX: number; velocityY: number} | undefined {
+    const rocket = this.options.state.rockets.get(projectileId);
+    if (!rocket || this.detonated.has(projectileId)) return undefined;
+    const speed = WEAPONS.rocket.projectileSpeed;
+    return {
+      velocityX: Math.cos(rocket.angle) * speed,
+      velocityY: Math.sin(rocket.angle) * speed
+    };
+  }
+
   launch(input: LaunchRocketInput): boolean {
     if (
       this.options.state.rockets.size >= ROCKET_PROJECTILE.globalCapacity ||

@@ -25,8 +25,10 @@ import {
   PedestrianStimulusRegistry,
   type PedestrianStimulus
 } from './pedestrian-stimulus-registry.ts';
+import {PEDESTRIAN_RADIUS} from './pedestrian-config.ts';
 
 export type {PedestrianPoliceTarget} from './pedestrian-perception-system.ts';
+export {PEDESTRIAN_RADIUS} from './pedestrian-config.ts';
 
 export interface PedestrianDiagnostic {
   id: string;
@@ -47,8 +49,6 @@ export interface PedestrianDiagnostic {
   waypointIndex: number;
   waypoints: Array<{x: number; y: number}>;
 }
-
-export const PEDESTRIAN_RADIUS = 10;
 
 interface PedestrianControllerOptions {
   state: DistrictState;

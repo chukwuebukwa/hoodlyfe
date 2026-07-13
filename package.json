@@ -20,7 +20,7 @@
     "start": "npm run dev",
     "start:prod": "tsx server/index.ts",
     "test": "tsx --test test/**/*.test.ts",
-    "test:netcode": "tsx --test test/interaction-simulation-protocol.test.ts test/netcode-impairment.test.ts test/network-quality-controller.test.ts test/on-foot-netcode-impairment.test.ts test/on-foot-step.test.ts test/remote-motion-timeline.test.ts test/remote-timeline-impairment.test.ts test/remote-timeline-policy.test.ts test/saved-on-foot-prediction.test.ts test/saved-vehicle-prediction.test.ts test/vehicle-step.test.ts"
+    "test:netcode": "tsx --test test/interaction-candidate-source.test.ts test/interaction-simulation-protocol.test.ts test/interaction-snapshot-inbox.test.ts test/interaction-snapshot-projector.test.ts test/netcode-impairment.test.ts test/network-quality-controller.test.ts test/on-foot-netcode-impairment.test.ts test/on-foot-step.test.ts test/remote-motion-timeline.test.ts test/remote-timeline-impairment.test.ts test/remote-timeline-policy.test.ts test/saved-on-foot-prediction.test.ts test/saved-vehicle-prediction.test.ts test/vehicle-step.test.ts"
   },
   "dependencies": {
     "@colyseus/core": "0.16.24",

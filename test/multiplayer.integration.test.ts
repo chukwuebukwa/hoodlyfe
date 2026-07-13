@@ -16,6 +16,7 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
+import type {InteractionSnapshot} from '../shared/protocol/interaction-contracts.ts';
 import {ON_FOOT_INPUT_MESSAGE} from '../shared/protocol/on-foot-input.ts';
 import {
   APPEARANCE_RESULT_MESSAGE,
@@ -40,6 +41,8 @@ import {
   STREAMED_TRAFFIC_RECORDS
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
+import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
+import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -67,6 +70,18 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
+  const firstInteractionSnapshots: InteractionSnapshot[] = [];
+  const secondInteractionSnapshots: InteractionSnapshot[] = [];
+  const firstInteractionInbox = new InteractionSnapshotInbox(first, {
+    currentServerTick: () => first.state.serverTick ?? 0,
+    worldCollisionRevision: WORLD_COLLISION_REVISION
+  });
+  const secondInteractionInbox = new InteractionSnapshotInbox(second, {
+    currentServerTick: () => second.state.serverTick ?? 0,
+    worldCollisionRevision: WORLD_COLLISION_REVISION
+  });
+  firstInteractionInbox.subscribe((snapshot) => firstInteractionSnapshots.push(snapshot));
+  secondInteractionInbox.subscribe((snapshot) => secondInteractionSnapshots.push(snapshot));
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage<AppearanceResultMessage>(
@@ -88,10 +103,22 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   first.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   second.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {
+    firstInteractionInbox.destroy();
+    secondInteractionInbox.destroy();
     await Promise.allSettled([first.leave(), second.leave()]);
   });
 
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
+  await waitUntil(() => firstInteractionSnapshots.length > 0 && secondInteractionSnapshots.length > 0);
+  const firstBaseline = firstInteractionSnapshots.at(-1);
+  const secondBaseline = secondInteractionSnapshots.at(-1);
+  assert.equal(firstBaseline?.entities[0].id, first.sessionId);
+  assert.equal(secondBaseline?.entities[0].id, second.sessionId);
+  assert.ok(firstBaseline && firstBaseline.serverTick > 0);
+  assert.ok(firstBaseline.entities.every((entity) => (
+    entity.spaceId === firstBaseline.entities[0].spaceId &&
+    entity.layerId === firstBaseline.entities[0].layerId
+  )));
   await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => (

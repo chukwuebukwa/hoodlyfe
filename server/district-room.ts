@@ -41,6 +41,8 @@ import {
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
+import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-contracts.ts';
+import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {verifyClientAuth} from './auth/privy-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
@@ -70,6 +72,8 @@ import {RocketProjectileController} from './game/combat/rocket-projectile-contro
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
+import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
+import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -82,10 +86,8 @@ import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {InteriorController} from './game/interiors/interior-controller.ts';
 import {DistrictReplicationController} from './game/replication/district-replication-controller.ts';
-import {
-  PedestrianController,
-  PEDESTRIAN_RADIUS
-} from './game/pedestrians/pedestrian-controller.ts';
+import {PedestrianController} from './game/pedestrians/pedestrian-controller.ts';
+import {PEDESTRIAN_RADIUS} from './game/pedestrians/pedestrian-config.ts';
 import {
   VEHICLE_COLLISION_BOUNDING_RADIUS,
   VEHICLE_RADIUS
@@ -180,6 +182,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
+  private interactionCandidates!: InteractionCandidateSource;
+  private interactionSnapshots!: InteractionSnapshotProjector;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -658,6 +662,38 @@ export class DistrictRoom extends Room<DistrictState> {
         this.state.rockets.delete(rocketId);
       })
     });
+    this.interactionCandidates = new InteractionCandidateSource(this.state, {
+      queryActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+        kinds: ['player', 'npc', 'vehicle'],
+        includeRecordRadius: true
+      })
+    });
+    this.interactionSnapshots = new InteractionSnapshotProjector({
+      state: this.state,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      playerIntentFor: (playerId) => {
+        const input = this.playerControl.inputFor(playerId);
+        return input ? {
+          inputX: input.inputX,
+          inputY: input.inputY,
+          sequence: input.lastSequence
+        } : undefined;
+      },
+      vehicleIntentFor: (playerId, vehicleId) => this.vehicleInput.inputFor(
+        playerId,
+        vehicleId
+      ),
+      projectileMotionFor: (projectileId) => (
+        this.rocketProjectileController.motionFor(projectileId) ??
+        this.thrownProjectileController.motionFor(projectileId)
+      ),
+      candidatesFor: (_playerId, anchor) => this.interactionCandidates.forAnchor(anchor),
+      publish: (playerId, snapshot) => {
+        this.clients.find((client) => client.sessionId === playerId)
+          ?.send(INTERACTION_SNAPSHOT_MESSAGE, snapshot);
+      }
+    });
     this.missionController = new FreemodeMissionController({
       state: this.state,
       world: this.world,
@@ -837,6 +873,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
+    this.interactionSnapshots.clearPlayer(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
 
@@ -858,11 +895,13 @@ export class DistrictRoom extends Room<DistrictState> {
       this.pedestrians.observeEvents(events);
       this.cashPickupController.observeEvents(events);
       this.audioEvents.publish(events);
+      this.interactionSnapshots.capture();
       this.debugProjection.update(events);
     });
   }
 
   onBeforePatch(): void {
+    this.interactionSnapshots?.publishCurrent(this.state.players.keys());
     this.replicationController?.synchronize();
   }
 
