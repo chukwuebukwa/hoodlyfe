@@ -10,6 +10,8 @@ export interface InteractionIslandBaseline {
   readonly serverTick: number;
   readonly serverTimeMs: number;
   readonly worldCollisionRevision: number;
+  readonly controlRevision: number;
+  readonly controlMode: InteractionSnapshot['controlMode'];
   readonly acknowledgedLocalInputSequence: number;
   readonly confirmedEventsThrough: number;
   readonly rootId: string;
@@ -35,7 +37,9 @@ export class IslandStateHistory {
     if (latest && frame.serverTick < latest.serverTick) return undefined;
     if (latest && (
       latest.rootId !== frame.rootId ||
-      latest.worldCollisionRevision !== frame.worldCollisionRevision
+      latest.worldCollisionRevision !== frame.worldCollisionRevision ||
+      latest.controlRevision !== frame.controlRevision ||
+      latest.controlMode !== frame.controlMode
     )) {
       this.frames.length = 0;
     }
@@ -97,6 +101,8 @@ function baselineFrom(
     serverTick: snapshot.serverTick,
     serverTimeMs: snapshot.serverTimeMs,
     worldCollisionRevision: snapshot.worldCollisionRevision,
+    controlRevision: snapshot.controlRevision,
+    controlMode: snapshot.controlMode,
     acknowledgedLocalInputSequence: snapshot.acknowledgedLocalInputSequence,
     confirmedEventsThrough: snapshot.confirmedEventsThrough,
     rootId: selection.rootId,

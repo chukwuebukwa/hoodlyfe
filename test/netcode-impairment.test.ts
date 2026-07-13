@@ -224,6 +224,8 @@ function snapshotFor(
     serverTick,
     serverTimeMs,
     worldCollisionRevision: WORLD_COLLISION_REVISION,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: acknowledgedSequence,
     entities: [{
       id: VEHICLE_ID,

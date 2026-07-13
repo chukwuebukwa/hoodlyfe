@@ -217,6 +217,55 @@ test('projector marks an occupied remote vehicle as player-controlled', () => {
   assert.equal(entity(snapshot!, vehicle.id).interactionPriority, 'player-controlled');
 });
 
+test('projector advances the control epoch across entry, seat, and driver transitions', () => {
+  const state = new DistrictState();
+  const local = player('local', 0, 0);
+  const vehicle = new VehicleState();
+  vehicle.id = 'car';
+  state.players.set(local.id, local);
+  state.vehicles.set(vehicle.id, vehicle);
+  const clock = {tick: 1, nowMs: 100};
+  const projector = new InteractionSnapshotProjector({
+    state,
+    clock: () => clock,
+    worldCollisionRevision: 1
+  });
+
+  projector.capture();
+  const onFoot = projector.project(local.id);
+  assert.equal(onFoot?.controlMode, 'on-foot');
+  assert.equal(onFoot?.controlRevision, 1);
+
+  local.vehicleId = vehicle.id;
+  local.vehicleSeat = 1;
+  clock.tick++;
+  clock.nowMs += 100;
+  projector.capture();
+  const passenger = projector.project(local.id);
+  assert.equal(passenger?.entities[0].id, vehicle.id);
+  assert.equal(passenger?.controlMode, 'passenger');
+  assert.equal(passenger?.controlRevision, 2);
+
+  local.vehicleSeat = 0;
+  vehicle.driverId = local.id;
+  clock.tick++;
+  clock.nowMs += 100;
+  projector.capture();
+  const driver = projector.project(local.id);
+  assert.equal(driver?.entities[0].id, vehicle.id);
+  assert.equal(driver?.controlMode, 'driver');
+  assert.equal(driver?.controlRevision, 3);
+
+  local.vehicleSeat = 1;
+  vehicle.driverId = '';
+  clock.tick++;
+  clock.nowMs += 100;
+  projector.capture();
+  const promotedBack = projector.project(local.id);
+  assert.equal(promotedBack?.controlMode, 'passenger');
+  assert.equal(promotedBack?.controlRevision, 4);
+});
+
 function player(id: string, x: number, y: number): PlayerState {
   const value = new PlayerState();
   value.id = id;

@@ -7,6 +7,7 @@ import {
   MAX_INTERACTION_ENTITIES,
   type HumanoidInteractionState,
   type InteractionEntityState,
+  type InteractionControlMode,
   type InteractionPhysicalPriority,
   type InteractionSnapshot,
   type KinematicInteractionState,
@@ -99,11 +100,20 @@ interface CapturedFrame {
   entities: ReadonlyMap<string, InteractionEntityState>;
   intents: ReadonlyMap<string, RemoteIntentState>;
   roots: ReadonlyMap<string, string>;
+  controlModes: ReadonlyMap<string, InteractionControlMode>;
+  controlRevisions: ReadonlyMap<string, number>;
   acknowledgedSequences: ReadonlyMap<string, number>;
+}
+
+interface ControlTrack {
+  signature: string;
+  revision: number;
+  lastSeenTick: number;
 }
 
 export class InteractionSnapshotProjector {
   private readonly tracks = new Map<string, EntityTrack>();
+  private readonly controlTracks = new Map<string, ControlTrack>();
   private readonly histories = new Map<string, InteractionSnapshot[]>();
   private readonly historyTicks: number;
   private readonly maximumEntities: number;
@@ -136,13 +146,37 @@ export class InteractionSnapshotProjector {
     const entities = new Map<string, InteractionEntityState>();
     const intents = new Map<string, RemoteIntentState>();
     const roots = new Map<string, string>();
+    const controlModes = new Map<string, InteractionControlMode>();
+    const controlRevisions = new Map<string, number>();
     const acknowledgedSequences = new Map<string, number>();
 
     for (const player of this.options.state.players.values()) {
       const vehicle = player.vehicleId
         ? this.options.state.vehicles.get(player.vehicleId)
         : undefined;
-      roots.set(player.id, entityKey(vehicle ? 'vehicle' : 'player', vehicle?.id ?? player.id));
+      const rootKey = entityKey(vehicle ? 'vehicle' : 'player', vehicle?.id ?? player.id);
+      const controlMode: InteractionControlMode = !vehicle
+        ? 'on-foot'
+        : player.vehicleSeat === 0
+          ? 'driver'
+          : 'passenger';
+      const controlSignature = `${rootKey}:${controlMode}:${player.vehicleSeat}`;
+      const previousControl = this.controlTracks.get(player.id);
+      const controlChanged = Boolean(previousControl && (
+        previousControl.signature !== controlSignature ||
+        previousControl.lastSeenTick < clock.tick - 1
+      ));
+      const controlRevision = previousControl
+        ? previousControl.revision + (controlChanged ? 1 : 0)
+        : 1;
+      this.controlTracks.set(player.id, {
+        signature: controlSignature,
+        revision: controlRevision,
+        lastSeenTick: clock.tick
+      });
+      roots.set(player.id, rootKey);
+      controlModes.set(player.id, controlMode);
+      controlRevisions.set(player.id, controlRevision);
       acknowledgedSequences.set(
         player.id,
         vehicle && player.vehicleSeat === 0
@@ -221,6 +255,8 @@ export class InteractionSnapshotProjector {
       entities,
       intents,
       roots,
+      controlModes,
+      controlRevisions,
       acknowledgedSequences
     };
     return true;
@@ -278,6 +314,8 @@ export class InteractionSnapshotProjector {
       serverTick: frame.tick,
       serverTimeMs: frame.timeMs,
       worldCollisionRevision: this.options.worldCollisionRevision,
+      controlRevision: frame.controlRevisions.get(playerId) ?? 1,
+      controlMode: frame.controlModes.get(playerId) ?? 'on-foot',
       acknowledgedLocalInputSequence: frame.acknowledgedSequences.get(playerId) ?? 0,
       entities,
       remoteIntents,
@@ -317,6 +355,7 @@ export class InteractionSnapshotProjector {
 
   clearPlayer(playerId: string): void {
     this.histories.delete(playerId);
+    this.controlTracks.delete(playerId);
   }
 
   private projectPlayer(
@@ -548,6 +587,9 @@ export class InteractionSnapshotProjector {
     const minimumTick = currentTick - this.historyTicks;
     for (const [key, track] of this.tracks) {
       if (track.lastSeenTick < minimumTick) this.tracks.delete(key);
+    }
+    for (const [playerId, track] of this.controlTracks) {
+      if (track.lastSeenTick < minimumTick) this.controlTracks.delete(playerId);
     }
   }
 }

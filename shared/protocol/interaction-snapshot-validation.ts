@@ -46,6 +46,8 @@ export function validateInteractionSnapshot(
   }
   const serverTimeMs = finiteInRange(record.serverTimeMs, 0, Number.MAX_SAFE_INTEGER);
   const worldCollisionRevision = safePositiveInteger(record.worldCollisionRevision);
+  const controlRevision = safePositiveInteger(record.controlRevision);
+  const controlMode = oneOf(record.controlMode, ['on-foot', 'driver', 'passenger']);
   const acknowledgedLocalInputSequence = safeNonnegativeInteger(
     record.acknowledgedLocalInputSequence
   );
@@ -59,6 +61,7 @@ export function validateInteractionSnapshot(
   if (worldCollisionRevision !== context.expectedWorldCollisionRevision) {
     return rejected('collision-revision-mismatch');
   }
+  if (controlRevision === undefined || !controlMode) return rejected('invalid-control-state');
   if (!Array.isArray(record.entities) || !Array.isArray(record.remoteIntents)) {
     return rejected('invalid-shape');
   }
@@ -97,6 +100,8 @@ export function validateInteractionSnapshot(
     serverTick,
     serverTimeMs,
     worldCollisionRevision,
+    controlRevision,
+    controlMode,
     acknowledgedLocalInputSequence,
     entities: Object.freeze(entities),
     remoteIntents: Object.freeze(remoteIntents),

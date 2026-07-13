@@ -80,6 +80,17 @@ test('interaction snapshot validation fails closed on stale or incompatible base
   }, context).accepted, false);
   assert.equal(validateInteractionSnapshot({
     ...snapshot(),
+    controlRevision: 0
+  }, context).accepted, false);
+  assert.equal(validateInteractionSnapshot({
+    ...snapshot(),
+    controlMode: 'spectator'
+  }, context).accepted, false);
+  const missingControl = snapshot();
+  delete missingControl.controlRevision;
+  assert.equal(validateInteractionSnapshot(missingControl, context).accepted, false);
+  assert.equal(validateInteractionSnapshot({
+    ...snapshot(),
     entities: [vehicleEntity(), {...vehicleEntity(), id: 'vehicle-1'}]
   }, context).accepted, false);
   assert.equal(validateInteractionSnapshot({
@@ -125,6 +136,8 @@ function snapshot(): Record<string, unknown> {
     serverTick: 100,
     serverTimeMs: 10_000,
     worldCollisionRevision: 3,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: 44,
     entities: [vehicleEntity(), playerEntity()],
     remoteIntents: [remoteIntent()],

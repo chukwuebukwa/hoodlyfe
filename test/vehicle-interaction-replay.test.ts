@@ -85,6 +85,8 @@ function baseline(): InteractionIslandBaseline {
     serverTick: 100,
     serverTimeMs: 1000,
     worldCollisionRevision: 7,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: 10,
     confirmedEventsThrough: 100,
     rootId: 'local',

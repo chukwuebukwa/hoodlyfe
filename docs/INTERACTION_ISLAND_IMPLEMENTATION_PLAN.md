@@ -318,6 +318,19 @@ production build pass, and the isolated real two-client Colyseus scenario passes
 - M9: humanoid impacts, vehicle entry/exit, passenger constraints, and attachments.
 - M10: predicted projectile correlation plus server historical hit queries.
 
+M9 is split into independently deployable checkpoints:
+
+- M9a - Complete: protocol-v3 control epochs. Every per-client baseline carries a
+  validated `on-foot`, `driver`, or `passenger` control mode and a monotonic control
+  revision. Entry, exit, seat reassignment, passenger promotion, root replacement, or a
+  missed control frame advances the revision. Client island history clears whenever
+  either value changes, including passenger-to-driver promotion where the vehicle root
+  ID remains unchanged.
+- M9b: one effective predicted transform for body, weapon, passenger, label, lights,
+  camera, minimap marker, and debug collider.
+- M9c: shared vehicle-to-humanoid contact and on-foot replay, with damage, knockdown,
+  crime, and other lifecycle effects remaining server-only.
+
 Bullets initially predict recoil/tracer presentation while the server performs bounded
 rewound hit validation. Grenades and rockets may use deterministic predicted spawns.
 

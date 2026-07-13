@@ -82,6 +82,8 @@ function snapshot(serverTick: number): InteractionSnapshot {
     serverTick,
     serverTimeMs: serverTick * 1000 / 30,
     worldCollisionRevision: 1,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: serverTick,
     confirmedEventsThrough: serverTick,
     entities: [{

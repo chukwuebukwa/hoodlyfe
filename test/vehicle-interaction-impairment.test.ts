@@ -122,6 +122,8 @@ function baselineFromAuthority(
     serverTick,
     serverTimeMs: serverTick * 1000 / 30,
     worldCollisionRevision: 1,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: serverTick,
     confirmedEventsThrough: serverTick,
     rootId: 'local',

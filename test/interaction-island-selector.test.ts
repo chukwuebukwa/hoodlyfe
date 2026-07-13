@@ -183,6 +183,8 @@ function snapshot(serverTick: number, entities: InteractionEntityState[]): Inter
     serverTick,
     serverTimeMs: serverTick * 1000 / 30,
     worldCollisionRevision: 1,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: serverTick,
     entities,
     remoteIntents: [],

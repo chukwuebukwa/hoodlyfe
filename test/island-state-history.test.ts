@@ -36,12 +36,29 @@ test('island history rejects mixed frames and resets across controlled-root chan
   assert.equal(history.latest()?.rootId, 'vehicle-root');
 });
 
+test('island history resets when occupancy changes without changing the vehicle root', () => {
+  const history = new IslandStateHistory();
+  const passenger = {...snapshot(1, 'vehicle-root'), controlMode: 'passenger' as const};
+  assert.ok(history.record(passenger, selection(passenger)));
+  const driver = {
+    ...snapshot(2, 'vehicle-root'),
+    controlMode: 'driver' as const,
+    controlRevision: 2
+  };
+  assert.ok(history.record(driver, selection(driver)));
+  assert.equal(history.size(), 1);
+  assert.equal(history.latest()?.controlMode, 'driver');
+  assert.equal(history.latest()?.controlRevision, 2);
+});
+
 function snapshot(serverTick: number, rootId = 'local'): InteractionSnapshot {
   return {
     protocolVersion: INTERACTION_PROTOCOL_VERSION,
     serverTick,
     serverTimeMs: serverTick * 1000 / 30,
     worldCollisionRevision: 1,
+    controlRevision: 1,
+    controlMode: 'driver',
     acknowledgedLocalInputSequence: serverTick,
     confirmedEventsThrough: serverTick,
     entities: [vehicle(rootId, 0), vehicle('remote', 20)],

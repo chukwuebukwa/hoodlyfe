@@ -3,7 +3,7 @@ import type {VehicleKind} from '../content/vehicle-catalog.ts';
 export const PLAYER_INPUT_COMMAND_MESSAGE = 'simulation.input';
 export const APPLIED_INPUT_RECEIPT_MESSAGE = 'simulation.input.applied';
 export const INTERACTION_SNAPSHOT_MESSAGE = 'simulation.snapshot';
-export const INTERACTION_PROTOCOL_VERSION = 2;
+export const INTERACTION_PROTOCOL_VERSION = 3;
 export const MAX_INPUT_SEQUENCE_ADVANCE = 4_096;
 export const MAX_PREDICTED_SPAWN_IDS = 8;
 export const MAX_INTERACTION_ENTITIES = 64;
@@ -66,6 +66,7 @@ export interface KinematicInteractionState {
 }
 
 export type InteractionPhysicalPriority = 'player-controlled' | 'mission-critical' | 'ambient';
+export type InteractionControlMode = 'on-foot' | 'driver' | 'passenger';
 
 export interface HumanoidInteractionState extends KinematicInteractionState {
   readonly kind: 'player' | 'pedestrian';
@@ -119,6 +120,8 @@ export interface InteractionSnapshot {
   readonly serverTick: number;
   readonly serverTimeMs: number;
   readonly worldCollisionRevision: number;
+  readonly controlRevision: number;
+  readonly controlMode: InteractionControlMode;
   readonly acknowledgedLocalInputSequence: number;
   readonly entities: readonly InteractionEntityState[];
   readonly remoteIntents: readonly RemoteIntentState[];
@@ -150,6 +153,7 @@ export type InteractionProtocolRejection =
   | 'stale-snapshot'
   | 'future-snapshot'
   | 'collision-revision-mismatch'
+  | 'invalid-control-state'
   | 'capacity-exceeded'
   | 'invalid-entity'
   | 'duplicate-entity'
