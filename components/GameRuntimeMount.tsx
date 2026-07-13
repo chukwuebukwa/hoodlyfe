@@ -2,23 +2,20 @@
 
 import {useEffect, useRef} from 'react';
 import type {GameRuntime} from '../src/main.ts';
-import {useNockPrivySession} from './useNockPrivySession';
 
 export function GameRuntimeMount(): null {
-  const privy = useNockPrivySession();
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
   const startingRef = useRef(false);
 
   useEffect(() => {
-    if (!privy.ready || runtimeRef.current || startingRef.current) return;
+    if (runtimeRef.current || startingRef.current) return;
     let cancelled = false;
     startingRef.current = true;
     void import('../src/main.ts').then(async ({startGameRuntime}) => {
       if (cancelled) return;
       const runtime = await startGameRuntime({
         serverUrl: resolveGameServerUrl(),
-        renderer: new URLSearchParams(window.location.search).get('renderer') ?? undefined,
-        auth: privy.authPayload
+        auth: {provider: 'guest'}
       });
       if (cancelled) {
         runtime.destroy();
@@ -36,7 +33,7 @@ export function GameRuntimeMount(): null {
       runtimeRef.current?.destroy();
       runtimeRef.current = undefined;
     };
-  }, [privy.ready]);
+  }, []);
 
   return null;
 }

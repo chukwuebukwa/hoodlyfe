@@ -26,12 +26,6 @@ import {
 } from '../../../shared/content/appearance-catalog.ts';
 import type {ClientAuthPayload} from '../../../shared/protocol/auth.ts';
 import {
-  isPrivyBrowserAuthConfigured,
-  loginPrivyWithEmailCode,
-  restorePrivyLogin,
-  sendPrivyEmailCode
-} from '../auth/privy-email-auth.ts';
-import {
   compileLpcCharacterSpriteSet,
   loadLpcSpriteSources,
   type CompiledLpcCharacterSpriteSet,
@@ -113,19 +107,11 @@ export function runOnboardingOverlay(
         <div>
           <span>First Run</span>
           <strong>Enter The District</strong>
-          <p>Login now or continue as guest, then build your driver before spawning into the street.</p>
+          <p>Build your driver before spawning into the street.</p>
         </div>
-        <section class="onboarding-auth-panel" aria-label="Privy login">
+        <section class="onboarding-auth-panel" aria-label="Driver account">
           <strong>Driver Account</strong>
-          <span id="onboarding-auth-status">Checking Privy session</span>
-          <div class="onboarding-auth-row">
-            <input id="onboarding-email" type="email" autocomplete="email" placeholder="email@domain.com">
-            <button id="onboarding-send-code" type="button">SEND CODE</button>
-          </div>
-          <div class="onboarding-auth-row">
-            <input id="onboarding-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
-            <button id="onboarding-login" type="button">LOGIN</button>
-          </div>
+          <span id="onboarding-auth-status">Guest session</span>
           <div class="onboarding-title-actions">
             <button id="onboarding-guest" type="button">CONTINUE GUEST</button>
             <button id="onboarding-start" type="button">CREATE DRIVER</button>
@@ -162,10 +148,6 @@ export function runOnboardingOverlay(
   const titleStep = required<HTMLElement>(overlay, '.onboarding-title');
   const creatorStep = required<HTMLElement>(overlay, '.onboarding-creator');
   const authStatus = required<HTMLElement>(overlay, '#onboarding-auth-status');
-  const emailInput = required<HTMLInputElement>(overlay, '#onboarding-email');
-  const codeInput = required<HTMLInputElement>(overlay, '#onboarding-code');
-  const sendCodeButton = required<HTMLButtonElement>(overlay, '#onboarding-send-code');
-  const loginButton = required<HTMLButtonElement>(overlay, '#onboarding-login');
   const guestButton = required<HTMLButtonElement>(overlay, '#onboarding-guest');
   const startButton = required<HTMLButtonElement>(overlay, '#onboarding-start');
   const skipButton = required<HTMLButtonElement>(overlay, '#onboarding-skip');
@@ -237,42 +219,6 @@ export function runOnboardingOverlay(
       showCreator();
     };
 
-    if (!isPrivyBrowserAuthConfigured()) {
-      authStatus.textContent = 'Privy app id missing; guest mode available';
-      sendCodeButton.disabled = true;
-      loginButton.disabled = true;
-    } else {
-      restorePrivyLogin().then((result) => {
-        if (!result) {
-          authStatus.textContent = 'Enter email for Privy code';
-          return;
-        }
-        auth = result.auth;
-        authStatus.textContent = `Privy session ready: ${result.label}`;
-      }).catch((error) => {
-        authStatus.textContent = 'Privy session unavailable';
-        console.error(error);
-      });
-    }
-
-    sendCodeButton.addEventListener('click', () => {
-      authStatus.textContent = 'Sending Privy code';
-      sendPrivyEmailCode(emailInput.value).then(() => {
-        authStatus.textContent = 'Code sent. Check email.';
-        codeInput.focus();
-      }).catch((error) => {
-        authStatus.textContent = messageFromError(error);
-      });
-    });
-    loginButton.addEventListener('click', () => {
-      authStatus.textContent = 'Verifying Privy code';
-      loginPrivyWithEmailCode(emailInput.value, codeInput.value).then((result) => {
-        auth = result.auth;
-        authStatus.textContent = `Privy ready: ${result.label}`;
-      }).catch((error) => {
-        authStatus.textContent = messageFromError(error);
-      });
-    });
     guestButton.addEventListener('click', setGuest);
     startButton.addEventListener('click', () => {
       showCreator();
@@ -454,6 +400,3 @@ function writeStorage(key: string, value: string): void {
   }
 }
 
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Privy login failed';
-}

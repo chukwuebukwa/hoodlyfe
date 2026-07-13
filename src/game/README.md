@@ -2,20 +2,22 @@
 
 The browser client presents replicated server state, collects player intent, and performs cosmetic prediction/interpolation. It never decides gameplay outcomes.
 
+The Phaser renderer was removed in July 2026; `ThreePrototypeViewer` (`three/`) is the only client. References to `DistrictScene` and Phaser adapters below describe the removed renderer and await a documentation pass.
+
 ## Dependency Direction
 
 ```text
-DistrictScene
+ThreePrototypeViewer
   -> input and presentation controllers
     -> pure client policies
   -> network protocol/state views
-  -> Phaser and DOM adapters
+  -> Three and DOM adapters
 ```
 
 Rules:
 
-- `DistrictScene` owns Phaser lifecycle and coordinates focused client modules.
-- Pure policies do not import Phaser, Colyseus, browser globals, or DOM elements.
+- `ThreePrototypeViewer` owns renderer lifecycle and coordinates focused client modules.
+- Pure policies do not import Three, Colyseus, browser globals, or DOM elements.
 - Device/DOM adapters install listeners once and remove them on scene shutdown.
 - Server commands carry intent only; the browser never sends position, damage, cash, wanted state, mission outcomes, or vehicle health.
 - Prediction and interpolation are presentation. Replicated authoritative state always corrects them.

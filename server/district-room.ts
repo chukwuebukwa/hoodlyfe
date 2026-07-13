@@ -41,7 +41,7 @@ import {
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
-import {verifyClientAuth} from './auth/privy-auth.ts';
+import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
