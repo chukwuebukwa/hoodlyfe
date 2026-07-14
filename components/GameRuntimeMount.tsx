@@ -1,43 +1,19 @@
 'use client';
 
-import {useEffect, useRef, useState} from 'react';
-import type {ReactElement} from 'react';
-import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
+import {useEffect, useRef} from 'react';
 import type {GameRuntime} from '../src/main.ts';
-import {isDevelopmentQaGuest} from './development-qa-session.ts';
-import {useNockPrivySession} from './useNockPrivySession';
 
-export function GameRuntimeMount(): ReactElement {
-  const [qaGuest, setQaGuest] = useState(false);
-  useEffect(() => setQaGuest(isDevelopmentQaGuest()), []);
-  return qaGuest
-    ? <DevelopmentQaGameRuntimeMount />
-    : <PrivyGameRuntimeMount />;
-}
-
-function DevelopmentQaGameRuntimeMount(): null {
-  useGameRuntime(true, {provider: 'guest'});
-  return null;
-}
-
-function PrivyGameRuntimeMount(): null {
-  const privy = useNockPrivySession();
-  useGameRuntime(privy.ready, privy.authPayload);
-  return null;
-}
-
-function useGameRuntime(ready: boolean, auth: ClientAuthPayload): void {
+export function GameRuntimeMount(): null {
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
 
   useEffect(() => {
-    if (!ready || runtimeRef.current) return;
+    if (runtimeRef.current) return;
     let cancelled = false;
     void import('../src/main.ts').then(async ({startGameRuntime}) => {
       if (cancelled) return;
       const runtime = await startGameRuntime({
         serverUrl: resolveGameServerUrl(),
-        renderer: new URLSearchParams(window.location.search).get('renderer') ?? undefined,
-        auth
+        auth: {provider: 'guest'}
       });
       if (cancelled) {
         runtime.destroy();
@@ -53,7 +29,9 @@ function useGameRuntime(ready: boolean, auth: ClientAuthPayload): void {
       runtimeRef.current?.destroy();
       runtimeRef.current = undefined;
     };
-  }, [ready]);
+  }, []);
+
+  return null;
 }
 
 function resolveGameServerUrl(): string {

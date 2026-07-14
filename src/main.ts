@@ -3,7 +3,6 @@ import type {PlayerAppearance} from '../shared/content/appearance-catalog.ts';
 import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
 import {PLAYER_SPAWN_MESSAGE} from '../shared/protocol/onboarding.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
-import {mountPrivyProfilePopup} from './game/auth/privy-profile-popup.ts';
 import {
   loadOnboardingIdentity,
   runOnboardingOverlay,
@@ -15,7 +14,6 @@ import {NetcodeRolloutController} from './game/network/netcode-rollout-controlle
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
-  renderer?: string;
   auth?: ClientAuthPayload;
 }
 
@@ -31,9 +29,7 @@ export async function startGameRuntime(options: StartGameRuntimeOptions): Promis
 
 class GameRuntimeController implements GameRuntime {
   private activeRoom: Room<DistrictNetworkState> | undefined;
-  private activeGame: {destroy(removeCanvas?: boolean): void} | undefined;
   private activeThree: {start(): Promise<void>; destroy(): void} | undefined;
-  private profilePopup: {destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
   private interactionSnapshots: InteractionSnapshotInbox | undefined;
   private netcodeRollout: NetcodeRolloutController | undefined;
@@ -48,17 +44,11 @@ class GameRuntimeController implements GameRuntime {
     const onboardingRequired = shouldShowOnboarding();
     const nameElement = document.querySelector('#driver-name');
     this.loadingUi = createLoadingController();
-    this.profilePopup = mountPrivyProfilePopup();
     if (nameElement) nameElement.textContent = driverName;
 
     try {
-      const renderer = this.options.renderer;
-      this.loadingUi.set(0.06, renderer === 'three' ? 'Selecting 3D renderer' : 'Selecting street renderer');
-      if (renderer === 'three') {
-        await this.startThree(driverName, playerAppearance, playerAuth, onboardingRequired);
-      } else {
-        await this.startPhaser(driverName, playerAppearance, playerAuth, onboardingRequired);
-      }
+      this.loadingUi.set(0.06, 'Selecting street renderer');
+      await this.startThree(driverName, playerAppearance, playerAuth, onboardingRequired);
       this.showOnboardingAfterStart(driverName, playerAppearance, playerAuth, onboardingRequired);
     } catch (error) {
       const loadingUi = this.loadingUi;
@@ -76,8 +66,6 @@ class GameRuntimeController implements GameRuntime {
   }
 
   destroy(): void {
-    this.activeGame?.destroy(true);
-    this.activeGame = undefined;
     this.activeThree?.destroy();
     this.activeThree = undefined;
     this.interactionSnapshots?.destroy();
@@ -86,8 +74,6 @@ class GameRuntimeController implements GameRuntime {
     this.netcodeRollout = undefined;
     void this.activeRoom?.leave(true);
     this.activeRoom = undefined;
-    this.profilePopup?.destroy();
-    this.profilePopup = undefined;
     this.loadingUi?.destroy();
     this.loadingUi = undefined;
   }
@@ -102,7 +88,7 @@ class GameRuntimeController implements GameRuntime {
     const game = document.querySelector<HTMLElement>('#game');
     if (!shell || !game) throw new Error('Three prototype mount is unavailable.');
     shell.dataset.renderer = 'three';
-    this.loadingUi?.setTitle('NOCK0 3D');
+    this.loadingUi?.setTitle('NOCK0');
     this.loadingUi?.set(0.14, 'Connecting district server');
     const client = new Client(this.options.serverUrl);
     this.activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
@@ -123,51 +109,6 @@ class GameRuntimeController implements GameRuntime {
       this.netcodeRollout
     );
     await this.activeThree.start();
-    this.loadingUi?.set(0.95, 'Preparing driver');
-    this.loadingUi?.finish();
-  }
-
-  private async startPhaser(
-    driverName: string,
-    playerAppearance: PlayerAppearance,
-    playerAuth: ClientAuthPayload,
-    onboardingRequired: boolean
-  ): Promise<void> {
-    this.loadingUi?.setTitle('NOCK0');
-    this.loadingUi?.set(0.14, 'Connecting district server');
-    const client = new Client(this.options.serverUrl);
-    this.activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
-      name: driverName,
-      appearance: playerAppearance,
-      auth: playerAuth,
-      spectator: onboardingRequired
-    });
-    this.startNetworkControllers(this.activeRoom);
-    this.loadingUi?.set(0.42, 'District room joined');
-    this.loadingUi?.set(0.56, 'Loading street renderer');
-    const [{default: Phaser}, {DistrictScene}] = await Promise.all([
-      import('phaser'),
-      import('./game/district-scene.ts')
-    ]);
-    this.loadingUi?.set(0.76, 'Preparing traffic and civilians');
-    this.activeGame = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: 'game',
-      backgroundColor: '#080808',
-      pixelArt: true,
-      roundPixels: true,
-      scale: {
-        mode: Phaser.Scale.RESIZE,
-        width: window.innerWidth,
-        height: window.innerHeight
-      },
-      render: {
-        antialias: false,
-        pixelArt: true,
-        roundPixels: true
-      },
-      scene: new DistrictScene(this.activeRoom, this.interactionSnapshots, this.netcodeRollout)
-    });
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
   }

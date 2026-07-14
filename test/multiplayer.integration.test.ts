@@ -54,7 +54,7 @@ import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
-test('two clients can use weapons, share cars, drive, fight, and respawn cleanly', {skip: !hasLocalAssets, timeout: 35_000}, async (context) => {
+test('two clients can use weapons, share cars, drive, fight, and respawn cleanly', {skip: !hasLocalAssets, timeout: 45_000}, async (context) => {
   const port = 28_000 + Math.floor(Math.random() * 1000);
   const server = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
     cwd: process.cwd(),
@@ -468,7 +468,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     second.sessionId,
     second.state.missionContactX,
     second.state.missionContactY,
-    75
+    75,
+    world
   );
   await waitUntil(() => second.state.missions.size === 0, 6000);
   second.send(MISSION_START_MESSAGE, {templateId: 'crew-holdout'});
@@ -639,19 +640,51 @@ async function movePlayerTo(
   playerId: string,
   x: number,
   y: number,
-  targetDistance: number
+  targetDistance: number,
+  world: CollisionMap
 ): Promise<void> {
-  for (let step = 0; step < 100; step++) {
+  const planner = new PedestrianPathPlanner(world, 768, 48);
+  let waypoints: Array<{x: number; y: number}> = [];
+  let waypointIndex = 0;
+  let previousDistance = Number.POSITIVE_INFINITY;
+  let stagnantSteps = 0;
+  for (let step = 0; step < 180; step++) {
     const player = room.state.players.get(playerId);
     assert.ok(player?.alive, 'Moving player must remain alive.');
     const deltaX = x - player.x;
     const deltaY = y - player.y;
-    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+    const distance = Math.hypot(deltaX, deltaY);
     if (distance <= targetDistance) break;
-    room.send('input', {x: deltaX / distance, y: deltaY / distance});
-    await delay(60);
+    if (distance >= previousDistance - 0.5) stagnantSteps++;
+    else stagnantSteps = 0;
+    if (waypoints.length === 0 || waypointIndex >= waypoints.length || stagnantSteps >= 4) {
+      const path = planner.plan(player, {x, y}, 11);
+      assert.ok(path?.complete, 'Expected a complete collision-safe route to the mission contact.');
+      waypoints = path.points;
+      waypointIndex = 0;
+      stagnantSteps = 0;
+    }
+    while (
+      waypointIndex < waypoints.length - 1 &&
+      Math.hypot(waypoints[waypointIndex].x - player.x, waypoints[waypointIndex].y - player.y) <= 18
+    ) waypointIndex++;
+    const waypoint = waypoints[waypointIndex] ?? {x, y};
+    const waypointX = waypoint.x - player.x;
+    const waypointY = waypoint.y - player.y;
+    const waypointDistance = Math.max(1, Math.hypot(waypointX, waypointY));
+    room.send('input', {x: waypointX / waypointDistance, y: waypointY / waypointDistance});
+    previousDistance = distance;
+    await delay(50);
   }
   room.send('input', {x: 0, y: 0});
+  await delay(100);
+  const player = room.state.players.get(playerId);
+  assert.ok(player?.alive, 'Moved player must remain alive.');
+  const finalDistance = Math.hypot(x - player.x, y - player.y);
+  assert.ok(
+    finalDistance <= targetDistance,
+    `Moving player must reach the requested target radius (${finalDistance.toFixed(1)} > ${targetDistance}).`
+  );
 }
 
 function hasVehicleClearance(

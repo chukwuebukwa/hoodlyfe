@@ -72,7 +72,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** five complete jobs now share objective/encounter modules; item, escort, placement-scored race, and event-mode objectives remain incomplete.
-- **Playable foundation** feature-flagged Three.js district client with real OpenGTA2 block geometry, depth-tested entities, full gameplay/HUD/input parity, and Phaser fallback.
+- **Playable** Three.js district client with real OpenGTA2 block geometry and depth-tested entities is now the only renderer; the Phaser client and its wrapper modules were removed.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
 - **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
 - **Playable foundation** street AOI streams NPCs and vehicles with 1,280/1,536-pixel hysteresis, bounded add/remove budgets, occupied/mission vehicle pinning, and F3 visibility pressure diagnostics.
@@ -227,7 +227,7 @@ Property is not blocked by 2D presentation, but it is blocked by original map/in
 - **Next** authored building/roof/door metadata for clean same-coordinate roof removal.
 - **Later** authoritative elevation/surface IDs, multi-level collision, navigation, and line of sight only after renderer parity.
 
-The working Phaser browser game remains the default until the Three renderer is feature-complete. GTA2-derived maps and sprites are private compatibility fixtures; public distribution and monetization require original art, layout, geometry, vehicles, and branding.
+The Three renderer is now the only client; the Phaser renderer and its wrapper modules were removed in July 2026. GTA2-derived maps and sprites are private compatibility fixtures; public distribution and monetization require original art, layout, geometry, vehicles, and branding.
 
 ## Onchain Settlement Gate
 
