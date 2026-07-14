@@ -55,6 +55,8 @@ const GAME_SHELL_HTML = `
       <div><dt>Patch p95</dt><dd id="debug-patch-gap">0ms</dd></div>
       <div><dt>Prediction</dt><dd id="debug-prediction">0px</dd></div>
       <div><dt>Clock / Buffer</dt><dd id="debug-clock-sync">unsynced</dd></div>
+      <div class="debug-wide"><dt>Interaction island</dt><dd id="debug-interaction-island">off</dd></div>
+      <div class="debug-wide"><dt>Island selection</dt><dd id="debug-interaction-selection">off</dd></div>
     </dl>
     <section id="debug-time-controls" class="hidden" aria-label="Time of day controls">
       <header><strong>Time of day</strong><output id="debug-time-value">08:00</output></header>
@@ -71,6 +73,10 @@ const GAME_SHELL_HTML = `
       <span class="search">Search</span>
       <span class="stimulus">Stimulus</span>
       <span class="signal">Signal</span>
+      <span class="island-root">Island root</span>
+      <span class="island-member">Island member</span>
+      <span class="island-overflow">Island overflow</span>
+      <span class="island-presented">Presented pose</span>
     </div>
     <ol id="debug-events"><li>No recent events</li></ol>
   </aside>

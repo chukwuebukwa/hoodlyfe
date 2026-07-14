@@ -185,7 +185,8 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt,
         () => this.networkQuality?.snapshot(),
         (vehicleId) => this.entities?.vehiclePose(vehicleId),
-        (playerId) => this.entities?.playerPose(playerId)
+        (playerId) => this.entities?.playerPose(playerId),
+        () => this.interactionIslands?.latest()
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);

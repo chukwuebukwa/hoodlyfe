@@ -1,6 +1,8 @@
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {InteractionIslandSelection} from '../prediction/interaction-island-selector.ts';
+import {interactionIslandSelectionSummary} from './interaction-island-debug-policy.ts';
 
 export interface DebugPanelProjection {
   clock: string;
@@ -25,13 +27,15 @@ export interface DebugPanelProjection {
   prediction: string;
   clockSync: string;
   interactionIsland: string;
+  interactionSelection: string;
   events: string[];
 }
 
 export function projectDebugPanel(
   state?: DistrictNetworkState,
   snapshot?: DebugSnapshot,
-  network?: NetworkQualitySnapshot
+  network?: NetworkQualitySnapshot,
+  interactionIsland?: InteractionIslandSelection
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -79,6 +83,7 @@ export function projectDebugPanel(
         `${network.interactionReplayDurationP95Ms}ms p95 / ` +
         `${network.interactionReplayHardResets} reset`
       : 'off',
+    interactionSelection: interactionIslandSelectionSummary(interactionIsland),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']

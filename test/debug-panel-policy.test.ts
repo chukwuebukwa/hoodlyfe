@@ -41,6 +41,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     prediction: '0px',
     clockSync: 'unsynced',
     interactionIsland: 'off',
+    interactionSelection: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
 });

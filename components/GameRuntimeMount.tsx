@@ -1,24 +1,43 @@
 'use client';
 
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
+import type {ReactElement} from 'react';
+import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
 import type {GameRuntime} from '../src/main.ts';
+import {isDevelopmentQaGuest} from './development-qa-session.ts';
 import {useNockPrivySession} from './useNockPrivySession';
 
-export function GameRuntimeMount(): null {
+export function GameRuntimeMount(): ReactElement {
+  const [qaGuest, setQaGuest] = useState(false);
+  useEffect(() => setQaGuest(isDevelopmentQaGuest()), []);
+  return qaGuest
+    ? <DevelopmentQaGameRuntimeMount />
+    : <PrivyGameRuntimeMount />;
+}
+
+function DevelopmentQaGameRuntimeMount(): null {
+  useGameRuntime(true, {provider: 'guest'});
+  return null;
+}
+
+function PrivyGameRuntimeMount(): null {
   const privy = useNockPrivySession();
+  useGameRuntime(privy.ready, privy.authPayload);
+  return null;
+}
+
+function useGameRuntime(ready: boolean, auth: ClientAuthPayload): void {
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
-  const startingRef = useRef(false);
 
   useEffect(() => {
-    if (!privy.ready || runtimeRef.current || startingRef.current) return;
+    if (!ready || runtimeRef.current) return;
     let cancelled = false;
-    startingRef.current = true;
     void import('../src/main.ts').then(async ({startGameRuntime}) => {
       if (cancelled) return;
       const runtime = await startGameRuntime({
         serverUrl: resolveGameServerUrl(),
         renderer: new URLSearchParams(window.location.search).get('renderer') ?? undefined,
-        auth: privy.authPayload
+        auth
       });
       if (cancelled) {
         runtime.destroy();
@@ -27,8 +46,6 @@ export function GameRuntimeMount(): null {
       runtimeRef.current = runtime;
     }).catch((error) => {
       console.error(error);
-    }).finally(() => {
-      startingRef.current = false;
     });
 
     return () => {
@@ -36,9 +53,7 @@ export function GameRuntimeMount(): null {
       runtimeRef.current?.destroy();
       runtimeRef.current = undefined;
     };
-  }, [privy.ready]);
-
-  return null;
+  }, [ready]);
 }
 
 function resolveGameServerUrl(): string {

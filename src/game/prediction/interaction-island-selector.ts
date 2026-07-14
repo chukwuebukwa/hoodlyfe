@@ -43,6 +43,7 @@ export interface InteractionIslandSelection {
   readonly rootId: string;
   readonly members: readonly InteractionIslandMember[];
   readonly memberIds: readonly string[];
+  readonly overflowMembers: readonly InteractionIslandMember[];
   readonly weightedPoints: number;
   readonly budget: number;
   readonly overflowIds: readonly string[];
@@ -115,7 +116,7 @@ export class InteractionIslandSelector {
       timeToContactMs: 0
     }];
     const selected = new Set([interactionStableKey(root)]);
-    const overflow = new Map<string, number>();
+    const overflow = new Map<string, InteractionIslandMember>();
     let weightedPoints = members[0].weight;
     let closureCount = 0;
 
@@ -125,7 +126,12 @@ export class InteractionIslandSelector {
     ): boolean => {
       if (selected.has(candidate.key)) return true;
       if (weightedPoints + candidate.weight > budget) {
-        overflow.set(candidate.key, candidate.weight);
+        overflow.set(candidate.key, {
+          entity: candidate.entity,
+          weight: candidate.weight,
+          reason,
+          timeToContactMs: roundedMilliseconds(candidate.timeToContact)
+        });
         return false;
       }
       selected.add(candidate.key);
@@ -163,7 +169,14 @@ export class InteractionIslandSelector {
     }
 
     for (const score of scores) {
-      if (!selected.has(score.key)) overflow.set(score.key, score.weight);
+      if (!selected.has(score.key)) {
+        overflow.set(score.key, {
+          entity: score.entity,
+          weight: score.weight,
+          reason: score.reason,
+          timeToContactMs: roundedMilliseconds(score.timeToContact)
+        });
+      }
     }
     for (const member of members) {
       const key = interactionStableKey(member.entity);
@@ -181,10 +194,15 @@ export class InteractionIslandSelector {
       rootId: root.id,
       members: Object.freeze(members),
       memberIds: Object.freeze(members.map(({entity}) => entity.id)),
+      overflowMembers: Object.freeze(
+        [...overflow.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([, member]) => Object.freeze(member))
+      ),
       weightedPoints,
       budget,
       overflowIds: Object.freeze([...overflow.keys()].sort()),
-      overflowPoints: [...overflow.values()].reduce((sum, weight) => sum + weight, 0),
+      overflowPoints: [...overflow.values()].reduce((sum, member) => sum + member.weight, 0),
       candidateCount: candidates.length,
       currentContactCount: scores.filter(({currentContact}) => currentContact).length,
       retainedContactCount: scores.filter(({retainedContact}) => retainedContact).length,

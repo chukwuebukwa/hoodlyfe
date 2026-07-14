@@ -84,6 +84,7 @@ function selection(source: InteractionSnapshot): InteractionIslandSelection {
       timeToContactMs: index === 0 ? 0 : 100
     })),
     memberIds: source.entities.map(({id}) => id),
+    overflowMembers: [],
     weightedPoints: 8,
     budget: 32,
     overflowIds: [],

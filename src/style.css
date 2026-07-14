@@ -1655,9 +1655,10 @@ canvas {
 #debug-panel {
   top: 86px;
   left: 18px;
-  width: min(292px, calc(100vw - 36px));
-  max-height: min(470px, calc(100vh - 110px));
-  overflow: hidden;
+  width: min(340px, calc(100vw - 36px));
+  max-height: min(680px, calc(100vh - 110px));
+  overflow: hidden auto;
+  scrollbar-color: rgba(112, 220, 255, 0.5) rgba(3, 9, 12, 0.92);
   border: 1px solid rgba(112, 220, 255, 0.58);
   border-radius: 4px;
   background: rgba(3, 9, 12, 0.92);
@@ -1702,6 +1703,16 @@ canvas {
 
 #debug-panel dl div:nth-child(4n) {
   border-right: 0;
+}
+
+#debug-panel dl .debug-wide {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+#debug-panel dl .debug-wide dd {
+  line-height: 1.35;
+  white-space: normal;
 }
 
 #debug-panel dt {
@@ -1796,6 +1807,10 @@ canvas {
 #debug-legend .search { color: #51f0b2; }
 #debug-legend .stimulus { color: #ffd24a; }
 #debug-legend .signal { color: #56e3a2; }
+#debug-legend .island-root { color: #ffd34e; }
+#debug-legend .island-member { color: #55d6ff; }
+#debug-legend .island-overflow { color: #ff8a35; }
+#debug-legend .island-presented { color: #36f1d0; }
 
 #debug-events {
   max-height: 172px;

@@ -38,6 +38,11 @@ test('current contacts outrank future contacts and overflow is deterministic', (
   assert.deepEqual(left?.memberIds, ['root', 'current']);
   assert.deepEqual(right?.memberIds, left?.memberIds);
   assert.deepEqual(left?.overflowIds, ['vehicle:imminent']);
+  assert.deepEqual(left?.overflowMembers.map(({entity, reason}) => ({
+    id: entity.id,
+    reason
+  })), [{id: 'imminent', reason: 'imminent-contact'}]);
+  assert.ok((left?.overflowMembers[0]?.timeToContactMs ?? 0) > 0);
   assert.equal(left?.weightedPoints, 8);
   assert.equal(left?.overflowPoints, 4);
 });
@@ -147,6 +152,11 @@ test('dense traffic remains inside weighted budget and reports every omitted bod
   assert.equal(selection?.members.length, 8);
   assert.equal(selection?.weightedPoints, 32);
   assert.equal(selection?.overflowIds.length, 13);
+  assert.equal(selection?.overflowMembers.length, 13);
+  assert.deepEqual(
+    selection?.overflowMembers.map(({entity}) => entity.id),
+    Array.from({length: 13}, (_, index) => `car-${String(index + 7).padStart(2, '0')}`)
+  );
   assert.equal(selection?.overflowPoints, 52);
   assert.deepEqual(selection?.memberIds, [
     'root', 'car-00', 'car-01', 'car-02', 'car-03', 'car-04', 'car-05', 'car-06'

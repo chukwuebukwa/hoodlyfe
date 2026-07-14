@@ -269,7 +269,8 @@ export class DistrictScene extends Phaser.Scene {
       this.collisionLayer,
       () => this.networkQuality.snapshot(),
       (vehicleId) => this.vehicleRenderer.pose(vehicleId),
-      (playerId) => this.playerRenderer.pose(playerId)
+      (playerId) => this.playerRenderer.pose(playerId),
+      () => this.interactionIslands?.latest()
     );
     this.inputController = new ClientInputController({
       scene: this,

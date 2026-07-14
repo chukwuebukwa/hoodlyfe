@@ -336,6 +336,12 @@ M9 is split into independently deployable checkpoints:
   crime, and other lifecycle effects server-only. Physical relative closing speed is
   distinct from vehicle-caused impact speed so walking into a stationary car can never
   become a server-authored ram.
+- M9 observability - Complete: the F3 panel exposes selected bodies, weighted
+  points/budget, conservative overflow, dynamic horizon, baseline age, retained history,
+  replay ticks/duration, and reset counts. It also lists the stable root/member order,
+  admission reason, TTC, and overflow IDs. Phaser and Three draw authoritative selected
+  and overflow colliders by reason, root-to-member links, and the corresponding presented
+  pose separately, so a predicted collider can be compared directly with authority.
 - M9c-b: on-foot saved-input island replay using the same vehicle-to-humanoid kernel,
   including promoted remote humanoid poses and replay-side-effect suppression.
 

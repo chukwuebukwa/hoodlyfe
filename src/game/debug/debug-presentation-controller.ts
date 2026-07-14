@@ -8,6 +8,14 @@ import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
+import type {
+  InteractionIslandMember,
+  InteractionIslandSelection
+} from '../prediction/interaction-island-selector.ts';
+import {
+  INTERACTION_ISLAND_DEBUG_COLOR,
+  projectInteractionIslandDebug
+} from './interaction-island-debug-policy.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -37,6 +45,7 @@ export class DebugPresentationController {
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
     private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
+    private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined,
     private readonly root: Document = document
   ) {
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
@@ -68,7 +77,8 @@ export class DebugPresentationController {
       patchGap: this.root.querySelector('#debug-patch-gap'),
       prediction: this.root.querySelector('#debug-prediction'),
       clockSync: this.root.querySelector('#debug-clock-sync'),
-      interactionIsland: this.root.querySelector('#debug-interaction-island')
+      interactionIsland: this.root.querySelector('#debug-interaction-island'),
+      interactionSelection: this.root.querySelector('#debug-interaction-selection')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -133,6 +143,7 @@ export class DebugPresentationController {
     this.drawPlayers(presentLabels);
     this.drawNpcs(presentLabels);
     this.drawVehicles(presentLabels);
+    this.drawInteractionIsland(presentLabels);
     this.drawPoliceVehicleRoutes();
     this.drawBullets();
     this.drawStimuli(presentLabels);
@@ -247,14 +258,11 @@ export class DebugPresentationController {
       if (player.vehicleId) return;
       const mode = player.vehicleId ? `seat:${player.vehicleSeat}` : 'foot';
       const protection = player.spawnProtected ? ' SHIELD' : '';
-      const predicted = playerId === this.room.sessionId
-        ? this.predictedPlayerPose(playerId)
-        : undefined;
       this.drawEntity(
-        predicted?.x ?? player.x,
-        predicted?.y ?? player.y,
+        player.x,
+        player.y,
         PLAYER_RADIUS,
-        predicted?.angle ?? player.angle,
+        player.angle,
         0x70dcff,
         `player:${playerId}`,
         `${player.name} p:${shortId(playerId)} ${mode} w:${player.wanted}${protection}`,
@@ -373,22 +381,116 @@ export class DebugPresentationController {
         vehicle.health > 0
       );
     });
-    const localVehicleId = this.state?.players?.get(this.room.sessionId)?.vehicleId;
-    const predicted = localVehicleId ? this.predictedVehiclePose(localVehicleId) : undefined;
-    if (localVehicleId && predicted) {
-      const kind = this.state?.vehicles?.get(localVehicleId)?.kind ?? 'sedan';
-      this.drawVehicleEntity(
-        predicted.x,
-        predicted.y,
-        predicted.angle,
-        kind,
-        0x36f1d0,
-        `predicted-vehicle:${localVehicleId}`,
-        `PRED ${localVehicleId}`,
+  }
+
+  private drawInteractionIsland(present: Set<string>): void {
+    const selection = this.interactionIsland();
+    const projection = projectInteractionIslandDebug(
+      selection,
+      (member) => this.presentedIslandPose(member)
+    );
+    for (const link of projection.links) {
+      this.graphics.lineStyle(1, link.color, 0.72);
+      this.graphics.lineBetween(link.fromX, link.fromY, link.toX, link.toY);
+      this.graphics.strokeCircle(link.toX, link.toY, 3);
+    }
+    for (const body of projection.bodies) {
+      const entity = body.member.entity;
+      const active = body.role !== 'overflow';
+      this.drawInteractionEntity(
+        entity,
+        entity.x,
+        entity.y,
+        entity.angle,
+        body.color,
+        `island:${body.role}:${body.key}`,
+        body.label,
+        present,
+        active
+      );
+      if (!body.presented) continue;
+      this.drawInteractionEntity(
+        entity,
+        body.presented.x,
+        body.presented.y,
+        body.presented.angle,
+        INTERACTION_ISLAND_DEBUG_COLOR.presented,
+        `island:presented:${body.key}`,
+        `PRESENT ${entity.kind}:${shortId(entity.id)}`,
         present,
         true
       );
     }
+    if (selection) return;
+    this.drawLocalPredictedFallback(present);
+  }
+
+  private presentedIslandPose(member: InteractionIslandMember): ActorRenderPose | undefined {
+    if (member.entity.kind === 'vehicle') return this.predictedVehiclePose(member.entity.id);
+    if (member.entity.kind === 'player') return this.predictedPlayerPose(member.entity.id);
+    return undefined;
+  }
+
+  private drawInteractionEntity(
+    entity: InteractionIslandMember['entity'],
+    x: number,
+    y: number,
+    angle: number,
+    color: number,
+    key: string,
+    label: string,
+    present: Set<string>,
+    active: boolean
+  ): void {
+    if (entity.kind === 'vehicle') {
+      this.drawVehicleEntity(
+        x,
+        y,
+        angle,
+        entity.vehicleKind,
+        color,
+        key,
+        label,
+        present,
+        active
+      );
+      return;
+    }
+    this.drawEntity(x, y, entity.radius, angle, color, key, label, present, active);
+  }
+
+  private drawLocalPredictedFallback(present: Set<string>): void {
+    const local = this.state?.players?.get(this.room.sessionId);
+    if (!local) return;
+    if (local.vehicleId) {
+      const predicted = this.predictedVehiclePose(local.vehicleId);
+      if (!predicted) return;
+      this.drawVehicleEntity(
+        predicted.x,
+        predicted.y,
+        predicted.angle,
+        this.state?.vehicles?.get(local.vehicleId)?.kind ?? 'sedan',
+        INTERACTION_ISLAND_DEBUG_COLOR.presented,
+        `island:presented:vehicle:${local.vehicleId}`,
+        `PRESENT vehicle:${shortId(local.vehicleId)}`,
+        present,
+        true
+      );
+      return;
+    }
+    const predicted = this.predictedPlayerPose(local.id);
+    if (!predicted) return;
+    this.drawEntity(
+      predicted.x,
+      predicted.y,
+      PLAYER_RADIUS,
+      predicted.angle,
+      INTERACTION_ISLAND_DEBUG_COLOR.presented,
+      `island:presented:player:${local.id}`,
+      `PRESENT player:${shortId(local.id)}`,
+      present,
+      true
+    );
   }
 
   private drawPoliceVehicleRoutes(): void {
@@ -573,7 +675,12 @@ export class DebugPresentationController {
   }
 
   private updatePanel(): void {
-    const projection = projectDebugPanel(this.state, this.snapshot, this.networkQuality());
+    const projection = projectDebugPanel(
+      this.state,
+      this.snapshot,
+      this.networkQuality(),
+      this.interactionIsland()
+    );
     for (const [field, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[field as keyof typeof projection]);
     }
