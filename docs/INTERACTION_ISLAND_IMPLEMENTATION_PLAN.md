@@ -366,8 +366,13 @@ rewound hit validation. Grenades and rockets may use deterministic predicted spa
   room startup; incompatible or silent servers leave clients on fail-closed kernel-only
   legacy behavior. Both debug shells expose negotiation state, revision, and every active
   stage, and the rollout runbook defines compatibility, verification, and rollback order.
-- M11b: run multi-client latency, jitter, loss, dense traffic, stream-in/out, destruction,
-  respawn, and occupancy-transition soaks, then publish measured acceptance results.
+- M11b - Complete: an eight-client, 48-body deterministic soak runs the production
+  selector, weighted admission, history, remote-intent continuation, mixed kernels, stable
+  pairs, and side-effect gate through latency, jitter, reliable retransmission, dense
+  overflow, stream-in/out, destruction, respawn, and occupancy transitions. At the 150 ms
+  RTT / 30 ms jitter / 1% loss target, 1,808 replays completed with zero rejection, 0.195
+  ms replay p95, 0.122 px root-error p95, no budget violation or duplicate effect, and
+  exact final convergence. The dedicated gate enforces the 2 ms p95 target.
 - Production order: shared kernels first, remote timelines second, interaction snapshots
   third, and interaction replay last. Combat rewind and projectile prediction use their
   own dependency-checked lane.
@@ -400,4 +405,5 @@ must not absorb their policies.
 - [World interaction netcode architecture](WORLD_INTERACTION_NETCODE_ARCHITECTURE.md)
 - [Multiplayer netcode engine evaluation](MULTIPLAYER_NETCODE_ENGINE_EVALUATION.md)
 - [Networked vehicle physics research](NETWORKED_VEHICLE_PHYSICS_RESEARCH.md)
+- [M11 interaction-island soak report](INTERACTION_ISLAND_SOAK_REPORT.md)
 - [Colyseus-native prediction decision](decisions/0005-colyseus-native-prediction.md)
