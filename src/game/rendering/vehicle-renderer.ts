@@ -25,6 +25,7 @@ import {
   prepareVehicleInteractionReplay,
   type VehicleInteractionReplayPreparation
 } from '../prediction/vehicle-interaction-replay.ts';
+import type {InteractionReplayPresentation} from './interaction-replay-presentation.ts';
 
 interface RenderVehicle {
   vehicleId: string;
@@ -50,13 +51,6 @@ interface RenderVehicle {
   visualOffsetAngle: number;
   acknowledgedSequence: number;
   interactionReplayAcknowledgedSequence?: number;
-  interactionPose?: {
-    x: number;
-    y: number;
-    angle: number;
-    speed: number;
-    baselineServerTimeMs: number;
-  };
   motion: RemoteMotionTimeline;
 }
 
@@ -78,6 +72,7 @@ interface VehicleRendererOptions {
   onRemoteTimeline?: (
     sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
+  replayPresentation?: InteractionReplayPresentation;
 }
 
 export class VehicleRenderer {
@@ -114,6 +109,7 @@ export class VehicleRenderer {
       if (present.has(vehicleId)) continue;
       rendered.container.destroy(true);
       this.rendered.delete(vehicleId);
+      this.options.replayPresentation?.remove('vehicle', vehicleId);
     }
   }
 
@@ -129,7 +125,7 @@ export class VehicleRenderer {
         this.animateEffects(rendered, time);
         continue;
       }
-      const interaction = rendered.interactionPose;
+      const interaction = this.options.replayPresentation?.pose('vehicle', rendered.vehicleId);
       const buffered = !interaction && !rendered.localOccupant && renderServerTimeMs > 0
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
@@ -208,14 +204,14 @@ export class VehicleRenderer {
   applyInteractionReplay(
     baseline: InteractionIslandBaseline,
     result: InteractionIslandReplayResult
-  ): void {
+  ): boolean {
     const rendered = this.rendered.get(baseline.rootId);
-    if (!rendered?.localDriver) return;
+    if (!rendered?.localDriver) return false;
     const beforeX = rendered.container.x;
     const beforeY = rendered.container.y;
     const beforeAngle = rendered.container.rotation - Math.PI / 2;
     const correction = applyVehicleInteractionReplay(rendered.prediction, baseline, result);
-    if (!correction) return;
+    if (!correction) return false;
     const offset = positionCorrectionOffset(
       beforeX,
       beforeY,
@@ -233,18 +229,6 @@ export class VehicleRenderer {
     rendered.predictedSpeed = correction.pose.speed;
     rendered.interactionReplayAcknowledgedSequence =
       baseline.acknowledgedLocalInputSequence;
-    for (const entity of result.replayed ? result.entities : []) {
-      if (entity.kind !== 'vehicle' || entity.id === baseline.rootId) continue;
-      const remote = this.rendered.get(entity.id);
-      if (!remote || remote.localOccupant) continue;
-      remote.interactionPose = {
-        x: entity.x,
-        y: entity.y,
-        angle: entity.angle,
-        speed: entity.speed,
-        baselineServerTimeMs: baseline.serverTimeMs
-      };
-    }
     this.options.onPrediction?.(
       correction.positionError,
       correction.hardCorrection,
@@ -252,6 +236,7 @@ export class VehicleRenderer {
       baseline.acknowledgedLocalInputSequence,
       correction.resimulated
     );
+    return true;
   }
 
   pose(vehicleId: string): VehicleRenderPose | undefined {
@@ -301,10 +286,7 @@ export class VehicleRenderer {
     );
     rendered.localOccupant = localOccupant;
     rendered.localDriver = localDriver;
-    if (
-      rendered.interactionPose &&
-      serverTimeMs > rendered.interactionPose.baselineServerTimeMs
-    ) rendered.interactionPose = undefined;
+    this.options.replayPresentation?.observeAuthority('vehicle', vehicleId, serverTimeMs);
     if (!localDriver && serverTimeMs > 0) {
       if (wasLocalDriver) rendered.motion.clear();
       rendered.motion.push({

@@ -11,6 +11,7 @@ import {npcMeleePresentation} from './npc-melee-render-policy.ts';
 import {actorBurnPresentation} from './actor-burn-render-policy.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
 import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
+import type {InteractionReplayPresentation} from './interaction-replay-presentation.ts';
 
 interface RenderNpc {
   sprite: Phaser.GameObjects.Sprite;
@@ -32,6 +33,7 @@ interface PedestrianRendererOptions {
   onRemoteTimeline?: (
     sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
+  replayPresentation?: InteractionReplayPresentation;
 }
 
 export class PedestrianRenderer {
@@ -55,16 +57,27 @@ export class PedestrianRenderer {
       rendered.sprite.destroy();
       rendered.burnEffect.destroy();
       this.rendered.delete(npcId);
+      this.options.replayPresentation?.remove('pedestrian', npcId);
     }
   }
 
   interpolate(renderServerTimeMs = 0, estimatedServerTimeMs = renderServerTimeMs): void {
-    for (const rendered of this.rendered.values()) {
-      const buffered = renderServerTimeMs > 0
+    for (const [npcId, rendered] of this.rendered) {
+      const interaction = this.options.replayPresentation?.pose('pedestrian', npcId);
+      const buffered = !interaction && renderServerTimeMs > 0
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);
-      const position = buffered
+      const position = interaction
+        ? interpolatePosition(
+          rendered.sprite.x,
+          rendered.sprite.y,
+          interaction.x,
+          interaction.y,
+          0.3,
+          150
+        )
+        : buffered
         ? {
           x: buffered.x,
           y: buffered.y,
@@ -88,7 +101,9 @@ export class PedestrianRenderer {
       const rotationOffset = reaction.active ? reaction.rotationOffset : melee.rotationOffset;
       const scaleX = reaction.active ? reaction.scaleX : melee.scaleX;
       const scaleY = reaction.active ? reaction.scaleY : melee.scaleY;
-      const targetRotation = (buffered?.angle ?? rendered.targetAngle) - Math.PI / 2 + rotationOffset;
+      const targetRotation = (
+        interaction?.angle ?? buffered?.angle ?? rendered.targetAngle
+      ) - Math.PI / 2 + rotationOffset;
       rendered.sprite.rotation = reaction.active || melee.active
         ? targetRotation
         : rotateTowards(rendered.sprite.rotation, targetRotation, 0.14);
@@ -165,6 +180,7 @@ export class PedestrianRenderer {
     rendered.attackProgress = npc.attackProgress ?? 1;
     rendered.burning = Boolean(npc.onFire);
     rendered.burnExpiresAt = npc.fireExpiresAt ?? 0;
+    this.options.replayPresentation?.observeAuthority('pedestrian', npcId, serverTimeMs);
     if (serverTimeMs > 0) {
       rendered.motion.push({
         timeMs: serverTimeMs,

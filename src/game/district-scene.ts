@@ -35,9 +35,10 @@ import type {DistrictNetworkState} from './types.ts';
 import {canOccupyClientInterior} from './world/client-collision-map.ts';
 import {WORLD_COLLISION_REVISION} from '../../shared/simulation/world-collision-revision.ts';
 import {
-  createVehicleInteractionBodyStep,
-  createVehicleInteractionPairStep
-} from './prediction/vehicle-interaction-replay.ts';
+  createMixedInteractionBodyStep,
+  createMixedInteractionPairStep
+} from './prediction/mixed-interaction-replay.ts';
+import {InteractionReplayPresentation} from './rendering/interaction-replay-presentation.ts';
 
 const PLAYER_RADIUS = 11;
 
@@ -67,6 +68,7 @@ export class DistrictScene extends Phaser.Scene {
   private interactionController!: InteractionPresentationController;
   private networkQuality!: NetworkQualityController;
   private interactionIslands?: InteractionIslandController;
+  private replayPresentation!: InteractionReplayPresentation;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private crosshair!: Phaser.GameObjects.Graphics;
   private minimap?: MinimapRenderer;
@@ -165,8 +167,11 @@ export class DistrictScene extends Phaser.Scene {
     this.createPedestrianAnimation('civilian-walk', 'civilian');
     this.createPedestrianAnimation('police-walk', 'police');
     this.createPedestrianAnimation('hostile-walk', 'hostile');
+    this.replayPresentation = new InteractionReplayPresentation();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.replayPresentation.clear, this.replayPresentation);
     this.pedestrianRenderer = new PedestrianRenderer(this, {
-      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample)
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      replayPresentation: this.replayPresentation
     });
     this.vehicleRenderer = new VehicleRenderer(this, {
       onLocalOccupant: (vehicleId, container) => {
@@ -179,7 +184,32 @@ export class DistrictScene extends Phaser.Scene {
       sendVehicleMoves: (vehicleId, moves) => {
         if (vehicleId) this.room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves});
       },
-      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample)
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      replayPresentation: this.replayPresentation
+    });
+    this.playerRenderer = new PlayerRenderer(this, {
+      localPlayerId: this.room.sessionId,
+      vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
+      canOccupy: (spaceId, x, y, radius) => spaceId === STREET_SPACE_ID
+        ? this.canOccupy(x, y, radius)
+        : canOccupyClientInterior(spaceId, x, y, radius),
+      onPrediction: (error, snapped, pending, acknowledged, resimulated) => {
+        this.networkQuality?.observeOnFootPrediction(
+          error,
+          snapped,
+          pending,
+          acknowledged,
+          resimulated
+        );
+      },
+      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      replayPresentation: this.replayPresentation,
+      onLocalState: (playerId, player, sprite, damaged) => {
+        const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
+        this.hudController.update(player, vehicle);
+        if (!player.vehicleId) this.cameraController.followPlayer(playerId, sprite, player.x, player.y);
+        if (damaged) this.cameraController.localDamageFeedback();
+      }
     });
     if (this.interactionSnapshots) {
       const canOccupyInteraction = (spaceId: string, x: number, y: number, radius: number) => (
@@ -199,12 +229,21 @@ export class DistrictScene extends Phaser.Scene {
         onHistory: (frames) => this.networkQuality.observeInteractionHistory(frames),
         onSelection: (selection) => this.networkQuality.observeInteractionIsland(selection),
         replay: {
-          prepare: (baseline) => this.vehicleRenderer.prepareInteractionReplay(baseline),
+          prepare: (baseline) => baseline.controlMode === 'driver'
+            ? this.vehicleRenderer.prepareInteractionReplay(baseline)
+            : baseline.controlMode === 'on-foot'
+              ? this.playerRenderer.prepareInteractionReplay(baseline)
+              : undefined,
           worldCollisionRevision: () => WORLD_COLLISION_REVISION,
-          stepBody: createVehicleInteractionBodyStep(canOccupyInteraction),
-          resolvePair: createVehicleInteractionPairStep(canOccupyInteraction),
+          stepBody: createMixedInteractionBodyStep(canOccupyInteraction),
+          resolvePair: createMixedInteractionPairStep(canOccupyInteraction),
           onReplay: (result, durationMs, baseline) => {
-            this.vehicleRenderer.applyInteractionReplay(baseline, result);
+            const applied = baseline.controlMode === 'driver'
+              ? this.vehicleRenderer.applyInteractionReplay(baseline, result)
+              : baseline.controlMode === 'on-foot'
+                ? this.playerRenderer.applyInteractionReplay(baseline, result)
+                : false;
+            if (applied) this.replayPresentation.promote(baseline, result);
             this.networkQuality.observeInteractionReplay(result, durationMs);
           }
         }
@@ -215,29 +254,6 @@ export class DistrictScene extends Phaser.Scene {
         this.interactionIslands
       );
     }
-    this.playerRenderer = new PlayerRenderer(this, {
-      localPlayerId: this.room.sessionId,
-      vehiclePose: (vehicleId) => this.vehicleRenderer.pose(vehicleId),
-      canOccupy: (spaceId, x, y, radius) => spaceId === STREET_SPACE_ID
-        ? this.canOccupy(x, y, radius)
-        : canOccupyClientInterior(spaceId, x, y, radius),
-      onPrediction: (error, snapped, pending, acknowledged, resimulated) => {
-        this.networkQuality?.observeOnFootPrediction(
-          error,
-          snapped,
-          pending,
-          acknowledged,
-          resimulated
-        );
-      },
-      onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
-      onLocalState: (playerId, player, sprite, damaged) => {
-        const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
-        this.hudController.update(player, vehicle);
-        if (!player.vehicleId) this.cameraController.followPlayer(playerId, sprite, player.x, player.y);
-        if (damaged) this.cameraController.localDamageFeedback();
-      }
-    });
     this.projectileRenderer = new ProjectileRenderer(this, {
       onCreated: (bullet) => {
         this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);

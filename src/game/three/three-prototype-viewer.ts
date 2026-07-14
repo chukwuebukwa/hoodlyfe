@@ -18,9 +18,9 @@ import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
 import {
-  createVehicleInteractionBodyStep,
-  createVehicleInteractionPairStep
-} from '../prediction/vehicle-interaction-replay.ts';
+  createMixedInteractionBodyStep,
+  createMixedInteractionPairStep
+} from '../prediction/mixed-interaction-replay.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -170,8 +170,8 @@ export class ThreePrototypeViewer {
           replay: {
             prepare: (baseline) => this.entities?.prepareInteractionReplay(baseline),
             worldCollisionRevision: () => WORLD_COLLISION_REVISION,
-            stepBody: createVehicleInteractionBodyStep(canOccupyInteraction),
-            resolvePair: createVehicleInteractionPairStep(canOccupyInteraction),
+            stepBody: createMixedInteractionBodyStep(canOccupyInteraction),
+            resolvePair: createMixedInteractionPairStep(canOccupyInteraction),
             onReplay: (result, durationMs, baseline) => {
               this.entities?.applyInteractionReplay(baseline, result);
               this.networkQuality?.observeInteractionReplay(result, durationMs);

@@ -81,6 +81,12 @@ import {
   prepareVehicleInteractionReplay,
   type VehicleInteractionReplayPreparation
 } from '../prediction/vehicle-interaction-replay.ts';
+import {
+  applyOnFootInteractionReplay,
+  prepareOnFootInteractionReplay,
+  type OnFootInteractionReplayPreparation
+} from '../prediction/on-foot-interaction-replay.ts';
+import {InteractionReplayPresentation} from '../rendering/interaction-replay-presentation.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -124,13 +130,6 @@ interface RenderedEntity {
   visualOffsetAngle?: number;
   acknowledgedVehicleInputSequence?: number;
   interactionReplayAcknowledgedSequence?: number;
-  interactionVehiclePose?: {
-    x: number;
-    y: number;
-    angle: number;
-    speed: number;
-    baselineServerTimeMs: number;
-  };
   presentationPose?: VehicleRenderPose;
 }
 
@@ -187,6 +186,7 @@ const LPC_SPIKE_ATLASES: Readonly<PlayerCharacterSources> = Object.freeze({
 export class ThreeDistrictEntities {
   private readonly rendered = new Map<string, RenderedEntity>();
   private readonly appearances = new Map<string, CompiledAppearanceTextures>();
+  private readonly replayPresentation = new InteractionReplayPresentation();
 
   private constructor(
     private readonly scene: THREE.Scene,
@@ -432,18 +432,54 @@ export class ThreeDistrictEntities {
 
   prepareInteractionReplay(
     baseline: InteractionIslandBaseline
-  ): VehicleInteractionReplayPreparation | undefined {
-    const rendered = this.rendered.get(`vehicle:${baseline.rootId}`);
-    if (!rendered?.localDriver || !rendered.vehiclePrediction) return undefined;
-    return prepareVehicleInteractionReplay(rendered.vehiclePrediction, baseline);
+  ): VehicleInteractionReplayPreparation | OnFootInteractionReplayPreparation | undefined {
+    if (baseline.controlMode === 'driver') {
+      const rendered = this.rendered.get(`vehicle:${baseline.rootId}`);
+      if (!rendered?.localDriver || !rendered.vehiclePrediction) return undefined;
+      return prepareVehicleInteractionReplay(rendered.vehiclePrediction, baseline);
+    }
+    if (baseline.controlMode === 'on-foot') {
+      const rendered = this.rendered.get(`player:${baseline.rootId}`);
+      if (!rendered?.localOnFoot || !rendered.onFootPrediction) return undefined;
+      return prepareOnFootInteractionReplay(rendered.onFootPrediction, baseline);
+    }
+    return undefined;
   }
 
   applyInteractionReplay(
     baseline: InteractionIslandBaseline,
     result: InteractionIslandReplayResult
-  ): void {
+  ): boolean {
+    if (baseline.controlMode === 'on-foot') {
+      const rendered = this.rendered.get(`player:${baseline.rootId}`);
+      if (!rendered?.localOnFoot || !rendered.onFootPrediction) return false;
+      const beforeX = rendered.mesh.position.x;
+      const beforeY = serverYToThree(rendered.mesh.position.y);
+      const correction = applyOnFootInteractionReplay(
+        rendered.onFootPrediction,
+        baseline,
+        result
+      );
+      if (!correction) return false;
+      const offset = positionCorrectionOffset(
+        beforeX,
+        beforeY,
+        correction.pose.x,
+        correction.pose.y,
+        correction.hardCorrection
+      );
+      rendered.visualOffsetX = offset.x;
+      rendered.visualOffsetY = offset.y;
+      rendered.onFootCorrection = correction;
+      rendered.predictedSpaceId = correction.pose.spaceId;
+      rendered.interactionReplayAcknowledgedSequence =
+        baseline.acknowledgedLocalInputSequence;
+      this.replayPresentation.promote(baseline, result);
+      return true;
+    }
+    if (baseline.controlMode !== 'driver') return false;
     const rendered = this.rendered.get(`vehicle:${baseline.rootId}`);
-    if (!rendered?.localDriver || !rendered.vehiclePrediction) return;
+    if (!rendered?.localDriver || !rendered.vehiclePrediction) return false;
     const beforeX = rendered.mesh.position.x;
     const beforeY = serverYToThree(rendered.mesh.position.y);
     const beforeAngle = rendered.predictedAngle ?? 0;
@@ -452,7 +488,7 @@ export class ThreeDistrictEntities {
       baseline,
       result
     );
-    if (!correction) return;
+    if (!correction) return false;
     const offset = positionCorrectionOffset(
       beforeX,
       beforeY,
@@ -471,18 +507,8 @@ export class ThreeDistrictEntities {
     rendered.vehicleCorrection = correction;
     rendered.interactionReplayAcknowledgedSequence =
       baseline.acknowledgedLocalInputSequence;
-    for (const entity of result.replayed ? result.entities : []) {
-      if (entity.kind !== 'vehicle' || entity.id === baseline.rootId) continue;
-      const remote = this.rendered.get(`vehicle:${entity.id}`);
-      if (!remote || remote.localDriver) continue;
-      remote.interactionVehiclePose = {
-        x: entity.x,
-        y: entity.y,
-        angle: entity.angle,
-        speed: entity.speed,
-        baselineServerTimeMs: baseline.serverTimeMs
-      };
-    }
+    this.replayPresentation.promote(baseline, result);
+    return true;
   }
 
   updateVehicleLights(nightIntensity: number, focusX: number, focusY: number): void {
@@ -514,6 +540,7 @@ export class ThreeDistrictEntities {
 
   destroy(): void {
     for (const [id, rendered] of this.rendered) this.remove(id, rendered);
+    this.replayPresentation.clear();
     for (const texture of [
       this.textures.player,
       this.textures.civilian,
@@ -590,6 +617,11 @@ export class ThreeDistrictEntities {
     rendered.authoritativeX = player.x;
     rendered.authoritativeY = player.y;
     rendered.authoritativeAngle = player.angle;
+    this.replayPresentation.observeAuthority(
+      'player',
+      player.id,
+      state.serverTimeMs ?? 0
+    );
     if (localOnFoot && !rendered.localOnFoot) {
       rendered.onFootPrediction?.initialize(
         {x: player.x, y: player.y, spaceId: playerSpaceId},
@@ -604,7 +636,11 @@ export class ThreeDistrictEntities {
       rendered.visualOffsetY = 0;
       rendered.predictedSpaceId = playerSpaceId;
       rendered.acknowledgedInputSequence = acknowledgedSequence;
-    } else if (localOnFoot && (authorityChanged || acknowledgementChanged)) {
+    } else if (
+      localOnFoot &&
+      (authorityChanged || acknowledgementChanged) &&
+      rendered.interactionReplayAcknowledgedSequence !== acknowledgedSequence
+    ) {
       const beforeX = rendered.mesh.position.x;
       const beforeY = serverYToThree(rendered.mesh.position.y);
       const correction = rendered.onFootPrediction?.reconcile(
@@ -626,6 +662,10 @@ export class ThreeDistrictEntities {
         rendered.predictedSpaceId = correction.pose.spaceId;
         rendered.acknowledgedInputSequence = acknowledgedSequence;
       }
+    }
+    if (rendered.interactionReplayAcknowledgedSequence === acknowledgedSequence) {
+      rendered.interactionReplayAcknowledgedSequence = undefined;
+      rendered.acknowledgedInputSequence = acknowledgedSequence;
     }
     rendered.localOnFoot = localOnFoot;
     if (!isLocal && (state.serverTimeMs ?? 0) > 0) {
@@ -703,17 +743,20 @@ export class ThreeDistrictEntities {
     const vehiclePose = vehicle
       ? this.vehiclePose(player.vehicleId) ?? vehicle
       : undefined;
-    const buffered = !isLocal && !vehicle
+    const interaction = !isLocal && !vehicle
+      ? this.replayPresentation.pose('player', player.id)
+      : undefined;
+    const buffered = !interaction && !isLocal && !vehicle
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const actorX = buffered?.x ?? (
+    const actorX = interaction?.x ?? buffered?.x ?? (
       localOnFoot ? rendered.mesh.position.x : player.x
     );
-    const actorY = buffered?.y ?? (
+    const actorY = interaction?.y ?? buffered?.y ?? (
       localOnFoot ? serverYToThree(rendered.mesh.position.y) : player.y
     );
-    const renderAngle = buffered?.angle ?? player.angle;
+    const renderAngle = interaction?.angle ?? buffered?.angle ?? player.angle;
     const attachments = playerAttachmentPresentation(
       {x: actorX, y: actorY, angle: renderAngle},
       vehiclePose,
@@ -727,7 +770,7 @@ export class ThreeDistrictEntities {
     const y = attachments.body.y;
     const z = this.surfaceHeightAt(x, y) + (attachments.passenger ? 8 : 4);
     if (localOnFoot) rendered.mesh.position.z = z;
-    else positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.34);
+    else positionEntity(rendered.mesh, x, y, z, buffered ? 1 : interaction ? 0.38 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
       ? 0
       : serverPedestrianAngleToThree(renderAngle) -
@@ -820,6 +863,7 @@ export class ThreeDistrictEntities {
       spriteKey: 'walk',
       motion: createRemoteMotionTimeline('npc')
     }));
+    this.replayPresentation.observeAuthority('pedestrian', npc.id, serverTimeMs);
     if (serverTimeMs > 0) {
       rendered.motion?.push({
         timeMs: serverTimeMs,
@@ -828,17 +872,20 @@ export class ThreeDistrictEntities {
         angle: npc.angle
       });
     }
-    const buffered = rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs);
+    const interaction = this.replayPresentation.pose('pedestrian', npc.id);
+    const buffered = !interaction
+      ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
+      : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const x = buffered?.x ?? npc.x;
-    const y = buffered?.y ?? npc.y;
-    const angle = buffered?.angle ?? npc.angle;
+    const x = interaction?.x ?? buffered?.x ?? npc.x;
+    const y = interaction?.y ?? buffered?.y ?? npc.y;
+    const angle = interaction?.angle ?? buffered?.angle ?? npc.angle;
     positionEntity(
       rendered.mesh,
       x,
       y,
       this.surfaceHeightAt(x, y) + 3,
-      buffered ? 1 : 0.28
+      buffered ? 1 : interaction ? 0.36 : 0.28
     );
     const reaction = combatReactionPresentation(npc);
     const melee = npcMeleePresentation(npc);
@@ -958,10 +1005,7 @@ export class ThreeDistrictEntities {
     rendered.authoritativeY = vehicle.y;
     rendered.authoritativeAngle = vehicle.angle;
     rendered.authoritativeSpeed = vehicle.speed;
-    if (
-      rendered.interactionVehiclePose &&
-      serverTimeMs > rendered.interactionVehiclePose.baselineServerTimeMs
-    ) rendered.interactionVehiclePose = undefined;
+    this.replayPresentation.observeAuthority('vehicle', vehicle.id, serverTimeMs);
     const wasLocalDriver = Boolean(rendered.localDriver);
     const becameLocalDriver = localDriver && !wasLocalDriver;
     rendered.localDriver = localDriver;
@@ -1054,7 +1098,7 @@ export class ThreeDistrictEntities {
       VEHICLE_DOOR_ROWS,
       vehicleDoorAtlasFrame(vehicle, door.frame)
     );
-    const interaction = rendered.interactionVehiclePose;
+    const interaction = this.replayPresentation.pose('vehicle', vehicle.id);
     const buffered = !interaction && !localDriver && !localOccupant
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
@@ -1177,6 +1221,12 @@ export class ThreeDistrictEntities {
   }
 
   private remove(id: string, rendered: RenderedEntity): void {
+    const separator = id.indexOf(':');
+    const rendererKind = separator >= 0 ? id.slice(0, separator) : '';
+    const entityId = separator >= 0 ? id.slice(separator + 1) : id;
+    if (rendererKind === 'player') this.replayPresentation.remove('player', entityId);
+    else if (rendererKind === 'npc') this.replayPresentation.remove('pedestrian', entityId);
+    else if (rendererKind === 'vehicle') this.replayPresentation.remove('vehicle', entityId);
     this.scene.remove(rendered.mesh);
     rendered.mesh.geometry.dispose();
     rendered.mesh.material.map?.dispose();

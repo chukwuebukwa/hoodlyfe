@@ -25,6 +25,14 @@ import {
 } from './correction-smoothing.ts';
 import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
+import type {InteractionIslandReplayResult} from '../prediction/interaction-island-replay.ts';
+import type {InteractionIslandBaseline} from '../prediction/island-state-history.ts';
+import {
+  applyOnFootInteractionReplay,
+  prepareOnFootInteractionReplay,
+  type OnFootInteractionReplayPreparation
+} from '../prediction/on-foot-interaction-replay.ts';
+import type {InteractionReplayPresentation} from './interaction-replay-presentation.ts';
 
 interface RenderPlayer {
   sprite: Phaser.GameObjects.Sprite;
@@ -56,6 +64,7 @@ interface RenderPlayer {
   visualOffsetX: number;
   visualOffsetY: number;
   acknowledgedInputSequence: number;
+  interactionReplayAcknowledgedSequence?: number;
   predictedSpaceId: string;
   localOnFoot: boolean;
 }
@@ -74,6 +83,7 @@ interface PlayerRendererOptions {
   onRemoteTimeline?: (
     sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
+  replayPresentation?: InteractionReplayPresentation;
   onLocalState: (
     playerId: string,
     player: NetworkPlayer,
@@ -107,6 +117,7 @@ export class PlayerRenderer {
       if (present.has(playerId)) continue;
       destroyPlayer(rendered);
       this.rendered.delete(playerId);
+      this.options.replayPresentation?.remove('player', playerId);
     }
     this.appearances.prune(new Set(
       [...this.rendered.values()].map((rendered) => rendered.appearanceTextureKey)
@@ -122,11 +133,23 @@ export class PlayerRenderer {
       const player = this.latestPlayers?.get(playerId);
       const previousX = rendered.sprite.x;
       const previousY = rendered.sprite.y;
-      const buffered = !rendered.isLocal && renderServerTimeMs > 0
+      const interaction = !rendered.isLocal
+        ? this.options.replayPresentation?.pose('player', playerId)
+        : undefined;
+      const buffered = !interaction && !rendered.isLocal && renderServerTimeMs > 0
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);
-      const position = buffered
+      const position = interaction
+        ? interpolatePosition(
+          rendered.sprite.x,
+          rendered.sprite.y,
+          interaction.x,
+          interaction.y,
+          0.32,
+          160
+        )
+        : buffered
         ? {
           x: buffered.x,
           y: buffered.y,
@@ -145,8 +168,12 @@ export class PlayerRenderer {
         );
       rendered.sprite.setPosition(position.x, position.y);
       if (!rendered.isLocal) {
-        rendered.sprite.rotation = buffered
-          ? buffered.angle - Math.PI / 2
+        rendered.sprite.rotation = interaction || buffered
+          ? rotateTowards(
+            rendered.sprite.rotation,
+            (interaction?.angle ?? buffered!.angle) - Math.PI / 2,
+            interaction ? 0.3 : 1
+          )
           : rotateTowards(rendered.sprite.rotation, rendered.targetAngle - Math.PI / 2, 0.16);
         this.updateWalkAnimation(rendered, position.distance);
       }
@@ -196,6 +223,51 @@ export class PlayerRenderer {
     if (movementScale > 0 && (x !== 0 || y !== 0)) local.sprite.play(local.animationKey, true);
     else if (local.sprite.anims.isPlaying) local.sprite.stop().setFrame(0);
     return advanced.outboundMoves;
+  }
+
+  prepareInteractionReplay(
+    baseline: InteractionIslandBaseline
+  ): OnFootInteractionReplayPreparation | undefined {
+    const rendered = this.rendered.get(baseline.rootId);
+    if (!rendered?.localOnFoot) return undefined;
+    return prepareOnFootInteractionReplay(rendered.onFootPrediction, baseline);
+  }
+
+  applyInteractionReplay(
+    baseline: InteractionIslandBaseline,
+    result: InteractionIslandReplayResult
+  ): boolean {
+    const rendered = this.rendered.get(baseline.rootId);
+    if (!rendered?.localOnFoot) return false;
+    const beforeX = rendered.sprite.x;
+    const beforeY = rendered.sprite.y;
+    const correction = applyOnFootInteractionReplay(
+      rendered.onFootPrediction,
+      baseline,
+      result
+    );
+    if (!correction) return false;
+    const offset = positionCorrectionOffset(
+      beforeX,
+      beforeY,
+      correction.pose.x,
+      correction.pose.y,
+      correction.hardCorrection
+    );
+    rendered.visualOffsetX = offset.x;
+    rendered.visualOffsetY = offset.y;
+    rendered.onFootCorrection = correction;
+    rendered.predictedSpaceId = correction.pose.spaceId;
+    rendered.interactionReplayAcknowledgedSequence =
+      baseline.acknowledgedLocalInputSequence;
+    this.options.onPrediction?.(
+      correction.positionError,
+      correction.hardCorrection,
+      correction.pendingMoveCount,
+      baseline.acknowledgedLocalInputSequence,
+      correction.resimulated
+    );
+    return true;
   }
 
   aimOrigin(playerId: string): {x: number; y: number} | undefined {
@@ -270,7 +342,11 @@ export class PlayerRenderer {
       rendered.visualOffsetY = 0;
       rendered.predictedSpaceId = player.spaceId || 'street';
       rendered.acknowledgedInputSequence = acknowledgedSequence;
-    } else if (localOnFoot && (authorityChanged || acknowledgementChanged)) {
+    } else if (
+      localOnFoot &&
+      (authorityChanged || acknowledgementChanged) &&
+      rendered.interactionReplayAcknowledgedSequence !== acknowledgedSequence
+    ) {
       const beforeX = rendered.sprite.x;
       const beforeY = rendered.sprite.y;
       const correction = rendered.onFootPrediction.reconcile(
@@ -298,8 +374,13 @@ export class PlayerRenderer {
         correction.resimulated
       );
     }
+    if (rendered.interactionReplayAcknowledgedSequence === acknowledgedSequence) {
+      rendered.interactionReplayAcknowledgedSequence = undefined;
+      rendered.acknowledgedInputSequence = acknowledgedSequence;
+    }
     rendered.localOnFoot = localOnFoot;
     rendered.targetAngle = player.angle;
+    this.options.replayPresentation?.observeAuthority('player', playerId, serverTimeMs);
     if (!isLocal && serverTimeMs > 0) {
       rendered.motion.push({timeMs: serverTimeMs, x: player.x, y: player.y, angle: player.angle});
     }
