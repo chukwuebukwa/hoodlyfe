@@ -16,7 +16,15 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
-import type {InteractionSnapshot} from '../shared/protocol/interaction-contracts.ts';
+import {
+  INTERACTION_PROTOCOL_VERSION,
+  type InteractionSnapshot
+} from '../shared/protocol/interaction-contracts.ts';
+import {
+  COMBAT_FIRE_MESSAGE,
+  COMBAT_FIRE_RECEIPT_MESSAGE,
+  type CombatFireReceipt
+} from '../shared/protocol/combat-fire.ts';
 import {ON_FOOT_INPUT_MESSAGE} from '../shared/protocol/on-foot-input.ts';
 import {
   APPEARANCE_RESULT_MESSAGE,
@@ -72,6 +80,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const secondWardrobeStates: WardrobeStateMessage[] = [];
   const firstInteractionSnapshots: InteractionSnapshot[] = [];
   const secondInteractionSnapshots: InteractionSnapshot[] = [];
+  const fireReceipts: CombatFireReceipt[] = [];
   const firstInteractionInbox = new InteractionSnapshotInbox(first, {
     currentServerTick: () => first.state.serverTick ?? 0,
     worldCollisionRevision: WORLD_COLLISION_REVISION
@@ -84,6 +93,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   secondInteractionInbox.subscribe((snapshot) => secondInteractionSnapshots.push(snapshot));
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
+  first.onMessage<CombatFireReceipt>(
+    COMBAT_FIRE_RECEIPT_MESSAGE,
+    (receipt) => fireReceipts.push(receipt)
+  );
   first.onMessage<AppearanceResultMessage>(
     APPEARANCE_RESULT_MESSAGE,
     (result) => appearanceResults.push(result)
@@ -189,9 +202,24 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'smg');
   const smgAmmo = first.state.players.get(first.sessionId)?.ammoSmg;
   assert.equal(smgAmmo, 240);
-  first.send('aim', {angle: safeFireAngle(first, first.sessionId, world)});
-  first.send('shoot');
+  const correlatedCommand = {
+    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    sequence: 1,
+    clientSampleTimeMs: first.state.serverTimeMs,
+    controlledEntityId: first.sessionId,
+    aimAngle: safeFireAngle(first, first.sessionId, world),
+    predictedSpawnIds: [9_001]
+  };
+  first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
+  await waitUntil(() => fireReceipts.length === 1);
+  assert.equal(fireReceipts[0].status, 'accepted');
+  assert.equal(fireReceipts[0].projectiles[0]?.clientSpawnId, 9_001);
+  assert.ok(fireReceipts[0].rewindMs >= 0 && fireReceipts[0].rewindMs <= 200);
   await waitUntil(() => first.state.players.get(first.sessionId)?.ammoSmg === 239);
+  first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
+  await waitUntil(() => fireReceipts.length === 2);
+  assert.equal(fireReceipts[1].reason, 'stale-sequence');
+  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'shotgun');
   first.send('cycleWeapon', {direction: 1});

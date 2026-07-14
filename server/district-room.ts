@@ -42,6 +42,11 @@ import {
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
 import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-contracts.ts';
+import {
+  COMBAT_FIRE_MESSAGE,
+  COMBAT_FIRE_RECEIPT_MESSAGE,
+  type CombatFireCommand
+} from '../shared/protocol/combat-fire.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {verifyClientAuth} from './auth/privy-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
@@ -63,6 +68,7 @@ import {DamageController} from './game/combat/damage-controller.ts';
 import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {CombatHitboxHistory} from './game/combat/combat-hitbox-history.ts';
+import {CombatFireCommandController} from './game/combat/combat-fire-command-controller.ts';
 import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
@@ -166,6 +172,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private combatReactions!: CombatReactionController;
   private fireControl!: FireControlController;
   private readonly combatHistory = new CombatHitboxHistory();
+  private combatFireCommands!: CombatFireCommandController;
   private meleeCombat!: MeleeCombatController;
   private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
@@ -515,7 +522,8 @@ export class DistrictRoom extends Room<DistrictState> {
         input.playerId,
         input.weapon,
         input.nowMs
-      )
+      ),
+      compensateBullet: (input) => this.projectileController.catchUp(input)
     });
     this.weaponPickupController = new WeaponPickupController({
       state: this.state,
@@ -615,6 +623,7 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       vehicles: this.vehicleSimulation,
       damage: this.damageController,
+      history: this.combatHistory,
       queryPlayers: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
         minX,
         minY,
@@ -642,6 +651,14 @@ export class DistrictRoom extends Room<DistrictState> {
       remove: (bulletId) => this.lifecycle.defer(`bullet.remove:${bulletId}`, () => {
         this.state.bullets.delete(bulletId);
       })
+    });
+    this.combatFireCommands = new CombatFireCommandController({
+      state: this.state,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      fire: (playerId, command) => this.fireControl.shoot(playerId, command),
+      send: (playerId, receipt) => this.clients
+        .find((client) => client.sessionId === playerId)
+        ?.send(COMBAT_FIRE_RECEIPT_MESSAGE, receipt)
     });
     this.rocketProjectileController = new RocketProjectileController({
       state: this.state,
@@ -761,6 +778,9 @@ export class DistrictRoom extends Room<DistrictState> {
       this.playerControl.setAim(client.sessionId, message);
     });
 
+    this.onMessage<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
+      this.combatFireCommands.accept(client.sessionId, message);
+    });
     this.onMessage('shoot', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
@@ -873,6 +893,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
+    this.combatFireCommands.clearPlayer(client.sessionId);
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);

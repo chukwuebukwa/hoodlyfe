@@ -6,7 +6,7 @@ export const COMBAT_HISTORY_RETENTION_MS = 800;
 export const PUBLIC_COMBAT_REWIND_MS = 200;
 export const HUMANOID_HIT_RADIUS = 11;
 
-type CombatTargetKind = 'player' | 'npc' | 'vehicle';
+export type CombatTargetKind = 'player' | 'npc' | 'vehicle';
 
 interface CircleHitbox {
   readonly shape: 'circle';
@@ -70,6 +70,13 @@ export interface HistoricalSegmentResult {
   readonly sourceTimeMs: number;
   readonly worldCollisionRevision: number;
   readonly hit?: HistoricalCombatHit;
+}
+
+export interface CombatRewindWindow {
+  readonly requestedServerTimeMs: number;
+  readonly effectiveServerTimeMs: number;
+  readonly rewindMs: number;
+  readonly clamped: boolean;
 }
 
 interface TrackedIdentity {
@@ -152,15 +159,9 @@ export class CombatHitboxHistory {
 
   querySegment(input: HistoricalSegmentQuery): HistoricalSegmentResult | undefined {
     if (this.frames.length === 0) return undefined;
-    const latest = this.frames[this.frames.length - 1];
-    const oldest = this.frames[0];
-    const requested = Number.isFinite(input.requestedServerTimeMs)
-      ? input.requestedServerTimeMs
-      : input.nowMs;
-    const minimum = Math.max(oldest.serverTimeMs, input.nowMs - this.publicRewindMs);
-    const maximum = Math.min(input.nowMs, latest.serverTimeMs);
-    const effective = clamp(requested, minimum, maximum);
-    const sample = this.sample(effective);
+    const window = this.resolveTime(input.requestedServerTimeMs, input.nowMs);
+    if (!window) return undefined;
+    const sample = this.sample(window.effectiveServerTimeMs);
     if (!sample) return undefined;
     const projectileRadius = Math.max(0, Number(input.projectileRadius) || 0);
     let hit: HistoricalCombatHit | undefined;
@@ -180,15 +181,36 @@ export class CombatHitboxHistory {
       if (!hit || compareHits(candidate, hit) < 0) hit = candidate;
     }
     return Object.freeze({
-      requestedServerTimeMs: requested,
-      effectiveServerTimeMs: effective,
-      rewindMs: Math.max(0, input.nowMs - effective),
-      clamped: effective !== requested,
+      ...window,
       sourceTick: sample.sourceTick,
       sourceTimeMs: sample.sourceTimeMs,
       worldCollisionRevision: sample.worldCollisionRevision,
       hit
     });
+  }
+
+  resolveTime(requestedServerTimeMs: number, nowMs: number): CombatRewindWindow | undefined {
+    if (this.frames.length === 0) return undefined;
+    const latest = this.frames[this.frames.length - 1];
+    const oldest = this.frames[0];
+    const requested = Number.isFinite(requestedServerTimeMs) ? requestedServerTimeMs : nowMs;
+    const maximum = Math.min(nowMs, latest.serverTimeMs);
+    const minimum = Math.min(
+      maximum,
+      Math.max(oldest.serverTimeMs, nowMs - this.publicRewindMs)
+    );
+    const effective = clamp(requested, minimum, maximum);
+    return Object.freeze({
+      requestedServerTimeMs: requested,
+      effectiveServerTimeMs: effective,
+      rewindMs: Math.max(0, nowMs - effective),
+      clamped: effective !== requested
+    });
+  }
+
+  currentLifecycleRevision(kind: CombatTargetKind, id: string): number | undefined {
+    const identity = this.identities.get(`${kind}:${id}`);
+    return identity?.present ? identity.lifecycleRevision : undefined;
   }
 
   size(): number {

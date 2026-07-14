@@ -12,6 +12,21 @@ import {
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {GameEventStream} from '../events/game-events.ts';
 import {AMMUNITION_CAPACITY} from '../../../shared/content/street-services.ts';
+import type {CombatFireCommand} from '../../../shared/protocol/combat-fire.ts';
+
+export interface FireProjectileResult {
+  readonly clientSpawnId: number;
+  readonly authoritativeSpawnId: string;
+  readonly resolved: boolean;
+}
+
+export interface FireControlResult {
+  readonly accepted: boolean;
+  readonly reason?: string;
+  readonly effectiveServerShotTimeMs: number;
+  readonly rewindMs: number;
+  readonly projectiles: readonly FireProjectileResult[];
+}
 
 interface FireControlControllerOptions {
   state: DistrictState;
@@ -39,6 +54,16 @@ interface FireControlControllerOptions {
     weapon: MeleeWeaponId;
     nowMs: number;
   }) => {accepted: boolean; combo: number};
+  compensateBullet?: (input: {
+    bullet: BulletState;
+    requestedServerShotTimeMs: number;
+    nowMs: number;
+    excludedIds: ReadonlySet<string>;
+  }) => {
+    effectiveServerShotTimeMs: number;
+    rewindMs: number;
+    resolved: boolean;
+  };
 }
 
 export class FireControlController {
@@ -47,36 +72,46 @@ export class FireControlController {
 
   constructor(private readonly options: FireControlControllerOptions) {}
 
-  shoot(playerId: string): void {
+  shoot(playerId: string, command?: CombatFireCommand): FireControlResult {
     const player = this.options.state.players.get(playerId);
     const clock = this.options.clock();
-    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0)) return;
+    if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0)) {
+      return rejected(clock.nowMs, 'not-allowed');
+    }
     const weaponId: WeaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
     const weapon = WEAPONS[weaponId];
     if (player.action) {
       if (player.action === 'melee' && weapon.fireMode === 'melee') {
-        this.options.meleeAttack?.({playerId, weapon: weapon.id, nowMs: clock.nowMs});
+        const result = this.options.meleeAttack?.({playerId, weapon: weapon.id, nowMs: clock.nowMs});
+        return result?.accepted
+          ? accepted(clock.nowMs)
+          : rejected(clock.nowMs, 'action-blocked');
       }
-      return;
+      return rejected(clock.nowMs, 'action-blocked');
     }
-    if (player.vehicleId && !weapon.passengerAllowed) return;
+    if (player.vehicleId && !weapon.passengerAllowed) return rejected(clock.nowMs, 'not-allowed');
     if (
       clock.nowMs - (this.lastAttackAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
       ammoFor(player, weaponId) <= 0
     ) {
-      return;
+      return rejected(clock.nowMs, 'cooldown-or-empty');
+    }
+    const expectedPredictedSpawns = weapon.fireMode === 'bullet' ? weapon.pellets : 0;
+    if (command && command.predictedSpawnIds.length !== expectedPredictedSpawns) {
+      return rejected(clock.nowMs, 'spawn-count-mismatch');
     }
 
     const origin = this.shotOrigin(player);
+    const aimAngle = command?.aimAngle ?? player.angle;
     if (weapon.fireMode === 'melee') {
       const result = this.options.meleeAttack?.({
         playerId,
         weapon: weapon.id,
         nowMs: clock.nowMs
       });
-      if (!result?.accepted) return;
+      if (!result?.accepted) return rejected(clock.nowMs, 'action-blocked');
       this.lastAttackAt.set(playerId, clock.nowMs);
-      return;
+      return accepted(clock.nowMs);
     }
     if (weapon.fireMode === 'thrown') {
       const created = this.options.throwExplosive?.({
@@ -84,50 +119,78 @@ export class FireControlController {
         ownerId: playerId,
         x: origin.x,
         y: origin.y,
-        angle: player.angle,
+        angle: aimAngle,
         nowMs: clock.nowMs
       }) ?? false;
-      if (!created) return;
+      if (!created) return rejected(clock.nowMs, 'capacity-exceeded');
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-      return;
+      return accepted(clock.nowMs);
     }
     if (weapon.fireMode === 'rocket') {
       const created = this.options.launchRocket?.({
         ownerId: playerId,
         x: origin.x,
         y: origin.y,
-        angle: player.angle,
+        angle: aimAngle,
         nowMs: clock.nowMs
       }) ?? false;
-      if (!created) return;
+      if (!created) return rejected(clock.nowMs, 'capacity-exceeded');
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-      return;
+      return accepted(clock.nowMs);
     }
 
     this.lastAttackAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
+    const projectiles: FireProjectileResult[] = [];
+    let effectiveServerShotTimeMs = clock.nowMs;
+    let rewindMs = 0;
+    const excludedIds = new Set([playerId]);
+    if (player.vehicleId) excludedIds.add(player.vehicleId);
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
       const spread = weapon.pellets === 1
         ? (this.options.random.unit('weapon-spread', `${playerId}:${clock.tick}`) - 0.5) * weapon.spread
         : ((pellet / (weapon.pellets - 1)) - 0.5) * weapon.spread;
-      this.createBullet(
+      const bullet = this.createBullet(
         playerId,
         'player',
         origin.x,
         origin.y,
-        player.angle + spread,
+        aimAngle + spread,
         clock.nowMs,
         weapon.id
       );
+      const compensation = command && this.options.compensateBullet
+        ? this.options.compensateBullet({
+            bullet,
+            requestedServerShotTimeMs: command.clientSampleTimeMs,
+            nowMs: clock.nowMs,
+            excludedIds
+          })
+        : undefined;
+      if (compensation) {
+        effectiveServerShotTimeMs = compensation.effectiveServerShotTimeMs;
+        rewindMs = compensation.rewindMs;
+      }
+      projectiles.push(Object.freeze({
+        clientSpawnId: command?.predictedSpawnIds[pellet] ?? 0,
+        authoritativeSpawnId: bullet.id,
+        resolved: compensation?.resolved ?? false
+      }));
     }
+    return Object.freeze({
+      accepted: true,
+      effectiveServerShotTimeMs,
+      rewindMs,
+      projectiles: Object.freeze(projectiles)
+    });
   }
 
   cycle(playerId: string, rawDirection: unknown): void {
@@ -220,7 +283,7 @@ export class FireControlController {
     angle: number,
     nowMs: number,
     weapon: BulletWeaponId
-  ): void {
+  ): BulletState {
     const bullet = new BulletState();
     bullet.id = String(this.nextBulletId++);
     bullet.ownerId = ownerId;
@@ -231,5 +294,25 @@ export class FireControlController {
     bullet.y = y + Math.sin(angle) * 18;
     bullet.createdAt = nowMs;
     this.options.state.bullets.set(bullet.id, bullet);
+    return bullet;
   }
+}
+
+function accepted(nowMs: number): FireControlResult {
+  return Object.freeze({
+    accepted: true,
+    effectiveServerShotTimeMs: nowMs,
+    rewindMs: 0,
+    projectiles: Object.freeze([])
+  });
+}
+
+function rejected(nowMs: number, reason: string): FireControlResult {
+  return Object.freeze({
+    accepted: false,
+    reason,
+    effectiveServerShotTimeMs: nowMs,
+    rewindMs: 0,
+    projectiles: Object.freeze([])
+  });
 }

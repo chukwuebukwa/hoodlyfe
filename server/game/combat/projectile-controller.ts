@@ -5,6 +5,10 @@ import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
 import type {DamageController} from './damage-controller.ts';
+import {
+  CombatHitboxHistory,
+  type HistoricalCombatHit
+} from './combat-hitbox-history.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -16,6 +20,7 @@ interface ProjectileControllerOptions {
   access: VehicleAccessController;
   vehicles: VehicleSimulationController;
   damage: DamageController;
+  history?: CombatHitboxHistory;
   queryPlayers: (minX: number, minY: number, maxX: number, maxY: number) => PlayerState[];
   queryNpcs: (minX: number, minY: number, maxX: number, maxY: number) => NpcState[];
   queryVehicles: (minX: number, minY: number, maxX: number, maxY: number) => VehicleState[];
@@ -24,6 +29,76 @@ interface ProjectileControllerOptions {
 
 export class ProjectileController {
   constructor(private readonly options: ProjectileControllerOptions) {}
+
+  catchUp(input: {
+    bullet: BulletState;
+    requestedServerShotTimeMs: number;
+    nowMs: number;
+    excludedIds: ReadonlySet<string>;
+  }): {effectiveServerShotTimeMs: number; rewindMs: number; resolved: boolean} {
+    if (!this.options.state.bullets.has(input.bullet.id)) {
+      return {
+        effectiveServerShotTimeMs: input.nowMs,
+        rewindMs: 0,
+        resolved: true
+      };
+    }
+    const window = this.options.history?.resolveTime(input.requestedServerShotTimeMs, input.nowMs);
+    if (!window || window.rewindMs <= 0) {
+      return {
+        effectiveServerShotTimeMs: input.nowMs,
+        rewindMs: 0,
+        resolved: false
+      };
+    }
+    const bullet = input.bullet;
+    const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
+    bullet.createdAt = window.effectiveServerTimeMs;
+    const stepCount = Math.max(1, Math.ceil(window.rewindMs / (1000 / 30)));
+    const stepMs = window.rewindMs / stepCount;
+    for (let step = 0; step < stepCount; step++) {
+      const startX = bullet.x;
+      const startY = bullet.y;
+      const durationSeconds = stepMs / 1000;
+      const endX = startX + Math.cos(bullet.angle) * weapon.projectileSpeed * durationSeconds;
+      const endY = startY + Math.sin(bullet.angle) * weapon.projectileSpeed * durationSeconds;
+      const worldProgress = firstBlockedProgress(this.options.world, startX, startY, endX, endY);
+      const historical = this.options.history?.querySegment({
+        requestedServerTimeMs: window.effectiveServerTimeMs + (step + 1) * stepMs,
+        nowMs: input.nowMs,
+        startX,
+        startY,
+        endX,
+        endY,
+        projectileRadius: 4,
+        excludedIds: input.excludedIds
+      });
+      if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
+        this.resolveHistoricalHit(historical.hit, bullet, input.nowMs);
+        this.options.state.bullets.delete(bullet.id);
+        return {
+          effectiveServerShotTimeMs: window.effectiveServerTimeMs,
+          rewindMs: window.rewindMs,
+          resolved: true
+        };
+      }
+      if (worldProgress !== undefined) {
+        this.options.state.bullets.delete(bullet.id);
+        return {
+          effectiveServerShotTimeMs: window.effectiveServerTimeMs,
+          rewindMs: window.rewindMs,
+          resolved: true
+        };
+      }
+      bullet.x = endX;
+      bullet.y = endY;
+    }
+    return {
+      effectiveServerShotTimeMs: window.effectiveServerTimeMs,
+      rewindMs: window.rewindMs,
+      resolved: false
+    };
+  }
 
   update(bullet: BulletState, bulletId: string, deltaSeconds: number, nowMs: number): void {
     const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
@@ -112,6 +187,93 @@ export class ProjectileController {
       return;
     }
   }
+
+  private resolveHistoricalHit(hit: HistoricalCombatHit, bullet: BulletState, nowMs: number): void {
+    if (this.options.history?.currentLifecycleRevision(hit.kind, hit.id) !== hit.lifecycleRevision) {
+      return;
+    }
+    const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
+    if (hit.kind === 'player') {
+      const target = this.options.state.players.get(hit.id);
+      if (!target?.alive || target.vehicleId || target.id === bullet.ownerId) return;
+      if (bullet.ownerKind === 'police' && target.wanted <= 0) return;
+      this.options.damage.player(
+        target,
+        weapon.damage,
+        bullet.ownerId,
+        nowMs,
+        'assault',
+        bullet.ownerKind === 'player' ? 'player' : 'non-player',
+        bulletImpact(target.x, target.y, bullet, weapon.id === 'shotgun')
+      );
+      return;
+    }
+    if (hit.kind === 'vehicle') {
+      const target = this.options.state.vehicles.get(hit.id);
+      if (!target || target.destroyed) return;
+      if (this.options.access.occupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) {
+        return;
+      }
+      this.options.vehicles.damage(
+        target,
+        this.options.vehicles.weaponDamage(weapon.damage),
+        bullet.ownerId,
+        'weapon',
+        nowMs,
+        classifyImpactZone(target.angle, -Math.cos(bullet.angle), -Math.sin(bullet.angle))
+      );
+      return;
+    }
+    if (bullet.ownerKind !== 'player') return;
+    const target = this.options.state.npcs.get(hit.id);
+    if (!target?.alive) return;
+    this.options.damage.npc(
+      target,
+      weapon.damage,
+      bullet.ownerId,
+      nowMs,
+      undefined,
+      bulletImpact(target.x, target.y, bullet, weapon.id === 'shotgun')
+    );
+  }
+}
+
+function bulletImpact(
+  targetX: number,
+  targetY: number,
+  bullet: BulletState,
+  heavy: boolean
+): {
+  family: 'bullet';
+  force: 'light' | 'heavy';
+  sourceX: number;
+  sourceY: number;
+} {
+  return {
+    family: 'bullet',
+    force: heavy ? 'heavy' : 'light',
+    sourceX: targetX - Math.cos(bullet.angle),
+    sourceY: targetY - Math.sin(bullet.angle)
+  };
+}
+
+function firstBlockedProgress(
+  world: CollisionMap,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): number | undefined {
+  const distance = Math.hypot(endX - startX, endY - startY);
+  const steps = Math.max(1, Math.ceil(distance / 4));
+  for (let step = 1; step <= steps; step++) {
+    const progress = step / steps;
+    if (world.isBlockedAt(
+      startX + (endX - startX) * progress,
+      startY + (endY - startY) * progress
+    )) return progress;
+  }
+  return undefined;
 }
 
 function pointSegmentDistance(

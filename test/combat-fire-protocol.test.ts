@@ -35,6 +35,10 @@ test('combat fire commands fail closed on stale, forged, nonfinite, or duplicate
   assert.equal(validateCombatFireCommand({...command, sequence: 11}, context).accepted, false);
   assert.equal(validateCombatFireCommand({...command, sequence: 50_000}, context).accepted, false);
   assert.equal(validateCombatFireCommand({...command, clientSampleTimeMs: -1}, context).accepted, false);
+  assert.equal(validateCombatFireCommand(command, {
+    ...context,
+    minimumClientSampleTimeMs: 12_346
+  }).accepted, false);
   assert.equal(validateCombatFireCommand({...command, aimAngle: Number.NaN}, context).accepted, false);
   assert.equal(validateCombatFireCommand({...command, controlledEntityId: 'vehicle-9'}, context).accepted, false);
   assert.equal(validateCombatFireCommand({...command, predictedSpawnIds: [71, 71]}, context).accepted, false);

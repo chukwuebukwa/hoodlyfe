@@ -24,6 +24,7 @@ export interface CombatFireCommand {
 export interface CombatFireValidationContext {
   readonly previousSequence: number;
   readonly expectedControlledEntityId: string;
+  readonly minimumClientSampleTimeMs?: number;
   readonly maximumSequenceAdvance?: number;
 }
 
@@ -34,6 +35,7 @@ export type CombatFireRejection =
   | 'stale-sequence'
   | 'sequence-window-exceeded'
   | 'invalid-number'
+  | 'stale-sample-time'
   | 'invalid-controlled-entity'
   | 'invalid-predicted-spawn-id';
 
@@ -41,14 +43,21 @@ export type CombatFireValidationResult =
   | {readonly accepted: true; readonly value: CombatFireCommand}
   | {readonly accepted: false; readonly reason: CombatFireRejection};
 
+export interface CombatProjectileReceipt {
+  readonly clientSpawnId: number;
+  readonly authoritativeSpawnId: string;
+  readonly status: 'active' | 'resolved';
+}
+
 export interface CombatFireReceipt {
   readonly sequence: number;
   readonly status: 'accepted' | 'rejected';
   readonly reason?: string;
   readonly serverTick: number;
+  readonly serverTimeMs: number;
+  readonly effectiveServerShotTimeMs: number;
   readonly rewindMs: number;
-  readonly authoritativeSpawnIds: readonly string[];
-  readonly confirmedClientSpawnIds: readonly number[];
+  readonly projectiles: readonly CombatProjectileReceipt[];
 }
 
 export function validateCombatFireCommand(
@@ -70,6 +79,10 @@ export function validateCombatFireCommand(
   const clientSampleTimeMs = finiteInRange(record.clientSampleTimeMs, 0, Number.MAX_SAFE_INTEGER);
   const aimAngle = finiteNumber(record.aimAngle);
   if (clientSampleTimeMs === undefined || aimAngle === undefined) return rejected('invalid-number');
+  if (
+    context.minimumClientSampleTimeMs !== undefined &&
+    clientSampleTimeMs < context.minimumClientSampleTimeMs
+  ) return rejected('stale-sample-time');
   const controlledEntityId = boundedId(record.controlledEntityId);
   if (!controlledEntityId || controlledEntityId !== context.expectedControlledEntityId) {
     return rejected('invalid-controlled-entity');

@@ -4,6 +4,7 @@ import {FireControlController} from '../server/game/combat/fire-control-controll
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
+import {INTERACTION_PROTOCOL_VERSION} from '../shared/protocol/interaction-contracts.ts';
 
 test('fire control enforces cooldown, ammo, pellet count, driver rules, and passenger origin', () => {
   const state = new DistrictState();
@@ -164,4 +165,47 @@ test('fire control consumes rocket ammo only after an authoritative launch is ac
   clock.nowMs += 1000;
   fire.shoot(player.id);
   assert.equal(player.ammoRocket, 1, 'Passengers cannot fire the launcher.');
+});
+
+test('fire control correlates exact predicted bullet counts before consuming authority', () => {
+  const state = new DistrictState();
+  const player = new PlayerState();
+  player.id = 'correlated-shooter';
+  state.players.set(player.id, player);
+  const compensations: string[] = [];
+  const fire = new FireControlController({
+    state,
+    random: new DeterministicRandom('correlated-fire-test'),
+    clock: () => ({tick: 10, nowMs: 2_000}),
+    compensateBullet: ({bullet}) => {
+      compensations.push(bullet.id);
+      return {effectiveServerShotTimeMs: 1_875, rewindMs: 125, resolved: false};
+    }
+  });
+  const forged = fire.shoot(player.id, {
+    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    sequence: 1,
+    clientSampleTimeMs: 1_875,
+    controlledEntityId: player.id,
+    aimAngle: Math.PI / 2,
+    predictedSpawnIds: [1, 2]
+  });
+  assert.equal(forged.reason, 'spawn-count-mismatch');
+  assert.equal(player.ammoPistol, 120);
+  assert.equal(state.bullets.size, 0);
+
+  const result = fire.shoot(player.id, {
+    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    sequence: 2,
+    clientSampleTimeMs: 1_875,
+    controlledEntityId: player.id,
+    aimAngle: Math.PI / 2,
+    predictedSpawnIds: [91]
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.rewindMs, 125);
+  assert.equal(result.projectiles[0]?.clientSpawnId, 91);
+  assert.equal(result.projectiles[0]?.authoritativeSpawnId, compensations[0]);
+  assert.ok(Math.abs([...state.bullets.values()][0].angle - Math.PI / 2) < 1e-12);
+  assert.equal(player.ammoPistol, 119);
 });
