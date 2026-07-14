@@ -41,6 +41,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     prediction: '0px',
     clockSync: 'unsynced',
     interactionIsland: 'off',
+    interactionReplay: 'off',
     interactionSelection: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
@@ -98,8 +99,11 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
   assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
   assert.equal(
     panel.interactionIsland,
-    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon / 1t age / ' +
-    'H12 / R4:9t 1.7ms p95 / 1 reset'
+    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon'
+  );
+  assert.equal(
+    panel.interactionReplay,
+    '1t snapshot age / H12 history / R4:9t 1.7ms p95 / 18 pairs / 2 suppressed / 1 reset'
   );
 });
 

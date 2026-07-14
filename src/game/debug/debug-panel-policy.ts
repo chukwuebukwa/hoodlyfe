@@ -27,6 +27,7 @@ export interface DebugPanelProjection {
   prediction: string;
   clockSync: string;
   interactionIsland: string;
+  interactionReplay: string;
   interactionSelection: string;
   events: string[];
 }
@@ -77,10 +78,15 @@ export function projectDebugPanel(
       ? `${network.interactionIslandSize} bodies / ` +
         `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
         `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
-        `overflow / ${network.interactionIslandHorizonMs}ms horizon / ` +
-        `${network.interactionSnapshotAgeTicks}t age / H${network.interactionHistoryFrames} / ` +
+        `overflow / ${network.interactionIslandHorizonMs}ms horizon`
+      : 'off',
+    interactionReplay: network
+      ? `${network.interactionSnapshotAgeTicks}t snapshot age / ` +
+        `H${network.interactionHistoryFrames} history / ` +
         `R${network.interactionReplayCount}:${network.interactionReplayTicks}t ` +
         `${network.interactionReplayDurationP95Ms}ms p95 / ` +
+        `${network.interactionReplayPairSteps} pairs / ` +
+        `${network.interactionReplaySuppressedEffects} suppressed / ` +
         `${network.interactionReplayHardResets} reset`
       : 'off',
     interactionSelection: interactionIslandSelectionSummary(interactionIsland),

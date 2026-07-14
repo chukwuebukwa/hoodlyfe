@@ -78,6 +78,7 @@ export class DebugPresentationController {
       prediction: this.root.querySelector('#debug-prediction'),
       clockSync: this.root.querySelector('#debug-clock-sync'),
       interactionIsland: this.root.querySelector('#debug-interaction-island'),
+      interactionReplay: this.root.querySelector('#debug-interaction-replay'),
       interactionSelection: this.root.querySelector('#debug-interaction-selection')
     };
     this.toggle?.addEventListener('click', this.handleToggle);

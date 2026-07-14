@@ -342,6 +342,8 @@ M9 is split into independently deployable checkpoints:
   admission reason, TTC, and overflow IDs. Phaser and Three draw authoritative selected
   and overflow colliders by reason, root-to-member links, and the corresponding presented
   pose separately, so a predicted collider can be compared directly with authority.
+  Budget/horizon and replay workload use separate wide rows, including pair steps and
+  suppressed replay effects; both browser shells expose the same per-reason color legend.
 - M9c-b: on-foot saved-input island replay using the same vehicle-to-humanoid kernel,
   including promoted remote humanoid poses and replay-side-effect suppression.
 - M10a: bounded server-owned combat hitbox history with lifecycle-safe interpolation,

@@ -49,6 +49,7 @@ export class ThreeDebugController {
     prediction: document.querySelector('#debug-prediction'),
     clockSync: document.querySelector('#debug-clock-sync'),
     interactionIsland: document.querySelector('#debug-interaction-island'),
+    interactionReplay: document.querySelector('#debug-interaction-replay'),
     interactionSelection: document.querySelector('#debug-interaction-selection')
   };
   private snapshot?: DebugSnapshot;
