@@ -131,6 +131,7 @@ interface RenderedEntity {
   acknowledgedVehicleInputSequence?: number;
   interactionReplayAcknowledgedSequence?: number;
   presentationPose?: VehicleRenderPose;
+  presentationAimOrigin?: {x: number; y: number};
 }
 
 interface EntityTextures {
@@ -330,6 +331,11 @@ export class ThreeDistrictEntities {
       y: serverYToThree(rendered.mesh.position.y),
       angle: rendered.predictedAngle ?? 0
     };
+  }
+
+  playerAimOrigin(playerId: string): {x: number; y: number} | undefined {
+    const rendered = this.rendered.get(`player:${playerId}`);
+    return rendered?.presentationAimOrigin;
   }
 
   predictLocalPlayer(
@@ -766,6 +772,7 @@ export class ThreeDistrictEntities {
       false
     );
     rendered.presentationPose = attachments.root;
+    rendered.presentationAimOrigin = attachments.weaponBase;
     const x = attachments.body.x;
     const y = attachments.body.y;
     const z = this.surfaceHeightAt(x, y) + (attachments.passenger ? 8 : 4);

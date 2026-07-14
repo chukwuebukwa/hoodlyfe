@@ -23,7 +23,11 @@ test('combat command adapter accepts each ordered command once and returns corre
         projectiles: [{
           clientSpawnId: command.predictedSpawnIds[0],
           authoritativeSpawnId: 'bullet-9',
-          resolved: false
+          resolved: false,
+          weapon: 'pistol',
+          x: 120,
+          y: 80,
+          angle: Math.PI / 4
         }]
       };
     },
@@ -34,6 +38,8 @@ test('combat command adapter accepts each ordered command once and returns corre
   assert.equal(accepted.status, 'accepted');
   assert.equal(accepted.projectiles[0]?.authoritativeSpawnId, 'bullet-9');
   assert.equal(accepted.projectiles[0]?.status, 'active');
+  assert.equal(accepted.projectiles[0]?.weapon, 'pistol');
+  assert.equal(accepted.projectiles[0]?.x, 120);
   assert.equal(accepted.rewindMs, 120);
   assert.equal(fired, 1);
 

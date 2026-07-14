@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type {NetworkBullet} from '../types.ts';
+import type {PredictedProjectilePresentation} from '../network/combat-fire-prediction-controller.ts';
 import {interpolatePosition} from './interpolation-policy.ts';
 import {projectileStyle} from './projectile-render-policy.ts';
 
@@ -15,6 +16,7 @@ interface ProjectileRendererOptions {
 
 export class ProjectileRenderer {
   private readonly rendered = new Map<string, RenderProjectile>();
+  private readonly predicted = new Map<number, Phaser.GameObjects.Arc>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -49,9 +51,36 @@ export class ProjectileRenderer {
     }
   }
 
+  synchronizePredicted(projectiles: readonly PredictedProjectilePresentation[]): void {
+    const present = new Set<number>();
+    for (const projectile of projectiles) {
+      present.add(projectile.clientSpawnId);
+      let circle = this.predicted.get(projectile.clientSpawnId);
+      if (!circle) {
+        const style = projectileStyle({ownerKind: 'player', weapon: projectile.weapon});
+        circle = this.scene.add.circle(
+          projectile.x,
+          projectile.y,
+          style.radius,
+          style.color,
+          0.9
+        ).setStrokeStyle(1, 0xffffff, 0.72).setDepth(900_000);
+        this.predicted.set(projectile.clientSpawnId, circle);
+      }
+      circle.setPosition(projectile.x, projectile.y);
+    }
+    for (const [clientSpawnId, circle] of this.predicted) {
+      if (present.has(clientSpawnId)) continue;
+      circle.destroy();
+      this.predicted.delete(clientSpawnId);
+    }
+  }
+
   destroy(): void {
     for (const rendered of this.rendered.values()) rendered.circle.destroy();
+    for (const circle of this.predicted.values()) circle.destroy();
     this.rendered.clear();
+    this.predicted.clear();
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 

@@ -62,7 +62,11 @@ export class CombatFireCommandController {
       projectiles: Object.freeze(result.projectiles.map((projectile) => Object.freeze({
         clientSpawnId: projectile.clientSpawnId,
         authoritativeSpawnId: projectile.authoritativeSpawnId,
-        status: projectile.resolved ? 'resolved' as const : 'active' as const
+        status: projectile.resolved ? 'resolved' as const : 'active' as const,
+        weapon: projectile.weapon,
+        x: projectile.x,
+        y: projectile.y,
+        angle: projectile.angle
       })))
     });
     this.options.send(playerId, receipt);

@@ -22,6 +22,7 @@ test('physical projectile catch-up hits historical actors once and removes resol
   assert.equal(result.resolved, true);
   assert.equal(setup.state.bullets.has(bullet.id), false);
   assert.equal(setup.playerHits, 1);
+  assert.ok(bullet.x > 80 && bullet.x < 100, 'Receipt pose stops at the historical hitbox entry.');
 
   setup.controller.catchUp({
     bullet,

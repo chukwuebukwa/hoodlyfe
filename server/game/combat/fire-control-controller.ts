@@ -18,6 +18,10 @@ export interface FireProjectileResult {
   readonly clientSpawnId: number;
   readonly authoritativeSpawnId: string;
   readonly resolved: boolean;
+  readonly weapon: BulletWeaponId;
+  readonly x: number;
+  readonly y: number;
+  readonly angle: number;
 }
 
 export interface FireControlResult {
@@ -182,7 +186,11 @@ export class FireControlController {
       projectiles.push(Object.freeze({
         clientSpawnId: command?.predictedSpawnIds[pellet] ?? 0,
         authoritativeSpawnId: bullet.id,
-        resolved: compensation?.resolved ?? false
+        resolved: compensation?.resolved ?? false,
+        weapon: weapon.id,
+        x: bullet.x,
+        y: bullet.y,
+        angle: bullet.angle
       }));
     }
     return Object.freeze({

@@ -28,6 +28,7 @@ import {RadioSystem} from './audio/radio-system.ts';
 import {SfxSystem} from './audio/sfx-system.ts';
 import {VehicleAudioSystem} from './audio/vehicle-audio-system.ts';
 import {NetworkQualityController} from './network/network-quality-controller.ts';
+import {CombatFirePredictionController} from './network/combat-fire-prediction-controller.ts';
 import {InteractionIslandController} from './network/interaction-island-controller.ts';
 import type {InteractionSnapshotInbox} from './network/interaction-snapshot-inbox.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
@@ -67,6 +68,7 @@ export class DistrictScene extends Phaser.Scene {
   private inputController!: ClientInputController;
   private interactionController!: InteractionPresentationController;
   private networkQuality!: NetworkQualityController;
+  private combatFirePrediction!: CombatFirePredictionController;
   private interactionIslands?: InteractionIslandController;
   private replayPresentation!: InteractionReplayPresentation;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
@@ -256,9 +258,32 @@ export class DistrictScene extends Phaser.Scene {
     }
     this.projectileRenderer = new ProjectileRenderer(this, {
       onCreated: (bullet) => {
-        this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
+        if (bullet.ownerId !== this.room.sessionId) {
+          this.playerRenderer.projectileCreated(bullet.ownerId, this.time.now);
+        }
       }
     });
+    this.combatFirePrediction = new CombatFirePredictionController({
+      room: this.room,
+      getPlayer: () => this.latestState?.players?.get(this.room.sessionId),
+      getAimOrigin: () => this.playerRenderer.aimOrigin(this.room.sessionId),
+      estimatedServerTimeMs: () => {
+        const quality = this.networkQuality.snapshot();
+        return quality.clockSynchronized
+          ? quality.estimatedServerTimeMs
+          : this.latestState?.serverTimeMs ?? 0;
+      },
+      canOccupy: (x, y, radius) => this.canOccupy(x, y, radius),
+      now: () => this.time.now,
+      onPredictedFire: () => {
+        this.playerRenderer.projectileCreated(this.room.sessionId, this.time.now);
+      }
+    });
+    this.events.once(
+      Phaser.Scenes.Events.SHUTDOWN,
+      this.combatFirePrediction.destroy,
+      this.combatFirePrediction
+    );
     this.rocketProjectileRenderer = new RocketProjectileRenderer(this);
     this.thrownProjectileRenderer = new ThrownProjectileRenderer(this);
     this.fireZoneRenderer = new FireZoneRenderer(this);
@@ -294,6 +319,7 @@ export class DistrictScene extends Phaser.Scene {
       getPlayer: () => this.latestState?.players?.get(this.room.sessionId),
       getAimOrigin: () => this.playerRenderer.aimOrigin(this.room.sessionId),
       onAim: (angle) => this.playerRenderer.setAim(this.room.sessionId, angle),
+      onFire: (angle) => this.combatFirePrediction.requestFire(angle, this.time.now),
       isBlocked: () => this.appearanceController.isOpen()
     });
     this.inputController.start();
@@ -317,6 +343,7 @@ export class DistrictScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.networkQuality.update(time);
     const input = this.inputController.update(time);
+    this.projectileRenderer.synchronizePredicted(this.combatFirePrediction.update(time));
     this.interpolateEntities(time, delta / 1000);
     const onFootMoves = this.playerRenderer.predictLocalMovement(input.x, input.y, delta / 1000);
     if (onFootMoves.length > 0) this.room.send(ON_FOOT_INPUT_MESSAGE, {moves: onFootMoves});
@@ -365,7 +392,9 @@ export class DistrictScene extends Phaser.Scene {
       local?.vehicleId ? state.vehicles?.get(local.vehicleId) : undefined,
       state.vehicles
     );
+    this.combatFirePrediction.synchronizeAuthoritative(state.bullets);
     this.projectileRenderer.synchronize(state.bullets);
+    this.projectileRenderer.synchronizePredicted(this.combatFirePrediction.presentations());
     this.rocketProjectileRenderer.synchronize(state.rockets);
     this.thrownProjectileRenderer.synchronize(state.thrownProjectiles);
     this.fireZoneRenderer.synchronize(state.fires);

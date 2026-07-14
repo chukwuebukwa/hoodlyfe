@@ -16,6 +16,7 @@ interface ClientInputControllerOptions {
   getPlayer: () => NetworkPlayer | undefined;
   getAimOrigin: () => {x: number; y: number} | undefined;
   onAim: (angle: number) => void;
+  onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
 }
 
@@ -28,6 +29,7 @@ export class ClientInputController {
   private previousWeaponKey!: Phaser.Input.Keyboard.Key;
   private nextWeaponKey!: Phaser.Input.Keyboard.Key;
   private touch?: TouchControls;
+  private aimAngle?: number;
   private started = false;
 
   constructor(private readonly options: ClientInputControllerOptions) {}
@@ -119,6 +121,7 @@ export class ClientInputController {
       const pointer = scene.input.activePointer.positionToCamera(scene.cameras.main) as Phaser.Math.Vector2;
       angle = Phaser.Math.Angle.Between(origin.x, origin.y, pointer.x, pointer.y);
     }
+    this.aimAngle = angle;
     this.options.onAim(angle);
     if (this.cadence.shouldSendAim(time)) this.options.room.send('aim', {angle});
   }
@@ -129,7 +132,11 @@ export class ClientInputController {
     const firing = Boolean(this.touch?.firing) || (
       this.options.scene.input.activePointer.isDown && pointerEvent?.pointerType !== 'touch'
     );
-    if (firing && this.cadence.shouldSendFire(time)) this.options.room.send('shoot');
+    if (!firing || !this.cadence.shouldSendFire(time)) return;
+    const angle = this.aimAngle ?? this.options.getPlayer()?.angle;
+    if (angle === undefined) return;
+    if (this.options.onFire) this.options.onFire(angle);
+    else this.options.room.send('shoot');
   }
 
   private cycleWeapon(direction: -1 | 1, time: number): void {

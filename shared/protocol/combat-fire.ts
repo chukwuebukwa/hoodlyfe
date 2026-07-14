@@ -1,4 +1,5 @@
 import {INTERACTION_PROTOCOL_VERSION, MAX_INPUT_SEQUENCE_ADVANCE, MAX_PREDICTED_SPAWN_IDS} from './interaction-contracts.ts';
+import type {BulletWeaponId} from '../content/weapon-catalog.ts';
 import {
   boundedId,
   finiteInRange,
@@ -47,6 +48,10 @@ export interface CombatProjectileReceipt {
   readonly clientSpawnId: number;
   readonly authoritativeSpawnId: string;
   readonly status: 'active' | 'resolved';
+  readonly weapon: BulletWeaponId;
+  readonly x: number;
+  readonly y: number;
+  readonly angle: number;
 }
 
 export interface CombatFireReceipt {

@@ -14,6 +14,7 @@ import type {
 import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {radialGlow, updateRadialGlow} from './three-glow.ts';
+import type {PredictedProjectilePresentation} from '../network/combat-fire-prediction-controller.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -24,6 +25,7 @@ interface TimedExplosion {
 export class ThreeDistrictWorld {
   private readonly markers = new Map<string, THREE.Group>();
   private readonly bullets = new Map<string, THREE.Mesh>();
+  private readonly predictedBullets = new Map<number, THREE.Mesh>();
   private readonly rockets = new Map<string, THREE.Group>();
   private readonly grenades = new Map<string, THREE.Group>();
   private readonly fires = new Map<string, THREE.Group>();
@@ -81,12 +83,14 @@ export class ThreeDistrictWorld {
 
   private clearStreetTransients(): void {
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const mesh of this.predictedBullets.values()) disposeObject(mesh);
     for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
     for (const group of this.fires.values()) disposeObject(group);
     for (const explosion of this.explosions.values()) disposeObject(explosion.group);
     for (const group of this.signals.values()) disposeObject(group);
     this.bullets.clear();
+    this.predictedBullets.clear();
     this.rockets.clear();
     this.grenades.clear();
     this.fires.clear();
@@ -97,6 +101,7 @@ export class ThreeDistrictWorld {
   destroy(): void {
     for (const group of this.markers.values()) disposeObject(group);
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const mesh of this.predictedBullets.values()) disposeObject(mesh);
     for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
     for (const group of this.fires.values()) disposeObject(group);
@@ -104,6 +109,7 @@ export class ThreeDistrictWorld {
     for (const group of this.signals.values()) disposeObject(group);
     this.markers.clear();
     this.bullets.clear();
+    this.predictedBullets.clear();
     this.rockets.clear();
     this.grenades.clear();
     this.fires.clear();
@@ -239,6 +245,35 @@ export class ThreeDistrictWorld {
       );
     }
     removeAbsent(this.bullets, present);
+  }
+
+  synchronizePredictedBullets(
+    projectiles: readonly PredictedProjectilePresentation[],
+    localSpaceId = STREET_SPACE_ID
+  ): void {
+    const present = new Set<number>();
+    if (localSpaceId === STREET_SPACE_ID) {
+      for (const projectile of projectiles) {
+        present.add(projectile.clientSpawnId);
+        let mesh = this.predictedBullets.get(projectile.clientSpawnId);
+        if (!mesh) {
+          const style = projectileStyle({ownerKind: 'player', weapon: projectile.weapon});
+          mesh = disc(style.radius, style.color, 0.9, 25);
+          this.predictedBullets.set(projectile.clientSpawnId, mesh);
+          this.scene.add(mesh);
+        }
+        mesh.position.set(
+          projectile.x,
+          serverYToThree(projectile.y),
+          this.surfaceHeightAt(projectile.x, projectile.y) + 12
+        );
+      }
+    }
+    for (const [clientSpawnId, mesh] of this.predictedBullets) {
+      if (present.has(clientSpawnId)) continue;
+      disposeObject(mesh);
+      this.predictedBullets.delete(clientSpawnId);
+    }
   }
 
   private synchronizeRockets(state: DistrictNetworkState): void {

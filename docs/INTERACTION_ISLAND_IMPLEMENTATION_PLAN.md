@@ -344,8 +344,16 @@ M9 is split into independently deployable checkpoints:
   pose separately, so a predicted collider can be compared directly with authority.
 - M9c-b: on-foot saved-input island replay using the same vehicle-to-humanoid kernel,
   including promoted remote humanoid poses and replay-side-effect suppression.
+- M10a: bounded server-owned combat hitbox history with lifecycle-safe interpolation,
+  stable segment queries, and a 200 ms public rewind cap.
+- M10b: validated, monotonic combat-fire commands with authoritative projectile catch-up,
+  current-world obstruction, historical actor queries, and explicit spawn receipts.
+- M10c: immediate renderer-neutral local projectile presentation in Phaser and Three,
+  followed by receipt correction and duplicate-free authoritative spawn handoff. Rejected,
+  resolved, malformed, and timed-out commands retire their presentation without mutating
+  gameplay authority.
 
-Bullets initially predict recoil/tracer presentation while the server performs bounded
+Bullets now predict recoil and projectile presentation while the server performs bounded
 rewound hit validation. Grenades and rockets may use deterministic predicted spawns.
 
 ### M11: Production Rollout

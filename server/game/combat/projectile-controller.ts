@@ -74,6 +74,8 @@ export class ProjectileController {
         excludedIds: input.excludedIds
       });
       if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
+        bullet.x = interpolate(startX, endX, historical.hit.progress);
+        bullet.y = interpolate(startY, endY, historical.hit.progress);
         this.resolveHistoricalHit(historical.hit, bullet, input.nowMs);
         this.options.state.bullets.delete(bullet.id);
         return {
@@ -83,6 +85,8 @@ export class ProjectileController {
         };
       }
       if (worldProgress !== undefined) {
+        bullet.x = interpolate(startX, endX, worldProgress);
+        bullet.y = interpolate(startY, endY, worldProgress);
         this.options.state.bullets.delete(bullet.id);
         return {
           effectiveServerShotTimeMs: window.effectiveServerTimeMs,
@@ -301,4 +305,8 @@ function pointSegmentDistance(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function interpolate(start: number, end: number, progress: number): number {
+  return start + (end - start) * progress;
 }
