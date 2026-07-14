@@ -13,6 +13,7 @@ export interface InteractionSnapshotMessageRoom {
 export interface InteractionSnapshotInboxOptions {
   currentServerTick: () => number;
   worldCollisionRevision: number;
+  enabled?: () => boolean;
   historyTicks?: number;
   maximumFutureTicks?: number;
 }
@@ -74,6 +75,7 @@ export class InteractionSnapshotInbox {
   }
 
   private readonly receive = (message: unknown): void => {
+    if (this.options.enabled && !this.options.enabled()) return;
     const result = validateInteractionSnapshot(message, {
       currentServerTick: nonnegativeInteger(this.options.currentServerTick()),
       expectedWorldCollisionRevision: this.options.worldCollisionRevision,

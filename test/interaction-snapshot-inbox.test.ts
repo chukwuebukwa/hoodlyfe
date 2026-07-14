@@ -61,6 +61,21 @@ test('snapshot inbox rejects invalid retention, lead, and collision configuratio
   assert.throws(() => new InteractionSnapshotInbox(room, {...base, worldCollisionRevision: 0}));
 });
 
+test('snapshot inbox ignores publication while its negotiated stage is disabled', () => {
+  const room = new FakeRoom();
+  let enabled = false;
+  const inbox = new InteractionSnapshotInbox(room, {
+    currentServerTick: () => 2,
+    worldCollisionRevision: 3,
+    enabled: () => enabled
+  });
+  room.emit(snapshot(1, 10));
+  assert.equal(inbox.latest(), undefined);
+  enabled = true;
+  room.emit(snapshot(2, 20));
+  assert.equal(inbox.latest()?.serverTick, 2);
+});
+
 class FakeRoom implements InteractionSnapshotMessageRoom {
   private listener?: (message: unknown) => void;
 

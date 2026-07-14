@@ -360,10 +360,17 @@ rewound hit validation. Grenades and rockets may use deterministic predicted spa
 
 ### M11: Production Rollout
 
-- Gate each stage behind independent feature flags.
-- Run multi-client latency, jitter, loss, dense traffic, stream-in/out, destruction,
-  respawn, and occupancy-transition soaks.
-- Roll out shared kernels first, remote timelines second, and interaction islands last.
+- M11a - Complete: negotiate one immutable, server-owned rollout manifest before enabling
+  remote timelines, interaction snapshots, interaction replay, combat rewind, or local
+  projectile presentation. Invalid environment flags and dependency combinations fail
+  room startup; incompatible or silent servers leave clients on fail-closed kernel-only
+  legacy behavior. Both debug shells expose negotiation state, revision, and every active
+  stage, and the rollout runbook defines compatibility, verification, and rollback order.
+- M11b: run multi-client latency, jitter, loss, dense traffic, stream-in/out, destruction,
+  respawn, and occupancy-transition soaks, then publish measured acceptance results.
+- Production order: shared kernels first, remote timelines second, interaction snapshots
+  third, and interaction replay last. Combat rewind and projectile prediction use their
+  own dependency-checked lane.
 
 Initial targets at 150 ms RTT, 30 ms jitter, and 1% loss:
 

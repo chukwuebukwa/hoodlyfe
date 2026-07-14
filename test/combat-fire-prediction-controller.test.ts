@@ -131,7 +131,23 @@ test('interior fire preserves legacy behavior until historical interior collisio
   assert.equal(setup.controller.presentations().length, 0);
 });
 
-function fixture(): {
+test('rollout can fall back to legacy authority or disable only local projectile presentation', () => {
+  const legacy = fixture({combatRewindEnabled: false});
+  legacy.controller.requestFire(0);
+  assert.deepEqual(legacy.sent, [{type: 'shoot', message: undefined}]);
+  assert.equal(legacy.controller.presentations().length, 0);
+
+  const authorityOnly = fixture({projectilePredictionEnabled: false});
+  authorityOnly.controller.requestFire(0);
+  assert.equal(authorityOnly.sent[0]?.type, COMBAT_FIRE_MESSAGE);
+  assert.equal(authorityOnly.controller.presentations().length, 0);
+  assert.equal(authorityOnly.fired, 0);
+});
+
+function fixture(features: {
+  combatRewindEnabled?: boolean;
+  projectilePredictionEnabled?: boolean;
+} = {}): {
   controller: CombatFirePredictionController;
   player: any;
   sent: Array<{type: string; message: unknown}>;
@@ -170,7 +186,9 @@ function fixture(): {
     estimatedServerTimeMs: () => 1_000,
     canOccupy: () => true,
     now: () => result.now,
-    onPredictedFire: () => result.fired++
+    onPredictedFire: () => result.fired++,
+    combatRewindEnabled: () => features.combatRewindEnabled ?? true,
+    projectilePredictionEnabled: () => features.projectilePredictionEnabled ?? true
   });
   return result;
 }

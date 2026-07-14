@@ -6,6 +6,7 @@ import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts
 import type {DistrictNetworkState} from '../types.ts';
 import {serverYToThree} from './three-prototype-policy.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
 import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import type {
@@ -50,7 +51,8 @@ export class ThreeDebugController {
     clockSync: document.querySelector('#debug-clock-sync'),
     interactionIsland: document.querySelector('#debug-interaction-island'),
     interactionReplay: document.querySelector('#debug-interaction-replay'),
-    interactionSelection: document.querySelector('#debug-interaction-selection')
+    interactionSelection: document.querySelector('#debug-interaction-selection'),
+    rollout: document.querySelector('#debug-netcode-rollout')
   };
   private snapshot?: DebugSnapshot;
   private state?: DistrictNetworkState;
@@ -64,7 +66,8 @@ export class ThreeDebugController {
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
     private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
-    private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined
+    private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined,
+    private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -114,7 +117,8 @@ export class ThreeDebugController {
       this.state,
       this.snapshot,
       this.networkQuality(),
-      this.interactionIsland()
+      this.interactionIsland(),
+      this.netcodeRollout()
     );
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);

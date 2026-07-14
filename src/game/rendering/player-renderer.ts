@@ -83,6 +83,7 @@ interface PlayerRendererOptions {
   onRemoteTimeline?: (
     sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
+  remoteTimelinesEnabled?: () => boolean;
   replayPresentation?: InteractionReplayPresentation;
   onLocalState: (
     playerId: string,
@@ -136,7 +137,8 @@ export class PlayerRenderer {
       const interaction = !rendered.isLocal
         ? this.options.replayPresentation?.pose('player', playerId)
         : undefined;
-      const buffered = !interaction && !rendered.isLocal && renderServerTimeMs > 0
+      const buffered = !interaction && !rendered.isLocal && renderServerTimeMs > 0 &&
+        (this.options.remoteTimelinesEnabled?.() ?? true)
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);

@@ -55,6 +55,7 @@ const GAME_SHELL_HTML = `
       <div><dt>Patch p95</dt><dd id="debug-patch-gap">0ms</dd></div>
       <div><dt>Prediction</dt><dd id="debug-prediction">0px</dd></div>
       <div><dt>Clock / Buffer</dt><dd id="debug-clock-sync">unsynced</dd></div>
+      <div class="debug-wide"><dt>Netcode rollout</dt><dd id="debug-netcode-rollout">pending</dd></div>
       <div class="debug-wide"><dt>Island budget</dt><dd id="debug-interaction-island">off</dd></div>
       <div class="debug-wide"><dt>Island replay</dt><dd id="debug-interaction-replay">off</dd></div>
       <div class="debug-wide"><dt>Island selection</dt><dd id="debug-interaction-selection">off</dd></div>

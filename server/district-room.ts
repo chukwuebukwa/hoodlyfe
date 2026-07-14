@@ -47,6 +47,12 @@ import {
   COMBAT_FIRE_RECEIPT_MESSAGE,
   type CombatFireCommand
 } from '../shared/protocol/combat-fire.ts';
+import {
+  NETCODE_ROLLOUT_MANIFEST_MESSAGE,
+  NETCODE_ROLLOUT_REQUEST_MESSAGE,
+  validateNetcodeRolloutRequest,
+  type NetcodeRolloutRequest
+} from '../shared/protocol/netcode-rollout.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {verifyClientAuth} from './auth/privy-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
@@ -81,6 +87,7 @@ import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
 import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
+import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -152,6 +159,7 @@ export class DistrictRoom extends Room<DistrictState> {
     buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
+  private readonly netcodeRollout = resolveNetcodeRolloutManifest();
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
   private economyController!: StreetEconomyController;
@@ -773,13 +781,22 @@ export class DistrictRoom extends Room<DistrictState> {
       );
       if (response) client.send(NETWORK_PONG_MESSAGE, response);
     });
+    this.onMessage<NetcodeRolloutRequest>(NETCODE_ROLLOUT_REQUEST_MESSAGE, (client, message) => {
+      if (!validateNetcodeRolloutRequest(message)) return;
+      client.send(NETCODE_ROLLOUT_MANIFEST_MESSAGE, this.netcodeRollout);
+    });
 
     this.onMessage<PlayerAimInput>('aim', (client, message) => {
       this.playerControl.setAim(client.sessionId, message);
     });
 
     this.onMessage<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
-      this.combatFireCommands.accept(client.sessionId, message);
+      if (this.netcodeRollout.stages.combatRewind) {
+        this.combatFireCommands.accept(client.sessionId, message);
+      } else {
+        const player = this.state.players.get(client.sessionId);
+        if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
+      }
     });
     this.onMessage('shoot', (client) => {
       const player = this.state.players.get(client.sessionId);
@@ -919,13 +936,17 @@ export class DistrictRoom extends Room<DistrictState> {
       this.pedestrians.observeEvents(events);
       this.cashPickupController.observeEvents(events);
       this.audioEvents.publish(events);
-      this.interactionSnapshots.capture();
+      if (this.netcodeRollout.stages.interactionSnapshots) {
+        this.interactionSnapshots.capture();
+      }
       this.debugProjection.update(events);
     });
   }
 
   onBeforePatch(): void {
-    this.interactionSnapshots?.publishCurrent(this.state.players.keys());
+    if (this.netcodeRollout.stages.interactionSnapshots) {
+      this.interactionSnapshots?.publishCurrent(this.state.players.keys());
+    }
     this.replicationController?.synchronize();
   }
 

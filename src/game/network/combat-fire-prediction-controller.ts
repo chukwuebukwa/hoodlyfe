@@ -50,6 +50,8 @@ interface CombatFirePredictionControllerOptions {
   readonly canOccupy: (x: number, y: number, radius: number) => boolean;
   readonly now?: () => number;
   readonly onPredictedFire?: (weapon: BulletWeaponId) => void;
+  readonly combatRewindEnabled?: () => boolean;
+  readonly projectilePredictionEnabled?: () => boolean;
 }
 
 interface PendingCommand {
@@ -108,6 +110,10 @@ export class CombatFirePredictionController {
       this.options.room.send('shoot');
       return true;
     }
+    if (this.options.combatRewindEnabled && !this.options.combatRewindEnabled()) {
+      this.options.room.send('shoot');
+      return true;
+    }
     const weapon = weaponDefinition(player.weapon);
     const bulletWeapon = weapon.fireMode === 'bullet' ? weapon : undefined;
     const origin = bulletWeapon ? this.options.getAimOrigin() : undefined;
@@ -135,7 +141,10 @@ export class CombatFirePredictionController {
       createdAtMs: nowMs,
       clientSpawnIds: command.predictedSpawnIds
     }));
-    if (bulletWeapon && origin) {
+    if (
+      bulletWeapon && origin &&
+      (this.options.projectilePredictionEnabled?.() ?? true)
+    ) {
       this.createPredictedProjectiles(sequence, clientSpawnIds, bulletWeapon, origin, angle, nowMs);
       this.options.onPredictedFire?.(bulletWeapon.id);
     }

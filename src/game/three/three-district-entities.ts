@@ -197,7 +197,8 @@ export class ThreeDistrictEntities {
     private readonly canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean,
     private readonly onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
-    ) => void
+    ) => void,
+    private readonly remoteTimelinesEnabled: () => boolean = () => true
   ) {}
 
   static async create(
@@ -206,7 +207,8 @@ export class ThreeDistrictEntities {
     canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean = () => true,
     onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
-    ) => void
+    ) => void,
+    remoteTimelinesEnabled: () => boolean = () => true
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
@@ -257,7 +259,8 @@ export class ThreeDistrictEntities {
       lpcSources,
       surfaceHeightAt,
       canOccupy,
-      onRemoteTimeline
+      onRemoteTimeline,
+      remoteTimelinesEnabled
     );
   }
 
@@ -752,7 +755,7 @@ export class ThreeDistrictEntities {
     const interaction = !isLocal && !vehicle
       ? this.replayPresentation.pose('player', player.id)
       : undefined;
-    const buffered = !interaction && !isLocal && !vehicle
+    const buffered = !interaction && !isLocal && !vehicle && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
@@ -880,7 +883,7 @@ export class ThreeDistrictEntities {
       });
     }
     const interaction = this.replayPresentation.pose('pedestrian', npc.id);
-    const buffered = !interaction
+    const buffered = !interaction && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
@@ -1106,7 +1109,8 @@ export class ThreeDistrictEntities {
       vehicleDoorAtlasFrame(vehicle, door.frame)
     );
     const interaction = this.replayPresentation.pose('vehicle', vehicle.id);
-    const buffered = !interaction && !localDriver && !localOccupant
+    const buffered = !interaction && !localDriver && !localOccupant &&
+      this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);

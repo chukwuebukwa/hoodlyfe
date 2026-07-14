@@ -16,6 +16,7 @@ import {
 } from '../prediction/interaction-island-policy.ts';
 
 export interface InteractionIslandControllerOptions {
+  readonly enabled?: () => boolean;
   readonly networkConditions: () => InteractionNetworkConditions;
   readonly budget?: number;
   readonly onSelection?: (selection: InteractionIslandSelection) => void;
@@ -64,6 +65,11 @@ export class InteractionIslandController {
   }
 
   private receive(snapshot: InteractionSnapshot): void {
+    if (this.options.enabled && !this.options.enabled()) {
+      this.selector.reset();
+      this.replay.reset();
+      return;
+    }
     const selection = this.selector.select(snapshot, {
       budget: this.budget,
       network: this.options.networkConditions()

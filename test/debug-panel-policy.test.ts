@@ -40,6 +40,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     patchGap: '0ms',
     prediction: '0px',
     clockSync: 'unsynced',
+    rollout: 'unavailable',
     interactionIsland: 'off',
     interactionReplay: 'off',
     interactionSelection: 'off',
@@ -105,6 +106,31 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     panel.interactionReplay,
     '1t snapshot age / H12 history / R4:9t 1.7ms p95 / 18 pairs / 2 suppressed / 1 reset'
   );
+});
+
+test('debug panel projects negotiated netcode stages and fail-closed state', () => {
+  const panel = projectDebugPanel(
+    createState(),
+    undefined,
+    undefined,
+    undefined,
+    {
+      source: 'negotiated',
+      manifest: {
+        protocolVersion: 1,
+        interactionProtocolVersion: 4,
+        revision: 'canary-2',
+        stages: {
+          remoteTimelines: true,
+          interactionSnapshots: true,
+          interactionReplay: false,
+          combatRewind: true,
+          projectilePrediction: false
+        }
+      }
+    }
+  );
+  assert.equal(panel.rollout, 'negotiated / canary-2 / timeline,snapshot,rewind');
 });
 
 function createState(): DistrictNetworkState {

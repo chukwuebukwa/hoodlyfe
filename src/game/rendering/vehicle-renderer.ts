@@ -60,6 +60,7 @@ interface VehicleRendererOptions {
     container: Phaser.GameObjects.Container,
     vehicle: NetworkVehicle
   ) => void;
+  remoteTimelinesEnabled?: () => boolean;
   onPrediction?: (
     error: number,
     snapped: boolean,
@@ -126,7 +127,8 @@ export class VehicleRenderer {
         continue;
       }
       const interaction = this.options.replayPresentation?.pose('vehicle', rendered.vehicleId);
-      const buffered = !interaction && !rendered.localOccupant && renderServerTimeMs > 0
+      const buffered = !interaction && !rendered.localOccupant && renderServerTimeMs > 0 &&
+        (this.options.remoteTimelinesEnabled?.() ?? true)
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);

@@ -56,6 +56,25 @@ test('interaction island controller can replay through injected family kernels',
   controller.destroy();
 });
 
+test('interaction island rollout gate clears state and resumes on a later snapshot', () => {
+  const source = new FakeSnapshotSource();
+  let enabled = false;
+  const controller = new InteractionIslandController(source, {
+    enabled: () => enabled,
+    budget: 20,
+    networkConditions: () => ({rttMs: 100, interpolationDelayMs: 90, jitterMs: 10})
+  });
+  source.emit(snapshot(1));
+  assert.equal(controller.latest(), undefined);
+  enabled = true;
+  source.emit(snapshot(2));
+  assert.equal(controller.latest()?.serverTick, 2);
+  enabled = false;
+  source.emit(snapshot(3));
+  assert.equal(controller.latest(), undefined);
+  assert.equal(controller.latestBaseline(), undefined);
+});
+
 class FakeSnapshotSource implements InteractionSnapshotSource {
   private listener?: (snapshot: InteractionSnapshot) => void;
 

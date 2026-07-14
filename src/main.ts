@@ -11,6 +11,7 @@ import {
 } from './game/onboarding/onboarding-flow.ts';
 import type {DistrictNetworkState} from './game/types.ts';
 import {InteractionSnapshotInbox} from './game/network/interaction-snapshot-inbox.ts';
+import {NetcodeRolloutController} from './game/network/netcode-rollout-controller.ts';
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
@@ -35,6 +36,7 @@ class GameRuntimeController implements GameRuntime {
   private profilePopup: {destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
   private interactionSnapshots: InteractionSnapshotInbox | undefined;
+  private netcodeRollout: NetcodeRolloutController | undefined;
 
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
@@ -80,6 +82,8 @@ class GameRuntimeController implements GameRuntime {
     this.activeThree = undefined;
     this.interactionSnapshots?.destroy();
     this.interactionSnapshots = undefined;
+    this.netcodeRollout?.destroy();
+    this.netcodeRollout = undefined;
     void this.activeRoom?.leave(true);
     this.activeRoom = undefined;
     this.profilePopup?.destroy();
@@ -107,12 +111,17 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
-    this.startInteractionSnapshots(this.activeRoom);
+    this.startNetworkControllers(this.activeRoom);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
     this.loadingUi?.set(0.72, 'Building roads and rooftops');
-    this.activeThree = new ThreePrototypeViewer(game, this.activeRoom, this.interactionSnapshots);
+    this.activeThree = new ThreePrototypeViewer(
+      game,
+      this.activeRoom,
+      this.interactionSnapshots,
+      this.netcodeRollout
+    );
     await this.activeThree.start();
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
@@ -133,7 +142,7 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
-    this.startInteractionSnapshots(this.activeRoom);
+    this.startNetworkControllers(this.activeRoom);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading street renderer');
     const [{default: Phaser}, {DistrictScene}] = await Promise.all([
@@ -157,7 +166,7 @@ class GameRuntimeController implements GameRuntime {
         pixelArt: true,
         roundPixels: true
       },
-      scene: new DistrictScene(this.activeRoom, this.interactionSnapshots)
+      scene: new DistrictScene(this.activeRoom, this.interactionSnapshots, this.netcodeRollout)
     });
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
@@ -183,11 +192,14 @@ class GameRuntimeController implements GameRuntime {
     });
   }
 
-  private startInteractionSnapshots(room: Room<DistrictNetworkState>): void {
+  private startNetworkControllers(room: Room<DistrictNetworkState>): void {
+    this.netcodeRollout?.destroy();
+    this.netcodeRollout = new NetcodeRolloutController(room);
     this.interactionSnapshots?.destroy();
     this.interactionSnapshots = new InteractionSnapshotInbox(room, {
       currentServerTick: () => room.state.serverTick ?? 0,
-      worldCollisionRevision: WORLD_COLLISION_REVISION
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      enabled: () => this.netcodeRollout?.enabled('interactionSnapshots') ?? false
     });
   }
 }

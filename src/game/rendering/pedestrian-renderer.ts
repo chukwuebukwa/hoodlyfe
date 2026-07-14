@@ -33,6 +33,7 @@ interface PedestrianRendererOptions {
   onRemoteTimeline?: (
     sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
   ) => void;
+  remoteTimelinesEnabled?: () => boolean;
   replayPresentation?: InteractionReplayPresentation;
 }
 
@@ -64,7 +65,8 @@ export class PedestrianRenderer {
   interpolate(renderServerTimeMs = 0, estimatedServerTimeMs = renderServerTimeMs): void {
     for (const [npcId, rendered] of this.rendered) {
       const interaction = this.options.replayPresentation?.pose('pedestrian', npcId);
-      const buffered = !interaction && renderServerTimeMs > 0
+      const buffered = !interaction && renderServerTimeMs > 0 &&
+        (this.options.remoteTimelinesEnabled?.() ?? true)
         ? rendered.motion.sample(renderServerTimeMs, estimatedServerTimeMs)
         : undefined;
       if (buffered) this.options.onRemoteTimeline?.(buffered);

@@ -31,6 +31,7 @@ import {NetworkQualityController} from './network/network-quality-controller.ts'
 import {CombatFirePredictionController} from './network/combat-fire-prediction-controller.ts';
 import {InteractionIslandController} from './network/interaction-island-controller.ts';
 import type {InteractionSnapshotInbox} from './network/interaction-snapshot-inbox.ts';
+import type {NetcodeRolloutController} from './network/netcode-rollout-controller.ts';
 import {LocalHudController} from './ui/local-hud-controller.ts';
 import type {DistrictNetworkState} from './types.ts';
 import {canOccupyClientInterior} from './world/client-collision-map.ts';
@@ -79,7 +80,8 @@ export class DistrictScene extends Phaser.Scene {
 
   constructor(
     room: Room<DistrictNetworkState>,
-    private readonly interactionSnapshots?: InteractionSnapshotInbox
+    private readonly interactionSnapshots?: InteractionSnapshotInbox,
+    private readonly netcodeRollout?: NetcodeRolloutController
   ) {
     super('district');
     this.room = room;
@@ -173,6 +175,7 @@ export class DistrictScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.replayPresentation.clear, this.replayPresentation);
     this.pedestrianRenderer = new PedestrianRenderer(this, {
       onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      remoteTimelinesEnabled: () => this.rolloutEnabled('remoteTimelines'),
       replayPresentation: this.replayPresentation
     });
     this.vehicleRenderer = new VehicleRenderer(this, {
@@ -187,6 +190,7 @@ export class DistrictScene extends Phaser.Scene {
         if (vehicleId) this.room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves});
       },
       onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      remoteTimelinesEnabled: () => this.rolloutEnabled('remoteTimelines'),
       replayPresentation: this.replayPresentation
     });
     this.playerRenderer = new PlayerRenderer(this, {
@@ -205,6 +209,7 @@ export class DistrictScene extends Phaser.Scene {
         );
       },
       onRemoteTimeline: (sample) => this.networkQuality.observeRemoteTimeline(sample),
+      remoteTimelinesEnabled: () => this.rolloutEnabled('remoteTimelines'),
       replayPresentation: this.replayPresentation,
       onLocalState: (playerId, player, sprite, damaged) => {
         const vehicle = player.vehicleId ? this.latestState?.vehicles?.get(player.vehicleId) : undefined;
@@ -220,6 +225,7 @@ export class DistrictScene extends Phaser.Scene {
           : canOccupyClientInterior(spaceId, x, y, radius)
       );
       this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
+        enabled: () => this.rolloutEnabled('interactionReplay'),
         networkConditions: () => {
           const network = this.networkQuality.snapshot();
           return {
@@ -277,7 +283,9 @@ export class DistrictScene extends Phaser.Scene {
       now: () => this.time.now,
       onPredictedFire: () => {
         this.playerRenderer.projectileCreated(this.room.sessionId, this.time.now);
-      }
+      },
+      combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
+      projectilePredictionEnabled: () => this.rolloutEnabled('projectilePrediction')
     });
     this.events.once(
       Phaser.Scenes.Events.SHUTDOWN,
@@ -311,7 +319,8 @@ export class DistrictScene extends Phaser.Scene {
       () => this.networkQuality.snapshot(),
       (vehicleId) => this.vehicleRenderer.pose(vehicleId),
       (playerId) => this.playerRenderer.pose(playerId),
-      () => this.interactionIslands?.latest()
+      () => this.interactionIslands?.latest(),
+      () => this.netcodeRollout?.snapshot()
     );
     this.inputController = new ClientInputController({
       scene: this,
@@ -456,6 +465,10 @@ export class DistrictScene extends Phaser.Scene {
       [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
     ];
     return samples.every(([sampleX, sampleY]) => !this.collisionLayer.hasTileAtWorldXY(sampleX, sampleY));
+  }
+
+  private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
+    return this.netcodeRollout?.enabled(stage) ?? true;
   }
 
   private drawCrosshair(): void {

@@ -6,6 +6,7 @@ import type {DistrictNetworkState} from '../types.ts';
 import {projectDebugPanel} from './debug-panel-policy.ts';
 import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
 import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import type {
@@ -46,6 +47,7 @@ export class DebugPresentationController {
     private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
     private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
     private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined,
+    private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
     private readonly root: Document = document
   ) {
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
@@ -79,7 +81,8 @@ export class DebugPresentationController {
       clockSync: this.root.querySelector('#debug-clock-sync'),
       interactionIsland: this.root.querySelector('#debug-interaction-island'),
       interactionReplay: this.root.querySelector('#debug-interaction-replay'),
-      interactionSelection: this.root.querySelector('#debug-interaction-selection')
+      interactionSelection: this.root.querySelector('#debug-interaction-selection'),
+      rollout: this.root.querySelector('#debug-netcode-rollout')
     };
     this.toggle?.addEventListener('click', this.handleToggle);
     this.subscription = new DebugSnapshotSubscription({
@@ -680,7 +683,8 @@ export class DebugPresentationController {
       this.state,
       this.snapshot,
       this.networkQuality(),
-      this.interactionIsland()
+      this.interactionIsland(),
+      this.netcodeRollout()
     );
     for (const [field, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[field as keyof typeof projection]);

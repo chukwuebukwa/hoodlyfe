@@ -2,6 +2,7 @@ import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 import type {InteractionIslandSelection} from '../prediction/interaction-island-selector.ts';
+import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
 import {interactionIslandSelectionSummary} from './interaction-island-debug-policy.ts';
 
 export interface DebugPanelProjection {
@@ -26,6 +27,7 @@ export interface DebugPanelProjection {
   patchGap: string;
   prediction: string;
   clockSync: string;
+  rollout: string;
   interactionIsland: string;
   interactionReplay: string;
   interactionSelection: string;
@@ -36,7 +38,8 @@ export function projectDebugPanel(
   state?: DistrictNetworkState,
   snapshot?: DebugSnapshot,
   network?: NetworkQualitySnapshot,
-  interactionIsland?: InteractionIslandSelection
+  interactionIsland?: InteractionIslandSelection,
+  rollout?: NetcodeRolloutSnapshot
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -74,6 +77,7 @@ export function projectDebugPanel(
         `${network.remoteBufferUnderrunPercent}% under / ` +
         `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
+    rollout: rolloutSummary(rollout),
     interactionIsland: network
       ? `${network.interactionIslandSize} bodies / ` +
         `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
@@ -95,6 +99,24 @@ export function projectDebugPanel(
       : ['No recent events']
   };
 }
+
+function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {
+  if (!rollout) return 'unavailable';
+  const enabled = Object.entries(rollout.manifest.stages)
+    .filter(([, value]) => value)
+    .map(([key]) => ROLLOUT_STAGE_LABELS[key] ?? key);
+  const detail = rollout.rejectionReason ? ` / ${rollout.rejectionReason}` : '';
+  return `${rollout.source} / ${rollout.manifest.revision} / ` +
+    `${enabled.length > 0 ? enabled.join(',') : 'kernel-only'}${detail}`;
+}
+
+const ROLLOUT_STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  remoteTimelines: 'timeline',
+  interactionSnapshots: 'snapshot',
+  interactionReplay: 'island',
+  combatRewind: 'rewind',
+  projectilePrediction: 'projectile'
+});
 
 function populationSummary(snapshot?: DebugSnapshot): string {
   const population = snapshot?.populationStreaming;
