@@ -62,6 +62,7 @@ import {TrafficSignalController} from './game/traffic/traffic-signal-controller.
 import {DamageController} from './game/combat/damage-controller.ts';
 import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
+import {CombatHitboxHistory} from './game/combat/combat-hitbox-history.ts';
 import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
@@ -164,6 +165,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private damageController!: DamageController;
   private combatReactions!: CombatReactionController;
   private fireControl!: FireControlController;
+  private readonly combatHistory = new CombatHitboxHistory();
   private meleeCombat!: MeleeCombatController;
   private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
@@ -191,6 +193,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
+    this.combatHistory.clear();
     this.debugSubscribers.clear();
     const requestedSeed = Number(options?.seed);
     this.random = new DeterministicRandom(
@@ -953,6 +956,14 @@ export class DistrictRoom extends Room<DistrictState> {
     for (const vehicle of humanoidContacts.vehicles) this.indexVehicle(vehicle);
     for (const player of humanoidContacts.players) this.indexPlayer(player);
     for (const npc of humanoidContacts.npcs) this.indexNpc(npc);
+    this.combatHistory.capture({
+      serverTick: this.simulationClock.tick,
+      serverTimeMs: now,
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      players: this.state.players.values(),
+      npcs: this.state.npcs.values(),
+      vehicles: this.state.vehicles.values()
+    });
     this.state.bullets.forEach((bullet, bulletId) => {
       this.projectileController.update(bullet, bulletId, deltaSeconds, now);
     });
