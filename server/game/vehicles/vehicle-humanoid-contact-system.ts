@@ -1,5 +1,12 @@
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {resolveVehicleHumanoidContact} from '../../../shared/simulation/vehicle-humanoid-contact.ts';
+import {
+  DRIVER_HUMANOID_IMPACT_THRESHOLD,
+  MAXIMUM_INTERACTION_VEHICLE_SPEED,
+  MINIMUM_INTERACTION_VEHICLE_SPEED,
+  TRAFFIC_HUMANOID_IMPACT_THRESHOLD,
+  VEHICLE_HUMANOID_MASS
+} from '../../../shared/simulation/vehicle-humanoid-contact-policy.ts';
 import type {CrimeKind} from '../incidents/crime-policy.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
 import type {CollisionMap} from '../../world-map.ts';
@@ -8,9 +15,6 @@ import {VEHICLE_COLLISION_BOUNDING_RADIUS} from './vehicle-config.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
-const HUMANOID_MASS = 0.08;
-const TRAFFIC_IMPACT_THRESHOLD = 70;
-const DRIVER_IMPACT_THRESHOLD = 90;
 const TRAFFIC_IMPACT_COOLDOWN_MS = 600;
 const DRIVER_IMPACT_COOLDOWN_MS = 450;
 const IMPACT_RECORD_RETENTION_MS = 5_000;
@@ -108,7 +112,7 @@ export class VehicleHumanoidContactSystem {
           velocityX,
           velocityY,
           radius: humanoid.radius,
-          mass: HUMANOID_MASS
+          mass: VEHICLE_HUMANOID_MASS
         });
         if (!result.valid || !result.collided) continue;
         contacts++;
@@ -120,7 +124,13 @@ export class VehicleHumanoidContactSystem {
             movedNpcs.set(humanoid.state.id, humanoid.state as NpcState);
           }
         }
-        if (!vehicle.destroyed) vehicle.speed = clamp(result.vehicleSpeed, -150, 430);
+        if (!vehicle.destroyed) {
+          vehicle.speed = clamp(
+            result.vehicleSpeed,
+            MINIMUM_INTERACTION_VEHICLE_SPEED,
+            MAXIMUM_INTERACTION_VEHICLE_SPEED
+          );
+        }
         movedVehicles.set(vehicle.id, vehicle);
         if (this.applyImpact(vehicle, humanoid, result.vehicleImpactSpeed, nowMs)) {
           damagingContacts++;
@@ -216,7 +226,9 @@ export class VehicleHumanoidContactSystem {
     const driver = vehicle.driverId
       ? this.options.state.players.get(vehicle.driverId)
       : undefined;
-    const threshold = driver?.alive ? DRIVER_IMPACT_THRESHOLD : TRAFFIC_IMPACT_THRESHOLD;
+    const threshold = driver?.alive
+      ? DRIVER_HUMANOID_IMPACT_THRESHOLD
+      : TRAFFIC_HUMANOID_IMPACT_THRESHOLD;
     const cooldown = driver?.alive ? DRIVER_IMPACT_COOLDOWN_MS : TRAFFIC_IMPACT_COOLDOWN_MS;
     const pairKey = `${vehicle.id}|${humanoid.key}`;
     if (

@@ -149,13 +149,22 @@ function baseline(): InteractionIslandBaseline {
       moveX: 0,
       moveY: 0,
       steering: 0,
-      throttle: 1
+      throttle: 1,
+      movementScale: 1
     }]
   };
 }
 
 function command(serverTick: number, entityId: string, throttle: number) {
-  return {serverTick, entityId, moveX: 0, moveY: 0, steering: 0, throttle};
+  return {
+    serverTick,
+    entityId,
+    moveX: 0,
+    moveY: 0,
+    steering: 0,
+    throttle,
+    movementScale: 1
+  };
 }
 
 function recordPairs(order: string[]): InteractionReplayPairStep {

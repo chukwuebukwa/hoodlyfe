@@ -16,7 +16,8 @@ import {
 import {validateInteractionSnapshot} from '../../../shared/protocol/interaction-snapshot-validation.ts';
 import {
   ON_FOOT_PLAYER_RADIUS,
-  ON_FOOT_PLAYER_SPEED
+  ON_FOOT_PLAYER_SPEED,
+  onFootMovementScale
 } from '../../../shared/simulation/on-foot-step.ts';
 import type {
   DistrictState,
@@ -195,13 +196,28 @@ export class InteractionSnapshotProjector {
           intent.inputX,
           intent.inputY,
           0,
-          0
+          0,
+          onFootMovementScale(player.action, player.weapon, player.attackCombo)
         ));
       }
     }
     for (const npc of this.options.state.npcs.values()) {
       const projected = this.projectNpc(npc, clock);
-      if (projected) entities.set(entityKey(projected.kind, projected.id), projected);
+      if (!projected) continue;
+      const key = entityKey(projected.kind, projected.id);
+      entities.set(key, projected);
+      const speed = Math.hypot(projected.velocityX, projected.velocityY);
+      if (speed > 0.001) {
+        intents.set(key, appliedIntent(
+          projected.id,
+          clock.tick,
+          projected.velocityX / speed,
+          projected.velocityY / speed,
+          0,
+          0,
+          Math.min(2, speed / ON_FOOT_PLAYER_SPEED)
+        ));
+      }
     }
     for (const vehicle of this.options.state.vehicles.values()) {
       const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
@@ -218,7 +234,8 @@ export class InteractionSnapshotProjector {
           0,
           0,
           intent.inputX,
-          -intent.inputY
+          -intent.inputY,
+          1
         ));
       }
     }
@@ -604,7 +621,8 @@ function appliedIntent(
   moveX: number,
   moveY: number,
   steering: number,
-  throttle: number
+  throttle: number,
+  movementScale: number
 ): RemoteIntentState {
   return Object.freeze({
     entityId,
@@ -612,7 +630,8 @@ function appliedIntent(
     moveX: clamp(finite(moveX), -1, 1),
     moveY: clamp(finite(moveY), -1, 1),
     steering: clamp(finite(steering), -1, 1),
-    throttle: clamp(finite(throttle), -1, 1)
+    throttle: clamp(finite(throttle), -1, 1),
+    movementScale: clamp(finite(movementScale), 0, 2)
   });
 }
 

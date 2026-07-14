@@ -4,6 +4,10 @@ import type {
   VehicleInteractionState
 } from '../../../shared/protocol/interaction-contracts.ts';
 import {
+  MAXIMUM_INTERACTION_VEHICLE_SPEED,
+  MINIMUM_INTERACTION_VEHICLE_SPEED
+} from '../../../shared/simulation/vehicle-humanoid-contact-policy.ts';
+import {
   resolveVehicleDynamicContact,
   type VehicleCollisionBody
 } from '../../../shared/simulation/vehicle-dynamic-contact.ts';
@@ -36,10 +40,6 @@ export interface VehicleInteractionReplayPreparation {
   readonly localCommands: readonly InteractionReplayCommand[];
 }
 
-const MINIMUM_COLLISION_SPEED = -150;
-const MAXIMUM_COLLISION_SPEED = 430;
-const SEPARATION_OCCUPANCY_RADIUS = vehicleDefinition('sedan').radius;
-
 export function prepareVehicleInteractionReplay(
   prediction: SavedVehiclePrediction,
   baseline: InteractionIslandBaseline
@@ -58,7 +58,8 @@ export function prepareVehicleInteractionReplay(
     moveX: 0,
     moveY: 0,
     steering: move.x,
-    throttle: -move.y
+    throttle: -move.y,
+    movementScale: 1
   }));
   return Object.freeze({
     targetServerTick: baseline.serverTick + localCommands.length,
@@ -101,7 +102,7 @@ export function createVehicleInteractionBodyStep(
 ): InteractionReplayBodyStep {
   return (entity, control, context) => {
     if (entity.kind !== 'vehicle') return entity;
-    if (entity.destroyed) return vehicleState(entity, {
+    if (entity.destroyed) return interactionVehicleState(entity, {
       x: entity.x,
       y: entity.y,
       angle: entity.angle,
@@ -121,7 +122,7 @@ export function createVehicleInteractionBodyStep(
         )
       }
     );
-    return vehicleState(entity, movement.pose, steering, context.deltaSeconds);
+    return interactionVehicleState(entity, movement.pose, steering, context.deltaSeconds);
   };
 }
 
@@ -133,7 +134,10 @@ export function createVehicleInteractionPairStep(
       left.kind !== 'vehicle' || right.kind !== 'vehicle' ||
       left.spaceId !== right.spaceId || left.layerId !== right.layerId
     ) return undefined;
-    const result = resolveVehicleDynamicContact(collisionBody(left), collisionBody(right));
+    const result = resolveVehicleDynamicContact(
+      interactionVehicleCollisionBody(left),
+      interactionVehicleCollisionBody(right)
+    );
     if (!result.collided) return undefined;
     if (result.primaryDamage > 0) {
       context.sideEffects.dispatch('authoritative-gameplay', () => undefined);
@@ -145,7 +149,7 @@ export function createVehicleInteractionPairStep(
       left.spaceId,
       result.primaryX,
       result.primaryY,
-      SEPARATION_OCCUPANCY_RADIUS
+      vehicleDefinition(left.vehicleKind).radius
     );
     const nextLeftX = canSeparateLeft ? result.primaryX : left.x;
     const nextLeftY = canSeparateLeft ? result.primaryY : left.y;
@@ -153,32 +157,34 @@ export function createVehicleInteractionPairStep(
       right.spaceId,
       result.otherX,
       result.otherY,
-      SEPARATION_OCCUPANCY_RADIUS
+      vehicleDefinition(right.vehicleKind).radius
     );
     const nextRightX = canSeparateRight ? result.otherX : right.x;
     const nextRightY = canSeparateRight ? result.otherY : right.y;
     return [
-      vehicleState(left, {
+      interactionVehicleState(left, {
         x: nextLeftX,
         y: nextLeftY,
         angle: left.angle,
         speed: left.destroyed
           ? left.speed
-          : clamp(result.primarySpeed, MINIMUM_COLLISION_SPEED, MAXIMUM_COLLISION_SPEED)
+          : clampInteractionVehicleSpeed(result.primarySpeed)
       }, left.steering, context.deltaSeconds),
-      vehicleState(right, {
+      interactionVehicleState(right, {
         x: nextRightX,
         y: nextRightY,
         angle: right.angle,
         speed: right.destroyed
           ? right.speed
-          : clamp(result.otherSpeed, MINIMUM_COLLISION_SPEED, MAXIMUM_COLLISION_SPEED)
+          : clampInteractionVehicleSpeed(result.otherSpeed)
       }, right.steering, context.deltaSeconds)
     ];
   };
 }
 
-function collisionBody(entity: VehicleInteractionState): VehicleCollisionBody {
+export function interactionVehicleCollisionBody(
+  entity: VehicleInteractionState
+): VehicleCollisionBody {
   const definition = vehicleDefinition(entity.vehicleKind);
   return {
     id: entity.id,
@@ -193,7 +199,7 @@ function collisionBody(entity: VehicleInteractionState): VehicleCollisionBody {
   };
 }
 
-function vehicleState(
+export function interactionVehicleState(
   entity: VehicleInteractionState,
   pose: {x: number; y: number; angle: number; speed: number},
   steering: number,
@@ -211,6 +217,14 @@ function vehicleState(
     velocityY: Math.sin(pose.angle) * pose.speed,
     angularVelocity
   });
+}
+
+export function clampInteractionVehicleSpeed(speed: number): number {
+  return clamp(
+    speed,
+    MINIMUM_INTERACTION_VEHICLE_SPEED,
+    MAXIMUM_INTERACTION_VEHICLE_SPEED
+  );
 }
 
 function normalizeAngle(angle: number): number {

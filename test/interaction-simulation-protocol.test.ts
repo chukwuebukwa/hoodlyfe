@@ -200,6 +200,7 @@ function remoteIntent(): Record<string, unknown> {
     moveX: 0,
     moveY: 0,
     steering: 0.2,
-    throttle: 0.8
+    throttle: 0.8,
+    movementScale: 1
   };
 }

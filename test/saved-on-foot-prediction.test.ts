@@ -46,3 +46,30 @@ test('saved on-foot prediction hard-corrects authoritative space transitions', (
   assert.equal(correction.hardCorrection, true);
   assert.deepEqual(correction.pose, {x: 2600, y: 1880, spaceId: 'mercy-hospital'});
 });
+
+test('saved on-foot interaction replay atomically replaces contiguous pending poses', () => {
+  const prediction = new SavedOnFootPrediction();
+  prediction.initialize({x: 100, y: 100, spaceId: 'street'}, 10);
+  prediction.advance(
+    {x: 1, y: 0},
+    ON_FOOT_SIMULATION_STEP_SECONDS * 2,
+    canOccupy,
+    0.6
+  );
+  assert.deepEqual(prediction.pendingMovesAfter(10), [
+    {sequence: 11, x: 1, y: 0, movementScale: 0.6},
+    {sequence: 12, x: 1, y: 0, movementScale: 0.6}
+  ]);
+  assert.equal(prediction.applyInteractionReplay(10, [{
+    sequence: 12,
+    pose: {x: 120, y: 100, spaceId: 'street'}
+  }]), undefined, 'A partial replay must fail without mutating history.');
+  assert.equal(prediction.pendingMovesAfter(10)?.length, 2);
+  const correction = prediction.applyInteractionReplay(10, [
+    {sequence: 11, pose: {x: 108, y: 100, spaceId: 'street'}},
+    {sequence: 12, pose: {x: 116, y: 100, spaceId: 'street'}}
+  ]);
+  assert.equal(correction?.resimulated, true);
+  assert.deepEqual(correction?.pose, {x: 116, y: 100, spaceId: 'street'});
+  assert.equal(correction?.pendingMoveCount, 2);
+});

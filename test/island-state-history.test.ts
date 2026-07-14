@@ -68,7 +68,8 @@ function snapshot(serverTick: number, rootId = 'local'): InteractionSnapshot {
       moveX: 0,
       moveY: 0,
       steering: 0.25,
-      throttle: 1
+      throttle: 1,
+      movementScale: 1
     }]
   };
 }

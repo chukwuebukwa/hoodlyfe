@@ -227,13 +227,15 @@ function localControl(command: InteractionReplayCommand): InteractionReplayContr
     moveY: finiteClamp(command.moveY, -1, 1),
     steering: finiteClamp(command.steering, -1, 1),
     throttle: finiteClamp(command.throttle, -1, 1),
+    movementScale: finiteClamp(command.movementScale, 0, 2),
     source: 'local'
   });
 }
 
 function finiteControls(control: Omit<InteractionReplayControl, 'source'>): boolean {
   return Number.isFinite(control.moveX) && Number.isFinite(control.moveY) &&
-    Number.isFinite(control.steering) && Number.isFinite(control.throttle);
+    Number.isFinite(control.steering) && Number.isFinite(control.throttle) &&
+    Number.isFinite(control.movementScale);
 }
 
 function stableEntities(

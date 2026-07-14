@@ -254,7 +254,8 @@ function snapshotFor(
       moveX: 0,
       moveY: 0,
       steering: input.steering,
-      throttle: input.throttle
+      throttle: input.throttle,
+      movementScale: 1
     }],
     confirmedEventsThrough: serverTick
   };

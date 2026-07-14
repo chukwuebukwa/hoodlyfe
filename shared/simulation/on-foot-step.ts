@@ -19,6 +19,8 @@ export interface OnFootControlCommand {
 
 export interface OnFootStepModifiers {
   movementScale?: number;
+  radius?: number;
+  speed?: number;
 }
 
 export interface OnFootStepResult {
@@ -46,11 +48,13 @@ export function stepOnFootWithWorldCollision(
 ): OnFootStepResult {
   const delta = finiteClamp(deltaSeconds, 0, ON_FOOT_MAX_STEP_SECONDS);
   const movementScale = finiteClamp(modifiers.movementScale ?? 1, 0, 2);
+  const radius = finiteClamp(modifiers.radius ?? ON_FOOT_PLAYER_RADIUS, 1, 256);
+  const speed = finiteClamp(modifiers.speed ?? ON_FOOT_PLAYER_SPEED, 0, 1_000);
   const inputX = finiteClamp(command.moveX, -1, 1);
   const inputY = finiteClamp(command.moveY, -1, 1);
   const magnitude = Math.hypot(inputX, inputY);
   const normalization = magnitude > 1 ? 1 / magnitude : 1;
-  const distance = ON_FOOT_PLAYER_SPEED * movementScale * delta;
+  const distance = speed * movementScale * delta;
   const moveX = inputX * normalization * distance;
   const moveY = inputY * normalization * distance;
   const startX = finite(pose.x);
@@ -60,9 +64,9 @@ export function stepOnFootWithWorldCollision(
   const attemptedY = startY + moveY;
   let x = startX;
   let y = startY;
-  const collidedX = moveX !== 0 && !canOccupy(spaceId, attemptedX, y, ON_FOOT_PLAYER_RADIUS);
+  const collidedX = moveX !== 0 && !canOccupy(spaceId, attemptedX, y, radius);
   if (!collidedX) x = attemptedX;
-  const collidedY = moveY !== 0 && !canOccupy(spaceId, x, attemptedY, ON_FOOT_PLAYER_RADIUS);
+  const collidedY = moveY !== 0 && !canOccupy(spaceId, x, attemptedY, radius);
   if (!collidedY) y = attemptedY;
   return {
     pose: {x, y, spaceId},

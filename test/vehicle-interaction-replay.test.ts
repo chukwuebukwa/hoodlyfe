@@ -24,7 +24,8 @@ test('vehicle replay maps contiguous saved moves onto authoritative server ticks
       moveX: 0,
       moveY: 0,
       steering: 0,
-      throttle: 1
+      throttle: 1,
+      movementScale: 1
     }]
   });
 });

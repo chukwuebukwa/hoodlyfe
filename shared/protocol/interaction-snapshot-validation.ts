@@ -235,10 +235,20 @@ function parseRemoteIntent(
   const moveY = finiteInRange(record.moveY, -1, 1);
   const steering = finiteInRange(record.steering, -1, 1);
   const throttle = finiteInRange(record.throttle, -1, 1);
+  const movementScale = finiteInRange(record.movementScale, 0, 2);
   if (
     !entityId || appliedAtServerTick === undefined || moveX === undefined || moveY === undefined ||
-    steering === undefined || throttle === undefined || appliedAtServerTick > serverTick ||
+    steering === undefined || throttle === undefined || movementScale === undefined ||
+    appliedAtServerTick > serverTick ||
     appliedAtServerTick < serverTick - historyTicks
   ) return undefined;
-  return Object.freeze({entityId, appliedAtServerTick, moveX, moveY, steering, throttle});
+  return Object.freeze({
+    entityId,
+    appliedAtServerTick,
+    moveX,
+    moveY,
+    steering,
+    throttle,
+    movementScale
+  });
 }

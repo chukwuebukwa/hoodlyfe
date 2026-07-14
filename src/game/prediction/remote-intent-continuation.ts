@@ -8,6 +8,7 @@ export interface InteractionReplayControl {
   readonly moveY: number;
   readonly steering: number;
   readonly throttle: number;
+  readonly movementScale: number;
   readonly source: 'local' | 'remote' | 'neutral';
 }
 
@@ -16,6 +17,7 @@ export const NEUTRAL_INTERACTION_REPLAY_CONTROL: InteractionReplayControl = Obje
   moveY: 0,
   steering: 0,
   throttle: 0,
+  movementScale: 1,
   source: 'neutral'
 });
 
@@ -34,6 +36,7 @@ export function continueRemoteIntent(
     moveY: finiteClamp(intent.moveY, -1, 1) * scale,
     steering: finiteClamp(intent.steering, -1, 1) * scale,
     throttle: finiteClamp(intent.throttle, -1, 1) * scale,
+    movementScale: finiteClamp(intent.movementScale, 0, 2),
     source: 'remote'
   });
 }

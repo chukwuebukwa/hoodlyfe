@@ -134,7 +134,8 @@ function baselineFromAuthority(
       moveX: 0,
       moveY: 0,
       steering: 0,
-      throttle: 0
+      throttle: 0,
+      movementScale: 1
     }]
   };
 }
@@ -145,8 +146,9 @@ function commands(fromTick: number, toTick: number) {
     entityId: 'local',
     moveX: 0,
     moveY: 0,
-    steering: 0,
-    throttle: 0
+      steering: 0,
+      throttle: 0,
+      movementScale: 1
   }));
 }
 

@@ -9,7 +9,8 @@ test('remote intent holds for two ticks, decays for four, then becomes neutral',
     moveX: 0.5,
     moveY: -1,
     steering: 0.8,
-    throttle: 1
+    throttle: 1,
+    movementScale: 0.65
   };
   assert.equal(continueRemoteIntent(intent, 10).throttle, 1);
   assert.equal(continueRemoteIntent(intent, 12).throttle, 1);
@@ -21,6 +22,7 @@ test('remote intent holds for two ticks, decays for four, then becomes neutral',
     moveY: 0,
     steering: 0,
     throttle: 0,
+    movementScale: 1,
     source: 'neutral'
   });
 });
@@ -32,13 +34,15 @@ test('remote intent continuation clamps hostile values and freezes accepted outp
     moveX: 4,
     moveY: Number.NaN,
     steering: -8,
-    throttle: 9
+    throttle: 9,
+    movementScale: 4
   }, 2);
   assert.deepEqual(continued, {
     moveX: 1,
     moveY: 0,
     steering: -1,
     throttle: 1,
+    movementScale: 2,
     source: 'remote'
   });
   assert.equal(Object.isFrozen(continued), true);
