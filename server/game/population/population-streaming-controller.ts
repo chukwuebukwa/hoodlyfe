@@ -1,5 +1,5 @@
 import {VehicleState, type DistrictState} from '../../state.ts';
-import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
+import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
 import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-config.ts';
 import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
@@ -64,7 +64,10 @@ interface PopulationStreamingControllerOptions {
     PedestrianController,
     'spawnAmbientAt' | 'canStreamOut' | 'streamOutAmbient'
   >;
-  traffic: Pick<TrafficController, 'register' | 'release'>;
+  traffic: Pick<
+    TrafficController,
+    'register' | 'release' | 'spawn' | 'advanceVirtual' | 'captureVirtual'
+  >;
   onVehicleMaterialized?: (vehicle: VehicleState) => void;
   onVehicleDematerialized?: (vehicleId: string) => void;
 }
@@ -110,7 +113,7 @@ export class PopulationStreamingController {
       this.traffic.set(id, {
         id,
         kind: STREAMED_TRAFFIC_KINDS[index % STREAMED_TRAFFIC_KINDS.length],
-        spawn: this.options.world.trafficSpawn(10_000 + index * 193, VEHICLE_RADIUS),
+        spawn: this.options.traffic.spawn(10_000 + index * 193, VEHICLE_RADIUS),
         cruiseSpeed: 104 + index % 8 * 7,
         active: false,
         step: 0,
@@ -272,30 +275,15 @@ export class PopulationStreamingController {
 
   private advanceDormantTraffic(record: VirtualTrafficRecord): void {
     record.step++;
-    const previous = {column: record.spawn.column, row: record.spawn.row};
-    const current = {column: record.spawn.targetColumn, row: record.spawn.targetRow};
-    const neighbors = this.options.world.roadNeighbors(current.column, current.row);
-    const forwardChoices = neighbors.filter((candidate) => (
-      candidate.column !== previous.column || candidate.row !== previous.row
-    ));
-    const choices = forwardChoices.length > 0 ? forwardChoices : neighbors;
-    if (choices.length === 0) return;
-    const next = choices[this.options.random.integer(
-      'stream-traffic-route',
-      `${record.id}:${record.step}`,
-      0,
-      choices.length
-    )];
-    const point = this.options.world.roadPoint(current);
-    record.spawn = {
-      x: point.x,
-      y: point.y,
-      column: current.column,
-      row: current.row,
-      targetColumn: next.column,
-      targetRow: next.row,
-      angle: Math.atan2(next.row - current.row, next.column - current.column)
-    };
+    record.spawn = this.options.traffic.advanceVirtual(
+      record.spawn,
+      this.options.random.integer(
+        'stream-traffic-route',
+        `${record.id}:${record.step}`,
+        0,
+        0x7fff_ffff
+      )
+    );
   }
 
   private materializeVehicle(record: VirtualTrafficRecord): void {
@@ -317,20 +305,7 @@ export class PopulationStreamingController {
   }
 
   private captureVehicleRoute(record: VirtualTrafficRecord, vehicle: VehicleState): void {
-    const node = this.options.world.nearestRoadNode(vehicle.x, vehicle.y, VEHICLE_RADIUS);
-    if (!node) return;
-    const neighbors = this.options.world.roadNeighbors(node.column, node.row);
-    const next = nearestHeadingNeighbor(node, neighbors, vehicle.angle) ?? node;
-    const point = this.options.world.roadPoint(node);
-    record.spawn = {
-      x: point.x,
-      y: point.y,
-      column: node.column,
-      row: node.row,
-      targetColumn: next.column,
-      targetRow: next.row,
-      angle: Math.atan2(next.row - node.row, next.column - node.column)
-    };
+    record.spawn = this.options.traffic.captureVirtual(vehicle);
   }
 
   private canStreamOutVehicle(vehicle: VehicleState): boolean {
@@ -404,21 +379,4 @@ function compareCandidate<T extends {id: string}>(
   right: {record: T; distance: number}
 ): number {
   return left.distance - right.distance || left.record.id.localeCompare(right.record.id);
-}
-
-function nearestHeadingNeighbor(
-  current: RoadNode,
-  neighbors: readonly RoadNode[],
-  angle: number
-): RoadNode | undefined {
-  return [...neighbors].sort((left, right) => {
-    const leftAngle = Math.atan2(left.row - current.row, left.column - current.column);
-    const rightAngle = Math.atan2(right.row - current.row, right.column - current.column);
-    return angularDistance(leftAngle, angle) - angularDistance(rightAngle, angle) ||
-      left.row - right.row || left.column - right.column;
-  })[0];
-}
-
-function angularDistance(left: number, right: number): number {
-  return Math.abs(Math.atan2(Math.sin(left - right), Math.cos(left - right)));
 }

@@ -36,6 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
+    roads: 'off',
     region: 'unknown',
     latency: '0/0ms',
     patchGap: '0ms',
@@ -48,6 +49,32 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel summarizes authored road topology and route planner pressure', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficLaneGraph = {
+    schemaVersion: 1,
+    districtId: 'industrial-district',
+    nodes: [
+      {id: 'a', x: 0, y: 0, junctionId: ''},
+      {id: 'b', x: 100, y: 0, junctionId: ''}
+    ],
+    edges: [{
+      id: 'a-b',
+      fromNodeId: 'a',
+      toNodeId: 'b',
+      kind: 'lane',
+      turn: 'none',
+      speedLimit: 100,
+      junctionId: ''
+    }]
+  };
+  snapshot.trafficAi = [trafficDebugEntry('traffic-1', true, 3), trafficDebugEntry('traffic-2', false, 1)];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).roads,
+    'v1 / 2 nodes / 1 edges / 2 routed / 1 partial / 2 replans'
+  );
 });
 
 test('debug panel summarizes server phase cost and failures', () => {
@@ -238,5 +265,32 @@ function createSnapshot(): DebugSnapshot {
       lastChanges: []
     },
     events: [{tick: 41, type: 'crime.committed', summary: 'driver committed vehicle-theft'}]
+  };
+}
+
+function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevision: number) {
+  return {
+    vehicleId,
+    mission: 'cruise-route' as const,
+    drivingStyle: 'lawful' as const,
+    cruiseSpeed: 100,
+    desiredSpeed: 100,
+    speedReason: 'cruise' as const,
+    obstacleId: '',
+    obstacleDistance: -1,
+    blockedSince: 0,
+    recoveryCount: 0,
+    maneuverPhase: 'none' as const,
+    maneuverAttempts: 0,
+    emergencyYieldPhase: 'none' as const,
+    emergencyVehicleId: '',
+    routeSource: 'lane-graph' as const,
+    currentLaneNodeId: 'a',
+    destinationLaneNodeId: 'b',
+    routeRemaining: 1,
+    routeRevision,
+    routeComplete,
+    routeVisited: 2,
+    routeWaypoints: [{x: 100, y: 0}]
   };
 }

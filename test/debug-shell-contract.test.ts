@@ -5,6 +5,7 @@ import test from 'node:test';
 const SHELL_FILES = ['components/GameShell.tsx', 'index.html'] as const;
 const REQUIRED_MARKUP = [
   'id="debug-police-response"',
+  'id="debug-roads"',
   'id="debug-interaction-island"',
   'id="debug-interaction-replay"',
   'id="debug-interaction-selection"',
@@ -21,6 +22,7 @@ const REQUIRED_MARKUP = [
 ] as const;
 const REQUIRED_WIDE_ROWS = [
   'Police response',
+  'Road graph',
   'Netcode rollout',
   'Island budget',
   'Island replay',

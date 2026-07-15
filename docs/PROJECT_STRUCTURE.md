@@ -191,7 +191,9 @@ The first room-facing facades are now live:
 - `MissionSystem` owns Freemode roster/deadline/optional-target/contribution/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target, participant, hold, and eliminate predicates; `MissionEncounterSystem` owns bounded wave/actor/role/kill-contribution runtime through narrow pedestrian ports. Shared mission content owns definitions and target/reward/encounter policy. Target-free jobs never fabricate a vehicle, while combat contracts expose one stable mission-owned NPC target without taking over pedestrian AI.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
-- `TrafficController` owns deterministic ambient routes and driving targets.
+- `TrafficController` is the room-facing traffic facade. It composes route, awareness,
+  junction, maneuver, emergency-yield, and low-level driving owners without implementing
+  their policy.
 - `DistrictPopulationController` owns idempotent map bootstrap, initial archetype budgets, parked/traffic vehicle creation, and registration through domain APIs.
 - `DebugSnapshotController` owns bounded event summaries, sampled simulation diagnostics, domain-to-protocol copies, and developer snapshot publication.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
@@ -211,7 +213,15 @@ The first room-facing facades are now live:
 - `PedestrianMeleeSystem` owns a fixed NPC victim, windup/contact/recovery runtime, one-contact identity, impact-time range/arc/line-of-sight validation, reaction interruption, cooldown, damage requests, and replicated presentation facts. It does not select mission targets, navigate, fire projectiles, mutate survivability directly, or choose renderer animations.
 - `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
 - The shared vehicle catalog owns stable model content; vehicle access, player handling, damage/collision, population, traffic, and presentation consume focused portions of the same definition.
-- `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead corridor; `TrafficController` retains route, acceleration/braking, hijack, blockage, and deterministic recovery ownership.
+- `LaneGraph` compiles and validates versioned authored centerlines, directed right-hand
+  lanes, junction connectors, turnarounds, speed limits, and vehicle-class admission.
+- `TrafficRoutePlanner` owns deterministic visit-bounded lane A*; `TrafficRouteSystem` owns
+  durable destination/progress state, recovery reprojection, debug waypoints, and active
+  versus dormant population route adapters. The collision-grid route is a compatibility
+  adapter, not the production district representation.
+- `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead
+  corridor; `RoadDrivingSystem` owns steering/acceleration/braking; `TrafficController`
+  retains only composition, hijack handoff, and blockage timing.
 - `StreetEconomyController` is the in-memory implementation of the cash mutation port. Combat and missions propose stable idempotent rewards; services propose purchases; persistent account/ledger adapters can replace it without entering simulation domains.
 - `StreetServiceController` owns replicated nonmedical service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it delegates hospital interactions and does not own cash, health, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
@@ -308,6 +318,7 @@ traffic/
   traffic-controller.ts
   traffic-awareness-system.ts
   traffic-route-planner.ts
+  traffic-route-system.ts
   lane-graph.ts
   driving-agent.ts
   local-steering.ts
@@ -318,21 +329,29 @@ traffic/
 
 ### Lane Graph
 
-The current road-cell graph should evolve into versioned lane metadata:
+The Industrial District now has schema-versioned authored lane metadata for:
 
 - lane centerlines and direction;
 - speed limits;
 - allowed turns;
 - intersection entry and exit links;
-- stop lines, signals, crossings, and parking points;
+- junction ownership and terminal turnaround policy;
 - vehicle class restrictions;
-- district transfer edges.
 
-The map pipeline should validate disconnected lanes, impossible turns, overlapping spawn points, and missing intersection ownership.
+Stop lines, crossing priority, parking points, and district transfer edges remain future
+schema extensions.
+
+Runtime loading validates malformed ownership, blocked geometry, sinks, and directed
+strong connectivity. A future map-pipeline command should run the same validator before
+content reaches a deployment artifact.
 
 ### Route Planning
 
-The current `RoadRoutePlanner` provides deterministic bounded A* over compatibility road cells and returns explicit partial work when capped. A future lane route planner selects a destination and lane-level route. Both run infrequently under a work budget; route planning must not happen for every traffic car every simulation tick.
+`TrafficRoutePlanner` now provides deterministic bounded A* over directed lane edges and
+returns explicit partial work when capped. `TrafficRouteSystem` selects a stable distant
+destination and keeps the plan until completion or recovery. `RoadRoutePlanner` remains
+for compatibility road cells and other callers. Neither planner runs every simulation
+tick.
 
 ### Local Steering
 

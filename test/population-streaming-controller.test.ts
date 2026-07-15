@@ -113,7 +113,20 @@ function createFixture() {
     pedestrians,
     traffic: {
       register: (id: string) => registered.push(id),
-      release: (id: string) => released.push(id)
+      release: (id: string) => released.push(id),
+      spawn: (index: number, radius: number) => world.trafficSpawn(index, radius),
+      advanceVirtual: (spawn: TrafficSpawn) => ({
+        ...spawn,
+        x: spawn.x + 64,
+        column: spawn.targetColumn,
+        targetColumn: spawn.targetColumn + 1
+      }),
+      captureVirtual: (vehicle: {x: number; y: number; angle: number}) => ({
+        ...world.trafficSpawn(Math.round(vehicle.x + vehicle.y), 20),
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle
+      })
     }
   });
   return {state, controller, registered, released, pinnedPedestrians};

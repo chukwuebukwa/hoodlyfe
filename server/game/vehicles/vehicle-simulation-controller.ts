@@ -192,7 +192,7 @@ export class VehicleSimulationController {
     for (const occupant of this.options.access.occupants(vehicle.id)) {
       this.options.access.removePlayer(occupant);
     }
-    const spawn = this.options.world.trafficSpawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
+    const spawn = this.options.traffic.spawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
     Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
     vehicle.x = spawn.x;
     vehicle.y = spawn.y;

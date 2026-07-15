@@ -185,6 +185,10 @@ G1 architecture checklist:
 
 ### G2 - Road graph and production traffic behavior
 
+Status: G2a authored lane routing implemented on 2026-07-15; G2 remains in progress. See
+[`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md) and
+[`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md).
+
 Introduce an authored directed lane graph and separate:
 
 - long-term route or mission;
@@ -198,6 +202,24 @@ yielding, reverse recovery, maneuver cooldowns, and deterministic deadlock resol
 Netcode gate: traffic AI remains server-only. A promoted traffic car exposes physical
 state plus its last applied command for short island replay; the client never runs route
 selection or driving AI.
+
+G2a architecture checklist:
+
+- [x] A versioned authored district asset compiles centerlines and owned junctions into
+  immutable right-hand lane, connector, and turnaround edges.
+- [x] Startup validates geometry, occupancy, sinks, ownership, and forward/reverse strong
+  connectivity instead of silently accepting unusable graph content.
+- [x] Deterministic visit-bounded A* returns legal complete routes or explicit partial work.
+- [x] `TrafficRouteSystem` owns durable destinations, progress, recovery, diagnostics, and
+  active/dormant population adapters outside `TrafficController`.
+- [x] The collision-grid route remains an explicit map-compatibility adapter.
+- [x] F3 and the Three overlay expose graph topology, route state, partial plans, and
+  revisions to opt-in debug subscribers.
+- [x] Route, population, and AI policy remain server-only; frozen interaction-island
+  netcode and shared movement/contact kernels are unchanged.
+- [ ] G2b adds swept oriented-box/time-to-contact awareness and lane/right-of-way
+  arbitration.
+- [ ] G2c adds passing/yielding and deterministic multi-vehicle deadlock resolution.
 
 ### G3 - Police tactics and escalation
 

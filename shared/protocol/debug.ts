@@ -78,6 +78,8 @@ export interface DebugSimulationPhaseEntry {
 
 export interface DebugTrafficAiEntry {
   vehicleId: string;
+  mission: 'cruise-route';
+  drivingStyle: 'lawful';
   cruiseSpeed: number;
   desiredSpeed: number;
   speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren' | 'blocked' | 'hijack';
@@ -89,6 +91,38 @@ export interface DebugTrafficAiEntry {
   maneuverAttempts: number;
   emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
   emergencyVehicleId: string;
+  routeSource: 'lane-graph' | 'road-cell-fallback';
+  currentLaneNodeId: string;
+  destinationLaneNodeId: string;
+  routeRemaining: number;
+  routeRevision: number;
+  routeComplete: boolean;
+  routeVisited: number;
+  routeWaypoints: Array<{x: number; y: number}>;
+}
+
+export interface DebugTrafficLaneNodeEntry {
+  id: string;
+  x: number;
+  y: number;
+  junctionId: string;
+}
+
+export interface DebugTrafficLaneEdgeEntry {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  kind: 'lane' | 'connector' | 'turnaround';
+  turn: 'none' | 'left' | 'right' | 'straight' | 'uturn';
+  speedLimit: number;
+  junctionId: string;
+}
+
+export interface DebugTrafficLaneGraphEntry {
+  schemaVersion: number;
+  districtId: string;
+  nodes: DebugTrafficLaneNodeEntry[];
+  edges: DebugTrafficLaneEdgeEntry[];
 }
 
 export interface DebugTrafficSignalEntry {
@@ -197,6 +231,7 @@ export interface DebugSnapshot {
   pedestrianAi?: DebugPedestrianAiEntry[];
   stimuli?: DebugStimulusEntry[];
   trafficAi?: DebugTrafficAiEntry[];
+  trafficLaneGraph?: DebugTrafficLaneGraphEntry;
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
   policeFleet?: DebugPoliceFleetEntry;

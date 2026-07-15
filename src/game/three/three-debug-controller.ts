@@ -45,6 +45,7 @@ export class ThreeDebugController {
     response: document.querySelector('#debug-police-response'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
+    roads: document.querySelector('#debug-roads'),
     region: document.querySelector('#debug-region'),
     latency: document.querySelector('#debug-latency'),
     patchGap: document.querySelector('#debug-patch-gap'),
@@ -163,6 +164,22 @@ export class ThreeDebugController {
         this.surfaceHeightAt
       ));
     }
+    const laneGraph = this.snapshot?.trafficLaneGraph;
+    if (laneGraph) {
+      const nodes = new Map(laneGraph.nodes.map((node) => [node.id, node]));
+      for (const edge of laneGraph.edges) {
+        const from = nodes.get(edge.fromNodeId);
+        const to = nodes.get(edge.toNodeId);
+        if (!from || !to) continue;
+        const color = edge.kind === 'lane'
+          ? 0x427866
+          : edge.kind === 'connector' ? 0xf0b64c : 0xb47cff;
+        this.group.add(debugLine([
+          point(from.x, from.y, this.surfaceHeightAt(from.x, from.y) + 18),
+          point(to.x, to.y, this.surfaceHeightAt(to.x, to.y) + 18)
+        ], color));
+      }
+    }
     this.drawInteractionIsland(state);
     for (const bullet of state.bullets.values()) {
       this.group.add(debugLine([
@@ -205,8 +222,19 @@ export class ThreeDebugController {
       ], assignment.unitKind === 'foot' ? 0xff6f78 : 0x58c8ff));
     }
     for (const entry of this.snapshot?.trafficAi ?? []) {
-      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const vehicle = state.vehicles.get(entry.vehicleId);
+      if (vehicle && entry.routeWaypoints.length > 0) {
+        const points = [
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 30),
+          ...entry.routeWaypoints.map((waypoint) => point(
+            waypoint.x,
+            waypoint.y,
+            this.surfaceHeightAt(waypoint.x, waypoint.y) + 30
+          ))
+        ];
+        this.group.add(debugLine(points, entry.routeComplete ? 0x45d7ff : 0xff8b4d));
+      }
+      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
       if (!vehicle || !emergency) continue;
       this.group.add(debugLine([

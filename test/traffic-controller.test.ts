@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {TrafficController, trafficLanePoint} from '../server/game/traffic/traffic-controller.ts';
+import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {VEHICLE_KINDS, vehicleDefinition} from '../shared/content/vehicle-catalog.ts';
 
 test('traffic controller follows deterministic road routes and releases hijacked cars', () => {
   const world = CollisionMap.load();
@@ -38,6 +40,52 @@ test('traffic controller follows deterministic road routes and releases hijacked
   first.vehicle.hijackBy = '';
   firstController.update(first.vehicle, 1, 6000);
   assert.deepEqual({x: first.vehicle.x, y: first.vehicle.y, speed: first.vehicle.speed}, released);
+});
+
+test('traffic controller owns a durable authored lane route instead of choosing every tick', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('authored-route')
+  });
+  const spawn = controller.spawn(211, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'authored-traffic';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+
+  const initial = controller.diagnostics()[0];
+  assert.equal(initial.mission, 'cruise-route');
+  assert.equal(initial.drivingStyle, 'lawful');
+  assert.equal(initial.routeSource, 'lane-graph');
+  assert.equal(initial.routeRevision, 1);
+  assert.equal(initial.routeComplete, true);
+  assert.ok(initial.routeRemaining >= 2);
+  assert.equal(initial.routeWaypoints.length, initial.routeRemaining);
+
+  for (let tick = 1; tick <= 30; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+  }
+  const duringEdge = controller.diagnostics()[0];
+  assert.equal(duringEdge.routeRevision, 1);
+  assert.equal(duringEdge.destinationLaneNodeId, initial.destinationLaneNodeId);
+  assert.ok(Math.hypot(vehicle.x - spawn.x, vehicle.y - spawn.y) > 0);
+
+  for (let tick = 31; tick <= 1800; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+  }
+  const circulated = controller.diagnostics()[0];
+  assert.ok(circulated.routeRevision > 1);
+  assert.equal(circulated.routeSource, 'lane-graph');
+  assert.ok(circulated.currentLaneNodeId);
+  assert.ok(circulated.destinationLaneNodeId);
+  assert.equal(world.isRoadAt(vehicle.x, vehicle.y), true);
 });
 
 test('traffic controller brakes for an ahead obstacle and exposes its speed reason', () => {
@@ -172,6 +220,11 @@ test('opposing traffic spawns on opposite right-hand lane offsets', () => {
   assert.ok(eastbound.y > 100);
   assert.ok(westbound.y < 100);
   assert.equal(eastbound.x, westbound.x);
+  const widestCollider = Math.max(...VEHICLE_KINDS.map((kind) => vehicleDefinition(kind).collision.width));
+  assert.ok(
+    eastbound.y - westbound.y >= widestCollider + 8,
+    'Opposing lane centers must clear the widest vehicle collider plus a safety margin.'
+  );
 });
 
 test('traffic scans the active route and does not node-snap through a stopping obstacle', () => {

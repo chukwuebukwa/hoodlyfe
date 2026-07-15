@@ -11,6 +11,7 @@ import {
   type DebugSimulationPhaseEntry,
   type DebugStimulusEntry,
   type DebugTrafficAiEntry,
+  type DebugTrafficLaneGraphEntry,
   type DebugTrafficSignalEntry
 } from '../../../shared/protocol/debug.ts';
 import type {DistrictState} from '../../state.ts';
@@ -35,6 +36,7 @@ interface DebugSnapshotControllerOptions {
   pedestrians?: () => ReadonlyArray<DebugPedestrianAiEntry>;
   stimuli?: () => ReadonlyArray<DebugStimulusEntry>;
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
+  trafficLaneGraph?: () => DebugTrafficLaneGraphEntry;
   trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   policeFleet?: () => DebugPoliceFleetEntry;
@@ -117,7 +119,11 @@ export class DebugSnapshotController {
         ...stimulus,
         channels: [...stimulus.channels]
       })),
-      trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({...traffic})),
+      trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({
+        ...traffic,
+        routeWaypoints: traffic.routeWaypoints.map((waypoint) => ({...waypoint}))
+      })),
+      trafficLaneGraph: cloneTrafficLaneGraph(this.options.trafficLaneGraph?.()),
       trafficSignals: (this.options.trafficSignals?.() ?? []).map((signal) => ({
         ...signal,
         waitingVehicleIds: [...signal.waitingVehicleIds]
@@ -191,6 +197,16 @@ function positiveInteger(value: number, name: string): number {
     throw new RangeError(`${name} must be a positive integer.`);
   }
   return value;
+}
+
+function cloneTrafficLaneGraph(
+  graph: DebugTrafficLaneGraphEntry | undefined
+): DebugTrafficLaneGraphEntry | undefined {
+  return graph ? {
+    ...graph,
+    nodes: graph.nodes.map((node) => ({...node})),
+    edges: graph.edges.map((edge) => ({...edge}))
+  } : undefined;
 }
 
 function clonePoliceResponse(

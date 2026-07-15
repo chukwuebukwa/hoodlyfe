@@ -23,6 +23,7 @@ export interface DebugPanelProjection {
   response: string;
   stimuli: number;
   signals: string;
+  roads: string;
   region: string;
   latency: string;
   patchGap: string;
@@ -62,6 +63,7 @@ export function projectDebugPanel(
     response: policeResponseSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
+    roads: trafficLaneGraphSummary(snapshot),
     region: network ? `${network.region} / ${network.buildId}` : 'unknown',
     latency: network
       ? `${network.rttMedianMs}/${network.rttP95Ms}ms +/-${network.jitterMs}`
@@ -158,6 +160,16 @@ function trafficSignalSummary(snapshot?: DebugSnapshot): string {
   if (signals.length === 0) return '0';
   const waiting = signals.reduce((sum, signal) => sum + signal.waitingVehicleIds.length, 0);
   return `${signals.length} / ${waiting} wait`;
+}
+
+function trafficLaneGraphSummary(snapshot?: DebugSnapshot): string {
+  const graph = snapshot?.trafficLaneGraph;
+  if (!graph) return 'off';
+  const routed = (snapshot?.trafficAi ?? []).filter((entry) => entry.routeSource === 'lane-graph');
+  const incomplete = routed.filter((entry) => !entry.routeComplete).length;
+  const replans = routed.reduce((sum, entry) => sum + Math.max(0, entry.routeRevision - 1), 0);
+  return `v${graph.schemaVersion} / ${graph.nodes.length} nodes / ${graph.edges.length} edges / ` +
+    `${routed.length} routed / ${incomplete} partial / ${replans} replans`;
 }
 
 function policeVehicleSummary(snapshot?: DebugSnapshot): string {

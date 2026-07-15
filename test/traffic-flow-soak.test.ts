@@ -6,18 +6,19 @@ import {
   trafficLanePoint
 } from '../server/game/traffic/traffic-controller.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
+import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-config.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
 test('a streamed street population continues circulating through a one-minute soak', () => {
   const world = CollisionMap.load();
   const random = new DeterministicRandom('traffic-flow-soak');
-  const traffic = new TrafficController({world, random});
+  const traffic = new TrafficController({world, random, laneGraph: LaneGraph.load(world)});
   const vehicles: VehicleState[] = [];
   const starts = new Map<string, {x: number; y: number}>();
 
   for (let index = 0; index < 24; index++) {
-    const spawn = world.trafficSpawn(30_000 + index * 307, VEHICLE_RADIUS);
+    const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
     const lane = trafficLanePoint(spawn);
     if (vehicles.some((vehicle) => Math.hypot(vehicle.x - lane.x, vehicle.y - lane.y) < 64)) continue;
     const vehicle = new VehicleState();

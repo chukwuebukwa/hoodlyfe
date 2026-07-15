@@ -75,6 +75,9 @@ game/
     player-control-controller.ts
     player-lifecycle-controller.ts
   traffic/
+    lane-graph.ts
+    traffic-route-planner.ts
+    traffic-route-system.ts
     traffic-awareness-system.ts
     traffic-controller.ts
     traffic-junction-system.ts
@@ -144,7 +147,16 @@ Extracted domain policies and room adapters now include:
 - `freemode-mission-controller.ts` for template validation, target selection, deterministic road-safe checkpoint generation, schema projection, typed events, economy payout, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
-- `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning, following/stopping speed policy, and inspectable limiting obstacles; `traffic-controller.ts` for ambient route state, deterministic turn/recovery selection, model-aware asymmetric cruise/braking, hijack braking, and release.
+- `lane-graph.ts` for schema-versioned authored centerline compilation, immutable directed
+  right-hand lanes/connectors/turnarounds, geometry and strong-connectivity validation,
+  legal spawn/projection, and coarse virtual advance/capture.
+- `traffic-route-planner.ts` for deterministic visit-bounded lane A* with explicit partial
+  results; `traffic-route-system.ts` for durable destinations, route progress, speed-limit
+  lookup, recovery reprojection, diagnostics, and population-streaming adapters.
+- `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning,
+  following/stopping speed policy, and inspectable limiting obstacles;
+  `traffic-controller.ts` composes route, junction, maneuver, emergency-yield, and driving
+  owners while retaining hijack and blockage orchestration.
 - `road-driving-system.ts` for shared road-constrained steering/acceleration/awareness execution and `road-route-planner.ts` for deterministic visit-bounded road-cell A* with explicit partial routes.
 - `police-response-fleet-controller.ts` for realizing the allocator's aggregate cruiser demand without owning suspect selection; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for assignment execution, private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
 - `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.

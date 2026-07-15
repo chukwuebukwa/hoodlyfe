@@ -117,9 +117,9 @@ export class DistrictPopulationController {
   }
 
   private openTrafficSpawn(index: number): TrafficSpawn {
-    let fallback = this.options.world.trafficSpawn(200 + index * 19, VEHICLE_RADIUS);
+    let fallback = this.options.traffic.spawn(200 + index * 19, VEHICLE_RADIUS);
     for (let attempt = 0; attempt < TRAFFIC_SPAWN_ATTEMPTS; attempt++) {
-      const candidate = this.options.world.trafficSpawn(
+      const candidate = this.options.traffic.spawn(
         200 + index * 193 + attempt * 43,
         VEHICLE_RADIUS
       );
