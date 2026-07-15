@@ -2,6 +2,8 @@
 
 Date: 2026-07-10
 
+Status update (2026-07-14): G1 replaced the pursuit slice's private cruiser assignment owner with `PoliceResponseAllocationSystem`, the shared finite foot/cruiser response allocator documented in `CRIME_WANTED_RESPONSE_BUDGET_RESEARCH.md`. The pursuit strategy, search-memory, routing, steering, and collision boundaries below remain current; references to `PoliceVehicleDispatchSystem` describe the original slice before that ownership migration.
+
 This slice establishes one authoritative police cruiser pursuit without pretending that the current GTA2 compatibility road mask is a production lane network. The implementation is clean-room TypeScript informed by local reverse-engineered source structure. No source code was copied.
 
 ## Production References
@@ -29,9 +31,9 @@ Those high degree counts show that this is a broad binary road-surface mask, not
 ## Implemented Boundary
 
 - `CrimeResponseController` remains the only owner that reads wanted state. It supplies reported location/time plus a current target pose used only for bounded line-of-sight perception.
-- `PoliceVehicleDispatchSystem` owns stable unit assignments, wanted-tier response caps, expired-report suppression, and deterministic target priority.
+- `PoliceResponseAllocationSystem` now owns stable foot/cruiser leases, wanted-tier quotas, district capacity, expired-report suppression, deterministic fairness, and assignment replacement across all simultaneous suspects.
 - `police-vehicle-policy.ts` owns pure wanted-tier strategy, speed, and visible-vehicle lead calculations.
-- `PoliceVehicleController` composes dispatch, policy, pursuit memory, route cadence, steering, siren state, and diagnostics.
+- `PoliceVehicleController` executes its shared assignment and composes policy, pursuit memory, route cadence, steering, siren state, and diagnostics.
 - `RoadRoutePlanner` owns deterministic bounded A*. It returns complete routes or explicit partial progress when its visit budget is exhausted.
 - `RoadDrivingSystem` owns shared road-constrained steering, acceleration/braking, ahead-corridor awareness, obstacle policy, and off-road rejoin. Ambient `TrafficController` still owns random cruising and recovery decisions.
 - `VehicleSimulationController` remains the sole owner of impacts, car-to-car collision, damage, fire, destruction, occupants, and replication.

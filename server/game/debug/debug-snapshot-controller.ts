@@ -4,6 +4,7 @@ import {
   type DebugPedestrianAiEntry,
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
+  type DebugPoliceResponseEntry,
   type DebugReplicationEntry,
   type DebugPopulationStreamingEntry,
   type DebugSnapshot,
@@ -37,6 +38,7 @@ interface DebugSnapshotControllerOptions {
   trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   policeFleet?: () => DebugPoliceFleetEntry;
+  policeResponse?: () => DebugPoliceResponseEntry;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -125,6 +127,7 @@ export class DebugSnapshotController {
         waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))
       })),
       policeFleet: this.options.policeFleet?.(),
+      policeResponse: clonePoliceResponse(this.options.policeResponse?.()),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
@@ -188,4 +191,15 @@ function positiveInteger(value: number, name: string): number {
     throw new RangeError(`${name} must be a positive integer.`);
   }
   return value;
+}
+
+function clonePoliceResponse(
+  response: DebugPoliceResponseEntry | undefined
+): DebugPoliceResponseEntry | undefined {
+  return response ? {
+    ...response,
+    demands: response.demands.map((demand) => ({...demand})),
+    assignments: response.assignments.map((assignment) => ({...assignment})),
+    lastChanges: response.lastChanges.map((change) => ({...change}))
+  } : undefined;
 }

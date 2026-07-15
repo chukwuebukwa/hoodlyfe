@@ -5,7 +5,13 @@ import {WitnessSystem} from '../incidents/witness-system.ts';
 import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {WantedSystem} from '../wanted/wanted-system.ts';
-import {DispatchSystem} from './dispatch-system.ts';
+import {
+  PoliceResponseAllocationSystem,
+  type PoliceResponseAllocationDiagnostic,
+  type PoliceResponseChange,
+  type PoliceResponseFleetPlan,
+  type PoliceResponseSuspect
+} from './police-response-allocation-system.ts';
 import {PursuitMemory, type PursuitRecord} from './pursuit-memory.ts';
 
 interface CrimeClock {
@@ -47,7 +53,7 @@ export class CrimeResponseController {
   private readonly incidents = new IncidentRegistry();
   private readonly witnesses = new WitnessSystem();
   private readonly wanted = new WantedSystem();
-  private readonly dispatch = new DispatchSystem();
+  private readonly responseAllocation = new PoliceResponseAllocationSystem();
   private readonly pursuitMemory = new PursuitMemory();
   private readonly reportedSuspectLocations = new Map<
     string,
@@ -126,21 +132,44 @@ export class CrimeResponseController {
     }
   }
 
-  updateDispatch(nowMs: number): void {
+  updateResponse(nowMs: number): void {
     const {state} = this.options;
-    const suspects = [...state.players.values()]
-      .filter((player) => player.alive && player.wanted > 0)
-      .map((player) => ({id: player.id, wantedLevel: player.wanted}));
-    const officerIds = [...state.npcs.values()]
-      .filter((npc) => npc.alive && npc.kind === 'police')
-      .map((npc) => npc.id);
-    for (const change of this.dispatch.update(suspects, officerIds)) {
-      if (change.suspectId) {
+    const units = [
+      ...[...state.npcs.values()]
+        .filter((npc) => npc.kind === 'police')
+        .map((npc) => ({
+          id: npc.id,
+          kind: 'foot' as const,
+          x: npc.x,
+          y: npc.y,
+          available: npc.alive
+        })),
+      ...[...state.vehicles.values()]
+        .filter((vehicle) => vehicle.kind === 'police')
+        .map((vehicle) => ({
+          id: vehicle.id,
+          kind: 'vehicle' as const,
+          x: vehicle.x,
+          y: vehicle.y,
+          available: !vehicle.destroyed && !vehicle.hijackBy && !vehicle.driverId
+        }))
+    ];
+    this.applyAllocationChanges(this.responseAllocation.update(
+      this.responseSuspects(),
+      units,
+      nowMs
+    ), nowMs);
+  }
+
+  private applyAllocationChanges(changes: readonly PoliceResponseChange[], nowMs: number): void {
+    const {state} = this.options;
+    for (const change of changes) {
+      if (change.unitKind === 'foot' && change.suspectId) {
         const location = this.reportedSuspectLocations.get(change.suspectId);
-        const officer = state.npcs.get(change.officerId);
+        const officer = state.npcs.get(change.unitId);
         if (location) {
           this.pursuitMemory.assignSearch(
-            change.officerId,
+            change.unitId,
             change.suspectId,
             location.x,
             location.y,
@@ -148,21 +177,21 @@ export class CrimeResponseController {
           );
         } else if (officer) {
           this.pursuitMemory.assignSearch(
-            change.officerId,
+            change.unitId,
             change.suspectId,
             officer.x,
             officer.y,
             nowMs
           );
         }
-      } else {
-        this.pursuitMemory.clearOfficer(change.officerId);
+      } else if (change.unitKind === 'foot') {
+        this.pursuitMemory.clearOfficer(change.unitId);
       }
       this.options.events.publish({
         type: 'pursuit.changed',
         tick: this.options.clock().tick,
         nowMs,
-        officerId: change.officerId,
+        officerId: change.unitId,
         previousSuspectId: change.previousSuspectId,
         suspectId: change.suspectId
       });
@@ -178,35 +207,37 @@ export class CrimeResponseController {
     player.wanted = this.wanted.tryDecay(player.id, nowMs, policeNearby).level;
   }
 
-  policeVehicleTargets(): PoliceVehicleTargetSnapshot[] {
-    const targets: PoliceVehicleTargetSnapshot[] = [];
-    for (const player of this.options.state.players.values()) {
-      if (!player.alive || player.wanted <= 0) continue;
-      const report = this.reportedSuspectLocations.get(player.id);
-      if (!report) continue;
-      const vehicle = player.vehicleId
-        ? this.options.state.vehicles.get(player.vehicleId)
-        : undefined;
-      targets.push({
-        suspectId: player.id,
-        wantedLevel: player.wanted,
-        reportedX: report.x,
-        reportedY: report.y,
-        reportedAt: report.reportedAt,
-        currentX: player.x,
-        currentY: player.y,
-        currentAngle: vehicle?.angle ?? player.angle,
-        currentSpeed: vehicle?.speed ?? 0,
-        targetVehicleId: vehicle?.id ?? ''
-      });
-    }
-    return targets.sort((left, right) => (
-      right.wantedLevel - left.wantedLevel || left.suspectId.localeCompare(right.suspectId)
-    ));
+  policeVehicleTarget(vehicleId: string): PoliceVehicleTargetSnapshot | undefined {
+    const assignment = this.responseAllocation.assignmentFor('vehicle', vehicleId);
+    return assignment ? this.vehicleTargetSnapshot(assignment.suspectId) : undefined;
+  }
+
+  forgetPoliceVehicleTarget(
+    vehicleId: string,
+    suspectId: string,
+    reportedAt: number,
+    nowMs: number
+  ): void {
+    const change = this.responseAllocation.suppressReport(
+      'vehicle',
+      vehicleId,
+      suspectId,
+      reportedAt,
+      nowMs
+    );
+    if (change) this.applyAllocationChanges([change], nowMs);
+  }
+
+  responseFleetPlan(): PoliceResponseFleetPlan {
+    return this.responseAllocation.fleetPlan();
+  }
+
+  responseAllocationSnapshot(): PoliceResponseAllocationDiagnostic {
+    return this.responseAllocation.diagnostics();
   }
 
   policeTarget(officer: NpcState, nowMs: number): PoliceTarget | undefined {
-    const targetId = this.dispatch.targetFor(officer.id);
+    const targetId = this.responseAllocation.assignmentFor('foot', officer.id)?.suspectId;
     const player = targetId ? this.options.state.players.get(targetId) : undefined;
     if (!player?.alive || player.wanted <= 0) return undefined;
     const targetDistance = Math.hypot(player.x - officer.x, player.y - officer.y);
@@ -219,13 +250,28 @@ export class CrimeResponseController {
     const pursuit = canSeeTarget
       ? this.pursuitMemory.observe(officer.id, player.id, player.x, player.y, nowMs)
       : this.pursuitMemory.search(officer.id, player.id, nowMs);
+    if (!pursuit) {
+      const report = this.reportedSuspectLocations.get(player.id);
+      if (report) {
+        const change = this.responseAllocation.suppressReport(
+          'foot',
+          officer.id,
+          player.id,
+          report.reportedAt,
+          nowMs
+        );
+        if (change) this.applyAllocationChanges([change], nowMs);
+      }
+      return undefined;
+    }
     return {player, pursuit, canSeeTarget, targetDistance};
   }
 
   clearSuspect(suspectId: string): void {
+    const nowMs = this.options.clock().nowMs;
     this.incidents.clearSuspect(suspectId);
     this.wanted.reset(suspectId);
-    this.dispatch.clearSuspect(suspectId);
+    this.applyAllocationChanges(this.responseAllocation.clearSuspect(suspectId, nowMs), nowMs);
     this.pursuitMemory.clearSuspect(suspectId);
     this.reportedSuspectLocations.delete(suspectId);
   }
@@ -250,5 +296,44 @@ export class CrimeResponseController {
       y: npc.y,
       alive: npc.alive
     }));
+  }
+
+  private responseSuspects(): PoliceResponseSuspect[] {
+    return [...this.options.state.players.values()].flatMap((player) => {
+      const report = this.reportedSuspectLocations.get(player.id);
+      if (!player.alive || player.spaceId !== 'street' || player.wanted <= 0 || !report) return [];
+      return [{
+        id: player.id,
+        wantedLevel: player.wanted,
+        reportAt: report.reportedAt,
+        reportedX: report.x,
+        reportedY: report.y,
+        currentX: player.x,
+        currentY: player.y
+      }];
+    });
+  }
+
+  private vehicleTargetSnapshot(suspectId: string): PoliceVehicleTargetSnapshot | undefined {
+    const player = this.options.state.players.get(suspectId);
+    const report = this.reportedSuspectLocations.get(suspectId);
+    if (!player?.alive || player.spaceId !== 'street' || player.wanted <= 0 || !report) {
+      return undefined;
+    }
+    const vehicle = player.vehicleId
+      ? this.options.state.vehicles.get(player.vehicleId)
+      : undefined;
+    return {
+      suspectId: player.id,
+      wantedLevel: player.wanted,
+      reportedX: report.x,
+      reportedY: report.y,
+      reportedAt: report.reportedAt,
+      currentX: player.x,
+      currentY: player.y,
+      currentAngle: vehicle?.angle ?? player.angle,
+      currentSpeed: vehicle?.speed ?? 0,
+      targetVehicleId: vehicle?.id ?? ''
+    };
   }
 }

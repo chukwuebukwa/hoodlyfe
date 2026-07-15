@@ -20,6 +20,7 @@ export interface DebugPanelProjection {
   incidents: number;
   pursuits: number;
   cruisers: string;
+  response: string;
   stimuli: number;
   signals: string;
   region: string;
@@ -58,6 +59,7 @@ export function projectDebugPanel(
     incidents: snapshot?.incidents.length ?? 0,
     pursuits: snapshot?.pursuits.length ?? 0,
     cruisers: policeVehicleSummary(snapshot),
+    response: policeResponseSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
     region: network ? `${network.region} / ${network.buildId}` : 'unknown',
@@ -170,4 +172,13 @@ function policeVehicleSummary(snapshot?: DebugSnapshot): string {
     ? `0/${units.length} idle`
     : `${active.length}/${units.length} ${active[0].strategy}`;
   return fleetSummary ? `${activity} / ${fleetSummary}` : activity;
+}
+
+function policeResponseSummary(snapshot?: DebugSnapshot): string {
+  const response = snapshot?.policeResponse;
+  if (!response) return 'off';
+  return `${response.usedResponsePoints}/${response.maxResponsePoints} pts / ` +
+    `F${response.assignedFootUnits}/${response.maxFootUnits} / ` +
+    `V${response.assignedVehicleUnits}/${response.maxVehicleUnits} / ` +
+    `${response.demands.length} suspects / ${response.suppressedPairs} suppressed`;
 }

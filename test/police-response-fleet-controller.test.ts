@@ -10,14 +10,14 @@ import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 
 test('response policy bounds units and increases reinforcement cadence with heat', () => {
-  assert.deepEqual([-1, 0, 1, 2, 3, 5].map(responseVehicleLimit), [0, 0, 1, 2, 3, 3]);
+  assert.deepEqual([-1, 0, 1, 2, 3, 5].map(responseVehicleLimit), [0, 0, 1, 2, 2, 3]);
   assert.equal(responseSpawnInterval(1), 5_000);
   assert.equal(responseSpawnInterval(2), 3_000);
   assert.equal(responseSpawnInterval(3), 1_800);
 });
 
 test('fleet scales to heat through delayed, clear, road-reachable reinforcements', () => {
-  const fixture = createFixture(3);
+  const fixture = createFixture(5);
   fixture.controller.update(0);
   assert.equal(fixture.controller.managedVehicleIds().length, 1);
   fixture.controller.update(1_799);
@@ -95,7 +95,22 @@ function createFixture(wanted: number) {
   player.wanted = wanted;
   state.players.set(player.id, player);
   const police = new PoliceRegistry();
-  const controller = new PoliceResponseFleetController({state, world, police});
+  const controller = new PoliceResponseFleetController({
+    state,
+    world,
+    police,
+    responsePlan: () => ({
+      desiredUnits: responseVehicleLimit(player.wanted),
+      targets: player.wanted > 0 ? [{
+        suspectId: player.id,
+        wantedLevel: player.wanted,
+        x: player.x,
+        y: player.y,
+        desiredUnits: responseVehicleLimit(player.wanted),
+        assignedUnits: 0
+      }] : []
+    })
+  });
   return {state, world, player, police, controller};
 }
 

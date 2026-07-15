@@ -411,22 +411,41 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => first.state.players.get(first.sessionId)?.action === '');
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'pistol');
-  for (let shot = 0; shot < 8 && first.state.players.get(second.sessionId)?.alive; shot++) {
+  const killDeadline = Date.now() + 8_000;
+  while (Date.now() < killDeadline && first.state.players.get(second.sessionId)?.alive) {
     const shooter = first.state.players.get(first.sessionId);
     const target = first.state.players.get(second.sessionId);
     assert.ok(shooter && target);
+    assert.equal(shooter.alive, true, 'Police response killed the test shooter before the duel ended.');
+    if (shooter.action) {
+      await delay(50);
+      continue;
+    }
     first.send('aim', {angle: Math.atan2(target.y - shooter.y, target.x - shooter.x)});
     await delay(25);
     first.send('shoot');
     await delay(220);
   }
-  await waitUntil(() => first.state.players.get(second.sessionId)?.alive === false);
-  assert.ok((first.state.players.get(first.sessionId)?.wanted ?? 0) >= 1);
+  assert.equal(
+    first.state.players.get(second.sessionId)?.alive,
+    false,
+    'Authoritative pistol fire did not kill the target before the bounded duel deadline.'
+  );
   await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.pursuits.length > 0));
   assert.ok(debugSnapshots.some((snapshot) => (
     snapshot.events.some((event) => event.type === 'incident.reported')
   )));
-  assert.ok((first.state.players.get(first.sessionId)?.cash ?? 0) >= 100);
+  await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.events.some((event) => (
+    event.type === 'entity.killed' && event.summary.includes(second.sessionId)
+  ))));
+  const shooterAfterDuel = first.state.players.get(first.sessionId);
+  if (shooterAfterDuel?.alive) {
+    assert.ok(shooterAfterDuel.wanted >= 1);
+    assert.ok(shooterAfterDuel.cash >= 100);
+  } else {
+    await waitUntil(() => first.state.players.get(first.sessionId)?.alive === true, 5000);
+    await returnToStreetIfNeeded(first, first.sessionId);
+  }
   await waitUntil(() => second.state.players.get(second.sessionId)?.alive === true, 5000);
   assert.equal(second.state.players.get(second.sessionId)?.health, 100);
   assert.equal(second.state.players.get(second.sessionId)?.armor, 0);
@@ -675,6 +694,7 @@ async function movePlayerTo(
       waypoints = [];
       stagnantSteps = 0;
     }
+    if (step > 0 && step % 12 === 0 && detourSteps === 0) waypoints = [];
     if (waypoints.length === 0 || waypointIndex >= waypoints.length) {
       const path = planMissionContactApproach(
         room,
@@ -779,16 +799,46 @@ function planMissionContactApproach(
     .map((candidate, index) => {
       if (!world.canOccupy(candidate.x, candidate.y, 11)) return undefined;
       const path = planner.plan(player, candidate, 11);
-      if (!path?.complete || !approachHasVehicleClearance(room, candidate)) return undefined;
+      if (
+        !path?.complete ||
+        !approachHasVehicleClearance(room, candidate)
+      ) return undefined;
       return {
         index,
         distance: Math.hypot(candidate.x - player.x, candidate.y - player.y),
+        vehicleConflicts: pathVehicleConflictCount(room, player, path.points),
         points: path.points
       };
     })
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
-    .sort((left, right) => left.distance - right.distance || left.index - right.index)[0]
+    .sort((left, right) => (
+      left.vehicleConflicts - right.vehicleConflicts ||
+      left.distance - right.distance ||
+      left.index - right.index
+    ))[0]
     ?.points;
+}
+
+function pathVehicleConflictCount(
+  room: Room<DistrictNetworkState>,
+  start: {x: number; y: number},
+  points: ReadonlyArray<{x: number; y: number}>
+): number {
+  let conflicts = 0;
+  let previous = start;
+  for (const point of points) {
+    const distance = Math.hypot(point.x - previous.x, point.y - previous.y);
+    const samples = Math.max(1, Math.ceil(distance / 14));
+    for (let sample = 1; sample <= samples; sample++) {
+      const progress = sample / samples;
+      if (!approachHasVehicleClearance(room, {
+        x: previous.x + (point.x - previous.x) * progress,
+        y: previous.y + (point.y - previous.y) * progress
+      })) conflicts++;
+    }
+    previous = point;
+  }
+  return conflicts;
 }
 
 function approachHasVehicleClearance(

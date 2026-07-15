@@ -364,27 +364,22 @@ Police should not be implemented as civilians with one target rule. Separate dis
 
 ```text
 police/
-  dispatch-system.ts
   crime-response-controller.ts
+  police-response-allocation-system.ts
+  police-response-fleet-controller.ts
   pursuit-memory.ts
-  police-vehicle-dispatch-system.ts
   police-vehicle-policy.ts
   police-vehicle-controller.ts
-  incident-registry.ts
-  police-unit-system.ts
-  pursuit-coordinator.ts
-  roadblock-planner.ts
-  arrest-system.ts
 ```
 
 - Crimes create incidents with location, severity, witnesses, suspect, and expiry.
-- Dispatch assigns available units based on distance and escalation.
-- Pursuit coordination prevents every officer from choosing the same position.
+- Shared response allocation gives simultaneous suspects deterministic shares of one finite foot/cruiser budget, retains leases, replaces materially poor assignments, and suppresses expired unit-report pairs.
+- Fleet control realizes aggregate cruiser demand; foot and vehicle controllers execute their assigned target with separate search memory and movement behavior.
 - Wanted heat controls the response budget, not individual officer omniscience.
 - Officers need search behavior after losing sight rather than permanent direct knowledge.
 - Arrest, surrender, jail, death, and respawn are separate outcomes.
 
-The first `PoliceVehicleController` consumes reported suspect snapshots from crime response, composes a dedicated cruiser dispatch module, pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. This preserves the production-style split between dispatch facts, car mission selection, road execution, and impact physics.
+`PoliceVehicleController` consumes shared assignments and reported suspect snapshots from crime response, composes pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. Planned pursuit coordination, roadblock planning, arrest, surrender, and jail remain separate future modules rather than additions to this controller.
 
 ## Combat Organization
 

@@ -4,7 +4,6 @@ import type {TrafficObstacle, TrafficSpeedReason} from '../traffic/traffic-aware
 import {RoadDrivingSystem} from '../traffic/road-driving-system.ts';
 import {RoadRoutePlanner} from '../traffic/road-route-planner.ts';
 import type {PoliceVehicleTargetSnapshot} from './crime-response-controller.ts';
-import {PoliceVehicleDispatchSystem} from './police-vehicle-dispatch-system.ts';
 import {
   DIRECT_PURSUIT_DISTANCE,
   policeVehicleSpeed,
@@ -50,7 +49,13 @@ export interface PoliceVehicleDiagnostic {
 
 interface PoliceVehicleControllerOptions {
   world: CollisionMap;
-  targets: () => readonly PoliceVehicleTargetSnapshot[];
+  targetFor: (vehicleId: string) => PoliceVehicleTargetSnapshot | undefined;
+  forgetTarget: (
+    vehicleId: string,
+    suspectId: string,
+    reportedAt: number,
+    nowMs: number
+  ) => void;
 }
 
 const VEHICLE_RADIUS = 20;
@@ -59,7 +64,6 @@ const SEARCH_ARRIVAL_RADIUS = 42;
 
 export class PoliceVehicleController {
   private readonly runtimes = new Map<string, PoliceVehicleRuntime>();
-  private readonly dispatch = new PoliceVehicleDispatchSystem();
   private readonly memory = new PursuitMemory(9000);
   private readonly planner: RoadRoutePlanner;
   private readonly driver: RoadDrivingSystem;
@@ -76,7 +80,6 @@ export class PoliceVehicleController {
 
   release(vehicleId: string): void {
     this.runtimes.delete(vehicleId);
-    this.dispatch.release(vehicleId);
     this.memory.clearOfficer(vehicleId);
   }
 
@@ -102,12 +105,7 @@ export class PoliceVehicleController {
       return false;
     }
 
-    const target = this.dispatch.targetFor(
-      vehicle.id,
-      vehicle.x,
-      vehicle.y,
-      this.options.targets()
-    );
+    const target = this.options.targetFor(vehicle.id);
     if (!target) {
       this.clearAssignment(vehicle.id, runtime);
       this.idle(vehicle, runtime, deltaSeconds);
@@ -134,7 +132,7 @@ export class PoliceVehicleController {
       )
       : this.memory.search(vehicle.id, target.suspectId, nowMs);
     if (!pursuit) {
-      this.dispatch.forget(vehicle.id, target.suspectId, target.reportedAt);
+      this.options.forgetTarget(vehicle.id, target.suspectId, target.reportedAt, nowMs);
       this.clearAssignment(vehicle.id, runtime);
       this.idle(vehicle, runtime, deltaSeconds);
       return false;

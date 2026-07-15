@@ -42,6 +42,7 @@ export class ThreeDebugController {
     incidents: document.querySelector('#debug-incidents'),
     pursuits: document.querySelector('#debug-pursuits'),
     cruisers: document.querySelector('#debug-cruisers'),
+    response: document.querySelector('#debug-police-response'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
     region: document.querySelector('#debug-region'),
@@ -191,6 +192,17 @@ export class ThreeDebugController {
         points.push(point(waypoint.x, waypoint.y, this.surfaceHeightAt(waypoint.x, waypoint.y) + 27));
       }
       this.group.add(debugLine(points, entry.strategy === 'ram' ? 0xff5e68 : 0x5bbcff));
+    }
+    for (const assignment of this.snapshot?.policeResponse?.assignments ?? []) {
+      const suspect = state.players.get(assignment.suspectId);
+      const unit = assignment.unitKind === 'foot'
+        ? state.npcs.get(assignment.unitId)
+        : state.vehicles.get(assignment.unitId);
+      if (!unit || !suspect) continue;
+      this.group.add(debugLine([
+        point(unit.x, unit.y, this.surfaceHeightAt(unit.x, unit.y) + 32),
+        point(suspect.x, suspect.y, this.surfaceHeightAt(suspect.x, suspect.y) + 32)
+      ], assignment.unitKind === 'foot' ? 0xff6f78 : 0x58c8ff));
     }
     for (const entry of this.snapshot?.trafficAi ?? []) {
       if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;

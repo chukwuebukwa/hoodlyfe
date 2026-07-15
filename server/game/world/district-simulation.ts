@@ -175,7 +175,7 @@ export class DistrictSimulation {
       }),
       phase('crime-response', ({nowMs}) => {
         this.options.crime.processReports(nowMs);
-        this.options.crime.updateDispatch(nowMs);
+        this.options.crime.updateResponse(nowMs);
       }),
       phase('pedestrian-motion', ({deltaSeconds, nowMs}) => {
         this.options.worldStimuli.expire(nowMs);

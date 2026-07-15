@@ -120,6 +120,47 @@ export interface DebugPoliceFleetEntry {
   availableUnits: number;
   managedUnits: number;
   nextSpawnAt: number;
+  targetSuspectId: string;
+  demandedSuspects: number;
+}
+
+export interface DebugPoliceResponseAssignmentEntry {
+  unitId: string;
+  unitKind: 'foot' | 'vehicle';
+  suspectId: string;
+  reportAt: number;
+  assignedAt: number;
+  distance: number;
+}
+
+export interface DebugPoliceResponseDemandEntry {
+  suspectId: string;
+  wantedLevel: number;
+  desiredFoot: number;
+  assignedFoot: number;
+  desiredVehicles: number;
+  assignedVehicles: number;
+}
+
+export interface DebugPoliceResponseChangeEntry {
+  unitId: string;
+  unitKind: 'foot' | 'vehicle';
+  previousSuspectId: string;
+  suspectId: string;
+  reason: string;
+}
+
+export interface DebugPoliceResponseEntry {
+  maxResponsePoints: number;
+  usedResponsePoints: number;
+  maxFootUnits: number;
+  maxVehicleUnits: number;
+  assignedFootUnits: number;
+  assignedVehicleUnits: number;
+  suppressedPairs: number;
+  demands: DebugPoliceResponseDemandEntry[];
+  assignments: DebugPoliceResponseAssignmentEntry[];
+  lastChanges: DebugPoliceResponseChangeEntry[];
 }
 
 export interface DebugReplicationEntry {
@@ -159,6 +200,7 @@ export interface DebugSnapshot {
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
   policeFleet?: DebugPoliceFleetEntry;
+  policeResponse?: DebugPoliceResponseEntry;
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

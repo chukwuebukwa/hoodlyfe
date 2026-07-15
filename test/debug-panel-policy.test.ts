@@ -33,6 +33,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     incidents: 1,
     pursuits: 1,
     cruisers: '1/1 pursuit / 1/2 ready / 1 dyn',
+    response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
     region: 'unknown',
@@ -213,7 +214,28 @@ function createSnapshot(): DebugSnapshot {
       desiredUnits: 2,
       availableUnits: 1,
       managedUnits: 1,
-      nextSpawnAt: 2000
+      nextSpawnAt: 2000,
+      targetSuspectId: 'driver',
+      demandedSuspects: 1
+    },
+    policeResponse: {
+      maxResponsePoints: 11,
+      usedResponsePoints: 5,
+      maxFootUnits: 5,
+      maxVehicleUnits: 3,
+      assignedFootUnits: 3,
+      assignedVehicleUnits: 1,
+      suppressedPairs: 0,
+      demands: [{
+        suspectId: 'driver',
+        wantedLevel: 3,
+        desiredFoot: 4,
+        assignedFoot: 3,
+        desiredVehicles: 2,
+        assignedVehicles: 1
+      }],
+      assignments: [],
+      lastChanges: []
     },
     events: [{tick: 41, type: 'crime.committed', summary: 'driver committed vehicle-theft'}]
   };

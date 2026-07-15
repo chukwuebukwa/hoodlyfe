@@ -13,7 +13,11 @@ test('police cruiser searches a reported location without tracking an unseen liv
     currentX: 608,
     wantedLevel: 2
   });
-  const controller = new PoliceVehicleController({world, targets: () => [target]});
+  const controller = new PoliceVehicleController({
+    world,
+    targetFor: () => target,
+    forgetTarget() {}
+  });
   const vehicle = createPoliceVehicle();
   controller.register(vehicle.id);
 
@@ -58,7 +62,14 @@ test('police cruiser searches a reported location without tracking an unseen liv
 test('police cruiser forgets an expired report and yields immediately to hijacking', () => {
   const world = createRoadWorld(() => false);
   const target = createTarget({reportedX: 224, currentX: 544, wantedLevel: 1});
-  const controller = new PoliceVehicleController({world, targets: () => [target]});
+  let ignoredReportAt = -1;
+  const controller = new PoliceVehicleController({
+    world,
+    targetFor: () => target.reportedAt > ignoredReportAt ? target : undefined,
+    forgetTarget: (_vehicleId, _suspectId, reportedAt) => {
+      ignoredReportAt = Math.max(ignoredReportAt, reportedAt);
+    }
+  });
   const vehicle = createPoliceVehicle();
   controller.register(vehicle.id);
 

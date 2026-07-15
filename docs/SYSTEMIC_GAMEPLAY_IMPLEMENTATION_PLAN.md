@@ -140,6 +140,11 @@ G0 architecture checklist:
 
 ### G1 - Crime, wanted, and response-budget vertical slice
 
+Status: Complete on 2026-07-15. See
+[`CRIME_WANTED_RESPONSE_BUDGET_RESEARCH.md`](CRIME_WANTED_RESPONSE_BUDGET_RESEARCH.md),
+[`decisions/0007-shared-police-response-allocation.md`](decisions/0007-shared-police-response-allocation.md),
+and the timestamped devlog checkpoint.
+
 Implement the full path:
 
 ```text
@@ -153,6 +158,30 @@ cooldown rules, assignment scoring, and replacement of unsuitable or distant uni
 
 Acceptance: two simultaneous wanted players share a bounded district police pool without
 duplicate assignments, unstable oscillation, or client authority.
+
+G1 architecture checklist:
+
+- [x] Only identified, living street suspects with a current witness report enter response
+  allocation; wanted pressure does not grant units omniscient position knowledge.
+- [x] One deterministic `PoliceResponseAllocationSystem` owns all foot and cruiser leases,
+  bounded by five foot units, three cruisers, and an 11-point district budget.
+- [x] Simultaneous suspects receive weighted fair quotas without duplicate unit ownership;
+  insertion order does not affect the result.
+- [x] Leases retain useful units, replace materially distant assignments only after
+  hysteresis, contract immediately when wanted limits fall, and remain stable afterward.
+- [x] Foot and cruiser search expiry suppress only the expired unit/report pair; a newer
+  report makes that pair eligible again.
+- [x] Fleet population consumes aggregate shared cruiser demand without owning suspect
+  selection, while foot and vehicle controllers retain separate execution/search behavior.
+- [x] Suspect clear, death, unavailable units, destroyed cruisers, hijacking, and player
+  vehicle control release ownership through the shared allocator.
+- [x] F3 exposes points, caps, simultaneous demand, assignments, suppression, and change
+  reasons; the Three overlay draws foot and cruiser assignment links.
+- [x] Prediction, reconciliation, interpolation, AOI, island selection/replay, rewind,
+  rollout, and shared movement/contact kernels are unchanged.
+- [x] Deterministic focused coverage, the complete serial suite, permanent netcode suite,
+  strict impairment soak, production build, real two-client flow, and live Three debug QA
+  pass.
 
 ### G2 - Road graph and production traffic behavior
 

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {DebugSnapshot, DebugTrafficAiEntry} from '../shared/protocol/debug.ts';
+import type {
+  DebugPoliceResponseEntry,
+  DebugSnapshot,
+  DebugTrafficAiEntry
+} from '../shared/protocol/debug.ts';
 import {
   DebugSnapshotController,
   summarizeGameEvent
@@ -50,6 +54,10 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
   assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
+  assert.equal(first.policeResponse?.usedResponsePoints, 3);
+  assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
+  assert.equal(first.policeResponse?.assignments[0].distance, 40);
+  assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -57,12 +65,20 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.pedestrian.waypoints[0].x = 999;
   fixture.stimulus.kind = 'impact';
   fixture.traffic.speedReason = 'cruise';
+  fixture.response.usedResponsePoints = 0;
+  fixture.response.demands[0].assignedFoot = 0;
+  fixture.response.assignments[0].distance = 999;
+  fixture.response.lastChanges[0].reason = 'mutated';
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.pedestrianAi?.[0].waypoints[0].x, 150);
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
   assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
+  assert.equal(first.policeResponse?.usedResponsePoints, 3);
+  assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
+  assert.equal(first.policeResponse?.assignments[0].distance, 40);
+  assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -193,6 +209,38 @@ function createFixture(enabled: boolean) {
     emergencyYieldPhase: 'none',
     emergencyVehicleId: ''
   };
+  const response: DebugPoliceResponseEntry = {
+    maxResponsePoints: 11,
+    usedResponsePoints: 3,
+    maxFootUnits: 5,
+    maxVehicleUnits: 3,
+    assignedFootUnits: 1,
+    assignedVehicleUnits: 1,
+    suppressedPairs: 0,
+    demands: [{
+      suspectId: 'driver',
+      wantedLevel: 1,
+      desiredFoot: 1,
+      assignedFoot: 1,
+      desiredVehicles: 1,
+      assignedVehicles: 1
+    }],
+    assignments: [{
+      unitId: 'police-1',
+      unitKind: 'foot',
+      suspectId: 'driver',
+      reportAt: 100,
+      assignedAt: 120,
+      distance: 40
+    }],
+    lastChanges: [{
+      unitId: 'police-1',
+      unitKind: 'foot',
+      previousSuspectId: '',
+      suspectId: 'driver',
+      reason: 'assigned'
+    }]
+  };
   const controller = new DebugSnapshotController({
     enabled,
     state,
@@ -213,9 +261,21 @@ function createFixture(enabled: boolean) {
       failures: 0
     }],
     traffic: () => [traffic],
+    policeResponse: () => response,
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
-  return {controller, state, clock, incident, pursuit, pedestrian, stimulus, traffic, published};
+  return {
+    controller,
+    state,
+    clock,
+    incident,
+    pursuit,
+    pedestrian,
+    stimulus,
+    traffic,
+    response,
+    published
+  };
 }
 
 function addEntities(state: DistrictState): void {

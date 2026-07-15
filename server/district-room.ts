@@ -291,11 +291,15 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.policeVehicleController = new PoliceVehicleController({
       world: this.world,
-      targets: () => this.crimeController.policeVehicleTargets()
+      targetFor: (vehicleId) => this.crimeController.policeVehicleTarget(vehicleId),
+      forgetTarget: (vehicleId, suspectId, reportedAt, nowMs) => (
+        this.crimeController.forgetPoliceVehicleTarget(vehicleId, suspectId, reportedAt, nowMs)
+      )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
       state: this.state,
       world: this.world,
+      responsePlan: () => this.crimeController.responseFleetPlan(),
       police: this.policeVehicleController,
       onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
@@ -325,6 +329,7 @@ export class DistrictRoom extends Room<DistrictState> {
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
+      policeResponse: () => this.crimeController.responseAllocationSnapshot(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],

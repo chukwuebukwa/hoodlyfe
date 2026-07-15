@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IncidentRegistry} from '../server/game/incidents/incident-registry.ts';
 import {WitnessSystem} from '../server/game/incidents/witness-system.ts';
-import {DispatchSystem} from '../server/game/police/dispatch-system.ts';
 import {PursuitMemory} from '../server/game/police/pursuit-memory.ts';
 import {WantedSystem} from '../server/game/wanted/wanted-system.ts';
 
@@ -71,29 +70,6 @@ test('wanted heat escalates by severity and decays only while police are absent'
   assert.deepEqual(wanted.tryDecay('driver', 1900, false), {heat: 4, level: 0});
   wanted.reset('driver');
   assert.deepEqual(wanted.get('driver'), {heat: 0, level: 0});
-});
-
-test('dispatch caps response by wanted level and keeps stable assignments', () => {
-  const dispatch = new DispatchSystem();
-  const first = dispatch.update([
-    {id: 'driver-a', wantedLevel: 1},
-    {id: 'driver-b', wantedLevel: 2}
-  ], ['police-3', 'police-1', 'police-2']);
-
-  assert.equal(first.length, 3);
-  assert.deepEqual(dispatch.entries(), [
-    {officerId: 'police-1', suspectId: 'driver-b'},
-    {officerId: 'police-2', suspectId: 'driver-b'},
-    {officerId: 'police-3', suspectId: 'driver-a'}
-  ]);
-  assert.deepEqual(dispatch.update([
-    {id: 'driver-a', wantedLevel: 1},
-    {id: 'driver-b', wantedLevel: 2}
-  ], ['police-1', 'police-2', 'police-3']), []);
-
-  const cleared = dispatch.update([{id: 'driver-a', wantedLevel: 1}], ['police-1', 'police-2']);
-  assert.ok(cleared.some((change) => change.previousSuspectId === 'driver-b'));
-  assert.equal(dispatch.entries().length, 1);
 });
 
 test('police pursue observed positions, search last-known positions, then forget', () => {
