@@ -6,6 +6,10 @@ import {trafficLanePoint, type TrafficController} from '../traffic/traffic-contr
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
+import {
+  TRAFFIC_JAM_RETIREMENT,
+  selectInvisibleTrafficJamRetirements
+} from './traffic-jam-retirement-policy.ts';
 
 export const STREAMED_CIVILIAN_RECORDS = 72;
 export const STREAMED_POLICE_RECORDS = 8;
@@ -66,7 +70,7 @@ interface PopulationStreamingControllerOptions {
   >;
   traffic: Pick<
     TrafficController,
-    'register' | 'release' | 'spawn' | 'advanceVirtual' | 'captureVirtual'
+    'register' | 'release' | 'spawn' | 'advanceVirtual' | 'captureVirtual' | 'diagnostics'
   >;
   onVehicleMaterialized?: (vehicle: VehicleState) => void;
   onVehicleDematerialized?: (vehicleId: string) => void;
@@ -79,6 +83,7 @@ export interface PopulationStreamingDiagnostic {
   activeTraffic: number;
   pinnedPedestrians: number;
   pinnedTraffic: number;
+  jamRetirements: number;
 }
 
 export class PopulationStreamingController {
@@ -87,6 +92,9 @@ export class PopulationStreamingController {
   private initialized = false;
   private dormantPedestrianCursor = 0;
   private dormantTrafficCursor = 0;
+  private readonly trafficStationarySince = new Map<string, number>();
+  private lastJamRetirementAt = Number.NEGATIVE_INFINITY;
+  private jamRetirementCount = 0;
 
   constructor(private readonly options: PopulationStreamingControllerOptions) {}
 
@@ -127,6 +135,7 @@ export class PopulationStreamingController {
     if (!this.initialized) this.initialize(nowMs);
     const normalized = anchors.filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
     this.materializeNearby(normalized, nowMs);
+    this.retireInvisibleTrafficJams(normalized, nowMs);
     this.dematerializeFar(normalized, nowMs);
     this.advanceDormant(nowMs);
   }
@@ -143,8 +152,73 @@ export class PopulationStreamingController {
       pinnedTraffic: activeTraffic.filter((record) => {
         const vehicle = this.options.state.vehicles.get(record.id);
         return Boolean(vehicle && !this.canStreamOutVehicle(vehicle));
-      }).length
+      }).length,
+      jamRetirements: this.jamRetirementCount
     };
+  }
+
+  private retireInvisibleTrafficJams(anchors: readonly PopulationAnchor[], nowMs: number): void {
+    const diagnostics = this.options.traffic.diagnostics();
+    const diagnosticById = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
+    const blockedFollowers = new Map<string, number>();
+    for (const diagnostic of diagnostics) {
+      if (diagnostic.speedReason !== 'vehicle' || !diagnostic.obstacleId) continue;
+      blockedFollowers.set(
+        diagnostic.obstacleId,
+        (blockedFollowers.get(diagnostic.obstacleId) ?? 0) + 1
+      );
+    }
+
+    const candidates = [];
+    for (const record of this.traffic.values()) {
+      if (!record.active) {
+        this.trafficStationarySince.delete(record.id);
+        continue;
+      }
+      const vehicle = this.options.state.vehicles.get(record.id);
+      const diagnostic = diagnosticById.get(record.id);
+      if (!vehicle || !diagnostic) {
+        this.trafficStationarySince.delete(record.id);
+        continue;
+      }
+      if (Math.abs(vehicle.speed) > 6) {
+        this.trafficStationarySince.delete(record.id);
+        continue;
+      }
+      const stationarySince = this.trafficStationarySince.get(record.id) ?? nowMs;
+      this.trafficStationarySince.set(record.id, stationarySince);
+      candidates.push({
+        id: record.id,
+        distance: nearestDistance(vehicle.x, vehicle.y, anchors),
+        stationarySince,
+        blockedFollowerCount: blockedFollowers.get(record.id) ?? 0,
+        speedReason: diagnostic.speedReason,
+        streamable: this.canRetireJammedVehicle(vehicle)
+      });
+    }
+
+    if (nowMs - this.lastJamRetirementAt < TRAFFIC_JAM_RETIREMENT.cooldownMs) return;
+    const selected = selectInvisibleTrafficJamRetirements(candidates, nowMs);
+    if (selected.length === 0) return;
+    for (const candidate of selected) this.retireJammedVehicle(candidate.id, nowMs);
+    this.lastJamRetirementAt = nowMs;
+  }
+
+  private retireJammedVehicle(vehicleId: string, nowMs: number): void {
+    const record = this.traffic.get(vehicleId);
+    const vehicle = this.options.state.vehicles.get(vehicleId);
+    if (!record?.active || !vehicle || !this.canRetireJammedVehicle(vehicle)) return;
+    this.captureVehicleRoute(record, vehicle);
+    this.options.traffic.release(vehicle.id);
+    this.options.state.vehicles.delete(vehicle.id);
+    this.options.onVehicleDematerialized?.(vehicle.id);
+    record.active = false;
+    for (let index = 0; index < TRAFFIC_JAM_RETIREMENT.virtualAdvanceSteps; index++) {
+      this.advanceDormantTraffic(record);
+    }
+    record.nextStepAt = nowMs + POPULATION_STREAMING.dormantStepMs;
+    this.trafficStationarySince.delete(vehicleId);
+    this.jamRetirementCount++;
   }
 
   private materializeNearby(anchors: readonly PopulationAnchor[], nowMs: number): void {
@@ -234,6 +308,7 @@ export class PopulationStreamingController {
       this.options.state.vehicles.delete(vehicle.id);
       this.options.onVehicleDematerialized?.(vehicle.id);
       record.active = false;
+      this.trafficStationarySince.delete(vehicle.id);
       record.nextStepAt = nowMs + this.stepOffset(record.id);
       trafficBudget--;
     }
@@ -309,18 +384,25 @@ export class PopulationStreamingController {
   }
 
   private canStreamOutVehicle(vehicle: VehicleState): boolean {
+    if (!this.canRetireJammedVehicle(vehicle)) return false;
     if (
-      !vehicle.traffic ||
-      vehicle.driverId ||
-      vehicle.hijackBy ||
-      vehicle.destroyed ||
-      vehicle.onFire ||
       vehicle.health !== vehicle.maxHealth ||
       vehicle.engineDamage > 0 ||
       vehicle.damageFront > 0 ||
       vehicle.damageRear > 0 ||
       vehicle.damageLeft > 0 ||
       vehicle.damageRight > 0
+    ) return false;
+    return true;
+  }
+
+  private canRetireJammedVehicle(vehicle: VehicleState): boolean {
+    if (
+      !vehicle.traffic ||
+      vehicle.driverId ||
+      vehicle.hijackBy ||
+      vehicle.destroyed ||
+      vehicle.onFire
     ) return false;
     for (const player of this.options.state.players.values()) {
       if (player.vehicleId === vehicle.id) return false;

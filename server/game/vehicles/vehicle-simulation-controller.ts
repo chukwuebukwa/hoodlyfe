@@ -22,6 +22,11 @@ const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const RESPAWN_DELAY_MS = 8000;
 
+function vehicleObstacleDimensions(kind: string): Pick<TrafficObstacle, 'halfLength' | 'halfWidth'> {
+  const collision = vehicleConfig(kind).collision;
+  return {halfLength: collision.length / 2, halfWidth: collision.width / 2};
+}
+
 interface DriverInput {
   inputX: number;
   inputY: number;
@@ -280,6 +285,7 @@ export class VehicleSimulationController {
     const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
       .filter((candidate) => candidate.id !== vehicle.id)
       .map((candidate): TrafficObstacle => ({
+        ...vehicleObstacleDimensions(candidate.kind),
         id: candidate.id,
         kind: 'vehicle',
         x: candidate.x,

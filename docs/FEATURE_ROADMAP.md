@@ -113,10 +113,14 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
 - **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
+- **Delivered foundation**: sustained ambient jams outside every player's 1,536-pixel replication radius retire at a bounded rate, including minor collision-damaged traffic, while occupied, hijacked, mission, burning, destroyed, and visible vehicles remain protected.
 - **Delivered playable**: authored conflict zones serialize FIFO approaches, reject blocked
   admission, preserve a commit window, hold ownership until the rear collider clears, and
   expire abandoned ownership; catalog-sized oriented rectangles replace circular
   vehicle-to-vehicle collision.
+- **Delivered playable**: server traffic predicts catalog-sized oriented-box contact from
+  relative motion, combines TTC with following-distance speed caps, preserves admitted
+  junction throughput, and exposes limiting risk through F3 and Three overlays.
 - **Delivered playable**: an authored cruiser plus bounded dynamic reinforcements consume reported suspect facts without traffic/wanted coupling, use bounded deterministic A*, search last-known positions, intercept visible targets, scale speed and unit count with heat, and permit occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.

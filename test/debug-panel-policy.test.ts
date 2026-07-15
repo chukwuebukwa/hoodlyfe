@@ -37,6 +37,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     stimuli: 0,
     signals: '0',
     junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear',
+    trafficRisk: 'clear',
     roads: 'off',
     region: 'unknown',
     latency: '0/0ms',
@@ -89,6 +90,19 @@ test('debug panel summarizes junction queue and traversal phases', () => {
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
     '4 active / 1 wait / 1 approach / 1 cross / 1 clear'
+  );
+});
+
+test('debug panel summarizes predictive traffic contact risk', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {...trafficDebugEntry('near', true, 1), timeToContactSeconds: 0.42},
+    {...trafficDebugEntry('far', true, 1), timeToContactSeconds: 1.2},
+    trafficDebugEntry('clear', true, 1)
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).trafficRisk,
+    '2 predicted / 1 urgent / 420ms min'
   );
 });
 
@@ -293,6 +307,7 @@ function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevis
     speedReason: 'cruise' as const,
     obstacleId: '',
     obstacleDistance: -1,
+    timeToContactSeconds: -1,
     blockedSince: 0,
     recoveryCount: 0,
     maneuverPhase: 'none' as const,

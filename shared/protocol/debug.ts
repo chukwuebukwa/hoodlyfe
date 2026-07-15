@@ -85,6 +85,7 @@ export interface DebugTrafficAiEntry {
   speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren' | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
+  timeToContactSeconds: number;
   blockedSince: number;
   recoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
@@ -217,6 +218,7 @@ export interface DebugPopulationStreamingEntry {
   activeTraffic: number;
   pinnedPedestrians: number;
   pinnedTraffic: number;
+  jamRetirements: number;
 }
 
 export interface DebugSnapshot {

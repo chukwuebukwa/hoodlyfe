@@ -211,6 +211,7 @@ function createFixture(enabled: boolean) {
     speedReason: 'vehicle',
     obstacleId: 'traffic-2',
     obstacleDistance: 44,
+    timeToContactSeconds: 0.42,
     blockedSince: 0,
     recoveryCount: 0,
     maneuverPhase: 'none',

@@ -40,6 +40,7 @@ interface TrafficRuntime {
   speedReason: TrafficSpeedReason | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
+  timeToContactSeconds: number;
   blockedSince: number;
   reversingUntil: number;
   recoveryCount: number;
@@ -61,6 +62,7 @@ export interface TrafficDiagnostic {
   speedReason: TrafficRuntime['speedReason'];
   obstacleId: string;
   obstacleDistance: number;
+  timeToContactSeconds: number;
   blockedSince: number;
   recoveryCount: number;
   maneuverPhase: TrafficManeuverPhase;
@@ -112,6 +114,7 @@ export class TrafficController {
       speedReason: 'cruise',
       obstacleId: '',
       obstacleDistance: -1,
+      timeToContactSeconds: -1,
       blockedSince: 0,
       reversingUntil: 0,
       recoveryCount: 0,
@@ -158,6 +161,7 @@ export class TrafficController {
         speedReason: runtime.speedReason,
         obstacleId: runtime.obstacleId,
         obstacleDistance: runtime.obstacleDistance,
+        timeToContactSeconds: runtime.timeToContactSeconds,
         blockedSince: runtime.blockedSince,
         recoveryCount: runtime.recoveryCount,
         maneuverPhase: runtime.maneuver.phase,
@@ -192,6 +196,7 @@ export class TrafficController {
       runtime.speedReason = 'hijack';
       runtime.obstacleId = '';
       runtime.obstacleDistance = -1;
+      runtime.timeToContactSeconds = -1;
       return false;
     }
 
@@ -223,6 +228,7 @@ export class TrafficController {
           runtime.obstacleDistance = emergency
             ? Math.hypot(vehicle.x - emergency.x, vehicle.y - emergency.y)
             : -1;
+          runtime.timeToContactSeconds = -1;
           return false;
         }
         const result = this.driver.update(vehicle, {
@@ -238,6 +244,7 @@ export class TrafficController {
         runtime.speedReason = 'siren';
         runtime.obstacleId = yieldCommand.emergencyId;
         runtime.obstacleDistance = result.obstacleDistance;
+        runtime.timeToContactSeconds = -1;
         return result.moved;
       }
     }
@@ -270,6 +277,11 @@ export class TrafficController {
     }];
     const currentJunction = this.junctions.diagnostic(vehicle.id);
     const junctionTraversal = isProtectedJunctionPhase(currentJunction.phase);
+    const admittedQueueIds = currentJunction.phase !== 'none' && currentJunction.phase !== 'waiting'
+      ? new Set(obstacles.filter((obstacle) => (
+        obstacle.kind === 'vehicle' && this.junctions.isQueued(obstacle.id, currentJunction.junctionId)
+      )).map((obstacle) => obstacle.id))
+      : undefined;
     let maneuver: TrafficManeuverCommand;
     if (junctionTraversal) {
       this.maneuvers.reset(runtime.maneuver);
@@ -291,6 +303,7 @@ export class TrafficController {
       const moved = this.driver.reverse(vehicle, deltaSeconds);
       runtime.desiredSpeed = -48;
       runtime.speedReason = 'blocked';
+      runtime.timeToContactSeconds = -1;
       return moved;
     }
     const result = this.driver.update(vehicle, {
@@ -299,13 +312,14 @@ export class TrafficController {
       cruiseSpeed: routeCruiseSpeed,
       deltaSeconds,
       obstacles: routedObstacles,
-      ignoredObstacleIds: maneuver.ignoredObstacleIds,
+      ignoredObstacleIds: combineIds(maneuver.ignoredObstacleIds, admittedQueueIds),
       minimumGapScale: maneuver.phase === 'none' ? 1 : 0.75
     });
     runtime.desiredSpeed = result.desiredSpeed;
     runtime.speedReason = result.speedReason;
     runtime.obstacleId = result.obstacleId;
     runtime.obstacleDistance = result.obstacleDistance;
+    runtime.timeToContactSeconds = result.timeToContactSeconds;
 
     if (maneuver.phase !== 'none') {
       if (result.blocked) runtime.speedReason = 'blocked';
@@ -336,6 +350,7 @@ export class TrafficController {
     runtime.speedReason = 'blocked';
     runtime.obstacleId = '';
     runtime.obstacleDistance = 0;
+    runtime.timeToContactSeconds = -1;
     if (isProtectedJunctionPhase(this.junctions.diagnostic(vehicle.id).phase)) {
       return false;
     }
@@ -383,6 +398,15 @@ function junctionStopPoint(
     x: targetX - deltaX / distance * JUNCTION_STOP_LINE_OFFSET,
     y: targetY - deltaY / distance * JUNCTION_STOP_LINE_OFFSET
   };
+}
+
+function combineIds(
+  first: ReadonlySet<string> | undefined,
+  second: ReadonlySet<string> | undefined
+): ReadonlySet<string> | undefined {
+  if (!first?.size) return second;
+  if (!second?.size) return first;
+  return new Set([...first, ...second]);
 }
 
 export {TRAFFIC_LANE_OFFSET};

@@ -153,8 +153,9 @@ Extracted domain policies and room adapters now include:
 - `traffic-route-planner.ts` for deterministic visit-bounded lane A* with explicit partial
   results; `traffic-route-system.ts` for durable destinations, route progress, speed-limit
   lookup, recovery reprojection, diagnostics, and population-streaming adapters.
-- `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning,
-  following/stopping speed policy, and inspectable limiting obstacles;
+- `traffic-predictive-contact.ts` for pure swept oriented-box contact timing;
+  `traffic-awareness-system.ts` for bounded catalog-footprint following and time-to-contact
+  speed policy with inspectable limiting obstacles;
   `traffic-controller.ts` composes route, junction, maneuver, emergency-yield, and driving
   owners while retaining hijack and blockage orchestration.
 - `road-driving-system.ts` for shared road-constrained steering/acceleration/awareness execution and `road-route-planner.ts` for deterministic visit-bounded road-cell A* with explicit partial routes.
@@ -173,7 +174,7 @@ Extracted domain policies and room adapters now include:
 - `wardrobe-inventory-controller.ts` for private namespaced grants, owner-only snapshots, and equipped-style entitlement checks without public inventory replication.
 - `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
-- `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, and gameplay pinning.
+- `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, gameplay pinning, and rate-limited invisible-jam retirement; `traffic-jam-retirement-policy.ts` owns the pure AOI/stationary/blocker ranking policy.
 - `street-streaming-policy.ts` plus `district-replication-controller.ts` for client AOI hysteresis, deterministic add/remove budgets, same-space visibility, and occupied/mission vehicle retention.
 - `traffic-junction-system.ts` for deterministic FIFO approach, crossing, and rear-clearance
   ownership with an abandonment lease; `traffic-maneuver-system.ts` owns bounded

@@ -9,6 +9,7 @@ import {DeterministicRandom} from '../server/game/world/deterministic-random.ts'
 import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-config.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
 
 test('a streamed street population continues circulating through a one-minute soak', () => {
   const world = CollisionMap.load();
@@ -20,6 +21,8 @@ test('a streamed street population continues circulating through a one-minute so
   const observedJunctionPhases = new Set<string>();
   let completedJunctionTraversals = 0;
   let maximumQueuePosition = 0;
+  let maximumConcurrentOverlaps = 0;
+  let overlapPairTicks = 0;
 
   for (let index = 0; index < 24; index++) {
     const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
@@ -46,6 +49,8 @@ test('a streamed street population continues circulating through a one-minute so
           .filter((other) => other.id !== vehicle.id &&
             Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
           .map((other) => ({
+            halfLength: vehicleConfig(other.kind).collision.length / 2,
+            halfWidth: vehicleConfig(other.kind).collision.width / 2,
             id: other.id,
             kind: 'vehicle' as const,
             x: other.x,
@@ -71,6 +76,14 @@ test('a streamed street population continues circulating through a one-minute so
       [...ownersByJunction.values()].every((owners) => owners === 1),
       'A junction admitted more than one active owner in the same tick.'
     );
+    let overlapsThisTick = 0;
+    for (let left = 0; left < vehicles.length; left++) {
+      for (let right = left + 1; right < vehicles.length; right++) {
+        if (vehicleBoxesOverlap(vehicles[left], vehicles[right])) overlapsThisTick++;
+      }
+    }
+    maximumConcurrentOverlaps = Math.max(maximumConcurrentOverlaps, overlapsThisTick);
+    overlapPairTicks += overlapsThisTick;
   }
 
   const circulated = vehicles.filter((vehicle) => {
@@ -99,4 +112,42 @@ test('a streamed street population continues circulating through a one-minute so
     `Only ${completedJunctionTraversals} junction traversals completed for ${vehicles.length} vehicles.`
   );
   assert.ok(maximumQueuePosition <= 6, `Junction queue reached position ${maximumQueuePosition}.`);
+  assert.ok(
+    maximumConcurrentOverlaps <= 1,
+    `${maximumConcurrentOverlaps} traffic vehicle pairs overlapped concurrently.`
+  );
+  assert.ok(
+    overlapPairTicks <= 60,
+    `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
+  );
+  if (process.env.TRAFFIC_SOAK_TRACE === '1') {
+    console.log(JSON.stringify({
+      vehicles: vehicles.length,
+      circulated: circulated.length,
+      completedJunctionTraversals,
+      maximumQueuePosition,
+      maximumConcurrentOverlaps,
+      overlapPairTicks
+    }));
+  }
 });
+
+function vehicleBoxesOverlap(left: VehicleState, right: VehicleState): boolean {
+  const leftCollision = vehicleConfig(left.kind).collision;
+  const rightCollision = vehicleConfig(right.kind).collision;
+  return interactionShapesOverlap({
+    shape: 'box',
+    x: left.x,
+    y: left.y,
+    angle: left.angle,
+    halfLength: leftCollision.length / 2,
+    halfWidth: leftCollision.width / 2
+  }, {
+    shape: 'box',
+    x: right.x,
+    y: right.y,
+    angle: right.angle,
+    halfLength: rightCollision.length / 2,
+    halfWidth: rightCollision.width / 2
+  });
+}

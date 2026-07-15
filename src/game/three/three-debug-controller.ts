@@ -46,6 +46,7 @@ export class ThreeDebugController {
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
     junctions: document.querySelector('#debug-junctions'),
+    trafficRisk: document.querySelector('#debug-traffic-risk'),
     roads: document.querySelector('#debug-roads'),
     region: document.querySelector('#debug-region'),
     latency: document.querySelector('#debug-latency'),
@@ -260,6 +261,19 @@ export class ThreeDebugController {
           ));
         }
       }
+      const contactObstacle = entry.timeToContactSeconds >= 0
+        ? trafficObstaclePosition(state, entry.obstacleId)
+        : undefined;
+      if (vehicle && contactObstacle) {
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 36),
+          point(
+            contactObstacle.x,
+            contactObstacle.y,
+            this.surfaceHeightAt(contactObstacle.x, contactObstacle.y) + 36
+          )
+        ], entry.timeToContactSeconds < 0.75 ? 0xff4f5e : 0xff9f43));
+      }
       if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
       if (!vehicle || !emergency) continue;
@@ -380,6 +394,17 @@ function trafficJunctionCenter(
   return Number.isFinite(column) && Number.isFinite(row)
     ? {x: (column + 0.5) * 64, y: (row + 0.5) * 64}
     : undefined;
+}
+
+function trafficObstaclePosition(
+  state: DistrictNetworkState,
+  obstacleId: string
+): {x: number; y: number} | undefined {
+  const vehicle = state.vehicles.get(obstacleId);
+  if (vehicle) return vehicle;
+  if (obstacleId.startsWith('player:')) return state.players.get(obstacleId.slice('player:'.length));
+  if (obstacleId.startsWith('npc:')) return state.npcs.get(obstacleId.slice('npc:'.length));
+  return undefined;
 }
 
 function junctionPhaseColor(phase: string): number {

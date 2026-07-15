@@ -24,6 +24,7 @@ export interface DebugPanelProjection {
   stimuli: number;
   signals: string;
   junctions: string;
+  trafficRisk: string;
   roads: string;
   region: string;
   latency: string;
@@ -65,6 +66,7 @@ export function projectDebugPanel(
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
     junctions: trafficJunctionSummary(snapshot),
+    trafficRisk: trafficRiskSummary(snapshot),
     roads: trafficLaneGraphSummary(snapshot),
     region: network ? `${network.region} / ${network.buildId}` : 'unknown',
     latency: network
@@ -144,7 +146,8 @@ function populationSummary(snapshot?: DebugSnapshot): string {
   const active = population.activePedestrians + population.activeTraffic;
   const potential = population.potentialPedestrians + population.potentialTraffic;
   const pinned = population.pinnedPedestrians + population.pinnedTraffic;
-  return `${active}/${potential}${pinned > 0 ? ` / ${pinned} pinned` : ''}`;
+  return `${active}/${potential}${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
+    `${population.jamRetirements > 0 ? ` / ${population.jamRetirements} jam retired` : ''}`;
 }
 
 function replicationSummary(snapshot?: DebugSnapshot): string {
@@ -173,6 +176,14 @@ function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
   const active = waiting + approach + crossing + clearing;
   return `${active} active / ${waiting} wait / ${approach} approach / ` +
     `${crossing} cross / ${clearing} clear`;
+}
+
+function trafficRiskSummary(snapshot?: DebugSnapshot): string {
+  const predicted = (snapshot?.trafficAi ?? []).filter((entry) => entry.timeToContactSeconds >= 0);
+  if (predicted.length === 0) return 'clear';
+  const minimum = Math.min(...predicted.map((entry) => entry.timeToContactSeconds));
+  const urgent = predicted.filter((entry) => entry.timeToContactSeconds < 0.75).length;
+  return `${predicted.length} predicted / ${urgent} urgent / ${Math.round(minimum * 1000)}ms min`;
 }
 
 function trafficLaneGraphSummary(snapshot?: DebugSnapshot): string {

@@ -185,12 +185,15 @@ G1 architecture checklist:
 
 ### G2 - Road graph and production traffic behavior
 
-Status: G2a authored lane routing and G2b.1 junction conflict ownership implemented on
+Status: G2a authored lane routing, G2b.1 junction conflict ownership, and G2b.2a predictive
+contact awareness implemented on
 2026-07-15; G2 remains in progress. See
 [`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
 [`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
+[`TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md`](TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md),
 [`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
-and [`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md).
+[`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md),
+and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
 
 Introduce an authored directed lane graph and separate:
 
@@ -231,9 +234,14 @@ G2a architecture checklist:
   enforce exclusivity, bounded queues, and throughput.
 - [x] G2b.1 remains server-only and leaves frozen interaction-island netcode and shared
   movement/contact kernels unchanged.
-- [ ] G2b.2 adds swept oriented-box/time-to-contact awareness and movement-class conflict
-  arbitration.
-- [ ] G2c adds passing/yielding and deterministic multi-vehicle deadlock resolution.
+- [x] G2b.2a adds catalog-sized swept oriented-box/time-to-contact awareness, composes it
+  with junction ownership, exposes risk through F3/Three diagnostics, and bounds overlap
+  pair-ticks in a dense one-minute soak.
+- [ ] G2b.2b adds movement-class conflict arbitration for compatible simultaneous turns.
+- [x] G2c pressure relief retires only sustained offscreen disposable traffic, ranks blocker
+  roots deterministically, rate-limits removals, and advances virtual routes before reuse.
+- [ ] G2c adds visible passing/yielding, strongly connected wait-graph detection, and
+  deterministic multi-vehicle deadlock recovery without despawning visible actors.
 
 ### G3 - Police tactics and escalation
 

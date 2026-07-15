@@ -52,6 +52,7 @@ const GAME_SHELL_HTML = `
       <div><dt>Stimuli</dt><dd id="debug-stimuli">0</dd></div>
       <div><dt>Signals</dt><dd id="debug-signals">0</dd></div>
       <div class="debug-wide"><dt>Junctions</dt><dd id="debug-junctions">0 active</dd></div>
+      <div class="debug-wide"><dt>Traffic risk</dt><dd id="debug-traffic-risk">clear</dd></div>
       <div class="debug-wide"><dt>Road graph</dt><dd id="debug-roads">off</dd></div>
       <div><dt>Region</dt><dd id="debug-region">unknown</dd></div>
       <div><dt>RTT p50/p95</dt><dd id="debug-latency">0/0ms</dd></div>
