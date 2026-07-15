@@ -41,5 +41,8 @@ export function GameRuntimeMount(): null {
 function resolveGameServerUrl(): string {
   if (process.env.NEXT_PUBLIC_GAME_SERVER_URL) return process.env.NEXT_PUBLIC_GAME_SERVER_URL;
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${protocol}://${window.location.hostname}:2567`;
+  const host = process.env.NODE_ENV === 'production'
+    ? window.location.host
+    : `${window.location.hostname}:2567`;
+  return `${protocol}://${host}`;
 }
