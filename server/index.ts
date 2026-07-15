@@ -8,10 +8,14 @@ import {createServer} from 'node:http';
 import {monitorEventLoopDelay} from 'node:perf_hooks';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import next from 'next';
 import {DistrictRoom} from './district-room.ts';
 import {CollisionMap} from './world-map.ts';
 
 const port = Number(process.env.PORT ?? process.env.GAME_PORT ?? 2567);
+const serveNext = process.env.NODE_ENV === 'production';
+const nextApp = serveNext ? next({dev: false, hostname: '0.0.0.0', port}) : undefined;
+await nextApp?.prepare();
 const processStartedAt = Date.now();
 // Fail the process before Railway marks it healthy if required runtime map assets are absent.
 CollisionMap.load();
@@ -45,6 +49,13 @@ if (existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get('/creator', (_request, response) => {
     response.sendFile(path.join(distPath, 'creator.html'));
+  });
+}
+
+if (nextApp) {
+  const nextHandler = nextApp.getRequestHandler();
+  app.all('*', (request, response, nextMiddleware) => {
+    nextHandler(request, response).catch(nextMiddleware);
   });
 }
 
