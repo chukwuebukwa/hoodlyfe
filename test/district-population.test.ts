@@ -8,6 +8,7 @@ import {
 import {TrafficController} from '../server/game/traffic/traffic-controller.ts';
 import {VEHICLE_RADIUS, vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
+import {WorldStimulusRegistry} from '../server/game/world/world-stimulus-registry.ts';
 import {DistrictState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
@@ -106,6 +107,7 @@ function createPopulation(seed: string) {
     state,
     world,
     random,
+    stimuli: new WorldStimulusRegistry(),
     clock: () => ({tick: 0}),
     policeTarget: () => undefined,
     requestPoliceFire: () => undefined

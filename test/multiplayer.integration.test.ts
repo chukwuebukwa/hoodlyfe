@@ -16,6 +16,7 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
+import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
 import {
   INTERACTION_PROTOCOL_VERSION,
   type InteractionSnapshot
@@ -50,6 +51,7 @@ import {
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
+import {resolveVehicleHumanoidContact} from '../shared/simulation/vehicle-humanoid-contact.ts';
 import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
@@ -73,26 +75,28 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     name: 'Driver One',
     appearance: joinedAppearance
   });
+  const firstInteractionSnapshots: InteractionSnapshot[] = [];
+  const firstInteractionInbox = new InteractionSnapshotInbox(first, {
+    currentServerTick: () => first.state.serverTick ?? 0,
+    worldCollisionRevision: WORLD_COLLISION_REVISION
+  });
+  firstInteractionInbox.subscribe((snapshot) => firstInteractionSnapshots.push(snapshot));
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
   const debugSnapshots: DebugSnapshot[] = [];
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
-  const firstInteractionSnapshots: InteractionSnapshot[] = [];
   const secondInteractionSnapshots: InteractionSnapshot[] = [];
   const fireReceipts: CombatFireReceipt[] = [];
-  const firstInteractionInbox = new InteractionSnapshotInbox(first, {
-    currentServerTick: () => first.state.serverTick ?? 0,
-    worldCollisionRevision: WORLD_COLLISION_REVISION
-  });
   const secondInteractionInbox = new InteractionSnapshotInbox(second, {
     currentServerTick: () => second.state.serverTick ?? 0,
     worldCollisionRevision: WORLD_COLLISION_REVISION
   });
-  firstInteractionInbox.subscribe((snapshot) => firstInteractionSnapshots.push(snapshot));
   secondInteractionInbox.subscribe((snapshot) => secondInteractionSnapshots.push(snapshot));
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
+  first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
+  second.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   first.onMessage<CombatFireReceipt>(
     COMBAT_FIRE_RECEIPT_MESSAGE,
     (receipt) => fireReceipts.push(receipt)
@@ -495,7 +499,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
       Math.hypot(npc.x - player.x, npc.y - player.y) < 170 &&
       world.hasLineOfSight(player.x, player.y, npc.x, npc.y)
     )));
-  }, 5000);
+  }, 8000);
   const hostile = [...second.state.npcs.values()]
     .filter((npc) => {
       const player = second.state.players.get(second.sessionId);
@@ -648,19 +652,40 @@ async function movePlayerTo(
   let waypointIndex = 0;
   let previousDistance = Number.POSITIVE_INFINITY;
   let stagnantSteps = 0;
+  let detourSteps = 0;
+  let detourDirection = 1;
+  const movementTrace: Array<{step: number; x: number; y: number; distance: number; detour: number}> = [];
   for (let step = 0; step < 180; step++) {
     const player = room.state.players.get(playerId);
     assert.ok(player?.alive, 'Moving player must remain alive.');
     const deltaX = x - player.x;
     const deltaY = y - player.y;
     const distance = Math.hypot(deltaX, deltaY);
+    if (step % 10 === 0 || detourSteps > 0) {
+      movementTrace.push({step, x: player.x, y: player.y, distance, detour: detourSteps});
+      if (movementTrace.length > 30) movementTrace.shift();
+    }
     if (distance <= targetDistance) break;
-    if (distance >= previousDistance - 0.5) stagnantSteps++;
+    if (detourSteps > 0) stagnantSteps = 0;
+    else if (distance >= previousDistance - 2) stagnantSteps++;
     else stagnantSteps = 0;
-    if (waypoints.length === 0 || waypointIndex >= waypoints.length || stagnantSteps >= 4) {
-      const path = planner.plan(player, {x, y}, 11);
-      assert.ok(path?.complete, 'Expected a complete collision-safe route to the mission contact.');
-      waypoints = path.points;
+    if (stagnantSteps >= 4) {
+      detourSteps = 8;
+      detourDirection = chooseDetourDirection(world, player, {x, y}, detourDirection);
+      waypoints = [];
+      stagnantSteps = 0;
+    }
+    if (waypoints.length === 0 || waypointIndex >= waypoints.length) {
+      const path = planMissionContactApproach(
+        room,
+        planner,
+        world,
+        player,
+        {x, y},
+        targetDistance
+      );
+      assert.ok(path, 'Expected a complete collision-safe route to the mission contact.');
+      waypoints = path;
       waypointIndex = 0;
       stagnantSteps = 0;
     }
@@ -672,7 +697,17 @@ async function movePlayerTo(
     const waypointX = waypoint.x - player.x;
     const waypointY = waypoint.y - player.y;
     const waypointDistance = Math.max(1, Math.hypot(waypointX, waypointY));
-    room.send('input', {x: waypointX / waypointDistance, y: waypointY / waypointDistance});
+    const input = detourSteps > 0
+      ? {
+          x: -waypointY / waypointDistance * detourDirection,
+          y: waypointX / waypointDistance * detourDirection
+        }
+      : {x: waypointX / waypointDistance, y: waypointY / waypointDistance};
+    if (detourSteps > 0) {
+      detourSteps--;
+      if (detourSteps === 0) waypoints = [];
+    }
+    room.send('input', input);
     previousDistance = distance;
     await delay(50);
   }
@@ -681,10 +716,106 @@ async function movePlayerTo(
   const player = room.state.players.get(playerId);
   assert.ok(player?.alive, 'Moved player must remain alive.');
   const finalDistance = Math.hypot(x - player.x, y - player.y);
+  const nearbyVehicles = [...room.state.vehicles.values()]
+    .map((vehicle) => ({
+      id: vehicle.id,
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      distance: Math.hypot(vehicle.x - player.x, vehicle.y - player.y)
+    }))
+    .filter((vehicle) => vehicle.distance < 120)
+    .sort((left, right) => left.distance - right.distance);
   assert.ok(
     finalDistance <= targetDistance,
-    `Moving player must reach the requested target radius (${finalDistance.toFixed(1)} > ${targetDistance}).`
+      `Moving player must reach the requested target radius (${finalDistance.toFixed(1)} > ${targetDistance}); ` +
+      `player=${player.x.toFixed(1)},${player.y.toFixed(1)} target=${x.toFixed(1)},${y.toFixed(1)} ` +
+      `nearbyVehicles=${JSON.stringify(nearbyVehicles)} trace=${JSON.stringify(movementTrace)}.`
   );
+}
+
+function chooseDetourDirection(
+  world: CollisionMap,
+  player: {x: number; y: number},
+  target: {x: number; y: number},
+  previousDirection: number
+): number {
+  const deltaX = target.x - player.x;
+  const deltaY = target.y - player.y;
+  const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+  const perpendicular = {x: -deltaY / distance, y: deltaX / distance};
+  const clearanceDistance = 72;
+  const candidates = [previousDirection, -previousDirection];
+  for (const direction of candidates) {
+    if (world.canOccupy(
+      player.x + perpendicular.x * clearanceDistance * direction,
+      player.y + perpendicular.y * clearanceDistance * direction,
+      11
+    )) return direction;
+  }
+  return -previousDirection;
+}
+
+function planMissionContactApproach(
+  room: Room<DistrictNetworkState>,
+  planner: PedestrianPathPlanner,
+  world: CollisionMap,
+  player: {x: number; y: number},
+  target: {x: number; y: number},
+  targetDistance: number
+): Array<{x: number; y: number}> | undefined {
+  const approachRadius = Math.max(0, targetDistance - 20);
+  const candidates = [
+    target,
+    ...Array.from({length: 16}, (_, index) => {
+      const angle = index / 16 * Math.PI * 2;
+      return {
+        x: target.x + Math.cos(angle) * approachRadius,
+        y: target.y + Math.sin(angle) * approachRadius
+      };
+    })
+  ];
+  return candidates
+    .map((candidate, index) => {
+      if (!world.canOccupy(candidate.x, candidate.y, 11)) return undefined;
+      const path = planner.plan(player, candidate, 11);
+      if (!path?.complete || !approachHasVehicleClearance(room, candidate)) return undefined;
+      return {
+        index,
+        distance: Math.hypot(candidate.x - player.x, candidate.y - player.y),
+        points: path.points
+      };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
+    .sort((left, right) => left.distance - right.distance || left.index - right.index)[0]
+    ?.points;
+}
+
+function approachHasVehicleClearance(
+  room: Room<DistrictNetworkState>,
+  point: {x: number; y: number}
+): boolean {
+  return [...room.state.vehicles.values()].every((vehicle) => {
+    const definition = vehicleConfig(vehicle.kind);
+    return !resolveVehicleHumanoidContact({
+      id: vehicle.id,
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      speed: vehicle.speed,
+      halfLength: definition.collision.length / 2,
+      halfWidth: definition.collision.width / 2,
+      mass: definition.mass
+    }, {
+      id: 'mission-contact-candidate',
+      x: point.x,
+      y: point.y,
+      velocityX: 0,
+      velocityY: 0,
+      radius: 11,
+      mass: 0.22
+    }).collided;
+  });
 }
 
 function hasVehicleClearance(

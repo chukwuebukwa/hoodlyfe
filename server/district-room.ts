@@ -119,8 +119,11 @@ import {
 } from '../shared/protocol/on-foot-input.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
+import {DistrictSimulation} from './game/world/district-simulation.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
 import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
+import {WorldStimulusAdapter} from './game/world/world-stimulus-adapter.ts';
+import {WorldStimulusRegistry} from './game/world/world-stimulus-registry.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
 
@@ -152,6 +155,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
+  private readonly worldStimuli = new WorldStimulusRegistry();
   private readonly debugSubscribers = new Set<string>();
   private readonly authIdentities = new Map<string, VerifiedAuthIdentity>();
   private readonly networkProbe = new NetworkProbeController({
@@ -160,6 +164,8 @@ export class DistrictRoom extends Room<DistrictState> {
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
   private readonly netcodeRollout = resolveNetcodeRolloutManifest();
+  private simulation!: DistrictSimulation;
+  private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
   private economyController!: StreetEconomyController;
@@ -208,6 +214,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
+    this.worldStimuli.clear();
     this.combatHistory.clear();
     this.debugSubscribers.clear();
     const requestedSeed = Number(options?.seed);
@@ -216,6 +223,10 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.worldStimulusAdapter = new WorldStimulusAdapter({
+      state: this.state,
+      registry: this.worldStimuli
+    });
     this.worldClock = new WorldClockController({state: this.state, now: Date.now});
     this.worldClock.initialize();
     this.replicationController = new DistrictReplicationController(this.state, {
@@ -309,13 +320,14 @@ export class DistrictRoom extends Room<DistrictState> {
       incidents: () => this.crimeController.incidentSnapshot(),
       pursuits: () => this.crimeController.pursuitSnapshot(),
       pedestrians: () => this.pedestrians.diagnostics(),
-      stimuli: () => this.pedestrians.stimulusSnapshot(),
+      stimuli: () => this.worldStimuli.snapshot(),
       traffic: () => this.trafficController.diagnostics(),
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
+      simulationPhases: () => this.simulation?.diagnostics() ?? [],
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -584,6 +596,7 @@ export class DistrictRoom extends Room<DistrictState> {
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick}),
       events: this.events,
+      stimuli: this.worldStimuli,
       policeTarget: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
       requestPoliceFire: (officerId, x, y, angle, nowMs) => {
         this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
@@ -754,6 +767,42 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs
       )
     });
+    this.simulation = new DistrictSimulation({
+      state: this.state,
+      clock: this.simulationClock,
+      populationStreaming: this.populationStreaming,
+      trafficSignals: this.trafficSignalController,
+      explosions: this.explosionController,
+      policeFleet: this.policeResponseFleet,
+      vehicles: this.vehicleSimulation,
+      reactions: this.combatReactions,
+      melee: this.meleeCombat,
+      playerLifecycle: this.playerLifecycle,
+      playerControl: this.playerControl,
+      vehicleAccess: this.vehicleAccess,
+      crime: this.crimeController,
+      pedestrians: this.pedestrians,
+      worldStimuli: this.worldStimuli,
+      worldStimulusAdapter: this.worldStimulusAdapter,
+      combatHistory: this.combatHistory,
+      bullets: this.projectileController,
+      rockets: this.rocketProjectileController,
+      thrownProjectiles: this.thrownProjectileController,
+      fireZones: this.fireZoneController,
+      actorBurn: this.actorBurnController,
+      weaponPickups: this.weaponPickupController,
+      cashPickups: this.cashPickupController,
+      missions: this.missionController,
+      lifecycle: this.lifecycle,
+      events: this.events,
+      audio: this.audioEvents,
+      interactionSnapshots: this.interactionSnapshots,
+      interactionSnapshotsEnabled: () => this.netcodeRollout.stages.interactionSnapshots,
+      debug: this.debugProjection,
+      indexPlayer: (player) => this.indexPlayer(player),
+      indexNpc: (npc) => this.indexNpc(npc),
+      indexVehicle: (vehicle) => this.indexVehicle(vehicle)
+    });
     this.serviceController.initialize();
     this.medicalController.initialize();
     this.weaponPickupController.initialize();
@@ -761,7 +810,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.population.populate();
     this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
-    this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
+    this.setSimulationInterval((deltaTime) => this.simulation.advance(deltaTime), 1000 / 30);
 
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
@@ -927,101 +976,11 @@ export class DistrictRoom extends Room<DistrictState> {
     client?.send(GAME_NOTICE_MESSAGE, {message, tone} satisfies GameNotice);
   }
 
-  private advanceSimulation(deltaTime: number): void {
-    this.simulationClock.advance(deltaTime, (frame) => {
-      this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
-      const events = this.events.drain();
-      this.explosionController.observeEvents(events);
-      this.missionController.observeEvents(events);
-      this.pedestrians.observeEvents(events);
-      this.cashPickupController.observeEvents(events);
-      this.audioEvents.publish(events);
-      if (this.netcodeRollout.stages.interactionSnapshots) {
-        this.interactionSnapshots.capture();
-      }
-      this.debugProjection.update(events);
-    });
-  }
-
   onBeforePatch(): void {
     if (this.netcodeRollout.stages.interactionSnapshots) {
       this.interactionSnapshots?.publishCurrent(this.state.players.keys());
     }
     this.replicationController?.synchronize();
-  }
-
-  private updateFixedStep(deltaSeconds: number, now: number): void {
-    this.state.serverTick = this.simulationClock.tick;
-    this.state.serverTimeMs = now;
-    this.populationStreaming.update(
-      [...this.state.players.values()]
-        .filter((player) => player.spaceId === 'street')
-        .map((player) => ({x: player.x, y: player.y})),
-      now
-    );
-    this.trafficSignalController.beginTick();
-    this.trafficSignalController.update(now);
-    this.explosionController.update(now);
-    this.policeResponseFleet.update(now);
-    this.vehicleSimulation.beginTick();
-    this.state.vehicles.forEach((vehicle) => {
-      this.vehicleSimulation.update(vehicle, deltaSeconds, now);
-      this.indexVehicle(vehicle);
-    });
-    for (const vehicle of this.vehicleSimulation.finishTick(now)) {
-      this.indexVehicle(vehicle);
-    }
-    this.combatReactions.update(now);
-    this.meleeCombat.update(now);
-    this.state.players.forEach((player) => {
-      if (!player.alive) {
-        this.playerLifecycle.tryRespawn(player, now);
-      } else if (player.action) {
-        this.playerLifecycle.updateProtection(player, now);
-        if (player.action === 'melee') this.playerControl.updateOnFoot(player, deltaSeconds);
-        else this.vehicleAccess.updateAction(player, now);
-      } else {
-        this.playerLifecycle.updateProtection(player, now);
-        this.playerControl.updateOnFoot(player, deltaSeconds);
-        this.crimeController.decay(player, now);
-      }
-      this.indexPlayer(player);
-    });
-    this.crimeController.processReports(now);
-    this.crimeController.updateDispatch(now);
-    this.pedestrians.beginTick(now);
-    this.state.npcs.forEach((npc) => {
-      this.pedestrians.update(npc, deltaSeconds, now);
-      this.indexNpc(npc);
-    });
-    const humanoidContacts = this.vehicleSimulation.finishHumanoidContacts(deltaSeconds, now);
-    for (const vehicle of humanoidContacts.vehicles) this.indexVehicle(vehicle);
-    for (const player of humanoidContacts.players) this.indexPlayer(player);
-    for (const npc of humanoidContacts.npcs) this.indexNpc(npc);
-    this.combatHistory.capture({
-      serverTick: this.simulationClock.tick,
-      serverTimeMs: now,
-      worldCollisionRevision: WORLD_COLLISION_REVISION,
-      players: this.state.players.values(),
-      npcs: this.state.npcs.values(),
-      vehicles: this.state.vehicles.values()
-    });
-    this.state.bullets.forEach((bullet, bulletId) => {
-      this.projectileController.update(bullet, bulletId, deltaSeconds, now);
-    });
-    this.state.rockets.forEach((rocket, rocketId) => {
-      this.rocketProjectileController.update(rocket, rocketId, deltaSeconds, now);
-    });
-    this.state.thrownProjectiles.forEach((projectile, projectileId) => {
-      this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
-    });
-    this.fireZoneController.update(now);
-    this.actorBurnController.update(now);
-    this.weaponPickupController.update(now);
-    this.cashPickupController.update(now);
-    this.crimeController.expire(now);
-    this.missionController.update(now);
-    this.lifecycle.flush();
   }
 
   private rebuildSpatialIndex(): void {

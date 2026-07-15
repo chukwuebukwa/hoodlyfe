@@ -31,6 +31,7 @@ export interface DebugPanelProjection {
   interactionIsland: string;
   interactionReplay: string;
   interactionSelection: string;
+  simulationPhases: string;
   events: string[];
 }
 
@@ -94,10 +95,23 @@ export function projectDebugPanel(
         `${network.interactionReplayHardResets} reset`
       : 'off',
     interactionSelection: interactionIslandSelectionSummary(interactionIsland),
+    simulationPhases: simulationPhaseSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function simulationPhaseSummary(snapshot?: DebugSnapshot): string {
+  const phases = snapshot?.simulationPhases ?? [];
+  if (phases.length === 0) return 'off';
+  const totalMs = phases.reduce((sum, phase) => sum + phase.lastDurationMs, 0);
+  const failures = phases.reduce((sum, phase) => sum + phase.failures, 0);
+  const slowest = [...phases].sort((left, right) => (
+    right.lastDurationMs - left.lastDurationMs || left.order - right.order
+  ))[0];
+  return `${phases.length} phases / ${totalMs.toFixed(2)}ms / ` +
+    `${slowest.id} ${slowest.lastDurationMs.toFixed(2)}ms / ${failures} fail`;
 }
 
 function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {

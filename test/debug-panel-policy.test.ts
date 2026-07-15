@@ -44,8 +44,24 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     interactionIsland: 'off',
     interactionReplay: 'off',
     interactionSelection: 'off',
+    simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel summarizes server phase cost and failures', () => {
+  const snapshot = createSnapshot();
+  snapshot.simulationPhases = [{
+    id: 'frame-state', order: 0, runs: 42, lastTick: 42,
+    lastDurationMs: 0.1, maxDurationMs: 0.2, failures: 0
+  }, {
+    id: 'vehicle-motion', order: 1, runs: 42, lastTick: 42,
+    lastDurationMs: 0.8, maxDurationMs: 1.2, failures: 1
+  }];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).simulationPhases,
+    '2 phases / 0.90ms / vehicle-motion 0.80ms / 1 fail'
+  );
 });
 
 test('debug panel exposes region, network timing, and reconciliation pressure', () => {

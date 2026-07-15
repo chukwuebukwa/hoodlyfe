@@ -3,24 +3,27 @@ import test from 'node:test';
 import {PedestrianBehaviorSystem} from '../server/game/pedestrians/pedestrian-behavior-system.ts';
 import {PedestrianPerceptionSystem} from '../server/game/pedestrians/pedestrian-perception-system.ts';
 import {createPedestrianRuntime} from '../server/game/pedestrians/pedestrian-runtime.ts';
-import {PedestrianStimulusAdapter} from '../server/game/pedestrians/pedestrian-stimulus-adapter.ts';
-import {PedestrianStimulusRegistry} from '../server/game/pedestrians/pedestrian-stimulus-registry.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
-import {DistrictState, NpcState, VehicleState} from '../server/state.ts';
+import {WorldStimulusAdapter} from '../server/game/world/world-stimulus-adapter.ts';
+import {
+  type RegisterWorldStimulusInput,
+  WorldStimulusRegistry
+} from '../server/game/world/world-stimulus-registry.ts';
+import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
 import type {GameEvent} from '../server/game/events/game-events.ts';
 
-test('stimulus registry bounds, refreshes, scores, and expires world facts', () => {
-  const registry = new PedestrianStimulusRegistry(2);
+test('world stimulus registry bounds, refreshes, scores, and expires facts', () => {
+  const registry = new WorldStimulusRegistry(2);
   const first = registry.register(input('impact', 'car', 80, 0, 0.4, 100, 0, 1000));
   const refreshed = registry.register(input('impact', 'car', 40, 0, 0.6, 100, 100, 1000));
   assert.equal(first.created, true);
   assert.equal(refreshed.created, false);
   assert.equal(refreshed.stimulus.id, first.stimulus.id);
   assert.equal(registry.size, 1);
-  assert.equal(registry.nearest(0, 0, 100)?.x, 40);
+  assert.equal(registry.nearest(0, 0, 100, {spaceId: 'street'})?.x, 40);
 
   registry.register(input('death', 'victim', 90, 0, 1, 400, 200, 2000));
-  assert.equal(registry.nearest(0, 0, 200)?.kind, 'death');
+  assert.equal(registry.nearest(0, 0, 200, {spaceId: 'street'})?.kind, 'death');
   registry.register(input('gunshot', 'shooter', 10, 0, 0.9, 500, 300, 1500));
   assert.equal(registry.size, 2);
   assert.equal(registry.snapshot().some((stimulus) => stimulus.id === first.stimulus.id), false);
@@ -28,8 +31,50 @@ test('stimulus registry bounds, refreshes, scores, and expires world facts', () 
   assert.equal(registry.size, 0);
 });
 
-test('event adapter converts combat and vehicle facts without duplicating weapon impacts', () => {
+test('world stimulus queries enforce spatial layers and perception channels', () => {
+  const registry = new WorldStimulusRegistry();
+  registry.register(input('fire', 'fire-1', 4, 0, 1, 500, 0, 2000, {
+    sourceKind: 'effect',
+    subjectKind: 'effect',
+    actorKind: 'world',
+    actorId: '',
+    spaceId: 'hospital',
+    channels: ['sight']
+  }));
+  registry.register(input('gunshot', 'driver', 12, 0, 0.8, 500, 0, 2000, {
+    sourceKind: 'player',
+    subjectKind: 'player',
+    actorKind: 'player',
+    channels: ['hearing']
+  }));
+
+  assert.equal(registry.nearest(0, 0, 10, {
+    spaceId: 'street', channels: ['hearing']
+  })?.kind, 'gunshot');
+  assert.equal(registry.nearest(0, 0, 10, {
+    spaceId: 'hospital', channels: ['hearing']
+  }), undefined);
+  assert.equal(registry.nearest(0, 0, 10, {
+    spaceId: 'hospital', channels: ['sight']
+  })?.kind, 'fire');
+});
+
+test('world stimulus registry validates facts and returns defensive channel copies', () => {
+  const registry = new WorldStimulusRegistry();
+  assert.throws(() => registry.register(input('gunshot', 'driver', 0, 0, 2, 100, 0, 1000)));
+  assert.throws(() => registry.register(input('gunshot', 'driver', 0, 0, 1, 100, 0, 1000, {
+    channels: ['hearing', 'hearing']
+  })));
+  const registered = registry.register(input('gunshot', 'driver', 0, 0, 1, 100, 0, 1000));
+  registered.stimulus.channels.push('sight');
+  assert.deepEqual(registry.snapshot()[0].channels, ['hearing']);
+});
+
+test('event adapter preserves attribution and avoids duplicate weapon impacts', () => {
   const state = new DistrictState();
+  const shooter = new PlayerState();
+  shooter.id = 'shooter';
+  state.players.set(shooter.id, shooter);
   const npc = new NpcState();
   npc.id = 'victim';
   npc.x = 30;
@@ -40,8 +85,8 @@ test('event adapter converts combat and vehicle facts without duplicating weapon
   vehicle.x = 90;
   vehicle.y = 100;
   state.vehicles.set(vehicle.id, vehicle);
-  const registry = new PedestrianStimulusRegistry();
-  const adapter = new PedestrianStimulusAdapter({state, registry});
+  const registry = new WorldStimulusRegistry();
+  const adapter = new WorldStimulusAdapter({state, registry});
 
   adapter.ingest([
     event({
@@ -68,20 +113,37 @@ test('event adapter converts combat and vehicle facts without duplicating weapon
     ['gunshot', 'injury', 'death', 'impact', 'fire', 'explosion']
   );
   const death = registry.snapshot().find((stimulus) => stimulus.kind === 'death');
+  const fire = registry.snapshot().find((stimulus) => stimulus.kind === 'fire');
   assert.ok(death);
-  assert.deepEqual(
-    {x: death.x, y: death.y, sourceId: death.sourceId, subjectId: death.subjectId},
-    {x: 30, y: 40, sourceId: 'shooter', subjectId: 'victim'}
-  );
+  assert.equal(fire?.actorKind, 'player');
+  assert.deepEqual({
+    x: death.x,
+    y: death.y,
+    sourceId: death.sourceId,
+    subjectId: death.subjectId,
+    actorId: death.actorId,
+    actorKind: death.actorKind,
+    provenance: death.provenance
+  }, {
+    x: 30,
+    y: 40,
+    sourceId: 'shooter',
+    subjectId: 'victim',
+    actorId: 'shooter',
+    actorKind: 'player',
+    provenance: 'entity.killed'
+  });
 });
 
 test('staggered perception drives bravery-scaled civilian and police responses', () => {
   const state = new DistrictState();
-  const registry = new PedestrianStimulusRegistry();
+  const registry = new WorldStimulusRegistry();
   const perception = new PedestrianPerceptionSystem({
     state,
     policeTarget: () => undefined,
-    nearestStimulus: (x, y, nowMs) => registry.nearest(x, y, nowMs)
+    nearestStimulus: (x, y, nowMs) => registry.nearest(x, y, nowMs, {
+      spaceId: 'street', channels: ['hearing', 'sight']
+    })
   });
   const behavior = new PedestrianBehaviorSystem({
     random: new DeterministicRandom('stimulus-behavior'),
@@ -114,27 +176,36 @@ test('staggered perception drives bravery-scaled civilian and police responses',
 });
 
 function input(
-  kind: 'gunshot' | 'impact' | 'injury' | 'death' | 'fire' | 'explosion',
+  kind: RegisterWorldStimulusInput['kind'],
   sourceId: string,
   x: number,
   y: number,
-  severity: number,
+  intensity: number,
   radius: number,
   occurredAt: number,
-  lifetimeMs: number
-) {
+  lifetimeMs: number,
+  overrides: Partial<RegisterWorldStimulusInput> = {}
+): RegisterWorldStimulusInput {
   return {
     kind,
     sourceId,
+    sourceKind: 'vehicle',
     subjectId: sourceId,
+    subjectKind: 'vehicle',
+    actorId: sourceId,
+    actorKind: 'vehicle',
+    spaceId: 'street',
     x,
     y,
-    severity,
+    intensity,
     radius,
+    channels: kind === 'fire' ? ['sight'] : ['hearing'],
+    provenance: kind === 'gunshot' ? 'weapon.fired' : 'vehicle.damaged',
     occurredAt,
     lifetimeMs,
     dedupeKey: `${kind}:${sourceId}`,
-    dedupeMs: 200
+    dedupeMs: 200,
+    ...overrides
   };
 }
 

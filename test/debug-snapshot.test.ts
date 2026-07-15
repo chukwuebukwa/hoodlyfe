@@ -164,11 +164,18 @@ function createFixture(enabled: boolean) {
     id: 'stimulus-1',
     kind: 'gunshot',
     sourceId: 'driver',
+    sourceKind: 'player',
     subjectId: 'driver',
+    subjectKind: 'player',
+    actorId: 'driver',
+    actorKind: 'player',
+    spaceId: 'street',
     x: 100,
     y: 200,
-    severity: 0.84,
+    intensity: 0.84,
     radius: 500,
+    channels: ['hearing'],
+    provenance: 'weapon.fired',
     occurredAt: 100,
     expiresAt: 1500
   };
@@ -196,6 +203,15 @@ function createFixture(enabled: boolean) {
     pursuits: () => [pursuit],
     pedestrians: () => [pedestrian],
     stimuli: () => [stimulus],
+    simulationPhases: () => [{
+      id: 'frame-state',
+      order: 0,
+      runs: 6,
+      lastTick: 6,
+      lastDurationMs: 0.1,
+      maxDurationMs: 0.2,
+      failures: 0
+    }],
     traffic: () => [traffic],
     publish: (_messageType, snapshot) => published.push(snapshot)
   });

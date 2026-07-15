@@ -58,6 +58,26 @@ not a moving branch URL.
 - Historical rewind answers bounded hitbox or obstruction queries. It never reruns AI,
   wanted logic, explosions, missions, economy, or vehicle pileups.
 
+### Netcode change control
+
+The interaction-island implementation is a frozen dependency for systemic-gameplay
+milestones. "On top of" does not mean that gameplay systems may absorb, replace, or
+silently retune multiplayer behavior.
+
+- Gameplay milestones may consume authoritative actor state and emit ordinary replicated
+  state or one-shot event results.
+- They may not change prediction, reconciliation, remote interpolation, AOI admission,
+  interaction-island selection/replay, combat rewind, rollout policy, or shared
+  movement/contact kernels merely to make a gameplay feature easier to implement.
+- AI decisions, stimuli, wanted state, dispatch, mission logic, damage, economy, and
+  persistence never execute during client replay.
+- Additive opt-in debug fields are allowed when they do not affect authority, admission,
+  simulation, or presentation outside the debug subscriber path.
+- If production evidence shows that a gameplay milestone genuinely requires a netcode
+  change, stop that milestone and create a separate multiplayer adaptation contract,
+  impairment acceptance criteria, rollout flag, and checkpoint. Do not hide it inside the
+  gameplay commit.
+
 ### Four independent scopes
 
 1. Server simulation activation decides which potential actors become active.
@@ -81,6 +101,11 @@ No gameplay system may collapse these scopes into one distance check.
 
 ### G0 - Simulation phase and event contracts
 
+Status: Complete on 2026-07-14. See
+[`SIMULATION_PHASE_STIMULUS_RESEARCH.md`](SIMULATION_PHASE_STIMULUS_RESEARCH.md),
+[`decisions/0006-district-simulation-phase-pipeline.md`](decisions/0006-district-simulation-phase-pipeline.md),
+and the timestamped devlog checkpoint.
+
 Extract a named `DistrictSimulation` phase pipeline from the room adapter. Define a typed
 `WorldStimulus`/incident contract with stable IDs, source, actor, victim, position,
 intensity, lifetime, attribution, and visibility. Preserve current behavior while moving
@@ -91,6 +116,27 @@ depend on deterministic phase order and one shared vocabulary for world events.
 
 Netcode gate: shared movement/contact kernels remain pure; side effects occur after
 authoritative collision resolution and are excluded from replay.
+
+G0 compatibility boundary: existing history capture and interaction-snapshot capture keep
+their prior relative positions in the server tick. No prediction, replay, interpolation,
+AOI, reconciliation, rewind, rollout, or shared simulation algorithm changes are in scope.
+
+G0 architecture checklist:
+
+- [x] The room delegates one fixed-step callback to a named 16-phase coordinator.
+- [x] Phase order, history capture, event dispatch, snapshot capture, and patch publication
+  retain their previous relative order.
+- [x] One bounded, space-aware `WorldStimulusRegistry` replaces pedestrian-private sensory
+  storage without becoming replicated gameplay state.
+- [x] Transient game events, sensory stimuli, and durable incidents have separate owners and
+  lifetimes.
+- [x] Source, subject, responsible actor, provenance, perception channels, and spatial scope
+  survive event-to-stimulus adaptation.
+- [x] F3 exposes phase count, aggregate and slowest cost, and failures for opt-in subscribers.
+- [x] Prediction, reconciliation, interpolation, AOI, island selection/replay, rewind,
+  rollout, and shared movement/contact kernels are unchanged.
+- [x] Deterministic, full-suite, permanent netcode, strict impairment-soak, production-build,
+  real two-client, and live Three-client gates pass.
 
 ### G1 - Crime, wanted, and response-budget vertical slice
 

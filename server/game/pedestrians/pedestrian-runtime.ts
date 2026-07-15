@@ -1,4 +1,4 @@
-import type {PedestrianStimulusKind} from './pedestrian-stimulus-registry.ts';
+import type {WorldStimulusKind} from '../world/world-stimulus-registry.ts';
 
 export type PedestrianObjective =
   | 'wander'
@@ -67,7 +67,7 @@ export interface PedestrianRuntime {
   lastKnownThreatX: number;
   lastKnownThreatY: number;
   stimulusId: string;
-  stimulusKind: PedestrianStimulusKind | '';
+  stimulusKind: WorldStimulusKind | '';
   stimulusSourceId: string;
   stimulusX: number;
   stimulusY: number;

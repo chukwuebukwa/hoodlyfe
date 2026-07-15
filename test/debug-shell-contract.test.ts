@@ -7,6 +7,7 @@ const REQUIRED_MARKUP = [
   'id="debug-interaction-island"',
   'id="debug-interaction-replay"',
   'id="debug-interaction-selection"',
+  'id="debug-simulation-phases"',
   'id="debug-netcode-rollout"',
   'class="island-root"',
   'class="island-contact"',

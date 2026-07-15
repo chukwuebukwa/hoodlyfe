@@ -52,6 +52,7 @@ export class ThreeDebugController {
     interactionIsland: document.querySelector('#debug-interaction-island'),
     interactionReplay: document.querySelector('#debug-interaction-replay'),
     interactionSelection: document.querySelector('#debug-interaction-selection'),
+    simulationPhases: document.querySelector('#debug-simulation-phases'),
     rollout: document.querySelector('#debug-netcode-rollout')
   };
   private snapshot?: DebugSnapshot;
