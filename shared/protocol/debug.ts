@@ -50,13 +50,30 @@ export interface DebugStimulusEntry {
   id: string;
   kind: string;
   sourceId: string;
+  sourceKind: string;
   subjectId: string;
+  subjectKind: string;
+  actorId: string;
+  actorKind: string;
+  spaceId: string;
   x: number;
   y: number;
-  severity: number;
+  intensity: number;
   radius: number;
+  channels: string[];
+  provenance: string;
   occurredAt: number;
   expiresAt: number;
+}
+
+export interface DebugSimulationPhaseEntry {
+  id: string;
+  order: number;
+  runs: number;
+  lastTick: number;
+  lastDurationMs: number;
+  maxDurationMs: number;
+  failures: number;
 }
 
 export interface DebugTrafficAiEntry {
@@ -144,5 +161,6 @@ export interface DebugSnapshot {
   policeFleet?: DebugPoliceFleetEntry;
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
+  simulationPhases?: DebugSimulationPhaseEntry[];
   events: DebugEventEntry[];
 }

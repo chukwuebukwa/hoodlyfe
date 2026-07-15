@@ -1,6 +1,9 @@
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
+import type {InteractionIslandSelection} from '../prediction/interaction-island-selector.ts';
+import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
+import {interactionIslandSelectionSummary} from './interaction-island-debug-policy.ts';
 
 export interface DebugPanelProjection {
   clock: string;
@@ -24,13 +27,20 @@ export interface DebugPanelProjection {
   patchGap: string;
   prediction: string;
   clockSync: string;
+  rollout: string;
+  interactionIsland: string;
+  interactionReplay: string;
+  interactionSelection: string;
+  simulationPhases: string;
   events: string[];
 }
 
 export function projectDebugPanel(
   state?: DistrictNetworkState,
   snapshot?: DebugSnapshot,
-  network?: NetworkQualitySnapshot
+  network?: NetworkQualitySnapshot,
+  interactionIsland?: InteractionIslandSelection,
+  rollout?: NetcodeRolloutSnapshot
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -56,18 +66,71 @@ export function projectDebugPanel(
       : '0/0ms',
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
     prediction: network
-      ? `${network.predictionError}px / ${network.vehicleResimulations} resim / ` +
-        `${network.reconciliations} snap / A${network.vehicleAcknowledgedMove} ` +
-        `P${network.vehiclePendingMoves}`
+      ? `${network.predictionError}px now / ${network.predictionErrorP95}px p95 / ` +
+        `${network.predictionCorrections} corr / ${network.reconciliations} snap / ` +
+        `V A${network.vehicleAcknowledgedMove} P${network.vehiclePendingMoves} ` +
+        `R${network.vehicleResimulations} / F A${network.onFootAcknowledgedMove} ` +
+        `P${network.onFootPendingMoves} R${network.onFootResimulations}`
       : '0px',
     clockSync: network
-      ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer`
+      ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer / ` +
+        `${network.remoteSnapshotAgeP95Ms}ms age / ` +
+        `${network.remoteBufferUnderrunPercent}% under / ` +
+        `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
+    rollout: rolloutSummary(rollout),
+    interactionIsland: network
+      ? `${network.interactionIslandSize} bodies / ` +
+        `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
+        `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
+        `overflow / ${network.interactionIslandHorizonMs}ms horizon`
+      : 'off',
+    interactionReplay: network
+      ? `${network.interactionSnapshotAgeTicks}t snapshot age / ` +
+        `H${network.interactionHistoryFrames} history / ` +
+        `R${network.interactionReplayCount}:${network.interactionReplayTicks}t ` +
+        `${network.interactionReplayDurationP95Ms}ms p95 / ` +
+        `${network.interactionReplayPairSteps} pairs / ` +
+        `${network.interactionReplaySuppressedEffects} suppressed / ` +
+        `${network.interactionReplayHardResets} reset`
+      : 'off',
+    interactionSelection: interactionIslandSelectionSummary(interactionIsland),
+    simulationPhases: simulationPhaseSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
 }
+
+function simulationPhaseSummary(snapshot?: DebugSnapshot): string {
+  const phases = snapshot?.simulationPhases ?? [];
+  if (phases.length === 0) return 'off';
+  const totalMs = phases.reduce((sum, phase) => sum + phase.lastDurationMs, 0);
+  const failures = phases.reduce((sum, phase) => sum + phase.failures, 0);
+  const slowest = [...phases].sort((left, right) => (
+    right.lastDurationMs - left.lastDurationMs || left.order - right.order
+  ))[0];
+  return `${phases.length} phases / ${totalMs.toFixed(2)}ms / ` +
+    `${slowest.id} ${slowest.lastDurationMs.toFixed(2)}ms / ${failures} fail`;
+}
+
+function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {
+  if (!rollout) return 'unavailable';
+  const enabled = Object.entries(rollout.manifest.stages)
+    .filter(([, value]) => value)
+    .map(([key]) => ROLLOUT_STAGE_LABELS[key] ?? key);
+  const detail = rollout.rejectionReason ? ` / ${rollout.rejectionReason}` : '';
+  return `${rollout.source} / ${rollout.manifest.revision} / ` +
+    `${enabled.length > 0 ? enabled.join(',') : 'kernel-only'}${detail}`;
+}
+
+const ROLLOUT_STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  remoteTimelines: 'timeline',
+  interactionSnapshots: 'snapshot',
+  interactionReplay: 'island',
+  combatRewind: 'rewind',
+  projectilePrediction: 'projectile'
+});
 
 function populationSummary(snapshot?: DebugSnapshot): string {
   const population = snapshot?.populationStreaming;

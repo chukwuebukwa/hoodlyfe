@@ -5,7 +5,9 @@ export interface ProjectileStyle {
   radius: number;
 }
 
-export function projectileStyle(bullet: NetworkBullet): ProjectileStyle {
+export function projectileStyle(
+  bullet: Pick<NetworkBullet, 'ownerKind' | 'weapon'>
+): ProjectileStyle {
   if (bullet.ownerKind === 'hostile') return {color: 0xff9d3f, radius: weaponRadius(bullet.weapon)};
   if (bullet.ownerKind === 'police') return {color: 0xff6262, radius: weaponRadius(bullet.weapon)};
   if (bullet.weapon === 'smg') return {color: 0xff9f43, radius: weaponRadius(bullet.weapon)};

@@ -1079,30 +1079,34 @@ one local connection.
 - 30 Hz fixed server simulation with bounded catch-up.
 - validated server-owned player intent.
 - saved vehicle input, acknowledgement, rewind, and static-world replay.
-- local on-foot movement replay as an interim presentation system.
+- fixed-tick saved on-foot prediction over the shared pure movement step.
 - deterministic keyed randomness and stable spatial queries.
 - typed bounded gameplay events and deferred lifecycle mutation.
 - StateView per-client AOI with same-space and mission/occupancy pins.
 - virtual pedestrian/traffic records with materialization hysteresis and budgets.
 - separate pedestrian perception, police, traffic, combat, mission, and economy owners.
 - Three and Phaser render layers with correction offsets and debug support.
+- generalized bounded interaction-island selection and immutable same-tick history.
+- deterministic whole-island replay coordination with an explicit side-effect gate.
 
 ### 20.2 Architectural gaps this design exposes
 
-1. On-foot prediction is not yet a complete fixed-tick saved-state replay system.
+1. Resolved in M3: on-foot prediction is a fixed-tick saved-state replay system.
 2. Player commands are not yet one sequenced ordered command stream for movement,
    aim, and edge actions.
-3. Server and client do not yet use one shared pure on-foot step.
+3. Resolved in M2-M3: server and client use one shared pure on-foot step.
 4. Vehicle prediction does not yet replay bounded remote collision partners.
-5. Remote actors need timestamped buffers independent of Colyseus patch arrival.
-6. There is no generalized interaction-island selector or whole-island history.
+5. Resolved in M4: remote actors use timestamped buffers independent of Colyseus patch
+   arrival.
+6. Resolved in M6-M7: clients own a generalized bounded selector, immutable same-tick
+   history, and deterministic replay coordinator.
 7. The server lacks a bounded historical hitbox/query service for combat.
 8. Predicted projectile spawn correlation is not a shared protocol.
 9. Presentation attachments can still read authority separately from the predicted
    body, as shown by the floating gun report.
 10. Population has active and virtual states but no general reduced simulation tier.
 11. Replication has near/full state but not explicit compact mid/far representations.
-12. Replay side-effect suppression is not yet a cross-system contract.
+12. Resolved in M7: replay side-effect suppression is an explicit cross-system contract.
 13. Interaction requests need stable idempotency, revisions, and rejection reasons.
 14. Automated latency QA does not yet cover the complete interaction matrix.
 

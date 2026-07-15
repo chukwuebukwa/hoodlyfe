@@ -77,6 +77,7 @@ export interface MinimapPolicyInput {
   vehicles: Iterable<MinimapVehicleInput>;
   npcs: Iterable<MinimapNpcInput>;
   points?: Iterable<MinimapPointInput>;
+  localPose?: {x: number; y: number; angle: number};
 }
 
 const ON_FOOT_RANGE = 520;
@@ -90,7 +91,7 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
   const local = players.find((player) => player.id === input.localPlayerId);
   if (!local) return undefined;
   const localVehicle = local.vehicleId ? vehicles.get(local.vehicleId) : undefined;
-  const localPosition = effectivePosition(local, localVehicle);
+  const localPosition = input.localPose ?? effectivePosition(local, localVehicle);
   const range = localVehicle && !localVehicle.destroyed
     ? drivingRange(localVehicle.speed)
     : ON_FOOT_RANGE;

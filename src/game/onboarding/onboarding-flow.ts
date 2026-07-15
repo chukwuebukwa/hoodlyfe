@@ -399,4 +399,3 @@ function writeStorage(key: string, value: string): void {
     // Onboarding still returns the selected appearance for the active join.
   }
 }
-

@@ -2,6 +2,7 @@ import {VehicleSimulationController} from '../../server/game/vehicles/vehicle-si
 import {attachTestPlayerControl} from './player-control.ts';
 import {attachTestTrafficController} from './traffic-controller.ts';
 import {attachTestVehicleAccess} from './vehicle-access.ts';
+import {VEHICLE_COLLISION_BOUNDING_RADIUS} from '../../server/game/vehicles/vehicle-config.ts';
 
 export function attachTestVehicleSimulation(room: any): VehicleSimulationController {
   if (!room.trafficController) attachTestTrafficController(room);
@@ -22,7 +23,7 @@ export function attachTestVehicleSimulation(room: any): VehicleSimulationControl
       Math.hypot(npc.x - x, npc.y - y) <= radius + 10
     )),
     nearbyVehicles: (x, y, radius) => [...room.state.vehicles.values()].filter((vehicle: any) => (
-      Math.hypot(vehicle.x - x, vehicle.y - y) <= radius + 20
+      Math.hypot(vehicle.x - x, vehicle.y - y) <= radius + VEHICLE_COLLISION_BOUNDING_RADIUS
     )),
     damagePlayer: (player, damage, attackerId, nowMs) => {
       const previousHealth = player.health;

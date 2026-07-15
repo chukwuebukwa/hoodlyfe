@@ -513,6 +513,7 @@ export class DistrictState extends Schema {
   worldTimeStartedAt = 0;
   worldTimeStartMinute = 0;
   worldTimeRate = 0;
+  serverTick = 0;
   serverTimeMs = 0;
   missionContactX = 0;
   missionContactY = 0;
@@ -535,6 +536,7 @@ defineTypes(DistrictState, {
   worldTimeStartedAt: 'number',
   worldTimeStartMinute: 'number',
   worldTimeRate: 'number',
+  serverTick: 'number',
   serverTimeMs: 'number',
   missionContactX: 'number',
   missionContactY: 'number'

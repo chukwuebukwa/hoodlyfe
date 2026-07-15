@@ -5,12 +5,10 @@ import type {GameRuntime} from '../src/main.ts';
 
 export function GameRuntimeMount(): null {
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
-  const startingRef = useRef(false);
 
   useEffect(() => {
-    if (runtimeRef.current || startingRef.current) return;
+    if (runtimeRef.current) return;
     let cancelled = false;
-    startingRef.current = true;
     void import('../src/main.ts').then(async ({startGameRuntime}) => {
       if (cancelled) return;
       const runtime = await startGameRuntime({
@@ -24,8 +22,6 @@ export function GameRuntimeMount(): null {
       runtimeRef.current = runtime;
     }).catch((error) => {
       console.error(error);
-    }).finally(() => {
-      startingRef.current = false;
     });
 
     return () => {

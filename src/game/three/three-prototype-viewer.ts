@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {VEHICLE_INPUT_MESSAGE} from '../../../shared/protocol/vehicle-input.ts';
+import {ON_FOOT_INPUT_MESSAGE} from '../../../shared/protocol/on-foot-input.ts';
 import type {Room} from 'colyseus.js';
 import type {DistrictNetworkState} from '../types.ts';
 import {ThreeDistrictEntities} from './three-district-entities.ts';
@@ -11,8 +12,17 @@ import {ThreeQaDriver} from './three-qa-driver.ts';
 import {ThreeInputController} from './three-input-controller.ts';
 import {ThreeDayNightController} from './three-day-night-controller.ts';
 import {NetworkQualityController} from '../network/network-quality-controller.ts';
+import {CombatFirePredictionController} from '../network/combat-fire-prediction-controller.ts';
+import {InteractionIslandController} from '../network/interaction-island-controller.ts';
+import type {InteractionSnapshotInbox} from '../network/interaction-snapshot-inbox.ts';
+import type {NetcodeRolloutController} from '../network/netcode-rollout-controller.ts';
 import {ClientCollisionMap} from '../world/client-collision-map.ts';
-import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
+import {STREET_SPACE_ID, interiorDefinition} from '../../../shared/content/interior-catalog.ts';
+import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
+import {
+  createMixedInteractionBodyStep,
+  createMixedInteractionPairStep
+} from '../prediction/mixed-interaction-replay.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -89,6 +99,8 @@ export class ThreePrototypeViewer {
   private world?: ThreeDistrictWorld;
   private debug?: ThreeDebugController;
   private networkQuality?: NetworkQualityController;
+  private combatFirePrediction?: CombatFirePredictionController;
+  private interactionIslands?: InteractionIslandController;
   private interiors?: ThreeInteriorRenderer;
   private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
@@ -98,7 +110,9 @@ export class ThreePrototypeViewer {
 
   constructor(
     private readonly parent: HTMLElement,
-    private readonly room?: Room<DistrictNetworkState>
+    private readonly room?: Room<DistrictNetworkState>,
+    private readonly interactionSnapshots?: InteractionSnapshotInbox,
+    private readonly netcodeRollout?: NetcodeRolloutController
   ) {
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -130,7 +144,9 @@ export class ThreePrototypeViewer {
       this.entities = await ThreeDistrictEntities.create(
         this.scene,
         this.surfaceHeightAt,
-        (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius)
+        (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius),
+        (sample) => this.networkQuality?.observeRemoteTimeline(sample),
+        () => this.rolloutEnabled('remoteTimelines')
       );
       this.world = await ThreeDistrictWorld.create(
         this.scene,
@@ -138,12 +154,60 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt
       );
       this.networkQuality = new NetworkQualityController(this.room);
+      this.combatFirePrediction = new CombatFirePredictionController({
+        room: this.room,
+        getPlayer: () => this.room?.state.players.get(this.room.sessionId),
+        getAimOrigin: () => this.entities?.playerAimOrigin(this.room?.sessionId ?? ''),
+        estimatedServerTimeMs: () => {
+          const quality = this.networkQuality?.snapshot();
+          return quality?.clockSynchronized
+            ? quality.estimatedServerTimeMs
+            : this.room?.state.serverTimeMs ?? 0;
+        },
+        canOccupy: (x, y, radius) => collision.canOccupy(STREET_SPACE_ID, x, y, radius),
+        combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
+        projectilePredictionEnabled: () => this.rolloutEnabled('projectilePrediction')
+      });
+      if (this.interactionSnapshots) {
+        const canOccupyInteraction = (
+          spaceId: string,
+          x: number,
+          y: number,
+          radius: number
+        ) => collision.canOccupy(spaceId, x, y, radius);
+        this.interactionIslands = new InteractionIslandController(this.interactionSnapshots, {
+          enabled: () => this.rolloutEnabled('interactionReplay'),
+          networkConditions: () => {
+            const network = this.networkQuality?.snapshot();
+            return {
+              rttMs: network?.rttP95Ms ?? 0,
+              interpolationDelayMs: network?.interpolationDelayMs ?? 75,
+              jitterMs: network?.jitterMs ?? 0
+            };
+          },
+          onHistory: (frames) => this.networkQuality?.observeInteractionHistory(frames),
+          onSelection: (selection) => this.networkQuality?.observeInteractionIsland(selection),
+          replay: {
+            prepare: (baseline) => this.entities?.prepareInteractionReplay(baseline),
+            worldCollisionRevision: () => WORLD_COLLISION_REVISION,
+            stepBody: createMixedInteractionBodyStep(canOccupyInteraction),
+            resolvePair: createMixedInteractionPairStep(canOccupyInteraction),
+            onReplay: (result, durationMs, baseline) => {
+              this.entities?.applyInteractionReplay(baseline, result);
+              this.networkQuality?.observeInteractionReplay(result, durationMs);
+            }
+          }
+        });
+      }
       this.debug = new ThreeDebugController(
         this.scene,
         this.room,
         this.surfaceHeightAt,
         () => this.networkQuality?.snapshot(),
-        (vehicleId) => this.entities?.vehiclePose(vehicleId)
+        (vehicleId) => this.entities?.vehiclePose(vehicleId),
+        (playerId) => this.entities?.playerPose(playerId),
+        () => this.interactionIslands?.latest(),
+        () => this.netcodeRollout?.snapshot()
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
@@ -151,7 +215,8 @@ export class ThreePrototypeViewer {
       this.ui = new ThreeDistrictUiController(
         this.room,
         payload.surfaces.width * payload.blockSize,
-        payload.surfaces.height * payload.blockSize
+        payload.surfaces.height * payload.blockSize,
+        () => this.entities?.playerPose(this.room?.sessionId ?? '')
       );
       this.input = new ThreeInputController({
         room: this.room,
@@ -159,6 +224,7 @@ export class ThreePrototypeViewer {
         camera: this.camera,
         player: () => this.room?.state.players.get(this.room.sessionId),
         surfaceZ: () => this.center.z,
+        onFire: (angle) => this.combatFirePrediction?.requestFire(angle),
         isBlocked: () => this.ui?.isInputBlocked() ?? false
       });
       this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
@@ -180,7 +246,9 @@ export class ThreePrototypeViewer {
     this.entities?.destroy();
     this.world?.destroy();
     this.debug?.destroy();
+    this.interactionIslands?.destroy();
     this.networkQuality?.destroy();
+    this.combatFirePrediction?.destroy();
     this.interiors?.destroy();
     this.lighting?.destroy();
     this.qa?.destroy();
@@ -196,6 +264,10 @@ export class ThreePrototypeViewer {
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.status?.remove();
+  }
+
+  private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
+    return this.netcodeRollout?.enabled(stage) ?? true;
   }
 
   private createMap(payload: PrototypePayload, texture: THREE.Texture): THREE.Group {
@@ -289,23 +361,38 @@ export class ThreePrototypeViewer {
         this.room.state,
         localSpaceId,
         this.room.sessionId,
-        renderServerTime
+        renderServerTime,
+        quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
+      this.combatFirePrediction?.synchronizeAuthoritative(this.room.state.bullets);
       this.world?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0};
+      this.world?.synchronizePredictedBullets(
+        this.combatFirePrediction?.update(now) ?? [],
+        localSpaceId
+      );
       const local = this.room.state.players.get(this.room.sessionId);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
       if (local && !localVehicle) {
-        this.entities?.predictLocalPlayer(
+        const prediction = this.entities?.predictLocalPlayer(
           this.room.sessionId,
           movement,
-          delta,
-          now,
-          quality?.clockOffsetMs ?? 0,
-          quality?.clockSynchronized ?? false
+          delta
         );
+        if (prediction?.outboundMoves.length) {
+          this.room.send(ON_FOOT_INPUT_MESSAGE, {moves: prediction.outboundMoves});
+        }
+        if (prediction?.correction) {
+          this.networkQuality?.observeOnFootPrediction(
+            prediction.correction.positionError,
+            prediction.correction.hardCorrection,
+            prediction.correction.pendingMoveCount,
+            local.lastInputSequence ?? 0,
+            prediction.correction.resimulated
+          );
+        }
       }
       if (local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
         const prediction = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);

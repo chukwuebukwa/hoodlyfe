@@ -31,6 +31,11 @@ export class ThrownProjectileController {
 
   constructor(private readonly options: ThrownProjectileControllerOptions) {}
 
+  motionFor(projectileId: string): Readonly<ThrownProjectileRuntime> | undefined {
+    const motion = this.runtime.get(projectileId);
+    return motion ? {...motion} : undefined;
+  }
+
   throw(input: ThrowExplosiveInput): boolean {
     const config = input.kind === 'molotov' ? MOLOTOV_PROJECTILE : GRENADE_PROJECTILE;
     if (

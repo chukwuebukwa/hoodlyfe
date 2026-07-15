@@ -11,7 +11,11 @@ import {VEHICLE_COLLISION_BOUNDING_RADIUS, vehicleConfig} from './vehicle-config
 import {VehicleDamageSystem} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
-import {resolveSweptVehicleWorldCollision} from '../../../shared/physics/vehicle-world-collision.ts';
+import {stepVehicleWithWorldCollision} from '../../../shared/simulation/vehicle-step.ts';
+import {
+  VehicleHumanoidContactSystem,
+  type VehicleHumanoidContactPhaseResult
+} from './vehicle-humanoid-contact-system.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -62,15 +66,43 @@ interface VehicleSimulationControllerOptions {
 
 export class VehicleSimulationController {
   private readonly collisions = new VehicleCollisionSystem();
+  private readonly humanoidContacts: VehicleHumanoidContactSystem;
   private readonly damageSystem = new VehicleDamageSystem();
-  private readonly impactAt = new Map<string, number>();
   private readonly collisionPairsThisTick = new Set<string>();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
 
-  constructor(private readonly options: VehicleSimulationControllerOptions) {}
+  constructor(private readonly options: VehicleSimulationControllerOptions) {
+    this.humanoidContacts = new VehicleHumanoidContactSystem(options);
+  }
 
   beginTick(): void {
     this.collisionPairsThisTick.clear();
+    this.humanoidContacts.beginTick();
+  }
+
+  finishTick(nowMs: number): readonly VehicleState[] {
+    const moved = new Map<string, VehicleState>();
+    const vehicles = [...this.options.state.vehicles.values()]
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const vehicle of vehicles) {
+      for (const other of this.stableCollisionCandidates(vehicle)) {
+        if (this.resolveCollisionPair(vehicle, other, nowMs)) {
+          moved.set(vehicle.id, vehicle);
+          moved.set(other.id, other);
+        }
+      }
+    }
+    for (const vehicle of vehicles) this.syncOccupants(vehicle);
+    return Object.freeze([...moved.values()]);
+  }
+
+  finishHumanoidContacts(
+    deltaSeconds: number,
+    nowMs: number
+  ): VehicleHumanoidContactPhaseResult {
+    const result = this.humanoidContacts.resolve(deltaSeconds, nowMs);
+    for (const vehicle of result.vehicles) this.syncOccupants(vehicle);
+    return result;
   }
 
   update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
@@ -81,118 +113,68 @@ export class VehicleSimulationController {
     }
     if (vehicle.destroyed) {
       this.updateDestroyed(vehicle, nowMs);
-      this.syncOccupants(vehicle);
       return;
     }
     if (
       !vehicle.driverId &&
       this.options.policeVehicles?.has(vehicle.id)
     ) {
-      if (this.options.policeVehicles.update(
+      this.options.policeVehicles.update(
         vehicle,
         deltaSeconds,
         nowMs,
         this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs, true)
-      )) {
-        this.handleTrafficImpacts(vehicle, nowMs);
-      }
-      this.handleCollision(vehicle, nowMs);
-      this.syncOccupants(vehicle);
+      );
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
-      if (this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
+      this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
         obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs),
         emergencyVehicles: this.options.nearbyVehicles(
           vehicle.x,
           vehicle.y,
           Math.max(340, configuration.traffic.lookAhead)
         ).filter((candidate) => candidate.siren && !candidate.destroyed)
-      })) {
-        this.handleTrafficImpacts(vehicle, nowMs);
-      }
-      this.handleCollision(vehicle, nowMs);
-      this.syncOccupants(vehicle);
+      });
       return;
     }
 
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
-      const movementStart = {
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.speed
-      };
-      vehicle.siren = false;
-      const throttle = -input.inputY;
-      if (throttle !== 0) {
-        const changingDirection = vehicle.speed !== 0 && Math.sign(vehicle.speed) !== Math.sign(throttle);
-        if (changingDirection) {
-          vehicle.speed = approach(
-            vehicle.speed,
-            0,
-            configuration.handling.brakeDeceleration * deltaSeconds
-          );
-        } else {
-          const acceleration = throttle > 0
-            ? configuration.handling.forwardAcceleration
-            : configuration.handling.reverseAcceleration;
-          vehicle.speed += throttle * acceleration * deltaSeconds;
-        }
-      } else {
-        vehicle.speed = approach(
-          vehicle.speed,
-          0,
-          configuration.handling.coastDeceleration * deltaSeconds
-        );
-      }
-      const speedMultiplier = this.damageSystem.speedMultiplier(vehicle.engineDamage, vehicle.onFire);
-      vehicle.speed = clamp(
-        vehicle.speed,
-        -configuration.handling.maximumReverseSpeed * speedMultiplier,
-        configuration.handling.maximumForwardSpeed * speedMultiplier
-      );
-
-      if (Math.abs(vehicle.speed) > 4 && input.inputX !== 0) {
-        const grip = clamp(
-          Math.abs(vehicle.speed) / configuration.handling.steeringGripSpeed,
-          configuration.handling.steeringGripFloor,
-          1
-        );
-        const direction = vehicle.speed >= 0 ? 1 : -1;
-        vehicle.angle = normalizeAngle(
-          vehicle.angle + input.inputX * configuration.handling.steeringRate *
-            grip * direction * deltaSeconds
-        );
-      }
-
-      const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
-      const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
-      const worldMovement = resolveSweptVehicleWorldCollision(
-        movementStart,
-        {x: nextX, y: nextY, angle: vehicle.angle, speed: vehicle.speed},
+      const movement = stepVehicleWithWorldCollision(
+        {
+          x: vehicle.x,
+          y: vehicle.y,
+          angle: vehicle.angle,
+          speed: vehicle.speed
+        },
+        {steering: input.inputX, throttle: -input.inputY},
         vehicle.kind,
-        (x, y, radius) => this.options.world.canOccupy(x, y, radius)
+        deltaSeconds,
+        (x, y, radius) => this.options.world.canOccupy(x, y, radius),
+        {
+          maximumSpeedMultiplier: this.damageSystem.speedMultiplier(
+            vehicle.engineDamage,
+            vehicle.onFire
+          )
+        }
       );
-      vehicle.x = worldMovement.pose.x;
-      vehicle.y = worldMovement.pose.y;
-      vehicle.angle = worldMovement.pose.angle;
-      if (worldMovement.collided) {
+      vehicle.siren = false;
+      vehicle.x = movement.pose.x;
+      vehicle.y = movement.pose.y;
+      vehicle.angle = movement.pose.angle;
+      if (movement.collidedWithWorld) {
         this.damage(
           vehicle,
-          this.damageSystem.wallImpactDamage(vehicle.speed),
+          this.damageSystem.wallImpactDamage(movement.impactSpeed),
           '',
           'world',
           nowMs,
-          vehicle.speed >= 0 ? 'front' : 'rear'
+          movement.impactSpeed >= 0 ? 'front' : 'rear'
         );
-        vehicle.speed = worldMovement.pose.speed;
-      } else {
-        vehicle.speed = worldMovement.pose.speed;
       }
-      if (!vehicle.destroyed) this.handleDriverImpacts(vehicle, driver, nowMs);
+      vehicle.speed = movement.pose.speed;
       if (input.sequence !== undefined) {
         this.options.acknowledgeInput?.(driver.id, vehicle.id, input.sequence);
       }
@@ -203,8 +185,6 @@ export class VehicleSimulationController {
       }
       vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
     }
-    this.handleCollision(vehicle, nowMs);
-    this.syncOccupants(vehicle);
   }
 
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
@@ -273,53 +253,12 @@ export class VehicleSimulationController {
   }
 
   handleCollision(vehicle: VehicleState, nowMs: number): void {
-    for (const other of this.options.nearbyVehicles(
-      vehicle.x,
-      vehicle.y,
-      VEHICLE_COLLISION_BOUNDING_RADIUS
-    )) {
+    for (const other of this.collisionCandidates(vehicle)) {
       if (other.id === vehicle.id) continue;
-      const pairKey = [vehicle.id, other.id].sort().join(':');
-      if (this.collisionPairsThisTick.has(pairKey)) continue;
-      const vehicleSettings = vehicleConfig(vehicle.kind);
-      const otherSettings = vehicleConfig(other.kind);
-      const result = this.collisions.resolve({
-        id: vehicle.id,
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.speed,
-        halfLength: vehicleSettings.collision.length / 2,
-        halfWidth: vehicleSettings.collision.width / 2,
-        mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
-        damageScale: vehicleSettings.collisionDamageScale
-      }, {
-        id: other.id,
-        x: other.x,
-        y: other.y,
-        angle: other.angle,
-        speed: other.destroyed ? 0 : other.speed,
-        halfLength: otherSettings.collision.length / 2,
-        halfWidth: otherSettings.collision.width / 2,
-        mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
-        damageScale: otherSettings.collisionDamageScale
-      });
-      if (!result.collided) continue;
-      this.collisionPairsThisTick.add(pairKey);
-      if (this.options.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
-        vehicle.x = result.primaryX;
-        vehicle.y = result.primaryY;
+      if (this.resolveCollisionPair(vehicle, other, nowMs)) {
+        this.syncOccupants(vehicle);
+        this.syncOccupants(other);
       }
-      if (this.options.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
-        other.x = result.otherX;
-        other.y = result.otherY;
-      }
-      if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
-      if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
-      this.damage(vehicle, result.primaryDamage, other.driverId, 'vehicle', nowMs, result.primaryZone);
-      this.damage(other, result.otherDamage, vehicle.driverId, 'vehicle', nowMs, result.otherZone);
-      this.syncOccupants(other);
-      return;
     }
   }
 
@@ -369,61 +308,6 @@ export class VehicleSimulationController {
       }));
     const signals = this.options.signals?.obstaclesFor(vehicle, nowMs, emergencyResponse) ?? [];
     return [...vehicles, ...players, ...npcs, ...signals];
-  }
-
-  private handleTrafficImpacts(vehicle: VehicleState, nowMs: number): void {
-    if (vehicle.speed < 70 || nowMs - (this.impactAt.get(vehicle.id) ?? 0) < 600) return;
-    for (const player of this.options.nearbyPlayers(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!player.alive || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.options.damagePlayer(player, 45, '', nowMs, undefined, vehicleImpact(vehicle));
-      vehicle.speed *= 0.55;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-    for (const npc of this.options.nearbyNpcs(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!npc.alive) continue;
-      if (Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) continue;
-      this.options.damageNpc(npc, 100, '', nowMs, undefined, vehicleImpact(vehicle));
-      vehicle.speed *= 0.62;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-  }
-
-  private handleDriverImpacts(vehicle: VehicleState, driver: PlayerState, nowMs: number): void {
-    if (Math.abs(vehicle.speed) < 90 || nowMs - (this.impactAt.get(vehicle.id) ?? 0) < 450) return;
-    for (const npc of this.options.nearbyNpcs(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!npc.alive || Math.hypot(npc.x - vehicle.x, npc.y - vehicle.y) > VEHICLE_RADIUS + NPC_RADIUS) {
-        continue;
-      }
-      this.options.damageNpc(
-        npc,
-        Math.min(100, Math.round(Math.abs(vehicle.speed) * 0.45)),
-        driver.id,
-        nowMs,
-        npc.kind === 'police' ? 'hit-and-run-police' : 'hit-and-run',
-        vehicleImpact(vehicle)
-      );
-      vehicle.speed *= 0.72;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
-    for (const player of this.options.nearbyPlayers(vehicle.x, vehicle.y, VEHICLE_RADIUS)) {
-      if (!player.alive || player.id === driver.id || player.vehicleId) continue;
-      if (Math.hypot(player.x - vehicle.x, player.y - vehicle.y) > VEHICLE_RADIUS + PLAYER_RADIUS) continue;
-      this.options.damagePlayer(
-        player,
-        50,
-        driver.id,
-        nowMs,
-        'hit-and-run',
-        vehicleImpact(vehicle)
-      );
-      vehicle.speed *= 0.68;
-      this.impactAt.set(vehicle.id, nowMs);
-      return;
-    }
   }
 
   private destroy(
@@ -511,23 +395,70 @@ export class VehicleSimulationController {
       if (player.vehicleSeat === 0) player.angle = vehicle.angle;
     }
   }
-}
 
-function normalizeAngle(angle: number): number {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
+  private stableCollisionCandidates(vehicle: VehicleState): VehicleState[] {
+    return this.collisionCandidates(vehicle)
+      .filter((other) => other.id.localeCompare(vehicle.id) > 0);
+  }
+
+  private collisionCandidates(vehicle: VehicleState): VehicleState[] {
+    return this.options.nearbyVehicles(
+      vehicle.x,
+      vehicle.y,
+      VEHICLE_COLLISION_BOUNDING_RADIUS
+    ).sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  private resolveCollisionPair(
+    vehicle: VehicleState,
+    other: VehicleState,
+    nowMs: number
+  ): boolean {
+    const pairKey = [vehicle.id, other.id].sort().join(':');
+    if (this.collisionPairsThisTick.has(pairKey)) return false;
+    const vehicleSettings = vehicleConfig(vehicle.kind);
+    const otherSettings = vehicleConfig(other.kind);
+    const result = this.collisions.resolve({
+      id: vehicle.id,
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      speed: vehicle.destroyed ? 0 : vehicle.speed,
+      halfLength: vehicleSettings.collision.length / 2,
+      halfWidth: vehicleSettings.collision.width / 2,
+      mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
+      damageScale: vehicleSettings.collisionDamageScale
+    }, {
+      id: other.id,
+      x: other.x,
+      y: other.y,
+      angle: other.angle,
+      speed: other.destroyed ? 0 : other.speed,
+      halfLength: otherSettings.collision.length / 2,
+      halfWidth: otherSettings.collision.width / 2,
+      mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
+      damageScale: otherSettings.collisionDamageScale
+    });
+    if (!result.collided) return false;
+    this.collisionPairsThisTick.add(pairKey);
+    if (this.options.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
+      vehicle.x = result.primaryX;
+      vehicle.y = result.primaryY;
+    }
+    if (this.options.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
+      other.x = result.otherX;
+      other.y = result.otherY;
+    }
+    if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
+    if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
+    this.damage(vehicle, result.primaryDamage, other.driverId, 'vehicle', nowMs, result.primaryZone);
+    this.damage(other, result.otherDamage, vehicle.driverId, 'vehicle', nowMs, result.otherZone);
+    return true;
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function vehicleImpact(vehicle: VehicleState): DamageImpact {
-  return {
-    family: 'vehicle',
-    force: 'heavy',
-    sourceX: vehicle.x,
-    sourceY: vehicle.y
-  };
 }
 
 function approach(value: number, target: number, amount: number): number {

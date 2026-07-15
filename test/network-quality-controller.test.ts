@@ -7,7 +7,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   let now = 0;
   const sent: Array<{type: string; message: unknown}> = [];
   let pong: (message: any) => void = () => {};
-  let stateChanged: () => void = () => {};
+  let stateChanged: (state?: any) => void = () => {};
   const room = {
     send: (type: string, message: unknown) => sent.push({type, message}),
     onMessage: (type: string, handler: (message: any) => void) => {
@@ -15,7 +15,7 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
       pong = handler;
       return () => {};
     },
-    onStateChange: (handler: () => void) => {
+    onStateChange: (handler: (state?: any) => void) => {
       stateChanged = handler;
       return () => {};
     }
@@ -35,13 +35,52 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     buildId: 'abcdef123456789'
   });
   now = 100;
-  stateChanged();
+  stateChanged({serverTimeMs: 100, serverTick: 91});
   now = 150;
-  stateChanged();
+  stateChanged({serverTimeMs: 150, serverTick: 92});
   now = 230;
-  stateChanged();
+  stateChanged({serverTimeMs: 230, serverTick: 94});
   controller.observePrediction(7.25, false);
   controller.observePrediction(182, true, 4, 27, true);
+  controller.observeOnFootPrediction(3, false, 2, 31, true);
+  controller.observeRemoteTimeline({
+    snapshotAgeMs: 70,
+    bufferUnderrun: false,
+    mode: 'interpolated'
+  });
+  controller.observeRemoteTimeline({
+    snapshotAgeMs: 130,
+    bufferUnderrun: true,
+    mode: 'held'
+  });
+  controller.observeInteractionIsland({
+    serverTick: 93,
+    memberIds: ['local', 'car'],
+    weightedPoints: 8,
+    budget: 32,
+    overflowIds: ['pedestrian:ambient'],
+    overflowPoints: 1,
+    horizonMs: 180.25
+  });
+  controller.observeInteractionHistory(12);
+  controller.observeInteractionReplay({
+    replayed: true,
+    baselineTick: 92,
+    targetServerTick: 94,
+    replayedTicks: 2,
+    bodySteps: 4,
+    pairSteps: 2,
+    confirmedEventsThrough: 92,
+    entities: [],
+    rootStates: [],
+    suppressedEffects: {
+      'idempotent-presentation': 0,
+      'one-shot-presentation': 2,
+      'authoritative-gameplay': 1,
+      'durable-transaction': 0
+    }
+  }, 1.25);
+  controller.observeInteractionReplay({replayed: false, reason: 'world-revision-mismatch'}, 0);
 
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
@@ -50,16 +89,39 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     rttP95Ms: 80,
     jitterMs: 0,
     patchGapP95Ms: 80,
-    serverTick: 90,
+    serverTick: 94,
     clockOffsetMs: 5,
     estimatedServerTimeMs: 235,
     interpolationDelayMs: 120,
     clockSynchronized: true,
-    predictionError: 182,
+    predictionError: 3,
+    predictionErrorP95: 182,
+    predictionErrorMean: 64.1,
+    predictionCorrections: 3,
     reconciliations: 1,
     vehicleResimulations: 1,
     vehiclePendingMoves: 4,
-    vehicleAcknowledgedMove: 27
+    vehicleAcknowledgedMove: 27,
+    onFootResimulations: 1,
+    onFootPendingMoves: 2,
+    onFootAcknowledgedMove: 31,
+    remoteSnapshotAgeP95Ms: 130,
+    remoteBufferUnderrunPercent: 50,
+    remoteExtrapolationPercent: 0,
+    interactionIslandSize: 2,
+    interactionIslandPoints: 8,
+    interactionIslandBudget: 32,
+    interactionIslandOverflow: 1,
+    interactionIslandOverflowPoints: 1,
+    interactionIslandHorizonMs: 180.3,
+    interactionSnapshotAgeTicks: 1,
+    interactionHistoryFrames: 12,
+    interactionReplayCount: 1,
+    interactionReplayTicks: 2,
+    interactionReplayDurationP95Ms: 1.3,
+    interactionReplayPairSteps: 2,
+    interactionReplaySuppressedEffects: 3,
+    interactionReplayHardResets: 1
   });
   controller.destroy();
 });

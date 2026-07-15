@@ -67,6 +67,12 @@ export class VehicleInputController {
     return queue.held;
   }
 
+  inputFor(playerId: string, vehicleId: string): AppliedVehicleInput | undefined {
+    const queue = this.queues.get(playerId);
+    if (!queue || queue.vehicleId !== vehicleId) return undefined;
+    return {...queue.held};
+  }
+
   acknowledge(playerId: string, vehicleId: string, sequence: number): void {
     const queue = this.queues.get(playerId);
     const player = this.state.players.get(playerId);

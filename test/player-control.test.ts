@@ -6,13 +6,16 @@ import {DistrictState, PlayerState} from '../server/state.ts';
 import type {CollisionMap} from '../server/world-map.ts';
 
 test('player control validates hostile input and clears runtime state', () => {
-  const {controller} = createController();
-  controller.register('player');
+  const {controller, state} = createController();
+  const player = addPlayer(state, 'player', 100, 100);
+  controller.register(player.id);
   assert.deepEqual(controller.inputFor('player'), {inputX: 0, inputY: 0, lastSequence: 0});
 
   controller.setMove('player', {x: 4, y: Number.NaN});
+  controller.updateOnFoot(player, 1 / 30);
   assert.deepEqual(controller.inputFor('player'), {inputX: 1, inputY: 0, lastSequence: 1});
   controller.setMove('player', {x: Number.NEGATIVE_INFINITY, y: -3});
+  controller.updateOnFoot(player, 1 / 30);
   assert.deepEqual(controller.inputFor('player'), {inputX: 0, inputY: -1, lastSequence: 2});
 
   controller.reset('player');
@@ -27,6 +30,8 @@ test('player control acknowledges accepted input and rejects stale or implausibl
   controller.register(player.id);
 
   controller.setMove(player.id, {x: 1, y: 0, sequence: 12});
+  assert.equal(player.lastInputSequence, 0, 'Receipt is not an applied simulation acknowledgement.');
+  controller.updateOnFoot(player, 1 / 30);
   assert.equal(player.lastInputSequence, 12);
   assert.deepEqual(controller.inputFor(player.id), {inputX: 1, inputY: 0, lastSequence: 12});
 
@@ -36,21 +41,62 @@ test('player control acknowledges accepted input and rejects stale or implausibl
   assert.equal(player.lastInputSequence, 12);
 });
 
+test('on-foot input batches are bounded, ordered, and acknowledged only when applied', () => {
+  const {controller, state} = createController();
+  const player = addPlayer(state, 'player', 100, 100);
+  controller.register(player.id);
+  assert.equal(controller.acceptBatch(player.id, {moves: [
+    {sequence: 1, x: 1, y: 0},
+    {sequence: 2, x: 0, y: 1},
+    {sequence: 2, x: -1, y: 0},
+    {sequence: 3, x: -1, y: 0}
+  ]}), 3);
+  assert.equal(player.lastInputSequence, 0);
+
+  controller.updateOnFoot(player, 1 / 30);
+  assert.equal(player.lastInputSequence, 1);
+  assert.deepEqual(controller.inputFor(player.id), {inputX: 1, inputY: 0, lastSequence: 1});
+  controller.updateOnFoot(player, 1 / 30);
+  assert.equal(player.lastInputSequence, 2);
+  assert.deepEqual(controller.inputFor(player.id), {inputX: 0, inputY: 1, lastSequence: 2});
+  controller.updateOnFoot(player, 1 / 30);
+  assert.equal(player.lastInputSequence, 3);
+  assert.deepEqual(controller.inputFor(player.id), {inputX: -1, inputY: 0, lastSequence: 3});
+});
+
+test('legacy held input replaces queued batch history when a client changes transport mode', () => {
+  const {controller, state} = createController();
+  const player = addPlayer(state, 'player', 100, 100);
+  controller.register(player.id);
+  controller.acceptBatch(player.id, {moves: [
+    {sequence: 1, x: 1, y: 0},
+    {sequence: 2, x: 1, y: 0}
+  ]});
+
+  controller.setMove(player.id, {sequence: 3, x: 0, y: -1});
+  controller.updateOnFoot(player, 1 / 30);
+  assert.deepEqual(controller.inputFor(player.id), {inputX: 0, inputY: -1, lastSequence: 3});
+  assert.equal(player.lastInputSequence, 3);
+
+  controller.updateOnFoot(player, 1 / 30);
+  assert.equal(player.lastInputSequence, 3, 'Discarded batch moves cannot reappear later.');
+});
+
 test('on-foot locomotion preserves analog magnitude and caps diagonal speed', () => {
   const {controller, state} = createController();
   const player = addPlayer(state, 'player', 100, 100);
   controller.register(player.id);
 
   controller.setMove(player.id, {x: 0.5, y: 0});
-  controller.updateOnFoot(player, 1);
-  assert.equal(player.x, 195);
+  controller.updateOnFoot(player, 1 / 30);
+  assert.ok(Math.abs(player.x - (100 + 190 * 0.5 / 30)) < 0.0001);
   assert.equal(player.y, 100);
 
   player.x = 100;
   player.y = 100;
   controller.setMove(player.id, {x: 1, y: 1});
-  controller.updateOnFoot(player, 1);
-  assert.ok(Math.abs(Math.hypot(player.x - 100, player.y - 100) - 190) < 0.0001);
+  controller.updateOnFoot(player, 1 / 30);
+  assert.ok(Math.abs(Math.hypot(player.x - 100, player.y - 100) - 190 / 30) < 0.0001);
 });
 
 test('on-foot locomotion resolves collision per axis and respects control states', () => {
@@ -84,7 +130,7 @@ test('active melee preserves full collision-safe movement without entering doors
   const state = new DistrictState();
   let entryAttempts = 0;
   const world = {
-    canOccupy: (x: number) => x <= 112
+    canOccupy: (x: number) => x <= 100
   } as unknown as CollisionMap;
   const interiors = {
     move: () => false,
@@ -101,10 +147,10 @@ test('active melee preserves full collision-safe movement without entering doors
   player.weapon = 'fists';
   player.attackCombo = 0;
 
-  controller.updateOnFoot(player, 1);
+  controller.updateOnFoot(player, 1 / 30);
 
   assert.equal(player.x, 100, 'Melee momentum must still respect horizontal collision.');
-  assert.ok(Math.abs(player.y - (100 + 190 / Math.sqrt(2))) < 0.0001);
+  assert.ok(Math.abs(player.y - (100 + 190 / 30 / Math.sqrt(2))) < 0.0001);
   assert.equal(entryAttempts, 0, 'An active swing cannot transition into an interior.');
 });
 

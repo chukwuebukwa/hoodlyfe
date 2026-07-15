@@ -7,6 +7,7 @@ import {
   type DebugReplicationEntry,
   type DebugPopulationStreamingEntry,
   type DebugSnapshot,
+  type DebugSimulationPhaseEntry,
   type DebugStimulusEntry,
   type DebugTrafficAiEntry,
   type DebugTrafficSignalEntry
@@ -38,6 +39,7 @@ interface DebugSnapshotControllerOptions {
   policeFleet?: () => DebugPoliceFleetEntry;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
+  simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -109,7 +111,10 @@ export class DebugSnapshotController {
         ...pedestrian,
         waypoints: pedestrian.waypoints.map((waypoint) => ({...waypoint}))
       })),
-      stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({...stimulus})),
+      stimuli: (this.options.stimuli?.() ?? []).map((stimulus) => ({
+        ...stimulus,
+        channels: [...stimulus.channels]
+      })),
       trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({...traffic})),
       trafficSignals: (this.options.trafficSignals?.() ?? []).map((signal) => ({
         ...signal,
@@ -122,6 +127,7 @@ export class DebugSnapshotController {
       policeFleet: this.options.policeFleet?.(),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
+      simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }

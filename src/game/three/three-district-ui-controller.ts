@@ -32,6 +32,7 @@ import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
+import type {ActorRenderPose} from '../rendering/render-types.ts';
 
 const UI_INTERVAL_MS = 100;
 
@@ -60,7 +61,8 @@ export class ThreeDistrictUiController {
   constructor(
     private readonly room: Room<DistrictNetworkState>,
     worldWidth: number,
-    worldHeight: number
+    worldHeight: number,
+    private readonly localPose: () => ActorRenderPose | undefined = () => undefined
   ) {
     this.radio = new RadioSystem(document, room);
     this.sfx = new SfxSystem(room);
@@ -178,6 +180,7 @@ export class ThreeDistrictUiController {
     const local = state.players.get(this.room.sessionId);
     const frame = buildMinimapFrame({
       localPlayerId: this.room.sessionId,
+      localPose: this.localPose(),
       players: state.players?.values() ?? [],
       vehicles: state.vehicles?.values() ?? [],
       npcs: state.npcs?.values() ?? [],

@@ -15,11 +15,23 @@ export class InteriorController {
     const interior = interiorDefinition(player.spaceId);
     if (!interior) return false;
     const nextX = player.x + moveX;
-    if (this.canOccupy(interior, nextX, player.y, radius)) player.x = nextX;
+    if (this.canOccupyDefinition(interior, nextX, player.y, radius)) player.x = nextX;
     const nextY = player.y + moveY;
-    if (this.canOccupy(interior, player.x, nextY, radius)) player.y = nextY;
-    if (containsPoint(interior.exitDoor, player.x, player.y)) this.exit(player, interior);
+    if (this.canOccupyDefinition(interior, player.x, nextY, radius)) player.y = nextY;
+    this.afterMove(player);
     return true;
+  }
+
+  canOccupy(spaceId: string, x: number, y: number, radius: number): boolean {
+    const interior = interiorDefinition(spaceId);
+    return Boolean(interior && this.canOccupyDefinition(interior, x, y, radius));
+  }
+
+  afterMove(player: PlayerState): void {
+    const interior = interiorDefinition(player.spaceId);
+    if (interior && containsPoint(interior.exitDoor, player.x, player.y)) {
+      this.exit(player, interior);
+    }
   }
 
   tryEnter(player: PlayerState): boolean {
@@ -49,7 +61,7 @@ export class InteriorController {
     player.angle = 0;
   }
 
-  private canOccupy(
+  private canOccupyDefinition(
     interior: InteriorDefinition,
     x: number,
     y: number,

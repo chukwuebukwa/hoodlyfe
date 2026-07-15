@@ -50,17 +50,26 @@ export class ClientCollisionMap {
   }
 
   private canOccupyInterior(spaceId: string, x: number, y: number, radius: number): boolean {
-    const interior = clientInteriorDefinition(spaceId);
-    if (!interior) return false;
-    const {bounds} = interior;
+    return canOccupyClientInterior(spaceId, x, y, radius);
+  }
+}
+
+export function canOccupyClientInterior(
+  spaceId: string,
+  x: number,
+  y: number,
+  radius: number
+): boolean {
+  const interior = clientInteriorDefinition(spaceId);
+  if (!interior) return false;
+  const {bounds} = interior;
     if (
       x - radius < bounds.minX + INTERIOR_WALL_INSET ||
       x + radius > bounds.maxX - INTERIOR_WALL_INSET ||
       y - radius < bounds.minY + INTERIOR_WALL_INSET ||
       y + radius > bounds.maxY - INTERIOR_WALL_INSET
-    ) return false;
-    return interior.obstacles.every((obstacle) => !circleOverlapsRect(x, y, radius, obstacle));
-  }
+  ) return false;
+  return interior.obstacles.every((obstacle) => !circleOverlapsRect(x, y, radius, obstacle));
 }
 
 function circleOverlapsRect(

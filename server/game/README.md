@@ -94,8 +94,6 @@ game/
     pedestrian-perception-system.ts
     pedestrian-reaction-system.ts
     pedestrian-runtime.ts
-    pedestrian-stimulus-adapter.ts
-    pedestrian-stimulus-registry.ts
   wanted/
     wanted-system.ts
   vehicles/
@@ -107,25 +105,25 @@ game/
   world/
     deferred-command-queue.ts
     deterministic-random.ts
+    district-simulation.ts
     fixed-step-clock.ts
+    simulation-phase-pipeline.ts
     spatial-index.ts
+    world-stimulus-adapter.ts
+    world-stimulus-registry.ts
 ```
 
 ## Simulation Order
 
-The current compatibility order is:
+`DistrictSimulation` owns the tested 30 Hz order: frame state, activation/streaming,
+environment, vehicle motion, player motion, crime response, pedestrian motion, dynamic
+contacts, history capture, projectiles, world effects, pickups, incidents/missions,
+lifecycle mutation, event dispatch, then snapshots/observability. `DistrictRoom` invokes
+that facade and retains transport, admission, command adaptation, and composition only.
 
-1. rebuild spatial memberships from authoritative state;
-2. update vehicles and traffic;
-3. advance active hit reactions, resolve due melee contacts, then update players and actions;
-4. resolve due witness reports and district dispatch assignments through `CrimeResponseController`;
-5. update pedestrians and police pursuit/search behavior;
-6. move and resolve projectiles;
-7. advance shared Freemode mission instances through `FreemodeMissionController`;
-8. expire incidents and flush deferred lifecycle commands;
-9. drain the tick's typed events for downstream consumers.
-
-As systems are extracted, retain an explicit order in `DistrictRoom` and queue structural mutations until the lifecycle phase.
+Events are drained once after authoritative simulation. `WorldStimulusAdapter` translates
+eligible results into facts perceived on the next fixed step. Structural mutation remains
+deferred until the lifecycle phase.
 
 ## Extraction Status
 
@@ -153,7 +151,7 @@ Extracted domain policies and room adapters now include:
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
 - `combat-survivability-policy.ts` for pure armor-before-health resolution and force/family/direction reaction selection; `combat-reaction-controller.ts` for bounded replicated flinch/stagger/knockdown runtime and player-action interruption.
 - `damage-controller.ts` for player/NPC armor/health mutation, split damage/death events, reaction requests, crime translation, threat response, and street-cash rewards.
-- `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/pedestrian-stimulus copies, simulation pressure counters, and debug transport publication.
+- `debug-snapshot-controller.ts` for bounded typed-event summaries, six-tick sampling, plain protocol projection, incident/pursuit/world-stimulus copies, phase timing, simulation pressure counters, and debug transport publication.
 - `street-economy-controller.ts` for bounded idempotent session street-cash credits/debits, balance validation/caps, typed audit events, and a replaceable future persistence port.
 - `street-service-controller.ts` for deterministic replicated service placement, authoritative eligibility, shared quotes, debit-before-effect coordination, and player notices.
 - `medical-care-controller.ts` for registered safe hospitals, private public/trauma admissions, nearest-facility completion, living treatment, and idempotent economy coordination.
@@ -174,11 +172,11 @@ Extracted domain policies and room adapters now include:
 - `pedestrian-melee-system.ts` for fixed-target NPC windup/contact/recovery, impact-time contact revalidation, reaction interruption, cooldown, events, and narrow player-damage requests.
 - `pedestrian-reaction-system.ts` for civilian orient/respond/recover transitions and `pedestrian-intent.ts` for the shared output contract consumed by locomotion/presentation projection.
 - `pedestrian-navigation-system.ts` for private route ownership, per-tick request budgets, deterministic blocked recovery, and planner composition; `pedestrian-path-planner.ts` for bounded deterministic collision-grid A* with clearance and smoothing; plus `pedestrian-locomotion-system.ts` for continuous per-axis collision movement.
-- `pedestrian-stimulus-registry.ts` for bounded, expiring, deduplicated sensory facts and `pedestrian-stimulus-adapter.ts` for translating stable cross-domain game events without importing producer systems.
+- `world/world-stimulus-registry.ts` for bounded, expiring, deduplicated, same-space sensory facts and `world-stimulus-adapter.ts` for translating stable cross-domain game events with source/subject/actor attribution and perception channels.
 - `shared/content/weapon-catalog.ts` for discriminated bullet/thrown/melee definitions, stable IDs, ammunition ownership, combat timing, and renderer-neutral presentation metadata.
 - `fire-control-controller.ts` for holder, cooldown, ammunition, seat, protection-cancel, and bullet/thrown/melee dispatch gates; `projectile-controller.ts` remains bullet-only.
 - `thrown-projectile-controller.ts` for bounded private grenade velocity, gravity, world/ground bounce, fuse, replicated pose, detonation request, and lifecycle cleanup.
 - `explosion-controller.ts` for one-shot radial player/NPC/vehicle resolution, active-source attribution, transient effects, vehicle-destruction adaptation, occupant exclusion, and bounded chain reactions.
 - `weapon-pickup-controller.ts` for spatial collection candidates, nearest/ID-stable contention, grenade capacity, shared availability, respawn, notices, and events.
 
-`DistrictRoom` now calls domain facades from an explicit fixed-step schedule. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles/explosions/pickups, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, explicit simulation scheduling, spatial projection, and client transport. Client presentation remains extraction work. New features must enter through an existing controller or add a new domain owner; they must not add another gameplay method to the room.
+`DistrictRoom` now calls one simulation facade rather than scheduling domain updates. It no longer owns crime registration, witness selection, wanted mutation, police assignment, mission formation, objective transitions, payouts, vehicle access/physics, traffic routes, combat/projectiles/explosions/pickups, player control/lifecycle, pedestrian runtime/behavior, district population assembly, or debug projection. The remaining room code is dependency wiring, Colyseus command/lifecycle adaptation, spatial projection, patch publication, and client transport. New features must enter through an existing controller or add a new domain owner and explicit simulation phase; they must not add another gameplay method to the room.

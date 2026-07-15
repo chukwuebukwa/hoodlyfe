@@ -40,8 +40,28 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     patchGap: '0ms',
     prediction: '0px',
     clockSync: 'unsynced',
+    rollout: 'unavailable',
+    interactionIsland: 'off',
+    interactionReplay: 'off',
+    interactionSelection: 'off',
+    simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel summarizes server phase cost and failures', () => {
+  const snapshot = createSnapshot();
+  snapshot.simulationPhases = [{
+    id: 'frame-state', order: 0, runs: 42, lastTick: 42,
+    lastDurationMs: 0.1, maxDurationMs: 0.2, failures: 0
+  }, {
+    id: 'vehicle-motion', order: 1, runs: 42, lastTick: 42,
+    lastDurationMs: 0.8, maxDurationMs: 1.2, failures: 1
+  }];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).simulationPhases,
+    '2 phases / 0.90ms / vehicle-motion 0.80ms / 1 fail'
+  );
 });
 
 test('debug panel exposes region, network timing, and reconciliation pressure', () => {
@@ -58,16 +78,75 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     interpolationDelayMs: 96,
     clockSynchronized: true,
     predictionError: 8.4,
+    predictionErrorP95: 12.7,
+    predictionErrorMean: 6.2,
+    predictionCorrections: 14,
     reconciliations: 2,
     vehicleResimulations: 9,
     vehiclePendingMoves: 5,
-    vehicleAcknowledgedMove: 34
+    vehicleAcknowledgedMove: 34,
+    onFootResimulations: 3,
+    onFootPendingMoves: 4,
+    onFootAcknowledgedMove: 37,
+    remoteSnapshotAgeP95Ms: 104,
+    remoteBufferUnderrunPercent: 2.5,
+    remoteExtrapolationPercent: 6.7,
+    interactionIslandSize: 5,
+    interactionIslandPoints: 14,
+    interactionIslandBudget: 32,
+    interactionIslandOverflow: 2,
+    interactionIslandOverflowPoints: 5,
+    interactionIslandHorizonMs: 190,
+    interactionSnapshotAgeTicks: 1,
+    interactionHistoryFrames: 12,
+    interactionReplayCount: 4,
+    interactionReplayTicks: 9,
+    interactionReplayDurationP95Ms: 1.7,
+    interactionReplayPairSteps: 18,
+    interactionReplaySuppressedEffects: 2,
+    interactionReplayHardResets: 1
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
   assert.equal(panel.patchGap, '61ms / T340');
-  assert.equal(panel.prediction, '8.4px / 9 resim / 2 snap / A34 P5');
-  assert.equal(panel.clockSync, '-18ms / 96ms buffer');
+  assert.equal(
+    panel.prediction,
+    '8.4px now / 12.7px p95 / 14 corr / 2 snap / V A34 P5 R9 / F A37 P4 R3'
+  );
+  assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
+  assert.equal(
+    panel.interactionIsland,
+    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon'
+  );
+  assert.equal(
+    panel.interactionReplay,
+    '1t snapshot age / H12 history / R4:9t 1.7ms p95 / 18 pairs / 2 suppressed / 1 reset'
+  );
+});
+
+test('debug panel projects negotiated netcode stages and fail-closed state', () => {
+  const panel = projectDebugPanel(
+    createState(),
+    undefined,
+    undefined,
+    undefined,
+    {
+      source: 'negotiated',
+      manifest: {
+        protocolVersion: 1,
+        interactionProtocolVersion: 4,
+        revision: 'canary-2',
+        stages: {
+          remoteTimelines: true,
+          interactionSnapshots: true,
+          interactionReplay: false,
+          combatRewind: true,
+          projectilePrediction: false
+        }
+      }
+    }
+  );
+  assert.equal(panel.rollout, 'negotiated / canary-2 / timeline,snapshot,rewind');
 });
 
 function createState(): DistrictNetworkState {

@@ -4,7 +4,7 @@ import {
   type WeaponId
 } from '../../../shared/content/weapon-catalog.ts';
 import type {NetworkPlayer} from '../types.ts';
-import type {VehicleRenderPose} from './render-types.ts';
+import type {ActorRenderPose, VehicleRenderPose} from './render-types.ts';
 
 export interface WeaponPresentation {
   texture: string;
@@ -29,6 +29,16 @@ export interface PassengerPresentation {
   spriteX: number;
   spriteY: number;
   scale: number;
+}
+
+export interface PlayerAttachmentPresentation {
+  root: ActorRenderPose;
+  body: ActorRenderPose;
+  weaponBase: {x: number; y: number};
+  passenger?: PassengerPresentation;
+  occupied: boolean;
+  bodyVisible: boolean;
+  humanoidColliderVisible: boolean;
 }
 
 export function weaponPresentation(weapon: NetworkPlayer['weapon']): WeaponPresentation {
@@ -117,6 +127,46 @@ export function passengerPresentation(
     spriteX: baseX + Math.cos(peekAngle) * peek - Math.cos(aimAngle) * recoil,
     spriteY: baseY + Math.sin(peekAngle) * peek - Math.sin(aimAngle) * recoil,
     scale: recoilActive ? 0.64 : 0.58
+  };
+}
+
+export function playerAttachmentPresentation(
+  actor: ActorRenderPose,
+  vehicle: VehicleRenderPose | undefined,
+  seat: number,
+  aimAngle: number,
+  time: number,
+  recoilActive: boolean
+): PlayerAttachmentPresentation {
+  if (!vehicle) {
+    return {
+      root: {...actor},
+      body: {...actor},
+      weaponBase: {x: actor.x, y: actor.y},
+      occupied: false,
+      bodyVisible: true,
+      humanoidColliderVisible: true
+    };
+  }
+  if (seat <= 0) {
+    return {
+      root: {...vehicle},
+      body: {...vehicle},
+      weaponBase: {x: vehicle.x, y: vehicle.y},
+      occupied: true,
+      bodyVisible: false,
+      humanoidColliderVisible: false
+    };
+  }
+  const passenger = passengerPresentation(vehicle, seat, aimAngle, time, recoilActive);
+  return {
+    root: {...vehicle},
+    body: {x: passenger.spriteX, y: passenger.spriteY, angle: aimAngle},
+    weaponBase: {x: passenger.baseX, y: passenger.baseY},
+    passenger,
+    occupied: true,
+    bodyVisible: true,
+    humanoidColliderVisible: false
   };
 }
 

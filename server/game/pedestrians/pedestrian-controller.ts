@@ -1,7 +1,7 @@
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import {NpcState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import type {GameEvent, GameEventStream} from '../events/game-events.ts';
+import type {GameEventStream} from '../events/game-events.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
 import {PedestrianBehaviorSystem} from './pedestrian-behavior-system.ts';
 import {PedestrianCombatSystem} from './pedestrian-combat-system.ts';
@@ -20,13 +20,11 @@ import {
   createPedestrianRuntime,
   type PedestrianRuntime
 } from './pedestrian-runtime.ts';
-import {PedestrianStimulusAdapter} from './pedestrian-stimulus-adapter.ts';
-import {
-  PedestrianStimulusRegistry,
-  type PedestrianStimulus
-} from './pedestrian-stimulus-registry.ts';
+import type {WorldStimulusRegistry} from '../world/world-stimulus-registry.ts';
+import {PEDESTRIAN_RADIUS} from './pedestrian-config.ts';
 
 export type {PedestrianPoliceTarget} from './pedestrian-perception-system.ts';
+export {PEDESTRIAN_RADIUS} from './pedestrian-config.ts';
 
 export interface PedestrianDiagnostic {
   id: string;
@@ -48,14 +46,13 @@ export interface PedestrianDiagnostic {
   waypoints: Array<{x: number; y: number}>;
 }
 
-export const PEDESTRIAN_RADIUS = 10;
-
 interface PedestrianControllerOptions {
   state: DistrictState;
   world: CollisionMap;
   random: DeterministicRandom;
   clock: () => {tick: number};
   events?: GameEventStream;
+  stimuli: WorldStimulusRegistry;
   policeTarget: (officer: NpcState, nowMs: number) => PedestrianPoliceTarget | undefined;
   requestPoliceFire: (
     officerId: string,
@@ -91,15 +88,16 @@ export class PedestrianController {
   private readonly melee: PedestrianMeleeSystem;
   private readonly navigation: PedestrianNavigationSystem;
   private readonly locomotion: PedestrianLocomotionSystem;
-  private readonly stimuli = new PedestrianStimulusRegistry();
-  private readonly stimulusAdapter: PedestrianStimulusAdapter;
   private nextEjectedDriverId = 1;
 
   constructor(private readonly options: PedestrianControllerOptions) {
     this.perception = new PedestrianPerceptionSystem({
       state: options.state,
       policeTarget: options.policeTarget,
-      nearestStimulus: (x, y, nowMs) => this.stimuli.nearest(x, y, nowMs)
+      nearestStimulus: (x, y, nowMs) => options.stimuli.nearest(x, y, nowMs, {
+        spaceId: 'street',
+        channels: ['hearing', 'sight']
+      })
     });
     this.behavior = new PedestrianBehaviorSystem({
       random: options.random,
@@ -120,10 +118,6 @@ export class PedestrianController {
       radius: PEDESTRIAN_RADIUS
     });
     this.locomotion = new PedestrianLocomotionSystem(options.world, PEDESTRIAN_RADIUS);
-    this.stimulusAdapter = new PedestrianStimulusAdapter({
-      state: options.state,
-      registry: this.stimuli
-    });
   }
 
   spawn(
@@ -255,14 +249,6 @@ export class PedestrianController {
     }
   }
 
-  beginTick(nowMs: number): void {
-    this.stimuli.expire(nowMs);
-  }
-
-  observeEvents(events: readonly GameEvent[]): void {
-    this.stimulusAdapter.ingest(events);
-  }
-
   diagnostics(): PedestrianDiagnostic[] {
     return [...this.runtime.entries()].map(([id, runtime]) => ({
       id,
@@ -283,10 +269,6 @@ export class PedestrianController {
       waypointIndex: runtime.navigation.waypointIndex,
       waypoints: runtime.navigation.waypoints.map((waypoint) => ({...waypoint}))
     })).sort((left, right) => left.id.localeCompare(right.id));
-  }
-
-  stimulusSnapshot(): PedestrianStimulus[] {
-    return this.stimuli.snapshot();
   }
 
   panic(npcId: string, threatId: string, untilMs: number): void {

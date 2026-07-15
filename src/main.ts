@@ -2,12 +2,15 @@ import {Client, type Room} from 'colyseus.js';
 import type {PlayerAppearance} from '../shared/content/appearance-catalog.ts';
 import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
 import {PLAYER_SPAWN_MESSAGE} from '../shared/protocol/onboarding.ts';
+import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {
   loadOnboardingIdentity,
   runOnboardingOverlay,
   shouldShowOnboarding
 } from './game/onboarding/onboarding-flow.ts';
 import type {DistrictNetworkState} from './game/types.ts';
+import {InteractionSnapshotInbox} from './game/network/interaction-snapshot-inbox.ts';
+import {NetcodeRolloutController} from './game/network/netcode-rollout-controller.ts';
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
@@ -28,6 +31,8 @@ class GameRuntimeController implements GameRuntime {
   private activeRoom: Room<DistrictNetworkState> | undefined;
   private activeThree: {start(): Promise<void>; destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
+  private interactionSnapshots: InteractionSnapshotInbox | undefined;
+  private netcodeRollout: NetcodeRolloutController | undefined;
 
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
@@ -63,6 +68,10 @@ class GameRuntimeController implements GameRuntime {
   destroy(): void {
     this.activeThree?.destroy();
     this.activeThree = undefined;
+    this.interactionSnapshots?.destroy();
+    this.interactionSnapshots = undefined;
+    this.netcodeRollout?.destroy();
+    this.netcodeRollout = undefined;
     void this.activeRoom?.leave(true);
     this.activeRoom = undefined;
     this.loadingUi?.destroy();
@@ -88,11 +97,17 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
+    this.startNetworkControllers(this.activeRoom);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
     this.loadingUi?.set(0.72, 'Building roads and rooftops');
-    this.activeThree = new ThreePrototypeViewer(game, this.activeRoom);
+    this.activeThree = new ThreePrototypeViewer(
+      game,
+      this.activeRoom,
+      this.interactionSnapshots,
+      this.netcodeRollout
+    );
     await this.activeThree.start();
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
@@ -115,6 +130,17 @@ class GameRuntimeController implements GameRuntime {
       });
     }).catch((error) => {
       console.error(error);
+    });
+  }
+
+  private startNetworkControllers(room: Room<DistrictNetworkState>): void {
+    this.netcodeRollout?.destroy();
+    this.netcodeRollout = new NetcodeRolloutController(room);
+    this.interactionSnapshots?.destroy();
+    this.interactionSnapshots = new InteractionSnapshotInbox(room, {
+      currentServerTick: () => room.state.serverTick ?? 0,
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      enabled: () => this.netcodeRollout?.enabled('interactionSnapshots') ?? false
     });
   }
 }

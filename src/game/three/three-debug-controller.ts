@@ -6,8 +6,17 @@ import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts
 import type {DistrictNetworkState} from '../types.ts';
 import {serverYToThree} from './three-prototype-policy.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
-import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
+import type {ActorRenderPose, VehicleRenderPose} from '../rendering/render-types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
+import type {
+  InteractionIslandMember,
+  InteractionIslandSelection
+} from '../prediction/interaction-island-selector.ts';
+import {
+  INTERACTION_ISLAND_DEBUG_COLOR,
+  projectInteractionIslandDebug
+} from '../debug/interaction-island-debug-policy.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -39,7 +48,12 @@ export class ThreeDebugController {
     latency: document.querySelector('#debug-latency'),
     patchGap: document.querySelector('#debug-patch-gap'),
     prediction: document.querySelector('#debug-prediction'),
-    clockSync: document.querySelector('#debug-clock-sync')
+    clockSync: document.querySelector('#debug-clock-sync'),
+    interactionIsland: document.querySelector('#debug-interaction-island'),
+    interactionReplay: document.querySelector('#debug-interaction-replay'),
+    interactionSelection: document.querySelector('#debug-interaction-selection'),
+    simulationPhases: document.querySelector('#debug-simulation-phases'),
+    rollout: document.querySelector('#debug-netcode-rollout')
   };
   private snapshot?: DebugSnapshot;
   private state?: DistrictNetworkState;
@@ -51,7 +65,10 @@ export class ThreeDebugController {
     private readonly room: Room<DistrictNetworkState>,
     private readonly surfaceHeightAt: (x: number, y: number) => number,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
-    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
+    private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
+    private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
+    private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined,
+    private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -97,7 +114,13 @@ export class ThreeDebugController {
   }
 
   private updatePanel(): void {
-    const projection = projectDebugPanel(this.state, this.snapshot, this.networkQuality());
+    const projection = projectDebugPanel(
+      this.state,
+      this.snapshot,
+      this.networkQuality(),
+      this.interactionIsland(),
+      this.netcodeRollout()
+    );
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);
     }
@@ -114,8 +137,15 @@ export class ThreeDebugController {
     const state = this.state;
     if (!state) return;
     for (const player of state.players.values()) {
-      if (!player.alive) continue;
-      this.group.add(entityGlyph(player.x, player.y, player.angle, 11, 0x70dcff, this.surfaceHeightAt));
+      if (!player.alive || player.vehicleId) continue;
+      this.group.add(entityGlyph(
+        player.x,
+        player.y,
+        player.angle,
+        11,
+        0x70dcff,
+        this.surfaceHeightAt
+      ));
     }
     for (const npc of state.npcs.values()) {
       if (!npc.alive) continue;
@@ -132,19 +162,7 @@ export class ThreeDebugController {
         this.surfaceHeightAt
       ));
     }
-    const localVehicleId = state.players.get(this.room.sessionId)?.vehicleId;
-    const predicted = localVehicleId ? this.predictedVehiclePose(localVehicleId) : undefined;
-    if (predicted) {
-      const kind = localVehicleId ? state.vehicles.get(localVehicleId)?.kind ?? 'sedan' : 'sedan';
-      this.group.add(vehicleGlyph(
-        predicted.x,
-        predicted.y,
-        predicted.angle,
-        kind,
-        0x36f1d0,
-        this.surfaceHeightAt
-      ));
-    }
+    this.drawInteractionIsland(state);
     for (const bullet of state.bullets.values()) {
       this.group.add(debugLine([
         point(bullet.x, bullet.y, this.surfaceHeightAt(bullet.x, bullet.y) + 24),
@@ -202,6 +220,73 @@ export class ThreeDebugController {
         this.surfaceHeightAt(incident.x, incident.y) + 26
       ));
     }
+  }
+
+  private drawInteractionIsland(state: DistrictNetworkState): void {
+    const selection = this.interactionIsland();
+    const projection = projectInteractionIslandDebug(
+      selection,
+      (member) => this.presentedIslandPose(member)
+    );
+    for (const link of projection.links) {
+      this.group.add(debugLine([
+        point(link.fromX, link.fromY, this.surfaceHeightAt(link.fromX, link.fromY) + 31),
+        point(link.toX, link.toY, this.surfaceHeightAt(link.toX, link.toY) + 31)
+      ], link.color));
+    }
+    for (const body of projection.bodies) {
+      const entity = body.member.entity;
+      this.group.add(interactionEntityGlyph(
+        entity,
+        entity.x,
+        entity.y,
+        entity.angle,
+        body.color,
+        this.surfaceHeightAt
+      ));
+      if (!body.presented) continue;
+      this.group.add(interactionEntityGlyph(
+        entity,
+        body.presented.x,
+        body.presented.y,
+        body.presented.angle,
+        INTERACTION_ISLAND_DEBUG_COLOR.presented,
+        this.surfaceHeightAt
+      ));
+    }
+    if (selection) return;
+    const local = state.players.get(this.room.sessionId);
+    if (!local) return;
+    if (local.vehicleId) {
+      const pose = this.predictedVehiclePose(local.vehicleId);
+      if (!pose) return;
+      this.group.add(vehicleGlyph(
+        pose.x,
+        pose.y,
+        pose.angle,
+        state.vehicles.get(local.vehicleId)?.kind ?? 'sedan',
+        INTERACTION_ISLAND_DEBUG_COLOR.presented,
+        this.surfaceHeightAt
+      ));
+      return;
+    }
+    const pose = this.predictedPlayerPose(local.id);
+    if (pose) {
+      this.group.add(entityGlyph(
+        pose.x,
+        pose.y,
+        pose.angle,
+        11,
+        INTERACTION_ISLAND_DEBUG_COLOR.presented,
+        this.surfaceHeightAt
+      ));
+    }
+  }
+
+  private presentedIslandPose(member: InteractionIslandMember): ActorRenderPose | undefined {
+    if (member.entity.kind === 'vehicle') return this.predictedVehiclePose(member.entity.id);
+    if (member.entity.kind === 'player') return this.predictedPlayerPose(member.entity.id);
+    return undefined;
   }
 
   private readonly handleToggle = (event: Event): void => {
@@ -264,6 +349,20 @@ function vehicleGlyph(
   ], color));
   group.position.set(x, serverYToThree(y), surface(x, y) + 24);
   return group;
+}
+
+function interactionEntityGlyph(
+  entity: InteractionIslandMember['entity'],
+  x: number,
+  y: number,
+  angle: number,
+  color: number,
+  surface: (x: number, y: number) => number
+): THREE.Group {
+  if (entity.kind === 'vehicle') {
+    return vehicleGlyph(x, y, angle, entity.vehicleKind, color, surface);
+  }
+  return entityGlyph(x, y, angle, entity.radius, color, surface);
 }
 
 function debugRing(x: number, y: number, radius: number, color: number, z: number): THREE.LineLoop {

@@ -41,6 +41,19 @@ import {
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
+import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-contracts.ts';
+import {
+  COMBAT_FIRE_MESSAGE,
+  COMBAT_FIRE_RECEIPT_MESSAGE,
+  type CombatFireCommand
+} from '../shared/protocol/combat-fire.ts';
+import {
+  NETCODE_ROLLOUT_MANIFEST_MESSAGE,
+  NETCODE_ROLLOUT_REQUEST_MESSAGE,
+  validateNetcodeRolloutRequest,
+  type NetcodeRolloutRequest
+} from '../shared/protocol/netcode-rollout.ts';
+import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
@@ -60,6 +73,8 @@ import {TrafficSignalController} from './game/traffic/traffic-signal-controller.
 import {DamageController} from './game/combat/damage-controller.ts';
 import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
+import {CombatHitboxHistory} from './game/combat/combat-hitbox-history.ts';
+import {CombatFireCommandController} from './game/combat/combat-fire-command-controller.ts';
 import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
@@ -70,6 +85,9 @@ import {RocketProjectileController} from './game/combat/rocket-projectile-contro
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
+import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
+import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
+import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -82,10 +100,8 @@ import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {InteriorController} from './game/interiors/interior-controller.ts';
 import {DistrictReplicationController} from './game/replication/district-replication-controller.ts';
-import {
-  PedestrianController,
-  PEDESTRIAN_RADIUS
-} from './game/pedestrians/pedestrian-controller.ts';
+import {PedestrianController} from './game/pedestrians/pedestrian-controller.ts';
+import {PEDESTRIAN_RADIUS} from './game/pedestrians/pedestrian-config.ts';
 import {
   VEHICLE_COLLISION_BOUNDING_RADIUS,
   VEHICLE_RADIUS
@@ -97,10 +113,17 @@ import {
   VEHICLE_INPUT_MESSAGE,
   type VehicleInputBatchMessage
 } from '../shared/protocol/vehicle-input.ts';
+import {
+  ON_FOOT_INPUT_MESSAGE,
+  type OnFootInputBatchMessage
+} from '../shared/protocol/on-foot-input.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
+import {DistrictSimulation} from './game/world/district-simulation.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
 import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
+import {WorldStimulusAdapter} from './game/world/world-stimulus-adapter.ts';
+import {WorldStimulusRegistry} from './game/world/world-stimulus-registry.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
 
@@ -132,6 +155,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private readonly spatialIndex = new SpatialIndex<WorldEntityKind>();
   private readonly lifecycle = new DeferredCommandQueue();
   private readonly events = new GameEventStream();
+  private readonly worldStimuli = new WorldStimulusRegistry();
   private readonly debugSubscribers = new Set<string>();
   private readonly authIdentities = new Map<string, VerifiedAuthIdentity>();
   private readonly networkProbe = new NetworkProbeController({
@@ -139,6 +163,9 @@ export class DistrictRoom extends Room<DistrictState> {
     buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
+  private readonly netcodeRollout = resolveNetcodeRolloutManifest();
+  private simulation!: DistrictSimulation;
+  private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
   private economyController!: StreetEconomyController;
@@ -158,6 +185,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private damageController!: DamageController;
   private combatReactions!: CombatReactionController;
   private fireControl!: FireControlController;
+  private readonly combatHistory = new CombatHitboxHistory();
+  private combatFireCommands!: CombatFireCommandController;
   private meleeCombat!: MeleeCombatController;
   private interactionController!: PlayerInteractionController;
   private projectileController!: ProjectileController;
@@ -176,6 +205,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
+  private interactionCandidates!: InteractionCandidateSource;
+  private interactionSnapshots!: InteractionSnapshotProjector;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -183,6 +214,8 @@ export class DistrictRoom extends Room<DistrictState> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
+    this.worldStimuli.clear();
+    this.combatHistory.clear();
     this.debugSubscribers.clear();
     const requestedSeed = Number(options?.seed);
     this.random = new DeterministicRandom(
@@ -190,6 +223,10 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.setState(new DistrictState());
+    this.worldStimulusAdapter = new WorldStimulusAdapter({
+      state: this.state,
+      registry: this.worldStimuli
+    });
     this.worldClock = new WorldClockController({state: this.state, now: Date.now});
     this.worldClock.initialize();
     this.replicationController = new DistrictReplicationController(this.state, {
@@ -283,13 +320,14 @@ export class DistrictRoom extends Room<DistrictState> {
       incidents: () => this.crimeController.incidentSnapshot(),
       pursuits: () => this.crimeController.pursuitSnapshot(),
       pedestrians: () => this.pedestrians.diagnostics(),
-      stimuli: () => this.pedestrians.stimulusSnapshot(),
+      stimuli: () => this.worldStimuli.snapshot(),
       traffic: () => this.trafficController.diagnostics(),
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
+      simulationPhases: () => this.simulation?.diagnostics() ?? [],
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -504,7 +542,8 @@ export class DistrictRoom extends Room<DistrictState> {
         input.playerId,
         input.weapon,
         input.nowMs
-      )
+      ),
+      compensateBullet: (input) => this.projectileController.catchUp(input)
     });
     this.weaponPickupController = new WeaponPickupController({
       state: this.state,
@@ -557,6 +596,7 @@ export class DistrictRoom extends Room<DistrictState> {
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick}),
       events: this.events,
+      stimuli: this.worldStimuli,
       policeTarget: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
       requestPoliceFire: (officerId, x, y, angle, nowMs) => {
         this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
@@ -604,6 +644,7 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       vehicles: this.vehicleSimulation,
       damage: this.damageController,
+      history: this.combatHistory,
       queryPlayers: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
         minX,
         minY,
@@ -632,6 +673,14 @@ export class DistrictRoom extends Room<DistrictState> {
         this.state.bullets.delete(bulletId);
       })
     });
+    this.combatFireCommands = new CombatFireCommandController({
+      state: this.state,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      fire: (playerId, command) => this.fireControl.shoot(playerId, command),
+      send: (playerId, receipt) => this.clients
+        .find((client) => client.sessionId === playerId)
+        ?.send(COMBAT_FIRE_RECEIPT_MESSAGE, receipt)
+    });
     this.rocketProjectileController = new RocketProjectileController({
       state: this.state,
       world: this.world,
@@ -653,6 +702,38 @@ export class DistrictRoom extends Room<DistrictState> {
       remove: (rocketId) => this.lifecycle.defer(`rocket.remove:${rocketId}`, () => {
         this.state.rockets.delete(rocketId);
       })
+    });
+    this.interactionCandidates = new InteractionCandidateSource(this.state, {
+      queryActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+        kinds: ['player', 'npc', 'vehicle'],
+        includeRecordRadius: true
+      })
+    });
+    this.interactionSnapshots = new InteractionSnapshotProjector({
+      state: this.state,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      playerIntentFor: (playerId) => {
+        const input = this.playerControl.inputFor(playerId);
+        return input ? {
+          inputX: input.inputX,
+          inputY: input.inputY,
+          sequence: input.lastSequence
+        } : undefined;
+      },
+      vehicleIntentFor: (playerId, vehicleId) => this.vehicleInput.inputFor(
+        playerId,
+        vehicleId
+      ),
+      projectileMotionFor: (projectileId) => (
+        this.rocketProjectileController.motionFor(projectileId) ??
+        this.thrownProjectileController.motionFor(projectileId)
+      ),
+      candidatesFor: (_playerId, anchor) => this.interactionCandidates.forAnchor(anchor),
+      publish: (playerId, snapshot) => {
+        this.clients.find((client) => client.sessionId === playerId)
+          ?.send(INTERACTION_SNAPSHOT_MESSAGE, snapshot);
+      }
     });
     this.missionController = new FreemodeMissionController({
       state: this.state,
@@ -686,6 +767,42 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs
       )
     });
+    this.simulation = new DistrictSimulation({
+      state: this.state,
+      clock: this.simulationClock,
+      populationStreaming: this.populationStreaming,
+      trafficSignals: this.trafficSignalController,
+      explosions: this.explosionController,
+      policeFleet: this.policeResponseFleet,
+      vehicles: this.vehicleSimulation,
+      reactions: this.combatReactions,
+      melee: this.meleeCombat,
+      playerLifecycle: this.playerLifecycle,
+      playerControl: this.playerControl,
+      vehicleAccess: this.vehicleAccess,
+      crime: this.crimeController,
+      pedestrians: this.pedestrians,
+      worldStimuli: this.worldStimuli,
+      worldStimulusAdapter: this.worldStimulusAdapter,
+      combatHistory: this.combatHistory,
+      bullets: this.projectileController,
+      rockets: this.rocketProjectileController,
+      thrownProjectiles: this.thrownProjectileController,
+      fireZones: this.fireZoneController,
+      actorBurn: this.actorBurnController,
+      weaponPickups: this.weaponPickupController,
+      cashPickups: this.cashPickupController,
+      missions: this.missionController,
+      lifecycle: this.lifecycle,
+      events: this.events,
+      audio: this.audioEvents,
+      interactionSnapshots: this.interactionSnapshots,
+      interactionSnapshotsEnabled: () => this.netcodeRollout.stages.interactionSnapshots,
+      debug: this.debugProjection,
+      indexPlayer: (player) => this.indexPlayer(player),
+      indexNpc: (npc) => this.indexNpc(npc),
+      indexVehicle: (vehicle) => this.indexVehicle(vehicle)
+    });
     this.serviceController.initialize();
     this.medicalController.initialize();
     this.weaponPickupController.initialize();
@@ -693,10 +810,13 @@ export class DistrictRoom extends Room<DistrictState> {
     this.population.populate();
     this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
-    this.setSimulationInterval((deltaTime) => this.advanceSimulation(deltaTime), 1000 / 30);
+    this.setSimulationInterval((deltaTime) => this.simulation.advance(deltaTime), 1000 / 30);
 
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
+    });
+    this.onMessage<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
+      this.playerControl.acceptBatch(client.sessionId, message);
     });
     this.onMessage<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
       this.vehicleInput.accept(client.sessionId, message);
@@ -710,11 +830,23 @@ export class DistrictRoom extends Room<DistrictState> {
       );
       if (response) client.send(NETWORK_PONG_MESSAGE, response);
     });
+    this.onMessage<NetcodeRolloutRequest>(NETCODE_ROLLOUT_REQUEST_MESSAGE, (client, message) => {
+      if (!validateNetcodeRolloutRequest(message)) return;
+      client.send(NETCODE_ROLLOUT_MANIFEST_MESSAGE, this.netcodeRollout);
+    });
 
     this.onMessage<PlayerAimInput>('aim', (client, message) => {
       this.playerControl.setAim(client.sessionId, message);
     });
 
+    this.onMessage<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
+      if (this.netcodeRollout.stages.combatRewind) {
+        this.combatFireCommands.accept(client.sessionId, message);
+      } else {
+        const player = this.state.players.get(client.sessionId);
+        if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
+      }
+    });
     this.onMessage('shoot', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
@@ -827,9 +959,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
+    this.combatFireCommands.clearPlayer(client.sessionId);
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
+    this.interactionSnapshots.clearPlayer(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
 
@@ -842,79 +976,11 @@ export class DistrictRoom extends Room<DistrictState> {
     client?.send(GAME_NOTICE_MESSAGE, {message, tone} satisfies GameNotice);
   }
 
-  private advanceSimulation(deltaTime: number): void {
-    this.simulationClock.advance(deltaTime, (frame) => {
-      this.updateFixedStep(frame.deltaSeconds, frame.nowMs);
-      const events = this.events.drain();
-      this.explosionController.observeEvents(events);
-      this.missionController.observeEvents(events);
-      this.pedestrians.observeEvents(events);
-      this.cashPickupController.observeEvents(events);
-      this.audioEvents.publish(events);
-      this.debugProjection.update(events);
-    });
-  }
-
   onBeforePatch(): void {
+    if (this.netcodeRollout.stages.interactionSnapshots) {
+      this.interactionSnapshots?.publishCurrent(this.state.players.keys());
+    }
     this.replicationController?.synchronize();
-  }
-
-  private updateFixedStep(deltaSeconds: number, now: number): void {
-    this.state.serverTimeMs = now;
-    this.populationStreaming.update(
-      [...this.state.players.values()]
-        .filter((player) => player.spaceId === 'street')
-        .map((player) => ({x: player.x, y: player.y})),
-      now
-    );
-    this.trafficSignalController.beginTick();
-    this.trafficSignalController.update(now);
-    this.explosionController.update(now);
-    this.policeResponseFleet.update(now);
-    this.vehicleSimulation.beginTick();
-    this.state.vehicles.forEach((vehicle) => {
-      this.vehicleSimulation.update(vehicle, deltaSeconds, now);
-      this.indexVehicle(vehicle);
-    });
-    this.combatReactions.update(now);
-    this.meleeCombat.update(now);
-    this.state.players.forEach((player) => {
-      if (!player.alive) {
-        this.playerLifecycle.tryRespawn(player, now);
-      } else if (player.action) {
-        this.playerLifecycle.updateProtection(player, now);
-        if (player.action === 'melee') this.playerControl.updateOnFoot(player, deltaSeconds);
-        else this.vehicleAccess.updateAction(player, now);
-      } else {
-        this.playerLifecycle.updateProtection(player, now);
-        this.playerControl.updateOnFoot(player, deltaSeconds);
-        this.crimeController.decay(player, now);
-      }
-      this.indexPlayer(player);
-    });
-    this.crimeController.processReports(now);
-    this.crimeController.updateDispatch(now);
-    this.pedestrians.beginTick(now);
-    this.state.npcs.forEach((npc) => {
-      this.pedestrians.update(npc, deltaSeconds, now);
-      this.indexNpc(npc);
-    });
-    this.state.bullets.forEach((bullet, bulletId) => {
-      this.projectileController.update(bullet, bulletId, deltaSeconds, now);
-    });
-    this.state.rockets.forEach((rocket, rocketId) => {
-      this.rocketProjectileController.update(rocket, rocketId, deltaSeconds, now);
-    });
-    this.state.thrownProjectiles.forEach((projectile, projectileId) => {
-      this.thrownProjectileController.update(projectile, projectileId, deltaSeconds, now);
-    });
-    this.fireZoneController.update(now);
-    this.actorBurnController.update(now);
-    this.weaponPickupController.update(now);
-    this.cashPickupController.update(now);
-    this.crimeController.expire(now);
-    this.missionController.update(now);
-    this.lifecycle.flush();
   }
 
   private rebuildSpatialIndex(): void {

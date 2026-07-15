@@ -5,6 +5,7 @@ import {
   type PedestrianPoliceTarget
 } from '../server/game/pedestrians/pedestrian-controller.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
+import {WorldStimulusRegistry} from '../server/game/world/world-stimulus-registry.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
@@ -169,6 +170,7 @@ test('mission hostile uses timed point-blank melee instead of firing through its
     state,
     world,
     random: new DeterministicRandom('hostile-melee'),
+    stimuli: new WorldStimulusRegistry(),
     clock: () => ({tick: 9}),
     policeTarget: () => undefined,
     requestPoliceFire: () => undefined,
@@ -216,6 +218,7 @@ test('police use point-blank melee only for a visible on-foot pursuit target', (
     state,
     world,
     random: new DeterministicRandom('police-melee'),
+    stimuli: new WorldStimulusRegistry(),
     clock: () => ({tick: 10}),
     policeTarget: () => ({
       pursuit: {
@@ -313,6 +316,7 @@ function createController(
     state,
     world,
     random: new DeterministicRandom(seed),
+    stimuli: new WorldStimulusRegistry(),
     clock: () => ({tick: tick++}),
     policeTarget,
     requestPoliceFire,

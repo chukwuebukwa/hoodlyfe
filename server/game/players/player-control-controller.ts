@@ -1,11 +1,14 @@
 import type {DistrictState, PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import {isMeleeWeaponId, WEAPONS} from '../../../shared/content/weapon-catalog.ts';
 import type {InteriorController} from '../interiors/interior-controller.ts';
+import type {OnFootInputBatchMessage} from '../../../shared/protocol/on-foot-input.ts';
+import {
+  ON_FOOT_PLAYER_RADIUS,
+  onFootMovementScale,
+  stepOnFootWithWorldCollision
+} from '../../../shared/simulation/on-foot-step.ts';
 
-export const PLAYER_RADIUS = 11;
-
-const PLAYER_SPEED = 190;
+export const PLAYER_RADIUS = ON_FOOT_PLAYER_RADIUS;
 
 export interface PlayerMoveInput {
   x?: number;
@@ -23,6 +26,12 @@ export interface PlayerControlState {
   lastSequence: number;
 }
 
+interface PlayerControlRuntime {
+  receivedSequence: number;
+  held: PlayerControlState;
+  pending: PlayerControlState[];
+}
+
 interface PlayerControlControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -30,12 +39,17 @@ interface PlayerControlControllerOptions {
 }
 
 export class PlayerControlController {
-  private readonly controls = new Map<string, PlayerControlState>();
+  private readonly controls = new Map<string, PlayerControlRuntime>();
 
   constructor(private readonly options: PlayerControlControllerOptions) {}
 
   register(playerId: string): void {
-    this.controls.set(playerId, {inputX: 0, inputY: 0, lastSequence: 0});
+    const acknowledged = this.options.state.players.get(playerId)?.lastInputSequence ?? 0;
+    this.controls.set(playerId, {
+      receivedSequence: acknowledged,
+      held: {inputX: 0, inputY: 0, lastSequence: acknowledged},
+      pending: []
+    });
   }
 
   unregister(playerId: string): void {
@@ -43,20 +57,33 @@ export class PlayerControlController {
   }
 
   setMove(playerId: string, input?: PlayerMoveInput): void {
-    const control = this.controls.get(playerId);
-    if (!control) return;
+    const runtime = this.controls.get(playerId);
+    if (!runtime) return;
     const requestedSequence = Number(input?.sequence);
     const sequence = Number.isSafeInteger(requestedSequence)
       ? requestedSequence
-      : control.lastSequence + 1;
-    if (sequence <= control.lastSequence || sequence - control.lastSequence > 4_096) return;
-    const x = Number(input?.x);
-    const y = Number(input?.y);
-    control.inputX = Number.isFinite(x) ? clamp(x, -1, 1) : 0;
-    control.inputY = Number.isFinite(y) ? clamp(y, -1, 1) : 0;
-    control.lastSequence = sequence;
+      : runtime.receivedSequence + 1;
+    if (!this.acceptMove(runtime, input, sequence)) return;
+    // Legacy single-input clients hold their newest intent immediately. New clients use
+    // acceptBatch(), whose moves are consumed exactly once per fixed simulation tick.
+    const latest = runtime.pending.pop();
+    runtime.pending = [];
+    if (latest) runtime.held = latest;
+  }
+
+  acceptBatch(playerId: string, message?: OnFootInputBatchMessage): number {
+    const runtime = this.controls.get(playerId);
     const player = this.options.state.players.get(playerId);
-    if (player) player.lastInputSequence = sequence;
+    if (!runtime || !player?.alive || player.vehicleId) return 0;
+    const moves = Array.isArray(message?.moves) ? message.moves.slice(0, MAX_BATCH_MOVES) : [];
+    let accepted = 0;
+    for (const move of moves) {
+      if (this.acceptMove(runtime, move, Number(move?.sequence))) accepted++;
+    }
+    if (runtime.pending.length > MAX_PENDING_MOVES) {
+      runtime.pending.splice(0, runtime.pending.length - MAX_PENDING_MOVES);
+    }
+    return accepted;
   }
 
   setAim(playerId: string, input?: PlayerAimInput): void {
@@ -68,42 +95,64 @@ export class PlayerControlController {
   }
 
   reset(playerId: string): void {
-    const control = this.controls.get(playerId);
-    if (!control) return;
-    control.inputX = 0;
-    control.inputY = 0;
+    const runtime = this.controls.get(playerId);
+    if (!runtime) return;
+    runtime.pending = [];
+    runtime.held = {inputX: 0, inputY: 0, lastSequence: runtime.receivedSequence};
+    const player = this.options.state.players.get(playerId);
+    if (player) player.lastInputSequence = runtime.receivedSequence;
   }
 
   inputFor(playerId: string): PlayerControlState | undefined {
-    return this.controls.get(playerId);
+    return this.controls.get(playerId)?.held;
   }
 
   updateOnFoot(player: PlayerState, deltaSeconds: number): void {
-    const control = this.controls.get(player.id);
-    if (!control || !player.alive || player.vehicleId) return;
-    const movementScale = movementScaleFor(player);
-    if (movementScale === 0) return;
-    const magnitude = Math.hypot(control.inputX, control.inputY);
-    if (magnitude === 0) return;
-    const inputScale = magnitude > 1 ? 1 / magnitude : 1;
-    const moveX = control.inputX * inputScale * PLAYER_SPEED * movementScale * deltaSeconds;
-    const moveY = control.inputY * inputScale * PLAYER_SPEED * movementScale * deltaSeconds;
-    if (this.options.interiors?.move(player, moveX, moveY, PLAYER_RADIUS)) return;
-    const nextX = player.x + moveX;
-    if (this.options.world.canOccupy(nextX, player.y, PLAYER_RADIUS)) player.x = nextX;
-    const nextY = player.y + moveY;
-    if (this.options.world.canOccupy(player.x, nextY, PLAYER_RADIUS)) player.y = nextY;
+    const runtime = this.controls.get(player.id);
+    if (!runtime || !player.alive || player.vehicleId) return;
+    const next = runtime.pending.shift();
+    if (next) runtime.held = next;
+    const control = runtime.held;
+    const movement = stepOnFootWithWorldCollision(
+      {x: player.x, y: player.y, spaceId: player.spaceId},
+      {moveX: control.inputX, moveY: control.inputY},
+      deltaSeconds,
+      (spaceId, x, y, radius) => spaceId === 'street'
+        ? this.options.world.canOccupy(x, y, radius)
+        : this.options.interiors?.canOccupy(spaceId, x, y, radius) ?? false,
+      {movementScale: onFootMovementScale(player.action, player.weapon, player.attackCombo)}
+    );
+    player.x = movement.pose.x;
+    player.y = movement.pose.y;
+    if (player.spaceId !== 'street') this.options.interiors?.afterMove(player);
     if (!player.action) this.options.interiors?.tryEnter(player);
+    player.lastInputSequence = control.lastSequence;
+  }
+
+  private acceptMove(
+    runtime: PlayerControlRuntime,
+    input: PlayerMoveInput | undefined,
+    sequence: number
+  ): boolean {
+    if (
+      !Number.isSafeInteger(sequence) || sequence <= runtime.receivedSequence ||
+      sequence - runtime.receivedSequence > MAX_SEQUENCE_ADVANCE
+    ) return false;
+    const x = Number(input?.x);
+    const y = Number(input?.y);
+    runtime.pending.push({
+      inputX: Number.isFinite(x) ? clamp(x, -1, 1) : 0,
+      inputY: Number.isFinite(y) ? clamp(y, -1, 1) : 0,
+      lastSequence: sequence
+    });
+    runtime.receivedSequence = sequence;
+    return true;
   }
 }
 
-function movementScaleFor(player: PlayerState): number {
-  if (!player.action) return 1;
-  if (player.action !== 'melee') return 0;
-  if (!isMeleeWeaponId(player.weapon)) return 0;
-  const weapon = WEAPONS[player.weapon];
-  return weapon.strikes[player.attackCombo]?.movementScale ?? 0;
-}
+const MAX_BATCH_MOVES = 4;
+const MAX_PENDING_MOVES = 24;
+const MAX_SEQUENCE_ADVANCE = 4_096;
 
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));

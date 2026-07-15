@@ -5,7 +5,7 @@ import {
   clearPedestrianThreat,
   type PedestrianRuntime
 } from './pedestrian-runtime.ts';
-import type {PedestrianStimulus} from './pedestrian-stimulus-registry.ts';
+import type {WorldStimulus} from '../world/world-stimulus-registry.ts';
 
 const PERCEPTION_INTERVAL_MS = 240;
 
@@ -29,7 +29,7 @@ export type PedestrianObservation =
   | {
     kind: 'stimulus';
     stimulusId: string;
-    stimulusKind: PedestrianStimulus['kind'];
+    stimulusKind: WorldStimulus['kind'];
     sourceId: string;
     x: number;
     y: number;
@@ -48,7 +48,7 @@ export type PedestrianObservation =
 interface PedestrianPerceptionOptions {
   state: DistrictState;
   policeTarget: (officer: NpcState, nowMs: number) => PedestrianPoliceTarget | undefined;
-  nearestStimulus?: (x: number, y: number, nowMs: number) => PedestrianStimulus | undefined;
+  nearestStimulus?: (x: number, y: number, nowMs: number) => WorldStimulus | undefined;
 }
 
 export class PedestrianPerceptionSystem {
@@ -149,13 +149,13 @@ export class PedestrianPerceptionSystem {
     };
   }
 
-  private rememberStimulus(runtime: PedestrianRuntime, stimulus: PedestrianStimulus): void {
+  private rememberStimulus(runtime: PedestrianRuntime, stimulus: WorldStimulus): void {
     runtime.stimulusId = stimulus.id;
     runtime.stimulusKind = stimulus.kind;
     runtime.stimulusSourceId = stimulus.sourceId;
     runtime.stimulusX = stimulus.x;
     runtime.stimulusY = stimulus.y;
-    runtime.stimulusSeverity = stimulus.severity;
+    runtime.stimulusSeverity = stimulus.intensity;
     runtime.stimulusRadius = stimulus.radius;
     runtime.stimulusUntil = stimulus.expiresAt;
   }
