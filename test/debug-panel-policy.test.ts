@@ -36,6 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
+    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear',
     roads: 'off',
     region: 'unknown',
     latency: '0/0ms',
@@ -74,6 +75,20 @@ test('debug panel summarizes authored road topology and route planner pressure',
   assert.equal(
     projectDebugPanel(createState(), snapshot).roads,
     'v1 / 2 nodes / 1 edges / 2 routed / 1 partial / 2 replans'
+  );
+});
+
+test('debug panel summarizes junction queue and traversal phases', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {...trafficDebugEntry('waiting', true, 1), junctionPhase: 'waiting', junctionQueuePosition: 2},
+    {...trafficDebugEntry('approach', true, 1), junctionPhase: 'approach'},
+    {...trafficDebugEntry('crossing', true, 1), junctionPhase: 'crossing'},
+    {...trafficDebugEntry('clearing', true, 1), junctionPhase: 'clearing'}
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '4 active / 1 wait / 1 approach / 1 cross / 1 clear'
   );
 });
 
@@ -284,6 +299,10 @@ function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevis
     maneuverAttempts: 0,
     emergencyYieldPhase: 'none' as const,
     emergencyVehicleId: '',
+    junctionId: '',
+    junctionPhase: 'none' as const,
+    junctionQueuePosition: 0,
+    junctionLeaseExpiresAt: 0,
     routeSource: 'lane-graph' as const,
     currentLaneNodeId: 'a',
     destinationLaneNodeId: 'b',

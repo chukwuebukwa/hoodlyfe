@@ -16,6 +16,10 @@ test('a streamed street population continues circulating through a one-minute so
   const traffic = new TrafficController({world, random, laneGraph: LaneGraph.load(world)});
   const vehicles: VehicleState[] = [];
   const starts = new Map<string, {x: number; y: number}>();
+  const previousJunctionPhase = new Map<string, string>();
+  const observedJunctionPhases = new Set<string>();
+  let completedJunctionTraversals = 0;
+  let maximumQueuePosition = 0;
 
   for (let index = 0; index < 24; index++) {
     const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
@@ -52,6 +56,21 @@ test('a streamed street population continues circulating through a one-minute so
           }))
       });
     }
+    const diagnostics = traffic.diagnostics();
+    const ownersByJunction = new Map<string, number>();
+    for (const entry of diagnostics) {
+      observedJunctionPhases.add(entry.junctionPhase);
+      maximumQueuePosition = Math.max(maximumQueuePosition, entry.junctionQueuePosition);
+      const previous = previousJunctionPhase.get(entry.vehicleId) ?? 'none';
+      if (previous === 'clearing' && entry.junctionPhase === 'none') completedJunctionTraversals++;
+      previousJunctionPhase.set(entry.vehicleId, entry.junctionPhase);
+      if (!['approach', 'crossing', 'clearing'].includes(entry.junctionPhase)) continue;
+      ownersByJunction.set(entry.junctionId, (ownersByJunction.get(entry.junctionId) ?? 0) + 1);
+    }
+    assert.ok(
+      [...ownersByJunction.values()].every((owners) => owners === 1),
+      'A junction admitted more than one active owner in the same tick.'
+    );
   }
 
   const circulated = vehicles.filter((vehicle) => {
@@ -71,4 +90,13 @@ test('a streamed street population continues circulating through a one-minute so
     prolongedBlocks.length <= Math.floor(vehicles.length * 0.15),
     `${prolongedBlocks.length}/${vehicles.length} traffic vehicles remained blocked.`
   );
+  assert.deepEqual(
+    [...observedJunctionPhases].sort(),
+    ['approach', 'clearing', 'crossing', 'none', 'waiting']
+  );
+  assert.ok(
+    completedJunctionTraversals >= vehicles.length * 3,
+    `Only ${completedJunctionTraversals} junction traversals completed for ${vehicles.length} vehicles.`
+  );
+  assert.ok(maximumQueuePosition <= 6, `Junction queue reached position ${maximumQueuePosition}.`);
 });

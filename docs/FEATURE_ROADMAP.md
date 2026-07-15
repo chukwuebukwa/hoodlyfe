@@ -43,7 +43,9 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** moving ambient traffic with deterministic road following/turn selection, ahead-corridor vehicle following, pedestrian stopping, asymmetric braking/acceleration, and blocked-route recovery.
 - **Playable** two authored signalized intersections with replicated phases, stop-line braking, cross-axis occupancy holds, emergency bypass, wreck awareness, and F3 queue diagnostics.
 - **Playable** deterministic stopped-car recovery with legitimate-stop suppression, bounded reverse, collision/road clearance probes, left/right passing, route merge, and retry cooldown.
-- **Playable** opposite right-hand compatibility lanes, expiring deterministic junction reservations, non-road ambient pedestrian placement/wander, and one-minute circulation soak coverage.
+- **Playable** opposite right-hand compatibility lanes, authored deterministic junction
+  queues with approach/crossing/rear-clearance ownership, non-road ambient pedestrian
+  placement/wander, and one-minute circulation soak coverage.
 - **Playable** catalog-sized oriented-box car collisions with broad-phase bounds, minimum-axis separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Foundation** local driving uses sequenced fixed-step input, saved-move rewind/replay, swept oriented static-world collision, and render-only correction smoothing. Dynamic contacts remain server-only until the bounded nearby prediction island and timestamped remote vehicle buffers are complete.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
@@ -111,11 +113,16 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
 - **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
-- **Delivered playable**: junction reservations serialize conflicting approaches and expire abandoned ownership; catalog-sized oriented rectangles replace circular vehicle-to-vehicle collision.
+- **Delivered playable**: authored conflict zones serialize FIFO approaches, reject blocked
+  admission, preserve a commit window, hold ownership until the rear collider clears, and
+  expire abandoned ownership; catalog-sized oriented rectangles replace circular
+  vehicle-to-vehicle collision.
 - **Delivered playable**: an authored cruiser plus bounded dynamic reinforcements consume reported suspect facts without traffic/wanted coupling, use bounded deterministic A*, search last-known positions, intercept visible targets, scale speed and unit count with heat, and permit occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
-- **Deferred note**: author lane centerlines, legal turn connectors, parking points, and lane-based overtaking later. The compatibility road mask is too broad to infer these safely, and this work is not the next selected feature slice.
+- **Delivered foundation**: the Industrial District now has authored directed lane
+  centerlines, legal turn connectors, owned junctions, deterministic A*, durable routes,
+  and graph validation. Parking points, lane capacity, and lane-based overtaking remain.
 - Add coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 

@@ -175,7 +175,9 @@ Extracted domain policies and room adapters now include:
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
 - `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, and gameplay pinning.
 - `street-streaming-policy.ts` plus `district-replication-controller.ts` for client AOI hysteresis, deterministic add/remove budgets, same-space visibility, and occupied/mission vehicle retention.
-- `traffic-junction-system.ts` for expiring deterministic intersection ownership and `traffic-maneuver-system.ts` for bounded reverse/pass/merge recovery without bypassing protected queues.
+- `traffic-junction-system.ts` for deterministic FIFO approach, crossing, and rear-clearance
+  ownership with an abandonment lease; `traffic-maneuver-system.ts` owns bounded
+  reverse/pass/merge recovery without bypassing protected queues.
 - `vehicle-collision-system.ts` for per-model oriented-box contact and separation beneath spatial broad-phase discovery.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-appearance-controller.ts` for finite catalog validation, default join fallback, private wardrobe gating, replicated visual-only equipped appearance mutation, update throttling, and disconnect cleanup.

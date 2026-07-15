@@ -91,6 +91,10 @@ export interface DebugTrafficAiEntry {
   maneuverAttempts: number;
   emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
   emergencyVehicleId: string;
+  junctionId: string;
+  junctionPhase: 'none' | 'waiting' | 'approach' | 'crossing' | 'clearing';
+  junctionQueuePosition: number;
+  junctionLeaseExpiresAt: number;
   routeSource: 'lane-graph' | 'road-cell-fallback';
   currentLaneNodeId: string;
   destinationLaneNodeId: string;

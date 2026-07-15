@@ -23,6 +23,7 @@ export interface DebugPanelProjection {
   response: string;
   stimuli: number;
   signals: string;
+  junctions: string;
   roads: string;
   region: string;
   latency: string;
@@ -63,6 +64,7 @@ export function projectDebugPanel(
     response: policeResponseSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
+    junctions: trafficJunctionSummary(snapshot),
     roads: trafficLaneGraphSummary(snapshot),
     region: network ? `${network.region} / ${network.buildId}` : 'unknown',
     latency: network
@@ -160,6 +162,17 @@ function trafficSignalSummary(snapshot?: DebugSnapshot): string {
   if (signals.length === 0) return '0';
   const waiting = signals.reduce((sum, signal) => sum + signal.waitingVehicleIds.length, 0);
   return `${signals.length} / ${waiting} wait`;
+}
+
+function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
+  const traffic = snapshot?.trafficAi ?? [];
+  const waiting = traffic.filter((entry) => entry.junctionPhase === 'waiting').length;
+  const approach = traffic.filter((entry) => entry.junctionPhase === 'approach').length;
+  const crossing = traffic.filter((entry) => entry.junctionPhase === 'crossing').length;
+  const clearing = traffic.filter((entry) => entry.junctionPhase === 'clearing').length;
+  const active = waiting + approach + crossing + clearing;
+  return `${active} active / ${waiting} wait / ${approach} approach / ` +
+    `${crossing} cross / ${clearing} clear`;
 }
 
 function trafficLaneGraphSummary(snapshot?: DebugSnapshot): string {

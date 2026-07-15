@@ -88,6 +88,82 @@ test('traffic controller owns a durable authored lane route instead of choosing 
   assert.equal(world.isRoadAt(vehicle.x, vehicle.y), true);
 });
 
+test('authored traffic holds junction ownership through crossing and rear clearance', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('junction-lifecycle')
+  });
+  const spawn = controller.spawn(0, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'junction-lifecycle';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+
+  const transitions: string[] = [];
+  let previous = 'none';
+  for (let tick = 1; tick <= 720; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+    const phase = controller.diagnostics()[0].junctionPhase;
+    if (phase === previous) continue;
+    transitions.push(phase);
+    previous = phase;
+  }
+
+  assert.ok(transitions.includes('approach'));
+  assert.ok(transitions.includes('crossing'));
+  assert.ok(transitions.includes('clearing'));
+  const crossing = transitions.indexOf('crossing');
+  assert.deepEqual(transitions.slice(crossing, crossing + 3), ['crossing', 'clearing', 'none']);
+});
+
+test('authored traffic waits before reserving a physically occupied conflict zone', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('junction-occupancy')
+  });
+  const spawn = controller.spawn(0, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'junction-waiter';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+  const center = laneGraph.junction('inner-center')!;
+
+  const blocker = {
+    id: 'player-car',
+    kind: 'vehicle' as const,
+    x: center.x,
+    y: center.y,
+    radius: 22,
+    speed: 0,
+    angle: 0
+  };
+  for (let tick = 1; tick <= 120; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30, {obstacles: [blocker]});
+  }
+  assert.equal(controller.diagnostics()[0].junctionPhase, 'waiting');
+  assert.equal(controller.diagnostics()[0].junctionQueuePosition, 1);
+  assert.equal(vehicle.speed, 0);
+  const stopLine = controller.diagnostics()[0].routeWaypoints[0];
+  assert.ok(Math.hypot(vehicle.x - stopLine.x, vehicle.y - stopLine.y) >= 32);
+
+  controller.update(vehicle, 1 / 30, 4100);
+  assert.equal(controller.diagnostics()[0].junctionPhase, 'approach');
+});
+
 test('traffic controller brakes for an ahead obstacle and exposes its speed reason', () => {
   const world = CollisionMap.load();
   const fixture = createTraffic(world, 'traffic-aware', 211);

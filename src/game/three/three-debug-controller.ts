@@ -45,6 +45,7 @@ export class ThreeDebugController {
     response: document.querySelector('#debug-police-response'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
+    junctions: document.querySelector('#debug-junctions'),
     roads: document.querySelector('#debug-roads'),
     region: document.querySelector('#debug-region'),
     latency: document.querySelector('#debug-latency'),
@@ -221,6 +222,7 @@ export class ThreeDebugController {
         point(suspect.x, suspect.y, this.surfaceHeightAt(suspect.x, suspect.y) + 32)
       ], assignment.unitKind === 'foot' ? 0xff6f78 : 0x58c8ff));
     }
+    const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {
       const vehicle = state.vehicles.get(entry.vehicleId);
       if (vehicle && entry.routeWaypoints.length > 0) {
@@ -233,6 +235,30 @@ export class ThreeDebugController {
           ))
         ];
         this.group.add(debugLine(points, entry.routeComplete ? 0x45d7ff : 0xff8b4d));
+      }
+      const junctionCenter = entry.junctionId
+        ? trafficJunctionCenter(this.snapshot, entry.junctionId)
+        : undefined;
+      if (junctionCenter && vehicle && entry.junctionPhase !== 'none') {
+        const color = junctionPhaseColor(entry.junctionPhase);
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 34),
+          point(
+            junctionCenter.x,
+            junctionCenter.y,
+            this.surfaceHeightAt(junctionCenter.x, junctionCenter.y) + 34
+          )
+        ], color));
+        if (!drawnJunctions.has(entry.junctionId)) {
+          drawnJunctions.add(entry.junctionId);
+          this.group.add(debugRing(
+            junctionCenter.x,
+            junctionCenter.y,
+            34,
+            color,
+            this.surfaceHeightAt(junctionCenter.x, junctionCenter.y) + 33
+          ));
+        }
       }
       if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
@@ -337,6 +363,31 @@ export class ThreeDebugController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'F3') this.setVisible(!this.visible);
   };
+}
+
+function trafficJunctionCenter(
+  snapshot: DebugSnapshot | undefined,
+  junctionId: string
+): {x: number; y: number} | undefined {
+  const nodes = snapshot?.trafficLaneGraph?.nodes.filter((node) => node.junctionId === junctionId) ?? [];
+  if (nodes.length > 0) {
+    return {
+      x: nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length,
+      y: nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length
+    };
+  }
+  const [column, row] = junctionId.split(',').map(Number);
+  return Number.isFinite(column) && Number.isFinite(row)
+    ? {x: (column + 0.5) * 64, y: (row + 0.5) * 64}
+    : undefined;
+}
+
+function junctionPhaseColor(phase: string): number {
+  if (phase === 'waiting') return 0xffb347;
+  if (phase === 'approach') return 0xffe066;
+  if (phase === 'crossing') return 0x58e58c;
+  if (phase === 'clearing') return 0x55cfff;
+  return 0x777777;
 }
 
 function entityGlyph(

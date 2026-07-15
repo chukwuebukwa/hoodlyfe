@@ -25,6 +25,12 @@ export interface LaneJunctionDefinition extends LanePointDefinition {
   allowedTurns?: Array<Exclude<LaneTurn, 'none' | 'uturn'>>;
 }
 
+export interface LaneGraphJunction extends LanePointDefinition {
+  readonly id: string;
+  readonly corridors: readonly string[];
+  readonly allowedTurns: ReadonlyArray<Exclude<LaneTurn, 'none' | 'uturn'>>;
+}
+
 export interface LaneGraphDocument {
   schemaVersion: number;
   districtId: string;
@@ -104,6 +110,7 @@ export class LaneGraph {
   readonly districtId: string;
   private readonly nodeById = new Map<string, LaneGraphNode>();
   private readonly edgeById = new Map<string, LaneGraphEdge>();
+  private readonly junctionById = new Map<string, LaneGraphJunction>();
   private readonly outgoingByNode = new Map<string, LaneGraphEdge[]>();
   private readonly laneEdges: LaneGraphEdge[];
 
@@ -115,6 +122,15 @@ export class LaneGraph {
   ) {
     this.schemaVersion = document.schemaVersion;
     this.districtId = document.districtId;
+    for (const junction of document.junctions) {
+      this.junctionById.set(junction.id, Object.freeze({
+        id: junction.id,
+        x: junction.x,
+        y: junction.y,
+        corridors: Object.freeze([...junction.corridors]),
+        allowedTurns: Object.freeze([...(junction.allowedTurns ?? ['straight', 'left', 'right'])])
+      }));
+    }
     for (const node of nodes) this.nodeById.set(node.id, freezeNode(node));
     for (const edge of edges) {
       const frozen = freezeEdge(edge);
@@ -160,6 +176,14 @@ export class LaneGraph {
 
   edge(edgeId: string): LaneGraphEdge | undefined {
     return this.edgeById.get(edgeId);
+  }
+
+  junction(junctionId: string): LaneGraphJunction | undefined {
+    return this.junctionById.get(junctionId);
+  }
+
+  junctions(): readonly LaneGraphJunction[] {
+    return [...this.junctionById.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
   outgoing(nodeId: string, vehicleClass: LaneVehicleClass = 'civilian'): readonly LaneGraphEdge[] {

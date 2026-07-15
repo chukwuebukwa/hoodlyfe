@@ -185,9 +185,12 @@ G1 architecture checklist:
 
 ### G2 - Road graph and production traffic behavior
 
-Status: G2a authored lane routing implemented on 2026-07-15; G2 remains in progress. See
-[`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md) and
-[`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md).
+Status: G2a authored lane routing and G2b.1 junction conflict ownership implemented on
+2026-07-15; G2 remains in progress. See
+[`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
+[`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
+[`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
+and [`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md).
 
 Introduce an authored directed lane graph and separate:
 
@@ -217,7 +220,18 @@ G2a architecture checklist:
   revisions to opt-in debug subscribers.
 - [x] Route, population, and AI policy remain server-only; frozen interaction-island
   netcode and shared movement/contact kernels are unchanged.
-- [ ] G2b adds swept oriented-box/time-to-contact awareness and lane/right-of-way
+- [x] G2b.1 resolves authored conflict centers, queues approaches deterministically, admits
+  only an unblocked owner, preserves a commit window, and holds ownership through rear
+  clearance.
+- [x] G2b.1 treats signals and unqueued physical occupants as admission blockers, stops
+  denied traffic before the connector, and suppresses reverse/pass/siren maneuvers while a
+  car is crossing or clearing.
+- [x] G2b.1 F3 diagnostics expose junction phase, FIFO position, lease, center, and
+  color-coded ownership; focused lifecycle/controller tests and a dense one-minute soak
+  enforce exclusivity, bounded queues, and throughput.
+- [x] G2b.1 remains server-only and leaves frozen interaction-island netcode and shared
+  movement/contact kernels unchanged.
+- [ ] G2b.2 adds swept oriented-box/time-to-contact awareness and movement-class conflict
   arbitration.
 - [ ] G2c adds passing/yielding and deterministic multi-vehicle deadlock resolution.
 

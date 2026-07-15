@@ -32,6 +32,12 @@ export interface TrafficRouteDiagnostic {
   routeWaypoints: Array<{x: number; y: number}>;
 }
 
+export interface TrafficJunctionTarget {
+  id: string;
+  x: number;
+  y: number;
+}
+
 interface TrafficRouteSystemOptions {
   world: CollisionMap;
   random: DeterministicRandom;
@@ -104,13 +110,24 @@ export class TrafficRouteSystem {
   }
 
   junctionKey(runtime: TrafficRouteRuntime): string {
+    return this.junctionTarget(runtime)?.id ?? '';
+  }
+
+  junctionTarget(runtime: TrafficRouteRuntime): TrafficJunctionTarget | undefined {
     if (runtime.source === 'lane-graph') {
       const nodeId = runtime.nodeIds[runtime.nodeIndex];
-      return (nodeId ? this.options.laneGraph?.node(nodeId)?.junctionId : '') ?? '';
+      const junctionId = (nodeId ? this.options.laneGraph?.node(nodeId)?.junctionId : '') ?? '';
+      const junction = junctionId ? this.options.laneGraph?.junction(junctionId) : undefined;
+      return junction ? {id: junction.id, x: junction.x, y: junction.y} : undefined;
     }
-    return this.options.world.roadNeighbors(runtime.targetColumn, runtime.targetRow).length >= 3
-      ? `${runtime.targetColumn},${runtime.targetRow}`
-      : '';
+    if (this.options.world.roadNeighbors(runtime.targetColumn, runtime.targetRow).length < 3) {
+      return undefined;
+    }
+    return {
+      id: `${runtime.targetColumn},${runtime.targetRow}`,
+      x: (runtime.targetColumn + 0.5) * this.options.world.tileWidth,
+      y: (runtime.targetRow + 0.5) * this.options.world.tileHeight
+    };
   }
 
   cruiseSpeed(runtime: TrafficRouteRuntime, configuredCruiseSpeed: number): number {

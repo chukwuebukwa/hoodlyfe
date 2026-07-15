@@ -12,6 +12,11 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   const world = CollisionMap.load();
   const graph = LaneGraph.load(world);
 
+  const central = graph.junction('central-center');
+  assert.deepEqual(central && {id: central.id, x: central.x, y: central.y}, {
+    id: 'central-center', x: 2336, y: 2656
+  });
+  assert.equal(graph.junctions().length, 12);
   assert.equal(graph.schemaVersion, 1);
   assert.equal(graph.districtId, 'industrial-district');
   assert.equal(graph.nodes().length, 88);
