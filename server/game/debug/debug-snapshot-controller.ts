@@ -122,6 +122,7 @@ export class DebugSnapshotController {
       trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({
         ...traffic,
         laneChangeTargets: traffic.laneChangeTargets.map((target) => ({...target})),
+        junctionMovementPath: traffic.junctionMovementPath.map((point) => ({...point})),
         routeWaypoints: traffic.routeWaypoints.map((waypoint) => ({...waypoint}))
       })),
       trafficLaneGraph: cloneTrafficLaneGraph(this.options.trafficLaneGraph?.()),

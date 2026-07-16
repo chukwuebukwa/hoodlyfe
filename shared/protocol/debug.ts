@@ -122,6 +122,11 @@ export interface DebugTrafficAiEntry {
   junctionPhase: 'none' | 'waiting' | 'approach' | 'crossing' | 'clearing';
   junctionQueuePosition: number;
   junctionLeaseExpiresAt: number;
+  junctionMovementId: string;
+  junctionMovementTurn: 'left' | 'right' | 'straight' | 'uturn';
+  junctionMovementPath: Array<{x: number; y: number}>;
+  junctionActiveOwnerCount: number;
+  junctionConflictingOwnerCount: number;
   routeSource: 'lane-graph' | 'road-cell-fallback';
   currentLaneNodeId: string;
   destinationLaneNodeId: string;

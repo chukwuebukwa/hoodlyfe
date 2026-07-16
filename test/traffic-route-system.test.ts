@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
-import {TrafficRouteSystem} from '../server/game/traffic/traffic-route-system.ts';
+import {
+  LaneGraph,
+  type LaneGraphEdge
+} from '../server/game/traffic/lane-graph.ts';
+import {
+  junctionMovementsConflict,
+  type TrafficJunctionMovement
+} from '../server/game/traffic/traffic-junction-conflict-policy.ts';
+import {
+  TrafficRouteSystem,
+  type TrafficRouteRuntime
+} from '../server/game/traffic/traffic-route-system.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
@@ -92,3 +102,99 @@ test('traffic route system preserves the road-cell fallback when no authored gra
   const captured = routes.captureVirtual({x: virtual.x, y: virtual.y, angle: virtual.angle});
   assert.equal(world.isRoadAt(captured.x, captured.y), true);
 });
+
+test('authored route movements expose real compatible and conflicting junction streams', () => {
+  const world = CollisionMap.load();
+  const graph = LaneGraph.load(world);
+  const routes = new TrafficRouteSystem({
+    world,
+    laneGraph: graph,
+    random: new DeterministicRandom('route-movement-conflicts')
+  });
+  const movements = authoredJunctionMovements(graph, routes);
+  const pairs = movements.flatMap((left, leftIndex) => (
+    movements.slice(leftIndex + 1)
+      .filter((right) => right.junctionId === left.junctionId)
+      .map((right) => ({left, right}))
+  ));
+
+  assert.deepEqual(
+    [...new Set(movements.map((movement) => movement.turn))].sort(),
+    ['left', 'right', 'straight']
+  );
+  assert.ok(movements.every((movement) => (
+    !movement.exclusive &&
+    movement.path.length >= 2 &&
+    movement.path.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+  )));
+  assert.ok(
+    pairs.some(({left, right}) => !junctionMovementsConflict(left, right)),
+    'The authored district did not expose any compatible junction movements.'
+  );
+  assert.ok(
+    pairs.some(({left, right}) => junctionMovementsConflict(left, right)),
+    'The authored district did not expose any conflicting junction movements.'
+  );
+
+  const turnaround = graph.edges().find((edge) => edge.kind === 'turnaround');
+  assert.ok(turnaround);
+  const turnaroundEntry = graph.edges().find((edge) => (
+    edge.kind === 'lane' && edge.toNodeId === turnaround.fromNodeId
+  ));
+  assert.ok(turnaroundEntry);
+  const movement = routes.junctionMovement(
+    routeRuntime(turnaroundEntry, [turnaround]),
+    16.5
+  );
+  assert.equal(movement?.exclusive, true);
+  assert.equal(movement?.turn, 'uturn');
+});
+
+function authoredJunctionMovements(
+  graph: LaneGraph,
+  routes: TrafficRouteSystem
+): TrafficJunctionMovement[] {
+  const movements: TrafficJunctionMovement[] = [];
+  const laneEdges = graph.edges().filter((edge) => edge.kind === 'lane');
+  for (const junction of graph.junctions().filter(({id}) => !id.startsWith('terminal:'))) {
+    for (const node of graph.nodes().filter(({junctionId}) => junctionId === junction.id)) {
+      const incoming = laneEdges.filter((edge) => edge.toNodeId === node.id);
+      for (const entry of incoming) {
+        for (const traversal of graph.outgoing(node.id)) {
+          if (traversal.kind === 'turnaround') continue;
+          const routeEdges = [traversal];
+          if (traversal.kind === 'connector') {
+            const exit = graph.outgoing(traversal.toNodeId)
+              .find((edge) => edge.kind === 'lane');
+            if (!exit) continue;
+            routeEdges.push(exit);
+          }
+          const movement = routes.junctionMovement(routeRuntime(entry, routeEdges), 16.5);
+          if (movement && !movement.exclusive) movements.push(movement);
+        }
+      }
+    }
+  }
+  return movements;
+}
+
+function routeRuntime(
+  entry: LaneGraphEdge,
+  routeEdges: readonly LaneGraphEdge[]
+): TrafficRouteRuntime {
+  const nodeIds = [entry.toNodeId, ...routeEdges.map((edge) => edge.toNodeId)];
+  return {
+    previousColumn: 0,
+    previousRow: 0,
+    targetColumn: 0,
+    targetRow: 0,
+    source: 'lane-graph',
+    currentLaneNodeId: entry.fromNodeId,
+    destinationLaneNodeId: nodeIds.at(-1) ?? '',
+    nodeIds,
+    nodeIndex: 0,
+    revision: 1,
+    complete: true,
+    visited: nodeIds.length
+  };
+}

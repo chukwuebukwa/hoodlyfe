@@ -36,7 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
-    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 lane / 0 request / 0 pass',
+    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass',
     trafficRisk: 'clear',
     roads: 'off',
     region: 'unknown',
@@ -119,7 +119,7 @@ test('debug panel summarizes junction queue and traversal phases', () => {
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover / 0 lane / 0 request / 0 pass'
+    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass'
   );
 });
 
@@ -141,7 +141,7 @@ test('debug panel summarizes visible traffic blocker cycles and recovery owners'
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover / 0 lane / 0 request / 0 pass'
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass'
   );
 });
 
@@ -164,7 +164,35 @@ test('debug panel summarizes authored lane-change ownership and completions', ()
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 1 lane / 1 request / 1 pass'
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 1 lane / 1 request / 1 pass'
+  );
+});
+
+test('debug panel summarizes compatible junction owners and conflict waits', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {
+      ...trafficDebugEntry('owner-a', true, 1),
+      junctionId: 'shared',
+      junctionPhase: 'crossing',
+      junctionActiveOwnerCount: 2
+    },
+    {
+      ...trafficDebugEntry('owner-b', true, 1),
+      junctionId: 'shared',
+      junctionPhase: 'approach',
+      junctionActiveOwnerCount: 2
+    },
+    {
+      ...trafficDebugEntry('waiter', true, 1),
+      junctionId: 'shared',
+      junctionPhase: 'waiting',
+      junctionConflictingOwnerCount: 1
+    }
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '3 active / 1 wait / 1 approach / 1 cross / 0 clear / 0 cycle / 0 recover / 1 shared / 1 conflict / 0 lane / 0 request / 0 pass'
   );
 });
 
@@ -406,6 +434,11 @@ function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevis
     junctionPhase: 'none' as const,
     junctionQueuePosition: 0,
     junctionLeaseExpiresAt: 0,
+    junctionMovementId: '',
+    junctionMovementTurn: 'straight' as const,
+    junctionMovementPath: [],
+    junctionActiveOwnerCount: 0,
+    junctionConflictingOwnerCount: 0,
     routeSource: 'lane-graph' as const,
     currentLaneNodeId: 'a',
     destinationLaneNodeId: 'b',

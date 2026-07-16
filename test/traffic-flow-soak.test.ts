@@ -10,6 +10,10 @@ import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-config.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
+import {
+  junctionMovementsConflict,
+  type TrafficJunctionMovement
+} from '../server/game/traffic/traffic-junction-conflict-policy.ts';
 
 test('a streamed street population continues circulating through a one-minute soak', () => {
   const world = CollisionMap.load();
@@ -27,7 +31,24 @@ test('a streamed street population continues circulating through a one-minute so
   let deadlockRecoveryCount = 0;
   let maximumLaneChanges = 0;
   let laneChangeCompletions = 0;
+  let maximumJunctionOwners = 0;
+  let sharedJunctionTicks = 0;
   let firstOverlapTrace: typeof maximumOverlapTrace = [];
+  let firstOverlapHistory: Array<{
+    tick: number;
+    vehicles: Array<{
+      id: string;
+      x: number;
+      y: number;
+      angle: number;
+      speed: number;
+      reason: string;
+      obstacle: string;
+      junction: string;
+      owners: number;
+    }>;
+  }> = [];
+  const recentHistory: typeof firstOverlapHistory = [];
   let maximumOverlapTrace: Array<{
     tick: number;
     left: string;
@@ -87,6 +108,27 @@ test('a streamed street population continues circulating through a one-minute so
       traffic.observe(vehicle, nowMs, obstacles);
     }
     const diagnostics = traffic.diagnostics();
+    if (process.env.TRAFFIC_SOAK_TRACE === '1') {
+      const diagnosticsByVehicle = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
+      recentHistory.push({
+        tick,
+        vehicles: vehicles.map((vehicle) => ({
+          id: vehicle.id,
+          x: Number(vehicle.x.toFixed(2)),
+          y: Number(vehicle.y.toFixed(2)),
+          angle: Number(vehicle.angle.toFixed(3)),
+          speed: Number(vehicle.speed.toFixed(2)),
+          reason: diagnosticsByVehicle.get(vehicle.id)?.speedReason ?? 'missing',
+          obstacle: diagnosticsByVehicle.get(vehicle.id)?.obstacleId ?? '',
+          junction: diagnosticsByVehicle.get(vehicle.id)
+            ? `${diagnosticsByVehicle.get(vehicle.id)!.junctionId}:` +
+              diagnosticsByVehicle.get(vehicle.id)!.junctionPhase
+            : 'missing',
+          owners: diagnosticsByVehicle.get(vehicle.id)?.junctionActiveOwnerCount ?? 0
+        }))
+      });
+      if (recentHistory.length > 20) recentHistory.shift();
+    }
     maximumDeadlockCycles = Math.max(maximumDeadlockCycles, new Set(diagnostics
       .filter((entry) => entry.deadlockCycleId)
       .map((entry) => entry.deadlockCycleId)).size);
@@ -104,7 +146,7 @@ test('a streamed street population continues circulating through a one-minute so
       deadlockRecoveryCount,
       diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0)
     );
-    const ownersByJunction = new Map<string, number>();
+    const ownersByJunction = new Map<string, typeof diagnostics>();
     for (const entry of diagnostics) {
       observedJunctionPhases.add(entry.junctionPhase);
       maximumQueuePosition = Math.max(maximumQueuePosition, entry.junctionQueuePosition);
@@ -112,12 +154,27 @@ test('a streamed street population continues circulating through a one-minute so
       if (previous === 'clearing' && entry.junctionPhase === 'none') completedJunctionTraversals++;
       previousJunctionPhase.set(entry.vehicleId, entry.junctionPhase);
       if (!['approach', 'crossing', 'clearing'].includes(entry.junctionPhase)) continue;
-      ownersByJunction.set(entry.junctionId, (ownersByJunction.get(entry.junctionId) ?? 0) + 1);
+      const owners = ownersByJunction.get(entry.junctionId) ?? [];
+      owners.push(entry);
+      ownersByJunction.set(entry.junctionId, owners);
     }
-    assert.ok(
-      [...ownersByJunction.values()].every((owners) => owners === 1),
-      'A junction admitted more than one active owner in the same tick.'
-    );
+    for (const owners of ownersByJunction.values()) {
+      maximumJunctionOwners = Math.max(maximumJunctionOwners, owners.length);
+      if (owners.length > 1) sharedJunctionTicks++;
+      for (let left = 0; left < owners.length; left++) {
+        for (let right = left + 1; right < owners.length; right++) {
+          assert.equal(
+            junctionMovementsConflict(
+              diagnosticMovement(owners[left], vehicles),
+              diagnosticMovement(owners[right], vehicles)
+            ),
+            false,
+            `Junction ${owners[left].junctionId} admitted conflicting ` +
+              `${owners[left].vehicleId}/${owners[right].vehicleId}.`
+          );
+        }
+      }
+    }
     let overlapsThisTick = 0;
     const overlapTrace: typeof maximumOverlapTrace = [];
     const diagnosticsByVehicle = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
@@ -156,7 +213,13 @@ test('a streamed street population continues circulating through a one-minute so
         });
       }
     }
-    if (firstOverlapTrace.length === 0 && overlapTrace.length > 0) firstOverlapTrace = overlapTrace;
+    if (firstOverlapTrace.length === 0 && overlapTrace.length > 0) {
+      firstOverlapTrace = overlapTrace;
+      firstOverlapHistory = recentHistory.map((frame) => ({
+        tick: frame.tick,
+        vehicles: frame.vehicles.map((vehicle) => ({...vehicle}))
+      }));
+    }
     if (overlapsThisTick > maximumConcurrentOverlaps) maximumOverlapTrace = overlapTrace;
     maximumConcurrentOverlaps = Math.max(maximumConcurrentOverlaps, overlapsThisTick);
     overlapPairTicks += overlapsThisTick;
@@ -182,7 +245,10 @@ test('a streamed street population continues circulating through a one-minute so
       deadlockRecoveryCount,
       maximumLaneChanges,
       laneChangeCompletions,
+      maximumJunctionOwners,
+      sharedJunctionTicks,
       firstOverlapTrace,
+      firstOverlapHistory,
       maximumOverlapTrace
     }));
   }
@@ -212,7 +278,33 @@ test('a streamed street population continues circulating through a one-minute so
     overlapPairTicks <= 60,
     `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
   );
+  assert.ok(
+    maximumJunctionOwners >= 2,
+    'The authored flow never admitted compatible simultaneous junction owners.'
+  );
+  assert.ok(
+    sharedJunctionTicks > 0,
+    'The authored flow did not sustain any compatible shared-junction ticks.'
+  );
 });
+
+function diagnosticMovement(
+  diagnostic: ReturnType<TrafficController['diagnostics']>[number],
+  vehicles: readonly VehicleState[]
+): TrafficJunctionMovement {
+  const edgeIds = diagnostic.junctionMovementId.split('>');
+  const vehicle = vehicles.find((candidate) => candidate.id === diagnostic.vehicleId);
+  return {
+    id: diagnostic.junctionMovementId,
+    junctionId: diagnostic.junctionId,
+    turn: diagnostic.junctionMovementTurn,
+    entryLaneId: edgeIds[0] ?? '',
+    exitLaneId: edgeIds.at(-1) ?? '',
+    path: diagnostic.junctionMovementPath,
+    sweptHalfWidth: vehicle ? vehicleConfig(vehicle.kind).collision.width / 2 + 2 : 20,
+    exclusive: diagnostic.junctionMovementId.startsWith('exclusive:')
+  };
+}
 
 function vehicleBoxesOverlap(left: VehicleState, right: VehicleState): boolean {
   const leftCollision = vehicleConfig(left.kind).collision;

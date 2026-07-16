@@ -242,6 +242,16 @@ export class ThreeDebugController {
         : undefined;
       if (junctionCenter && vehicle && entry.junctionPhase !== 'none') {
         const color = junctionPhaseColor(entry.junctionPhase);
+        if (
+          entry.junctionPhase !== 'waiting' &&
+          entry.junctionMovementPath.length >= 2
+        ) {
+          this.group.add(debugLine(entry.junctionMovementPath.map((movementPoint) => point(
+            movementPoint.x,
+            movementPoint.y,
+            this.surfaceHeightAt(movementPoint.x, movementPoint.y) + 37
+          )), entry.junctionActiveOwnerCount > 1 ? 0x5cffc9 : color));
+        }
         this.group.add(debugLine([
           point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 34),
           point(

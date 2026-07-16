@@ -186,16 +186,18 @@ G1 architecture checklist:
 ### G2 - Road graph and production traffic behavior
 
 Status: G2a authored lane routing, G2b.1 junction conflict ownership, G2b.2a predictive
-contact awareness, and G2c authored lane-change ownership implemented through
-2026-07-16; G2 remains in progress. See
+contact awareness, G2b.2b movement conflict arbitration, and G2c authored lane-change
+ownership implemented through 2026-07-16; G2 remains in progress. See
 [`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
 [`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
 [`TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md`](TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md),
+[`TRAFFIC_MOVEMENT_CONFLICT_RESEARCH.md`](TRAFFIC_MOVEMENT_CONFLICT_RESEARCH.md),
 [`TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md`](TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md),
 [`TRAFFIC_LANE_CHANGE_RESEARCH.md`](TRAFFIC_LANE_CHANGE_RESEARCH.md),
 [`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
 [`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md),
-and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
+[`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md),
+and [`decisions/0018-junction-movement-conflict-matrix.md`](decisions/0018-junction-movement-conflict-matrix.md).
 Visible deadlock ownership is recorded in
 [`decisions/0012-visible-traffic-deadlock-recovery.md`](decisions/0012-visible-traffic-deadlock-recovery.md).
 Authored lane-change ownership is recorded in
@@ -246,7 +248,15 @@ G2a architecture checklist:
 - [x] G2b.2a adds catalog-sized swept oriented-box/time-to-contact awareness, composes it
   with junction ownership, exposes risk through F3/Three diagnostics, and bounds overlap
   pair-ticks in a dense one-minute soak.
-- [ ] G2b.2b adds movement-class conflict arbitration for compatible simultaneous turns.
+- [x] G2b.2b derives stable entry/traversal/exit movement paths from authored routes,
+  computes a conservative symmetric foe relation from lane ownership and swept geometry,
+  and admits a bounded compatible owner set without weakening conflicting FIFO.
+- [x] G2b.2b keeps fallback routes, malformed geometry, shared entries/exits, and terminal
+  U-turns exclusive; signals, pedestrians, physical occupancy, predictive contact, rear
+  clearance, and authoritative collision remain independent safety layers.
+- [x] G2b.2b F3/Three diagnostics expose movement paths, turns, owner counts, and conflict
+  waits. Real authored-route tests prove compatible and conflicting streams, while the
+  dense one-minute soak requires shared ownership and rejects every conflicting owner pair.
 - [x] G2c pressure relief retires only sustained offscreen disposable traffic, ranks blocker
   roots deterministically, rate-limits removals, and advances virtual routes before reuse.
 - [x] G2c detects persistent strongly connected vehicle blocker cycles, elects one stable

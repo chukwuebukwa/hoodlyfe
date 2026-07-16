@@ -1,8 +1,9 @@
 # Traffic Junction Ownership Research
 
-Date: 2026-07-15
+Date: 2026-07-16
 
-Status: G2b.1 implemented; multi-lane conflict extension added in G2c
+Status: G2b.1 implemented; multi-lane geometry added in G2c; compatible movement ownership
+implemented in G2b.2b
 
 ## Scope
 
@@ -105,6 +106,21 @@ G2c replaces the fixed conflict and stop geometry for authored lane routes:
 See [`TRAFFIC_LANE_CHANGE_RESEARCH.md`](TRAFFIC_LANE_CHANGE_RESEARCH.md) and
 [`decisions/0017-authored-lane-change-ownership.md`](decisions/0017-authored-lane-change-ownership.md).
 
+G2b.2b replaces junction-wide exclusivity for complete authored routes with a bounded
+pairwise-compatible owner set:
+
+- `TrafficRouteSystem` derives entry, traversal, and exit lane identity plus a short swept
+  path through the authored conflict bounds;
+- a pure symmetric foe policy rejects shared entry or exit lanes, intersecting/near paths,
+  malformed descriptors, fallback routes, and terminal U-turns;
+- compatible movements may acquire, renew, cross, clear, expire, and release independently;
+- older unblocked conflicting waiters retain deterministic priority, while unrelated
+  compatible streams may continue;
+- the low-level driver ignores only active compatible owners, not every queued car.
+
+See [`TRAFFIC_MOVEMENT_CONFLICT_RESEARCH.md`](TRAFFIC_MOVEMENT_CONFLICT_RESEARCH.md) and
+[`decisions/0018-junction-movement-conflict-matrix.md`](decisions/0018-junction-movement-conflict-matrix.md).
+
 Physical occupancy admission is intentionally limited to authored lane-graph routes. The
 legacy collision-grid adapter marks broad road cells as intersections and cannot infer a
 safe conflict center. Applying the same radius there would recreate false waits across
@@ -112,15 +128,20 @@ ordinary streets.
 
 ## Invariants and QA
 
-- At most one vehicle is in `approach`, `crossing`, or `clearing` for a junction.
+- Every pair of vehicles in `approach`, `crossing`, or `clearing` for one junction has
+  nonconflicting authored movement descriptors.
+- The owner set is bounded; fallback, malformed, and terminal-turnaround movements remain
+  junction-exclusive.
 - Queue order is deterministic and survives a temporarily blocked head.
 - A denied car remains stopped before the connector during prolonged occupancy.
 - A committed vehicle is not stopped inside the conflict zone.
 - Ownership persists until the complete vehicle footprint clears.
 - Crossing and clearing suppress reverse/pass recovery and emergency yielding.
-- One-minute dense-flow soak observes all lifecycle phases, no simultaneous owner violation,
-  bounded queue growth, continued route progress, and completed traversals.
-- F3 exposes junction phase, queue position, lease, and a color-coded center link/ring.
+- One-minute dense-flow soak observes all lifecycle phases, compatible simultaneous owners,
+  no conflicting owner pair, bounded queue growth, continued route progress, and completed
+  traversals.
+- F3 exposes junction phase, queue position, lease, movement, shared/conflict counts, and a
+  color-coded center link/ring; Three draws active movement paths.
 
 ## Netcode Boundary
 
@@ -132,9 +153,7 @@ AOI, rewind, rollout, or shared movement/contact implementation.
 
 ## Remaining Work
 
-- G2b.2: swept oriented-box and time-to-contact awareness before an impact, plus explicit
-  movement-class conflict arbitration for compatible simultaneous turns.
 - G2c follow-up: richer driver-style willingness, abort-to-origin behavior, and permanent
   route-driven merge reservations.
-- Content: authored stop lines, per-movement signal groups, lane capacity, turn restrictions,
-  and parking/service access metadata.
+- Content: authored stop lines, per-movement signal groups and response priority, lane
+  capacity, turn restrictions, and parking/service access metadata.

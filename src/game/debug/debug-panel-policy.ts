@@ -196,9 +196,16 @@ function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
   )).length;
   const laneRequests = traffic.filter((entry) => entry.laneChangePhase === 'requesting').length;
   const laneCompletions = traffic.reduce((sum, entry) => sum + entry.laneChangeCompletions, 0);
+  const sharedJunctions = new Set(traffic
+    .filter((entry) => entry.junctionActiveOwnerCount > 1)
+    .map((entry) => entry.junctionId)).size;
+  const conflictWaits = traffic.filter((entry) => (
+    entry.junctionPhase === 'waiting' && entry.junctionConflictingOwnerCount > 0
+  )).length;
   const active = waiting + approach + crossing + clearing;
   return `${active} active / ${waiting} wait / ${approach} approach / ` +
     `${crossing} cross / ${clearing} clear / ${cycles} cycle / ${recovering} recover / ` +
+    `${sharedJunctions} shared / ${conflictWaits} conflict / ` +
     `${laneChanging} lane / ${laneRequests} request / ${laneCompletions} pass`;
 }
 

@@ -1,8 +1,8 @@
 # Traffic Predictive Contact Research
 
-Date: 2026-07-15
+Date: 2026-07-16
 
-Status: G2b.2a implemented
+Status: G2b.2a implemented; compatible junction ownership composed in G2b.2b
 
 ## Scope
 
@@ -107,11 +107,11 @@ contact, interaction-island selection/replay, local prediction, reconciliation, 
 interpolation, combat rewind, AOI, or rollout code. Clients receive only resulting physical
 state and opt-in debug diagnostics.
 
+G2b.2b now supplies authored movement descriptors and pairwise-compatible junction leases.
+Predictive contact remains the independent physical-risk layer after admission; it was not
+folded into the right-of-way policy.
+
 ## Remaining Work
 
-- G2b.2b: movement-class conflict matrices so compatible authored turns can share a junction
-  without weakening exclusive conflicts.
-- G2c: authored lane changes, queue-aware passing, strongly connected wait-graph detection,
-  deterministic deadlock victim selection, and safe population reseeding fallback.
 - Later: acceleration-aware prediction and curved swept volumes if measured traffic speeds
   exceed the current short-horizon constant-velocity approximation.

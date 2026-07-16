@@ -136,6 +136,11 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable**: server traffic predicts catalog-sized oriented-box contact from
   relative motion, combines TTC with following-distance speed caps, preserves admitted
   junction throughput, and exposes limiting risk through F3 and Three overlays.
+- **Delivered playable**: authored lane-to-lane movements own stable server-only paths and
+  a conservative geometric foe relation. Compatible opposite straights or disjoint turns
+  may share one bounded junction owner set, while crossing paths, shared lanes, fallback
+  routes, malformed geometry, and terminal U-turns remain serialized. F3 and Three expose
+  each active movement, shared-owner count, and conflicting wait pressure.
 - **Delivered playable**: selected district corridors compile two lanes per direction;
   turn legality consumes lane index; slow-lead passing reserves one adjacent-lane segment,
   validates lead/front/rear/path clearance, and executes bounded change-out/pass/return

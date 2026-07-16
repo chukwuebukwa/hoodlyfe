@@ -2,6 +2,11 @@ import type {VehicleState} from '../../state.ts';
 import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {LaneDirection, LaneGraph, LaneGraphEdge} from './lane-graph.ts';
+import {
+  exclusiveJunctionMovement,
+  type TrafficJunctionMovement,
+  type TrafficJunctionMovementPoint
+} from './traffic-junction-conflict-policy.ts';
 import {TrafficRoutePlanner} from './traffic-route-planner.ts';
 
 export const TRAFFIC_LANE_OFFSET = 24;
@@ -40,6 +45,9 @@ export interface TrafficJunctionTarget {
   conflictHalfExtentX: number;
   conflictHalfExtentY: number;
 }
+
+const JUNCTION_MOVEMENT_LENGTH_MARGIN = 36;
+const JUNCTION_MOVEMENT_WIDTH_MARGIN = 2;
 
 export interface TrafficLaneSegment {
   edgeId: string;
@@ -171,6 +179,95 @@ export class TrafficRouteSystem {
     const halfExtentY = junction?.conflictHalfExtentY ?? 34;
     return Math.abs(Math.cos(angle)) * halfExtentX +
       Math.abs(Math.sin(angle)) * halfExtentY;
+  }
+
+  junctionMovement(
+    runtime: TrafficRouteRuntime,
+    vehicleHalfWidth: number
+  ): TrafficJunctionMovement | undefined {
+    const target = this.junctionTarget(runtime);
+    if (!target) return undefined;
+    if (runtime.source !== 'lane-graph') return exclusiveJunctionMovement(target.id);
+    const graph = this.options.laneGraph;
+    const entryFromId = runtime.currentLaneNodeId;
+    const entryToId = runtime.nodeIds[runtime.nodeIndex];
+    const nextId = runtime.nodeIds[runtime.nodeIndex + 1];
+    if (!graph || !entryFromId || !entryToId || !nextId) {
+      return exclusiveJunctionMovement(target.id);
+    }
+    const entryEdge = edgeBetween(graph, entryFromId, entryToId);
+    const traversalEdge = edgeBetween(graph, entryToId, nextId);
+    const entryFrom = graph.node(entryFromId);
+    const entryTo = graph.node(entryToId);
+    const traversalTo = graph.node(nextId);
+    if (!entryEdge || !traversalEdge || !entryFrom || !entryTo || !traversalTo) {
+      return exclusiveJunctionMovement(target.id);
+    }
+    if (traversalEdge.kind === 'turnaround' || traversalEdge.turn === 'uturn') {
+      return exclusiveJunctionMovement(target.id, traversalEdge.id);
+    }
+
+    let turn: TrafficJunctionMovement['turn'];
+    let exitEdge: LaneGraphEdge;
+    let exitFrom = entryTo;
+    let exitTo = traversalTo;
+    const path: TrafficJunctionMovementPoint[] = [];
+    const entryDirection = unitDirection(entryFrom, entryTo);
+    if (!entryDirection) return exclusiveJunctionMovement(target.id);
+    const entryReach = projectedJunctionReach(
+      entryDirection.x,
+      entryDirection.y,
+      target
+    );
+    path.push({
+      x: entryTo.x - entryDirection.x * entryReach,
+      y: entryTo.y - entryDirection.y * entryReach
+    }, {x: entryTo.x, y: entryTo.y});
+
+    if (traversalEdge.kind === 'connector') {
+      const afterId = runtime.nodeIds[runtime.nodeIndex + 2];
+      const candidateExit = afterId ? edgeBetween(graph, nextId, afterId) : undefined;
+      const after = afterId ? graph.node(afterId) : undefined;
+      if (
+        traversalEdge.junctionId !== target.id ||
+        traversalEdge.turn === 'none' ||
+        !candidateExit ||
+        candidateExit.kind !== 'lane' ||
+        !after
+      ) {
+        return exclusiveJunctionMovement(target.id, traversalEdge.id);
+      }
+      turn = traversalEdge.turn;
+      exitEdge = candidateExit;
+      exitFrom = traversalTo;
+      exitTo = after;
+      path.push({x: traversalTo.x, y: traversalTo.y});
+    } else if (traversalEdge.kind === 'lane') {
+      turn = 'straight';
+      exitEdge = traversalEdge;
+    } else {
+      return exclusiveJunctionMovement(target.id, traversalEdge.id);
+    }
+
+    const exitDirection = unitDirection(exitFrom, exitTo);
+    if (!exitDirection) return exclusiveJunctionMovement(target.id);
+    const exitReach = projectedJunctionReach(exitDirection.x, exitDirection.y, target);
+    path.push({
+      x: exitFrom.x + exitDirection.x * exitReach,
+      y: exitFrom.y + exitDirection.y * exitReach
+    });
+    const movementPath = deduplicateMovementPath(path);
+    if (movementPath.length < 2) return exclusiveJunctionMovement(target.id);
+    return {
+      id: `${entryEdge.id}>${traversalEdge.id}>${exitEdge.id}`,
+      junctionId: target.id,
+      turn,
+      entryLaneId: entryEdge.id,
+      exitLaneId: exitEdge.id,
+      path: movementPath,
+      sweptHalfWidth: Math.max(1, vehicleHalfWidth + JUNCTION_MOVEMENT_WIDTH_MARGIN),
+      exclusive: false
+    };
   }
 
   cruiseSpeed(runtime: TrafficRouteRuntime, configuredCruiseSpeed: number): number {
@@ -430,6 +527,46 @@ export class TrafficRouteSystem {
       angle: Math.atan2(next.row - current.row, next.column - current.column)
     };
   }
+}
+
+function edgeBetween(
+  graph: LaneGraph,
+  fromNodeId: string,
+  toNodeId: string
+): LaneGraphEdge | undefined {
+  return graph.outgoing(fromNodeId).find((edge) => edge.toNodeId === toNodeId);
+}
+
+function unitDirection(
+  from: {x: number; y: number},
+  to: {x: number; y: number}
+): {x: number; y: number} | undefined {
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  const magnitude = Math.hypot(deltaX, deltaY);
+  return magnitude > 0.001 ? {x: deltaX / magnitude, y: deltaY / magnitude} : undefined;
+}
+
+function projectedJunctionReach(
+  directionX: number,
+  directionY: number,
+  target: TrafficJunctionTarget
+): number {
+  return Math.abs(directionX) * target.conflictHalfExtentX +
+    Math.abs(directionY) * target.conflictHalfExtentY +
+    JUNCTION_MOVEMENT_LENGTH_MARGIN;
+}
+
+function deduplicateMovementPath(
+  points: readonly TrafficJunctionMovementPoint[]
+): TrafficJunctionMovementPoint[] {
+  const result: TrafficJunctionMovementPoint[] = [];
+  for (const point of points) {
+    const previous = result.at(-1);
+    if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) <= 0.001) continue;
+    result.push(point);
+  }
+  return result;
 }
 
 function nearestHeadingRoadNode(

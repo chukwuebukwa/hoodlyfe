@@ -93,6 +93,11 @@ export interface TrafficDiagnostic {
   junctionPhase: TrafficJunctionPhase;
   junctionQueuePosition: number;
   junctionLeaseExpiresAt: number;
+  junctionMovementId: string;
+  junctionMovementTurn: 'left' | 'right' | 'straight' | 'uturn';
+  junctionMovementPath: Array<{x: number; y: number}>;
+  junctionActiveOwnerCount: number;
+  junctionConflictingOwnerCount: number;
   routeSource: TrafficRouteRuntime['source'];
   currentLaneNodeId: string;
   destinationLaneNodeId: string;
@@ -233,6 +238,11 @@ export class TrafficController {
         junctionPhase: junction.phase,
         junctionQueuePosition: junction.queuePosition,
         junctionLeaseExpiresAt: junction.leaseExpiresAt,
+        junctionMovementId: junction.movementId,
+        junctionMovementTurn: junction.movementTurn,
+        junctionMovementPath: junction.movementPath.map((point) => ({...point})),
+        junctionActiveOwnerCount: junction.activeOwnerCount,
+        junctionConflictingOwnerCount: junction.conflictingOwnerCount,
         ...this.routes.diagnostic(runtime.route)
       };
     }).sort((left, right) => left.vehicleId.localeCompare(right.vehicleId));
@@ -246,7 +256,9 @@ export class TrafficController {
   ): boolean {
     const runtime = this.runtime.get(vehicle.id);
     if (!runtime) return false;
-    const collisionHalfLength = vehicleConfig(vehicle.kind).collision.length / 2;
+    const collision = vehicleConfig(vehicle.kind).collision;
+    const collisionHalfLength = collision.length / 2;
+    const collisionHalfWidth = collision.width / 2;
     const ownedJunction = this.junctions.diagnostic(vehicle.id);
     const clearanceDistance = collisionHalfLength + JUNCTION_CLEARANCE_MARGIN +
       (ownedJunction.junctionId
@@ -367,8 +379,17 @@ export class TrafficController {
     const committedApproach = existingJunction.phase === 'approach' &&
       existingJunction.junctionId === junctionKey &&
       junctionDistance <= JUNCTION_COMMIT_DISTANCE;
+    const junctionMovement = junctionTarget
+      ? this.routes.junctionMovement(runtime.route, collisionHalfWidth)
+      : undefined;
     const junctionGranted = !junctionKey || junctionDistance > junctionApproachDistance ||
-      this.junctions.request(vehicle.id, junctionKey, nowMs, junctionBlocked && !committedApproach);
+      this.junctions.request(
+        vehicle.id,
+        junctionKey,
+        nowMs,
+        junctionBlocked && !committedApproach,
+        junctionMovement
+      );
     const stopPoint = junctionStopPoint(
       vehicle,
       targetX,
@@ -401,10 +422,11 @@ export class TrafficController {
     }];
     const currentJunction = this.junctions.diagnostic(vehicle.id);
     const junctionTraversal = isProtectedJunctionPhase(currentJunction.phase);
-    const admittedQueueIds = currentJunction.phase !== 'none' && currentJunction.phase !== 'waiting'
-      ? new Set(obstacles.filter((obstacle) => (
-        obstacle.kind === 'vehicle' && this.junctions.isQueued(obstacle.id, currentJunction.junctionId)
-      )).map((obstacle) => obstacle.id))
+    const protectedJunctionApproach = Boolean(junctionTarget) &&
+      junctionDistance <= junctionApproachDistance + 80;
+    const compatibleOwnerIds = currentJunction.phase !== 'none' &&
+      currentJunction.phase !== 'waiting'
+      ? this.junctions.compatibleOwnerIds(vehicle.id, currentJunction.junctionId)
       : undefined;
     const laneChangePhaseBefore = runtime.laneChange.phase;
     const laneChange = this.laneChanges.command({
@@ -416,10 +438,7 @@ export class TrafficController {
       obstacleId: runtime.obstacleId,
       desiredSpeed: runtime.desiredSpeed,
       cruiseSpeed: routeCruiseSpeed,
-      protectedJunction: junctionTraversal || (
-        Boolean(junctionTarget) &&
-        junctionDistance <= junctionApproachDistance + 80
-      ),
+      protectedJunction: junctionTraversal || protectedJunctionApproach,
       nowMs
     });
     const activeLaneChange = laneChange.phase !== 'none' && laneChange.phase !== 'requesting';
@@ -448,6 +467,7 @@ export class TrafficController {
       runtime.speedReason === 'vehicle';
     if (
       junctionTraversal ||
+      protectedJunctionApproach ||
       laneChange.phase === 'requesting' ||
       laneChangePhaseBefore !== 'none' ||
       authoredLaneQueue
@@ -480,7 +500,7 @@ export class TrafficController {
       cruiseSpeed: routeCruiseSpeed,
       deltaSeconds,
       obstacles: routedObstacles,
-      ignoredObstacleIds: combineIds(maneuver.ignoredObstacleIds, admittedQueueIds),
+      ignoredObstacleIds: combineIds(maneuver.ignoredObstacleIds, compatibleOwnerIds),
       minimumGapScale: maneuver.phase === 'none' ? 1 : 0.75
     });
     runtime.desiredSpeed = result.desiredSpeed;

@@ -219,9 +219,14 @@ The first room-facing facades are now live:
   multi-lanes, lane-specific junction connectors, serialized terminal turnarounds,
   lane-derived conflict bounds, speed limits, and vehicle-class admission.
 - `TrafficRoutePlanner` owns deterministic visit-bounded lane A*; `TrafficRouteSystem` owns
-  durable destination/progress state, recovery reprojection, debug waypoints, and active
-  versus dormant population route adapters. The collision-grid route is a compatibility
-  adapter, not the production district representation.
+  durable destination/progress state, recovery reprojection, debug waypoints, authored
+  entry/traversal/exit junction movement descriptors, and active versus dormant population
+  route adapters. The collision-grid route is a compatibility adapter, not the production
+  district representation.
+- `traffic-junction-conflict-policy.ts` owns the pure symmetric foe relation for authored
+  movement paths. `TrafficJunctionSystem` owns deterministic wait order and a bounded set
+  of pairwise-compatible leases through approach, crossing, rear clearance, and expiry.
+  Signals, occupancy, predictive awareness, driving, and collision remain separate owners.
 - `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead
   corridor; `RoadDrivingSystem` owns steering/acceleration/braking; `TrafficController`
   retains only composition, hijack handoff, and blockage timing.
