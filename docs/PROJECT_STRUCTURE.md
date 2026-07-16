@@ -192,8 +192,8 @@ The first room-facing facades are now live:
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
 - `TrafficController` is the room-facing traffic facade. It composes route, awareness,
-  junction, maneuver, emergency-yield, and low-level driving owners without implementing
-  their policy.
+  junction, authored lane-change, compatibility maneuver, emergency-yield, and low-level
+  driving owners without implementing their policy.
 - `DistrictPopulationController` owns idempotent persistent map bootstrap and registration
   through domain APIs. In the live room it creates parked/service vehicles only; disposable
   moving pedestrians and traffic belong to streamed population.
@@ -216,7 +216,8 @@ The first room-facing facades are now live:
 - `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
 - The shared vehicle catalog owns stable model content; vehicle access, player handling, damage/collision, population, traffic, and presentation consume focused portions of the same definition.
 - `LaneGraph` compiles and validates versioned authored centerlines, directed right-hand
-  lanes, junction connectors, turnarounds, speed limits, and vehicle-class admission.
+  multi-lanes, lane-specific junction connectors, serialized terminal turnarounds,
+  lane-derived conflict bounds, speed limits, and vehicle-class admission.
 - `TrafficRoutePlanner` owns deterministic visit-bounded lane A*; `TrafficRouteSystem` owns
   durable destination/progress state, recovery reprojection, debug waypoints, and active
   versus dormant population route adapters. The collision-grid route is a compatibility
@@ -224,6 +225,10 @@ The first room-facing facades are now live:
 - `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead
   corridor; `RoadDrivingSystem` owns steering/acceleration/braking; `TrafficController`
   retains only composition, hijack handoff, and blockage timing.
+- `traffic-lane-change-policy.ts` owns pure lead/path/front/rear/junction admission.
+  `TrafficLaneChangeSystem` owns deterministic target-segment arbitration and private
+  request/change-out/pass/return runtime. Neither module owns route selection, collision
+  resolution, replication, or presentation.
 - `StreetEconomyController` is the in-memory implementation of the cash mutation port. Combat and missions propose stable idempotent rewards; services propose purchases; persistent account/ledger adapters can replace it without entering simulation domains.
 - `StreetServiceController` owns replicated nonmedical service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it delegates hospital interactions and does not own cash, health, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
@@ -341,6 +346,8 @@ traffic/
   traffic-route-planner.ts
   traffic-route-system.ts
   lane-graph.ts
+  traffic-lane-change-policy.ts
+  traffic-lane-change-system.ts
   driving-agent.ts
   local-steering.ts
   intersection-controller.ts
@@ -352,15 +359,15 @@ traffic/
 
 The Industrial District now has schema-versioned authored lane metadata for:
 
-- lane centerlines and direction;
+- lane centerlines, direction, count, index, and spacing;
 - speed limits;
 - allowed turns;
 - intersection entry and exit links;
-- junction ownership and terminal turnaround policy;
+- lane-derived junction conflict bounds and serialized terminal turnaround policy;
 - vehicle class restrictions;
 
-Stop lines, crossing priority, parking points, and district transfer edges remain future
-schema extensions.
+Crossing priority, parking points, permanent route-lane transitions, and district transfer
+edges remain future schema extensions.
 
 Runtime loading validates malformed ownership, blocked geometry, sinks, and directed
 strong connectivity. A future map-pipeline command should run the same validator before
@@ -380,7 +387,7 @@ The driving agent follows the current lane while local steering handles:
 
 - following distance;
 - braking for vehicles and pedestrians;
-- lane changes;
+- reserved authored lane changes with front/rear gap and lead-clearance admission;
 - obstacle avoidance;
 - yielding and intersection reservations;
 - crash response;

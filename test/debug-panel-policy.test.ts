@@ -36,7 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
-    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover',
+    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 lane / 0 request / 0 pass',
     trafficRisk: 'clear',
     roads: 'off',
     region: 'unknown',
@@ -119,7 +119,7 @@ test('debug panel summarizes junction queue and traversal phases', () => {
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover'
+    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover / 0 lane / 0 request / 0 pass'
   );
 });
 
@@ -141,7 +141,30 @@ test('debug panel summarizes visible traffic blocker cycles and recovery owners'
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover'
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover / 0 lane / 0 request / 0 pass'
+  );
+});
+
+test('debug panel summarizes authored lane-change ownership and completions', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {
+      ...trafficDebugEntry('changing', true, 1),
+      laneChangePhase: 'change-out',
+      laneChangeFromLane: 0,
+      laneChangeToLane: 1,
+      laneChangeAttempts: 1
+    },
+    {
+      ...trafficDebugEntry('requesting', true, 1),
+      laneChangePhase: 'requesting',
+      laneChangeAttempts: 2,
+      laneChangeCompletions: 1
+    }
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 1 lane / 1 request / 1 pass'
   );
 });
 
@@ -368,6 +391,15 @@ function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevis
     deadlockRecoveryCount: 0,
     maneuverPhase: 'none' as const,
     maneuverAttempts: 0,
+    laneChangePhase: 'none' as const,
+    laneChangeLeadId: '',
+    laneChangeFromLane: -1,
+    laneChangeToLane: -1,
+    laneChangeAttempts: 0,
+    laneChangeCompletions: 0,
+    laneChangeRejectReason: 'none' as const,
+    laneChangeReservationKey: '',
+    laneChangeTargets: [],
     emergencyYieldPhase: 'none' as const,
     emergencyVehicleId: '',
     junctionId: '',

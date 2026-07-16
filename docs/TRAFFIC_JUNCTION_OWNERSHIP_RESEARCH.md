@@ -2,7 +2,7 @@
 
 Date: 2026-07-15
 
-Status: G2b.1 implemented
+Status: G2b.1 implemented; multi-lane conflict extension added in G2c
 
 ## Scope
 
@@ -82,7 +82,7 @@ relinquishes admission without losing FIFO position; a committed or crossing veh
 moving so a late signal or obstacle cannot strand it in the intersection. Hijacking, route
 recovery, release, and controller teardown explicitly remove stale queue state.
 
-Current authored-junction tuning:
+Original single-lane tuning:
 
 | Parameter | Value | Purpose |
 | --- | ---: | --- |
@@ -92,6 +92,18 @@ Current authored-junction tuning:
 | Virtual stop offset | 34 px | Stop denied traffic before the connector target. |
 | Rear-clearance margin | 12 px | Add space beyond half the catalog vehicle length before release. |
 | Abandonment lease | 3000 ms | Recover ownership only if the owner stops updating. |
+
+G2c replaces the fixed conflict and stop geometry for authored lane routes:
+
+- each junction derives X/Y half-extents from every compiled lane node it owns;
+- physical occupancy checks the expanded authored bounds;
+- stop and rear-clear distance project those bounds onto travel direction;
+- request lookahead includes current catalog braking distance and a safety buffer;
+- the stop point is fixed from the lane segment rather than recomputed from the car;
+- terminal turnarounds become synthetic FIFO conflict zones shared by every lane.
+
+See [`TRAFFIC_LANE_CHANGE_RESEARCH.md`](TRAFFIC_LANE_CHANGE_RESEARCH.md) and
+[`decisions/0017-authored-lane-change-ownership.md`](decisions/0017-authored-lane-change-ownership.md).
 
 Physical occupancy admission is intentionally limited to authored lane-graph routes. The
 legacy collision-grid adapter marks broad road cells as intersections and cannot infer a
@@ -122,7 +134,7 @@ AOI, rewind, rollout, or shared movement/contact implementation.
 
 - G2b.2: swept oriented-box and time-to-contact awareness before an impact, plus explicit
   movement-class conflict arbitration for compatible simultaneous turns.
-- G2c: lane change/passing policy, queue-aware yielding, strongly connected deadlock
-  detection, deterministic victim selection, and safe despawn/reseed fallback.
+- G2c follow-up: richer driver-style willingness, abort-to-origin behavior, and permanent
+  route-driven merge reservations.
 - Content: authored stop lines, per-movement signal groups, lane capacity, turn restrictions,
   and parking/service access metadata.

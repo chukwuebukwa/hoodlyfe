@@ -185,18 +185,21 @@ G1 architecture checklist:
 
 ### G2 - Road graph and production traffic behavior
 
-Status: G2a authored lane routing, G2b.1 junction conflict ownership, and G2b.2a predictive
-contact awareness implemented on
-2026-07-15; G2 remains in progress. See
+Status: G2a authored lane routing, G2b.1 junction conflict ownership, G2b.2a predictive
+contact awareness, and G2c authored lane-change ownership implemented through
+2026-07-16; G2 remains in progress. See
 [`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
 [`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
 [`TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md`](TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md),
 [`TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md`](TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md),
+[`TRAFFIC_LANE_CHANGE_RESEARCH.md`](TRAFFIC_LANE_CHANGE_RESEARCH.md),
 [`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
 [`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md),
 and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
 Visible deadlock ownership is recorded in
 [`decisions/0012-visible-traffic-deadlock-recovery.md`](decisions/0012-visible-traffic-deadlock-recovery.md).
+Authored lane-change ownership is recorded in
+[`decisions/0017-authored-lane-change-ownership.md`](decisions/0017-authored-lane-change-ownership.md).
 Player-union population activation is recorded in
 [`POPULATION_INTEREST_STREAMING_RESEARCH.md`](POPULATION_INTEREST_STREAMING_RESEARCH.md) and
 [`decisions/0013-player-union-population-interest.md`](decisions/0013-player-union-population-interest.md).
@@ -252,7 +255,12 @@ G2a architecture checklist:
 - [x] Disposable moving ambient pedestrians and traffic share one player-union lifecycle:
   prewarm outside every protected view, retain through AOI hysteresis, and dematerialize to
   coarse virtual records beyond every player while gameplay-owned actors remain pinned.
-- [ ] G2c adds authored lane-change and richer queue-aware passing/yielding policy.
+- [x] G2c adds schema-versioned multi-lane corridors, lane-specific turn legality, pure
+  front/rear/lead/path admission, deterministic target-segment reservations, bounded
+  change-out/pass/return phases, and opt-in F3/Three diagnostics.
+- [x] G2c extends junction ownership to lane-derived conflict bounds and fixed
+  braking-distance stop lines, serializes terminal turnarounds, rejects unowned diagonal
+  route transitions, and retains zero overlap pair-ticks in the dense one-minute soak.
 
 ### G3 - Police tactics and escalation
 

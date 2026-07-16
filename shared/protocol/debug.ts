@@ -94,6 +94,28 @@ export interface DebugTrafficAiEntry {
   deadlockRecoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
   maneuverAttempts: number;
+  laneChangePhase: 'none' | 'requesting' | 'change-out' | 'passing' | 'returning';
+  laneChangeLeadId: string;
+  laneChangeFromLane: number;
+  laneChangeToLane: number;
+  laneChangeAttempts: number;
+  laneChangeCompletions: number;
+  laneChangeRejectReason:
+    | 'none'
+    | 'not-multilane'
+    | 'lead-missing'
+    | 'lead-behind'
+    | 'lead-clearance'
+    | 'junction-near'
+    | 'world-blocked'
+    | 'target-front-gap'
+    | 'target-rear-gap'
+    | 'target-pedestrian'
+    | 'target-signal'
+    | 'reservation'
+    | 'timeout';
+  laneChangeReservationKey: string;
+  laneChangeTargets: Array<{x: number; y: number}>;
   emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
   emergencyVehicleId: string;
   junctionId: string;

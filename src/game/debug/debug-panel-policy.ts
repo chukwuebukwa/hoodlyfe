@@ -191,9 +191,15 @@ function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
     .filter((entry) => entry.deadlockCycleId)
     .map((entry) => entry.deadlockCycleId)).size;
   const recovering = traffic.filter((entry) => entry.deadlockRecovering).length;
+  const laneChanging = traffic.filter((entry) => (
+    entry.laneChangePhase !== 'none' && entry.laneChangePhase !== 'requesting'
+  )).length;
+  const laneRequests = traffic.filter((entry) => entry.laneChangePhase === 'requesting').length;
+  const laneCompletions = traffic.reduce((sum, entry) => sum + entry.laneChangeCompletions, 0);
   const active = waiting + approach + crossing + clearing;
   return `${active} active / ${waiting} wait / ${approach} approach / ` +
-    `${crossing} cross / ${clearing} clear / ${cycles} cycle / ${recovering} recover`;
+    `${crossing} cross / ${clearing} clear / ${cycles} cycle / ${recovering} recover / ` +
+    `${laneChanging} lane / ${laneRequests} request / ${laneCompletions} pass`;
 }
 
 function trafficRiskSummary(snapshot?: DebugSnapshot): string {
