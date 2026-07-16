@@ -20,6 +20,7 @@ import type {PlayerControlController} from '../players/player-control-controller
 import type {PlayerLifecycleController} from '../players/player-lifecycle-controller.ts';
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
 import type {PoliceResponseFleetController} from '../police/police-response-fleet-controller.ts';
+import {populationInterestAnchorsForPlayers} from '../population/population-interest-anchor-policy.ts';
 import type {PopulationStreamingController} from '../population/population-streaming-controller.ts';
 import type {TrafficSignalController} from '../traffic/traffic-signal-controller.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
@@ -130,9 +131,11 @@ export class DistrictSimulation {
       }),
       phase('simulation-activation', ({nowMs}) => {
         this.options.populationStreaming.update(
-          [...this.options.state.players.values()]
-            .filter((player) => player.spaceId === 'street')
-            .map((player) => ({x: player.x, y: player.y})),
+          populationInterestAnchorsForPlayers(
+            [...this.options.state.players.values()]
+              .filter((player) => player.spaceId === 'street'),
+            (vehicleId) => this.options.state.vehicles.get(vehicleId)
+          ),
           nowMs
         );
       }),

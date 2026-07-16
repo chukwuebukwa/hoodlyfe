@@ -11,6 +11,8 @@ export type PopulationInterestTier = 'hot' | 'prewarm' | 'retained' | 'cold';
 export interface PopulationInterestAnchor {
   x: number;
   y: number;
+  kind?: 'player' | 'lookahead' | 'gameplay';
+  protectsVisibility?: boolean;
 }
 
 export interface PopulationInterestDecision {
@@ -26,7 +28,8 @@ export function populationInterestAt(
   anchors: readonly PopulationInterestAnchor[]
 ): PopulationInterestDecision {
   const distance = nearestPopulationAnchorDistance(x, y, anchors);
-  if (distance <= POPULATION_INTEREST.protectedViewRadius) {
+  const visibilityDistance = nearestPopulationVisibilityDistance(x, y, anchors);
+  if (visibilityDistance <= POPULATION_INTEREST.protectedViewRadius) {
     return {distance, tier: 'hot', materialize: false, retain: true};
   }
   if (distance <= POPULATION_INTEREST.prewarmRadius) {
@@ -45,6 +48,19 @@ export function nearestPopulationAnchorDistance(
 ): number {
   let nearest = Number.POSITIVE_INFINITY;
   for (const anchor of anchors) {
+    nearest = Math.min(nearest, Math.hypot(anchor.x - x, anchor.y - y));
+  }
+  return nearest;
+}
+
+function nearestPopulationVisibilityDistance(
+  x: number,
+  y: number,
+  anchors: readonly PopulationInterestAnchor[]
+): number {
+  let nearest = Number.POSITIVE_INFINITY;
+  for (const anchor of anchors) {
+    if (anchor.protectsVisibility === false) continue;
     nearest = Math.min(nearest, Math.hypot(anchor.x - x, anchor.y - y));
   }
   return nearest;

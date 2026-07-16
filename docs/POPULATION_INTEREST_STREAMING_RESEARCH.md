@@ -101,6 +101,21 @@ The active ceilings remain 40 pedestrians and 24 traffic cars across 80 and 64 p
 records. These are global safety limits. A future multi-neighborhood district should add
 per-interest-cluster quotas so one dense player cluster cannot consume every active slot.
 
+### Speed-aware lookahead
+
+Pinned re3 `Population.cpp:425-441,478-487` and reVC
+`Population.cpp:361-383,407-416` multiply pedestrian creation distance by a clamped
+player-vehicle speed factor. Their `CarCtrl.cpp` generation paths (re3 `150-213`, reVC
+`174-220`) use normalized vehicle velocity and prefer a narrow forward sector at high speed.
+Spawn candidates still pass visibility, distance, and collision rejection before admission.
+
+NOCK0 adapts the relationship rather than the single-player camera code. Every street player
+keeps one real visibility guard. A player in a vehicle moving at least 120 px/s adds a
+server-authored lookahead anchor at signed speed times 1.5 seconds, clamped to 480 pixels.
+That anchor extends prewarm/retention ahead while driving and behind while reversing, but it
+never protects visibility. Therefore it can request population in future space without
+allowing dormant actors to appear inside any player's current 720-pixel guard.
+
 ### Protected gameplay state
 
 Streaming fails closed. Occupied, hijacked, mission-owned, burning, destroyed, meaningfully
@@ -124,6 +139,7 @@ F3 Population reports:
 - hot actors;
 - warm actors (prewarm plus retained);
 - cold virtual records;
+- predictive high-speed lookahead anchors;
 - pop-guarded records that cannot safely materialize;
 - pinned gameplay actors;
 - cumulative invisible-jam retirements.
@@ -136,7 +152,7 @@ observable without drawing every virtual record in the world.
 - Add per-interest-cluster active quotas before supporting several distant player groups in
   one district room.
 - Author zone/time density profiles and pedestrian destinations instead of uniform records.
-- Add high-speed lookahead, pursuit, mission, property, and group-event anchors.
+- Add pursuit, mission, property, and group-event anchors.
 - Consider a clamped, server-validated camera presentation hint for unusual ultrawide or
   zoom modes; it must only enlarge the guard and never remove actors another player needs.
 - Persist owned or narratively important actors independently from ambient virtualization.

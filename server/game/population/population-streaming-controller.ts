@@ -89,6 +89,7 @@ export interface PopulationStreamingDiagnostic {
   warmActors: number;
   dormantActors: number;
   deferredVisibleActors: number;
+  lookaheadAnchors: number;
 }
 
 export class PopulationStreamingController {
@@ -140,7 +141,12 @@ export class PopulationStreamingController {
   update(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     if (!this.initialized) this.initialize(nowMs);
     const normalized = anchors.filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
-    this.anchors = normalized.map((anchor) => ({x: anchor.x, y: anchor.y}));
+    this.anchors = normalized.map((anchor) => ({
+      x: anchor.x,
+      y: anchor.y,
+      kind: anchor.kind,
+      protectsVisibility: anchor.protectsVisibility
+    }));
     this.materializeNearby(normalized, nowMs);
     this.retireInvisibleTrafficJams(normalized, nowMs);
     this.dematerializeFar(normalized, nowMs);
@@ -182,7 +188,8 @@ export class PopulationStreamingController {
       hotActors,
       warmActors,
       dormantActors: this.pedestrians.size + this.traffic.size - activePedestrians.length - activeTraffic.length,
-      deferredVisibleActors
+      deferredVisibleActors,
+      lookaheadAnchors: this.anchors.filter((anchor) => anchor.kind === 'lookahead').length
     };
   }
 

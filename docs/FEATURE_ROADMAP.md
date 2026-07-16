@@ -52,8 +52,10 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Foundation** streamed population owns 80 pedestrian and 64 traffic potential records
   with 40/24 active ceilings. Actors materialize only outside every player's protected view,
   prewarm before AOI entry, retain through hysteresis, and become coarse virtual records when
-  cold. Additional vehicle classes, per-player-cluster quotas, segment capacity, and parking
-  remain incomplete. A functional repair garage is playable.
+  cold. Fast occupied vehicles add bounded authoritative lookahead so their forward route
+  prewarms without weakening the anti-pop-in guard. Additional vehicle classes,
+  per-player-cluster quotas, segment capacity, and parking remain incomplete. A functional
+  repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 

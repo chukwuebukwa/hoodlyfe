@@ -190,6 +190,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     streamedPopulation.potentialPedestrians + streamedPopulation.potentialTraffic - activePopulation
   );
   assert.ok(streamedPopulation.deferredVisibleActors >= 0);
+  assert.ok(streamedPopulation.lookaheadAnchors >= 0);
 
   first.send(MISSION_START_MESSAGE);
   await waitUntil(() => first.state.missions.size === 1 && second.state.missions.size === 1);

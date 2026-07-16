@@ -227,6 +227,7 @@ export interface DebugPopulationStreamingEntry {
   warmActors: number;
   dormantActors: number;
   deferredVisibleActors: number;
+  lookaheadAnchors: number;
 }
 
 export interface DebugSnapshot {

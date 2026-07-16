@@ -66,11 +66,12 @@ test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', ()
     hotActors: 14,
     warmActors: 6,
     dormantActors: 124,
-    deferredVisibleActors: 4
+    deferredVisibleActors: 4,
+    lookaheadAnchors: 2
   };
   assert.equal(
     projectDebugPanel(createState(), snapshot).population,
-    '20/144 / 14 hot / 6 warm / 124 cold / 4 pop guarded / 2 pinned / 3 jam retired'
+    '20/144 / 14 hot / 6 warm / 124 cold / 2 lookahead / 4 pop guarded / 2 pinned / 3 jam retired'
   );
 });
 

@@ -56,3 +56,22 @@ test('no players leaves disposable population cold and eligible for retirement',
   assert.equal(decision.tier, 'cold');
   assert.equal(decision.retain, false);
 });
+
+test('lookahead anchors prewarm actors without declaring projected space visible', () => {
+  const decision = populationInterestAt(1_000, 0, [
+    {x: 0, y: 0, kind: 'player', protectsVisibility: true},
+    {x: 1_000, y: 0, kind: 'lookahead', protectsVisibility: false}
+  ]);
+  assert.equal(decision.distance, 0);
+  assert.equal(decision.tier, 'prewarm');
+  assert.equal(decision.materialize, true);
+});
+
+test('real player visibility always overrides a nearby lookahead anchor', () => {
+  const decision = populationInterestAt(500, 0, [
+    {x: 0, y: 0, kind: 'player', protectsVisibility: true},
+    {x: 500, y: 0, kind: 'lookahead', protectsVisibility: false}
+  ]);
+  assert.equal(decision.tier, 'hot');
+  assert.equal(decision.materialize, false);
+});

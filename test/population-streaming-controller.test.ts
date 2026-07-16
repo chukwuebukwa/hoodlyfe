@@ -26,7 +26,8 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
     hotActors: 0,
     warmActors: 0,
     dormantActors: STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS + STREAMED_TRAFFIC_RECORDS,
-    deferredVisibleActors: 0
+    deferredVisibleActors: 0,
+    lookaheadAnchors: 0
   });
 
   fixture.controller.update([{x: 0, y: 0}], 100);
@@ -85,6 +86,16 @@ test('an actor stays hot while any street player remains nearby', () => {
   ], 200);
   assert.equal(fixture.state.vehicles.has(protectedVehicle.id), true);
   assert.ok(fixture.controller.diagnostics().hotActors > 0);
+});
+
+test('population diagnostics expose predictive lookahead anchors', () => {
+  const fixture = createFixture();
+  fixture.controller.initialize(0);
+  fixture.controller.update([
+    {x: 0, y: 0, kind: 'player', protectsVisibility: true},
+    {x: 480, y: 0, kind: 'lookahead', protectsVisibility: false}
+  ], 100);
+  assert.equal(fixture.controller.diagnostics().lookaheadAnchors, 1);
 });
 
 test('sustained invisible ambient traffic jams retire blockers without popping visible cars', () => {

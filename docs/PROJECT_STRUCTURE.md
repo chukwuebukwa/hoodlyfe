@@ -230,10 +230,11 @@ The first room-facing facades are now live:
 - `DistrictReplicationController` owns per-client Colyseus `StateView` membership and patch-time diffs. Gameplay domains mutate one authoritative district; the replication adapter exposes same-space players/services plus street-only simulation collections without teaching those domains about clients. Newly attached schemas remain in a one-cycle completion set so the installed encoder can force unchanged scalar fields after its initial new-object encode.
 - `street-streaming-policy.ts` owns per-client street AOI hysteresis, deterministic priority,
   and patch budgets. `population-activation-policy.ts` owns the player-union hot, prewarm,
-  retained, and cold tiers. `PopulationStreamingController` owns lightweight potential
-  records, prewarm-only materialization, dormant progress, active ceilings, and gameplay pin
-  rules. Population activation remains separate from replication and interaction-island
-  prediction.
+  retained, and cold tiers. `population-interest-anchor-policy.ts` converts authoritative
+  street-player/vehicle poses into real visibility guards and bounded non-visibility
+  lookahead anchors. `PopulationStreamingController` owns lightweight potential records,
+  prewarm-only materialization, dormant progress, active ceilings, and gameplay pin rules.
+  Population activation remains separate from replication and interaction-island prediction.
 - `TrafficJunctionSystem` owns expiring deterministic connector reservations;
   `TrafficManeuverSystem` owns local legitimate-stop filtering plus bounded
   reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle
