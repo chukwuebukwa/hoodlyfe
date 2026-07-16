@@ -98,8 +98,32 @@ advance wander/route state in bounded three-second coarse steps. This preserves 
 movement without spending a district tick on every potential actor.
 
 The active ceilings remain 40 pedestrians and 24 traffic cars across 80 and 64 potential
-records. These are global safety limits. A future multi-neighborhood district should add
-per-interest-cluster quotas so one dense player cluster cannot consume every active slot.
+records. These are global safety limits.
+
+### Fair multiplayer neighborhood capacity
+
+The references retain one global pool and protect visible or non-disposable state during
+cleanup. See re3 pedestrian update, speed scaling, admission, and cleanup
+([Population.cpp:421-441](https://github.com/hottabxp/re3/blob/3233ffe1c4b99e8efb4c41c6794b4fce880cf503/src/peds/Population.cpp#L421-L441),
+[478-487](https://github.com/hottabxp/re3/blob/3233ffe1c4b99e8efb4c41c6794b4fce880cf503/src/peds/Population.cpp#L478-L487),
+[572-600](https://github.com/hottabxp/re3/blob/3233ffe1c4b99e8efb4c41c6794b4fce880cf503/src/peds/Population.cpp#L572-L600), and
+[1107-1171](https://github.com/hottabxp/re3/blob/3233ffe1c4b99e8efb4c41c6794b4fce880cf503/src/peds/Population.cpp#L1107-L1171)) and the corresponding reVC lifecycle
+([Population.cpp:361-383](https://github.com/mrxenginner/reVC/blob/b9eeb33efcd04a5b7a423921609baef11bf4719a/src/peds/Population.cpp#L361-L383),
+[407-416](https://github.com/mrxenginner/reVC/blob/b9eeb33efcd04a5b7a423921609baef11bf4719a/src/peds/Population.cpp#L407-L416),
+[521-569](https://github.com/mrxenginner/reVC/blob/b9eeb33efcd04a5b7a423921609baef11bf4719a/src/peds/Population.cpp#L521-L569), and
+[1079-1159](https://github.com/mrxenginner/reVC/blob/b9eeb33efcd04a5b7a423921609baef11bf4719a/src/peds/Population.cpp#L1079-L1159)).
+Neither reference needs to divide that pool among disconnected multiplayer viewpoints.
+
+NOCK0 adds that adaptation. Overlapping 1,536-pixel retention envelopes form deterministic
+player-interest components. Lookahead belongs to its real player's component and cannot
+create capacity by itself. Disconnected components divide the 40/24 ceilings equally, and
+materialization rotates between under-quota components. A busy component may borrow capacity
+that no other component currently needs, preventing an idle neighborhood from making the
+room artificially sparse. When demand later appears in a full room, only offscreen,
+disposable borrowed actors above another component's share can be virtualized, using the
+existing five-pedestrian/five-traffic per-tick removal budgets.
+Hot or pinned actors defeat fairness rather than disappear; the resulting pressure remains
+visible in diagnostics. This is room-cap fairness, not zone density or per-player copies.
 
 ### Speed-aware lookahead
 
@@ -140,6 +164,8 @@ F3 Population reports:
 - warm actors (prewarm plus retained);
 - cold virtual records;
 - predictive high-speed lookahead anchors;
+- deterministic interest components and components under quota pressure;
+- cumulative safe quota rebalances;
 - pop-guarded records that cannot safely materialize;
 - pinned gameplay actors;
 - cumulative invisible-jam retirements.
@@ -149,8 +175,6 @@ observable without drawing every virtual record in the world.
 
 ## Remaining Work
 
-- Add per-interest-cluster active quotas before supporting several distant player groups in
-  one district room.
 - Author zone/time density profiles and pedestrian destinations instead of uniform records.
 - Add pursuit, mission, property, and group-event anchors.
 - Consider a clamped, server-validated camera presentation hint for unusual ultrawide or

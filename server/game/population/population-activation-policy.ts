@@ -13,6 +13,7 @@ export interface PopulationInterestAnchor {
   y: number;
   kind?: 'player' | 'lookahead' | 'gameplay';
   protectsVisibility?: boolean;
+  ownerId?: string;
 }
 
 export interface PopulationInterestDecision {

@@ -309,8 +309,10 @@ active cells and pin owned, mission, damaged, or engaged actors.
 
 Foundation delivered 2026-07-15: disposable moving ambient actors now use merged
 street-player anchors, prewarm-only admission, AOI-aligned hysteresis, cold virtual records,
-coarse dormant progress, speed-aware vehicle lookahead, and F3 tier diagnostics. Zone/time
-profiles, interest-cluster quotas, non-player gameplay anchors, and durable ownership remain.
+coarse dormant progress, speed-aware vehicle lookahead, deterministic disconnected-player
+interest components, fair 40/24 component shares, bounded safe rebalancing, and F3 tier/quota
+diagnostics. Uncontended components may borrow idle room capacity and return it when distant
+demand appears. Zone/time profiles, non-player gameplay anchors, and durable ownership remain.
 
 ### G9 - Durable social and economic systems
 

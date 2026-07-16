@@ -148,7 +148,10 @@ function populationSummary(snapshot?: DebugSnapshot): string {
   const pinned = population.pinnedPedestrians + population.pinnedTraffic;
   return `${active}/${potential} / ${population.hotActors} hot / ${population.warmActors} warm` +
     ` / ${population.dormantActors} cold` +
+    ` / ${population.interestClusters} clusters` +
     `${population.lookaheadAnchors > 0 ? ` / ${population.lookaheadAnchors} lookahead` : ''}` +
+    `${population.quotaPressureClusters > 0 ? ` / ${population.quotaPressureClusters} quota pressure` : ''}` +
+    `${population.quotaRebalances > 0 ? ` / ${population.quotaRebalances} rebalanced` : ''}` +
     `${population.deferredVisibleActors > 0 ? ` / ${population.deferredVisibleActors} pop guarded` : ''}` +
     `${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
     `${population.jamRetirements > 0 ? ` / ${population.jamRetirements} jam retired` : ''}`;

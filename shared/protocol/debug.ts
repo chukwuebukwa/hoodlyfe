@@ -228,6 +228,9 @@ export interface DebugPopulationStreamingEntry {
   dormantActors: number;
   deferredVisibleActors: number;
   lookaheadAnchors: number;
+  interestClusters: number;
+  quotaPressureClusters: number;
+  quotaRebalances: number;
 }
 
 export interface DebugSnapshot {

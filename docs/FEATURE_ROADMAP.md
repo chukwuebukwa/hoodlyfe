@@ -53,9 +53,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
   with 40/24 active ceilings. Actors materialize only outside every player's protected view,
   prewarm before AOI entry, retain through hysteresis, and become coarse virtual records when
   cold. Fast occupied vehicles add bounded authoritative lookahead so their forward route
-  prewarms without weakening the anti-pop-in guard. Additional vehicle classes,
-  per-player-cluster quotas, segment capacity, and parking remain incomplete. A functional
-  repair garage is playable.
+  prewarms without weakening the anti-pop-in guard. Disconnected player neighborhoods now
+  receive deterministic fair shares; bounded rebalancing removes only offscreen disposable
+  over-quota actors, while visible or pinned overages surface pressure instead of popping.
+  Additional vehicle classes, zone/segment density, and parking remain incomplete. A
+  functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
