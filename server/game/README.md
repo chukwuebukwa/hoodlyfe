@@ -55,7 +55,10 @@ game/
     witness-system.ts
   police/
     crime-response-controller.ts
-    dispatch-system.ts
+    police-response-allocation-system.ts
+    police-response-fleet-controller.ts
+    police-vehicle-controller.ts
+    police-vehicle-policy.ts
     pursuit-memory.ts
   pickups/
     weapon-pickup-controller.ts
@@ -72,6 +75,9 @@ game/
     player-control-controller.ts
     player-lifecycle-controller.ts
   traffic/
+    lane-graph.ts
+    traffic-route-planner.ts
+    traffic-route-system.ts
     traffic-awareness-system.ts
     traffic-controller.ts
     traffic-junction-system.ts
@@ -132,18 +138,28 @@ Extracted domain policies and room adapters now include:
 - `incident-registry.ts` for bounded, expiring world incidents;
 - `witness-system.ts` for perception and reporting;
 - `wanted-system.ts` for per-suspect heat and response tiers;
-- `police/dispatch-system.ts` for district capacity and assignments.
+- `police-response-allocation-system.ts` for one bounded, deterministic district response pool shared by foot officers and cruisers, with per-suspect quotas, stable leases, materially-better replacement, report suppression, and diagnostics.
 - `pursuit-memory.ts` for visible pursuit and last-known-position search state.
-- `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, dispatch, and pursuit modules;
+- `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, shared response allocation, and foot-pursuit modules;
 - `mission-system.ts` for plain deterministic group roster, reservation, deadline, objective-progress, payout, and terminal transitions;
 - `mission-objective-system.ts` for bounded reusable acquire-vehicle, ordered-checkpoint, wanted-clear, and delivery predicates, plus `mission-reward-policy.ts` for condition-sensitive payout calculation;
 - `shared/content/mission-catalog.ts` for immutable job definitions, presentation metadata, ordered objective composition, and template cycling;
 - `freemode-mission-controller.ts` for template validation, target selection, deterministic road-safe checkpoint generation, schema projection, typed events, economy payout, and cleanup;
 - `mission-entity-scope.ts` for bounded mission ownership and deterministic release/despawn records.
 - `vehicle-access-controller.ts` for proximity selection, enter/hijack timing, seating, passenger promotion, exits, and player cleanup.
-- `traffic-awareness-system.ts` for pure bounded ahead-corridor scanning, following/stopping speed policy, and inspectable limiting obstacles; `traffic-controller.ts` for ambient route state, deterministic turn/recovery selection, model-aware asymmetric cruise/braking, hijack braking, and release.
+- `lane-graph.ts` for schema-versioned authored centerline compilation, immutable directed
+  right-hand lanes/connectors/turnarounds, geometry and strong-connectivity validation,
+  legal spawn/projection, and coarse virtual advance/capture.
+- `traffic-route-planner.ts` for deterministic visit-bounded lane A* with explicit partial
+  results; `traffic-route-system.ts` for durable destinations, route progress, speed-limit
+  lookup, recovery reprojection, diagnostics, and population-streaming adapters.
+- `traffic-predictive-contact.ts` for pure swept oriented-box contact timing;
+  `traffic-awareness-system.ts` for bounded catalog-footprint following and time-to-contact
+  speed policy with inspectable limiting obstacles;
+  `traffic-controller.ts` composes route, junction, maneuver, emergency-yield, and driving
+  owners while retaining hijack and blockage orchestration.
 - `road-driving-system.ts` for shared road-constrained steering/acceleration/awareness execution and `road-route-planner.ts` for deterministic visit-bounded road-cell A* with explicit partial routes.
-- `police-vehicle-dispatch-system.ts` for stable response-capped unit assignments and expired-report suppression; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
+- `police-response-fleet-controller.ts` for realizing the allocator's aggregate cruiser demand without owning suspect selection; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for assignment execution, private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
 - `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.
 - `vehicle-simulation-controller.ts` for catalog-driven authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, primary-attack family dispatch, spread, pellet count, muzzle origin, and bullet creation.
@@ -158,9 +174,11 @@ Extracted domain policies and room adapters now include:
 - `wardrobe-inventory-controller.ts` for private namespaced grants, owner-only snapshots, and equipped-style entitlement checks without public inventory replication.
 - `player-interaction-controller.ts` for contextual service-first routing, vehicle-action fallback, and same-tick duplicate suppression.
 - `district-population-controller.ts` for idempotent map bootstrap, mission-contact placement, deterministic pedestrian/parked/traffic composition, authoritative vehicle initialization, and traffic registration.
-- `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, and gameplay pinning.
+- `population-streaming-controller.ts` for potential population records, bounded near-player materialization, far dematerialization, coarse dormant progress, active ceilings, gameplay pinning, and rate-limited invisible-jam retirement; `traffic-jam-retirement-policy.ts` owns the pure AOI/stationary/blocker ranking policy.
 - `street-streaming-policy.ts` plus `district-replication-controller.ts` for client AOI hysteresis, deterministic add/remove budgets, same-space visibility, and occupied/mission vehicle retention.
-- `traffic-junction-system.ts` for expiring deterministic intersection ownership and `traffic-maneuver-system.ts` for bounded reverse/pass/merge recovery without bypassing protected queues.
+- `traffic-junction-system.ts` for deterministic FIFO approach, crossing, and rear-clearance
+  ownership with an abandonment lease; `traffic-maneuver-system.ts` owns bounded
+  reverse/pass/merge recovery without bypassing protected queues.
 - `vehicle-collision-system.ts` for per-model oriented-box contact and separation beneath spatial broad-phase discovery.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-appearance-controller.ts` for finite catalog validation, default join fallback, private wardrobe gating, replicated visual-only equipped appearance mutation, update throttling, and disconnect cleanup.

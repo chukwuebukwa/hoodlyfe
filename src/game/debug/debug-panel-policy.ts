@@ -20,8 +20,12 @@ export interface DebugPanelProjection {
   incidents: number;
   pursuits: number;
   cruisers: string;
+  response: string;
   stimuli: number;
   signals: string;
+  junctions: string;
+  trafficRisk: string;
+  roads: string;
   region: string;
   latency: string;
   patchGap: string;
@@ -58,8 +62,12 @@ export function projectDebugPanel(
     incidents: snapshot?.incidents.length ?? 0,
     pursuits: snapshot?.pursuits.length ?? 0,
     cruisers: policeVehicleSummary(snapshot),
+    response: policeResponseSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
+    junctions: trafficJunctionSummary(snapshot),
+    trafficRisk: trafficRiskSummary(snapshot),
+    roads: trafficLaneGraphSummary(snapshot),
     region: network ? `${network.region} / ${network.buildId}` : 'unknown',
     latency: network
       ? `${network.rttMedianMs}/${network.rttP95Ms}ms +/-${network.jitterMs}`
@@ -138,7 +146,12 @@ function populationSummary(snapshot?: DebugSnapshot): string {
   const active = population.activePedestrians + population.activeTraffic;
   const potential = population.potentialPedestrians + population.potentialTraffic;
   const pinned = population.pinnedPedestrians + population.pinnedTraffic;
-  return `${active}/${potential}${pinned > 0 ? ` / ${pinned} pinned` : ''}`;
+  return `${active}/${potential} / ${population.hotActors} hot / ${population.warmActors} warm` +
+    ` / ${population.dormantActors} cold` +
+    `${population.lookaheadAnchors > 0 ? ` / ${population.lookaheadAnchors} lookahead` : ''}` +
+    `${population.deferredVisibleActors > 0 ? ` / ${population.deferredVisibleActors} pop guarded` : ''}` +
+    `${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
+    `${population.jamRetirements > 0 ? ` / ${population.jamRetirements} jam retired` : ''}`;
 }
 
 function replicationSummary(snapshot?: DebugSnapshot): string {
@@ -158,6 +171,39 @@ function trafficSignalSummary(snapshot?: DebugSnapshot): string {
   return `${signals.length} / ${waiting} wait`;
 }
 
+function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
+  const traffic = snapshot?.trafficAi ?? [];
+  const waiting = traffic.filter((entry) => entry.junctionPhase === 'waiting').length;
+  const approach = traffic.filter((entry) => entry.junctionPhase === 'approach').length;
+  const crossing = traffic.filter((entry) => entry.junctionPhase === 'crossing').length;
+  const clearing = traffic.filter((entry) => entry.junctionPhase === 'clearing').length;
+  const cycles = new Set(traffic
+    .filter((entry) => entry.deadlockCycleId)
+    .map((entry) => entry.deadlockCycleId)).size;
+  const recovering = traffic.filter((entry) => entry.deadlockRecovering).length;
+  const active = waiting + approach + crossing + clearing;
+  return `${active} active / ${waiting} wait / ${approach} approach / ` +
+    `${crossing} cross / ${clearing} clear / ${cycles} cycle / ${recovering} recover`;
+}
+
+function trafficRiskSummary(snapshot?: DebugSnapshot): string {
+  const predicted = (snapshot?.trafficAi ?? []).filter((entry) => entry.timeToContactSeconds >= 0);
+  if (predicted.length === 0) return 'clear';
+  const minimum = Math.min(...predicted.map((entry) => entry.timeToContactSeconds));
+  const urgent = predicted.filter((entry) => entry.timeToContactSeconds < 0.75).length;
+  return `${predicted.length} predicted / ${urgent} urgent / ${Math.round(minimum * 1000)}ms min`;
+}
+
+function trafficLaneGraphSummary(snapshot?: DebugSnapshot): string {
+  const graph = snapshot?.trafficLaneGraph;
+  if (!graph) return 'off';
+  const routed = (snapshot?.trafficAi ?? []).filter((entry) => entry.routeSource === 'lane-graph');
+  const incomplete = routed.filter((entry) => !entry.routeComplete).length;
+  const replans = routed.reduce((sum, entry) => sum + Math.max(0, entry.routeRevision - 1), 0);
+  return `v${graph.schemaVersion} / ${graph.nodes.length} nodes / ${graph.edges.length} edges / ` +
+    `${routed.length} routed / ${incomplete} partial / ${replans} replans`;
+}
+
 function policeVehicleSummary(snapshot?: DebugSnapshot): string {
   const units = snapshot?.policeVehicles ?? [];
   const fleet = snapshot?.policeFleet;
@@ -170,4 +216,13 @@ function policeVehicleSummary(snapshot?: DebugSnapshot): string {
     ? `0/${units.length} idle`
     : `${active.length}/${units.length} ${active[0].strategy}`;
   return fleetSummary ? `${activity} / ${fleetSummary}` : activity;
+}
+
+function policeResponseSummary(snapshot?: DebugSnapshot): string {
+  const response = snapshot?.policeResponse;
+  if (!response) return 'off';
+  return `${response.usedResponsePoints}/${response.maxResponsePoints} pts / ` +
+    `F${response.assignedFootUnits}/${response.maxFootUnits} / ` +
+    `V${response.assignedVehicleUnits}/${response.maxVehicleUnits} / ` +
+    `${response.demands.length} suspects / ${response.suppressedPairs} suppressed`;
 }

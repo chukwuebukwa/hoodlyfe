@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {DebugSnapshot, DebugTrafficAiEntry} from '../shared/protocol/debug.ts';
+import type {
+  DebugPoliceResponseEntry,
+  DebugSnapshot,
+  DebugTrafficAiEntry,
+  DebugTrafficLaneGraphEntry
+} from '../shared/protocol/debug.ts';
 import {
   DebugSnapshotController,
   summarizeGameEvent
@@ -50,6 +55,12 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
   assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
+  assert.equal(first.trafficAi?.[0].routeWaypoints[0].x, 120);
+  assert.equal(first.trafficLaneGraph?.edges[0].kind, 'lane');
+  assert.equal(first.policeResponse?.usedResponsePoints, 3);
+  assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
+  assert.equal(first.policeResponse?.assignments[0].distance, 40);
+  assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -57,12 +68,24 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.pedestrian.waypoints[0].x = 999;
   fixture.stimulus.kind = 'impact';
   fixture.traffic.speedReason = 'cruise';
+  fixture.traffic.routeWaypoints[0].x = 999;
+  fixture.laneGraph.edges[0].kind = 'turnaround';
+  fixture.response.usedResponsePoints = 0;
+  fixture.response.demands[0].assignedFoot = 0;
+  fixture.response.assignments[0].distance = 999;
+  fixture.response.lastChanges[0].reason = 'mutated';
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
   assert.equal(first.pedestrianAi?.[0].waypoints[0].x, 150);
   assert.equal(first.stimuli?.[0].kind, 'gunshot');
   assert.equal(first.trafficAi?.[0].speedReason, 'vehicle');
+  assert.equal(first.trafficAi?.[0].routeWaypoints[0].x, 120);
+  assert.equal(first.trafficLaneGraph?.edges[0].kind, 'lane');
+  assert.equal(first.policeResponse?.usedResponsePoints, 3);
+  assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
+  assert.equal(first.policeResponse?.assignments[0].distance, 40);
+  assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -181,17 +204,85 @@ function createFixture(enabled: boolean) {
   };
   const traffic: DebugTrafficAiEntry = {
     vehicleId: 'traffic-1',
+    mission: 'cruise-route',
+    drivingStyle: 'lawful',
     cruiseSpeed: 118,
     desiredSpeed: 42,
     speedReason: 'vehicle',
     obstacleId: 'traffic-2',
     obstacleDistance: 44,
+    timeToContactSeconds: 0.42,
     blockedSince: 0,
     recoveryCount: 0,
+    deadlockCycleId: '',
+    deadlockCycleSize: 0,
+    deadlockRecovering: false,
+    deadlockRecoveryCount: 0,
     maneuverPhase: 'none',
     maneuverAttempts: 0,
     emergencyYieldPhase: 'none',
-    emergencyVehicleId: ''
+    emergencyVehicleId: '',
+    junctionId: '',
+    junctionPhase: 'none',
+    junctionQueuePosition: 0,
+    junctionLeaseExpiresAt: 0,
+    routeSource: 'lane-graph',
+    currentLaneNodeId: 'lane:0',
+    destinationLaneNodeId: 'lane:2',
+    routeRemaining: 2,
+    routeRevision: 1,
+    routeComplete: true,
+    routeVisited: 3,
+    routeWaypoints: [{x: 120, y: 200}, {x: 220, y: 200}]
+  };
+  const laneGraph: DebugTrafficLaneGraphEntry = {
+    schemaVersion: 1,
+    districtId: 'test',
+    nodes: [
+      {id: 'lane:0', x: 20, y: 200, junctionId: ''},
+      {id: 'lane:1', x: 120, y: 200, junctionId: ''}
+    ],
+    edges: [{
+      id: 'edge:0',
+      fromNodeId: 'lane:0',
+      toNodeId: 'lane:1',
+      kind: 'lane',
+      turn: 'none',
+      speedLimit: 100,
+      junctionId: ''
+    }]
+  };
+  const response: DebugPoliceResponseEntry = {
+    maxResponsePoints: 11,
+    usedResponsePoints: 3,
+    maxFootUnits: 5,
+    maxVehicleUnits: 3,
+    assignedFootUnits: 1,
+    assignedVehicleUnits: 1,
+    suppressedPairs: 0,
+    demands: [{
+      suspectId: 'driver',
+      wantedLevel: 1,
+      desiredFoot: 1,
+      assignedFoot: 1,
+      desiredVehicles: 1,
+      assignedVehicles: 1
+    }],
+    assignments: [{
+      unitId: 'police-1',
+      unitKind: 'foot',
+      suspectId: 'driver',
+      reportAt: 100,
+      assignedAt: 120,
+      distance: 40
+    }],
+    lastChanges: [{
+      unitId: 'police-1',
+      unitKind: 'foot',
+      previousSuspectId: '',
+      suspectId: 'driver',
+      reason: 'assigned'
+    }]
   };
   const controller = new DebugSnapshotController({
     enabled,
@@ -213,9 +304,23 @@ function createFixture(enabled: boolean) {
       failures: 0
     }],
     traffic: () => [traffic],
+    trafficLaneGraph: () => laneGraph,
+    policeResponse: () => response,
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
-  return {controller, state, clock, incident, pursuit, pedestrian, stimulus, traffic, published};
+  return {
+    controller,
+    state,
+    clock,
+    incident,
+    pursuit,
+    pedestrian,
+    stimulus,
+    traffic,
+    laneGraph,
+    response,
+    published
+  };
 }
 
 function addEntities(state: DistrictState): void {

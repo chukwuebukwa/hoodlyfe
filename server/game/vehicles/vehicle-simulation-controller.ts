@@ -22,6 +22,11 @@ const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const RESPAWN_DELAY_MS = 8000;
 
+function vehicleObstacleDimensions(kind: string): Pick<TrafficObstacle, 'halfLength' | 'halfWidth'> {
+  const collision = vehicleConfig(kind).collision;
+  return {halfLength: collision.length / 2, halfWidth: collision.width / 2};
+}
+
 interface DriverInput {
   inputX: number;
   inputY: number;
@@ -75,9 +80,10 @@ export class VehicleSimulationController {
     this.humanoidContacts = new VehicleHumanoidContactSystem(options);
   }
 
-  beginTick(): void {
+  beginTick(nowMs = this.options.state.serverTimeMs): void {
     this.collisionPairsThisTick.clear();
     this.humanoidContacts.beginTick();
+    this.options.traffic.beginTick(nowMs);
   }
 
   finishTick(nowMs: number): readonly VehicleState[] {
@@ -128,14 +134,16 @@ export class VehicleSimulationController {
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
+      const obstacles = this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs);
       this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
-        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs),
+        obstacles,
         emergencyVehicles: this.options.nearbyVehicles(
           vehicle.x,
           vehicle.y,
           Math.max(340, configuration.traffic.lookAhead)
         ).filter((candidate) => candidate.siren && !candidate.destroyed)
       });
+      this.options.traffic.observe(vehicle, nowMs, obstacles);
       return;
     }
 
@@ -192,7 +200,7 @@ export class VehicleSimulationController {
     for (const occupant of this.options.access.occupants(vehicle.id)) {
       this.options.access.removePlayer(occupant);
     }
-    const spawn = this.options.world.trafficSpawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
+    const spawn = this.options.traffic.spawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
     Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
     vehicle.x = spawn.x;
     vehicle.y = spawn.y;
@@ -280,6 +288,7 @@ export class VehicleSimulationController {
     const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
       .filter((candidate) => candidate.id !== vehicle.id)
       .map((candidate): TrafficObstacle => ({
+        ...vehicleObstacleDimensions(candidate.kind),
         id: candidate.id,
         kind: 'vehicle',
         x: candidate.x,

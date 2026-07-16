@@ -69,6 +69,7 @@ import {DistrictPopulationController} from './game/population/district-populatio
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {WorldClockController} from './game/world/world-clock-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
+import {LaneGraph} from './game/traffic/lane-graph.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
@@ -175,6 +176,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
+  private laneGraph!: LaneGraph;
   private trafficSignalController!: TrafficSignalController;
   private vehicleSimulation!: VehicleSimulationController;
   private vehicleInput!: VehicleInputController;
@@ -222,6 +224,7 @@ export class DistrictRoom extends Room<DistrictState> {
       Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
     );
     this.world = CollisionMap.load();
+    this.laneGraph = LaneGraph.load(this.world);
     this.setState(new DistrictState());
     this.worldStimulusAdapter = new WorldStimulusAdapter({
       state: this.state,
@@ -266,7 +269,8 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.trafficController = new TrafficController({
       world: this.world,
-      random: this.random
+      random: this.random,
+      laneGraph: this.laneGraph
     });
     this.crimeController = new CrimeResponseController({
       state: this.state,
@@ -291,11 +295,15 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.policeVehicleController = new PoliceVehicleController({
       world: this.world,
-      targets: () => this.crimeController.policeVehicleTargets()
+      targetFor: (vehicleId) => this.crimeController.policeVehicleTarget(vehicleId),
+      forgetTarget: (vehicleId, suspectId, reportedAt, nowMs) => (
+        this.crimeController.forgetPoliceVehicleTarget(vehicleId, suspectId, reportedAt, nowMs)
+      )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
       state: this.state,
       world: this.world,
+      responsePlan: () => this.crimeController.responseFleetPlan(),
       police: this.policeVehicleController,
       onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
@@ -322,9 +330,24 @@ export class DistrictRoom extends Room<DistrictState> {
       pedestrians: () => this.pedestrians.diagnostics(),
       stimuli: () => this.worldStimuli.snapshot(),
       traffic: () => this.trafficController.diagnostics(),
+      trafficLaneGraph: () => ({
+        schemaVersion: this.laneGraph.schemaVersion,
+        districtId: this.laneGraph.districtId,
+        nodes: this.laneGraph.nodes().map(({id, x, y, junctionId}) => ({id, x, y, junctionId})),
+        edges: this.laneGraph.edges().map(({
+          id,
+          fromNodeId,
+          toNodeId,
+          kind,
+          turn,
+          speedLimit,
+          junctionId
+        }) => ({id, fromNodeId, toNodeId, kind, turn, speedLimit, junctionId}))
+      }),
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
+      policeResponse: () => this.crimeController.responseAllocationSnapshot(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
@@ -623,6 +646,7 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
+      includeAmbientPedestrians: false,
       includeAmbientTraffic: false,
       onVehicleSpawned: (vehicle) => {
         this.indexVehicle(vehicle);

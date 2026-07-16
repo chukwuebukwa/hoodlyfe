@@ -33,8 +33,12 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     incidents: 1,
     pursuits: 1,
     cruisers: '1/1 pursuit / 1/2 ready / 1 dyn',
+    response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
+    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover',
+    trafficRisk: 'clear',
+    roads: 'off',
     region: 'unknown',
     latency: '0/0ms',
     patchGap: '0ms',
@@ -47,6 +51,103 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', () => {
+  const snapshot = createSnapshot();
+  snapshot.populationStreaming = {
+    potentialPedestrians: 80,
+    activePedestrians: 12,
+    potentialTraffic: 64,
+    activeTraffic: 8,
+    pinnedPedestrians: 1,
+    pinnedTraffic: 1,
+    jamRetirements: 3,
+    hotActors: 14,
+    warmActors: 6,
+    dormantActors: 124,
+    deferredVisibleActors: 4,
+    lookaheadAnchors: 2
+  };
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).population,
+    '20/144 / 14 hot / 6 warm / 124 cold / 2 lookahead / 4 pop guarded / 2 pinned / 3 jam retired'
+  );
+});
+
+test('debug panel summarizes authored road topology and route planner pressure', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficLaneGraph = {
+    schemaVersion: 1,
+    districtId: 'industrial-district',
+    nodes: [
+      {id: 'a', x: 0, y: 0, junctionId: ''},
+      {id: 'b', x: 100, y: 0, junctionId: ''}
+    ],
+    edges: [{
+      id: 'a-b',
+      fromNodeId: 'a',
+      toNodeId: 'b',
+      kind: 'lane',
+      turn: 'none',
+      speedLimit: 100,
+      junctionId: ''
+    }]
+  };
+  snapshot.trafficAi = [trafficDebugEntry('traffic-1', true, 3), trafficDebugEntry('traffic-2', false, 1)];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).roads,
+    'v1 / 2 nodes / 1 edges / 2 routed / 1 partial / 2 replans'
+  );
+});
+
+test('debug panel summarizes junction queue and traversal phases', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {...trafficDebugEntry('waiting', true, 1), junctionPhase: 'waiting', junctionQueuePosition: 2},
+    {...trafficDebugEntry('approach', true, 1), junctionPhase: 'approach'},
+    {...trafficDebugEntry('crossing', true, 1), junctionPhase: 'crossing'},
+    {...trafficDebugEntry('clearing', true, 1), junctionPhase: 'clearing'}
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover'
+  );
+});
+
+test('debug panel summarizes visible traffic blocker cycles and recovery owners', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {
+      ...trafficDebugEntry('cycle-a', true, 1),
+      deadlockCycleId: 'cycle-a|cycle-b',
+      deadlockCycleSize: 2,
+      deadlockRecovering: true,
+      deadlockRecoveryCount: 1
+    },
+    {
+      ...trafficDebugEntry('cycle-b', true, 1),
+      deadlockCycleId: 'cycle-a|cycle-b',
+      deadlockCycleSize: 2
+    }
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover'
+  );
+});
+
+test('debug panel summarizes predictive traffic contact risk', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {...trafficDebugEntry('near', true, 1), timeToContactSeconds: 0.42},
+    {...trafficDebugEntry('far', true, 1), timeToContactSeconds: 1.2},
+    trafficDebugEntry('clear', true, 1)
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).trafficRisk,
+    '2 predicted / 1 urgent / 420ms min'
+  );
 });
 
 test('debug panel summarizes server phase cost and failures', () => {
@@ -213,8 +314,65 @@ function createSnapshot(): DebugSnapshot {
       desiredUnits: 2,
       availableUnits: 1,
       managedUnits: 1,
-      nextSpawnAt: 2000
+      nextSpawnAt: 2000,
+      targetSuspectId: 'driver',
+      demandedSuspects: 1
+    },
+    policeResponse: {
+      maxResponsePoints: 11,
+      usedResponsePoints: 5,
+      maxFootUnits: 5,
+      maxVehicleUnits: 3,
+      assignedFootUnits: 3,
+      assignedVehicleUnits: 1,
+      suppressedPairs: 0,
+      demands: [{
+        suspectId: 'driver',
+        wantedLevel: 3,
+        desiredFoot: 4,
+        assignedFoot: 3,
+        desiredVehicles: 2,
+        assignedVehicles: 1
+      }],
+      assignments: [],
+      lastChanges: []
     },
     events: [{tick: 41, type: 'crime.committed', summary: 'driver committed vehicle-theft'}]
+  };
+}
+
+function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevision: number) {
+  return {
+    vehicleId,
+    mission: 'cruise-route' as const,
+    drivingStyle: 'lawful' as const,
+    cruiseSpeed: 100,
+    desiredSpeed: 100,
+    speedReason: 'cruise' as const,
+    obstacleId: '',
+    obstacleDistance: -1,
+    timeToContactSeconds: -1,
+    blockedSince: 0,
+    recoveryCount: 0,
+    deadlockCycleId: '',
+    deadlockCycleSize: 0,
+    deadlockRecovering: false,
+    deadlockRecoveryCount: 0,
+    maneuverPhase: 'none' as const,
+    maneuverAttempts: 0,
+    emergencyYieldPhase: 'none' as const,
+    emergencyVehicleId: '',
+    junctionId: '',
+    junctionPhase: 'none' as const,
+    junctionQueuePosition: 0,
+    junctionLeaseExpiresAt: 0,
+    routeSource: 'lane-graph' as const,
+    currentLaneNodeId: 'a',
+    destinationLaneNodeId: 'b',
+    routeRemaining: 1,
+    routeRevision,
+    routeComplete,
+    routeVisited: 2,
+    routeWaypoints: [{x: 100, y: 0}]
   };
 }

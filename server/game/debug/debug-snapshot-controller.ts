@@ -4,12 +4,14 @@ import {
   type DebugPedestrianAiEntry,
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
+  type DebugPoliceResponseEntry,
   type DebugReplicationEntry,
   type DebugPopulationStreamingEntry,
   type DebugSnapshot,
   type DebugSimulationPhaseEntry,
   type DebugStimulusEntry,
   type DebugTrafficAiEntry,
+  type DebugTrafficLaneGraphEntry,
   type DebugTrafficSignalEntry
 } from '../../../shared/protocol/debug.ts';
 import type {DistrictState} from '../../state.ts';
@@ -34,9 +36,11 @@ interface DebugSnapshotControllerOptions {
   pedestrians?: () => ReadonlyArray<DebugPedestrianAiEntry>;
   stimuli?: () => ReadonlyArray<DebugStimulusEntry>;
   traffic?: () => ReadonlyArray<DebugTrafficAiEntry>;
+  trafficLaneGraph?: () => DebugTrafficLaneGraphEntry;
   trafficSignals?: () => ReadonlyArray<DebugTrafficSignalEntry>;
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   policeFleet?: () => DebugPoliceFleetEntry;
+  policeResponse?: () => DebugPoliceResponseEntry;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -115,7 +119,11 @@ export class DebugSnapshotController {
         ...stimulus,
         channels: [...stimulus.channels]
       })),
-      trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({...traffic})),
+      trafficAi: (this.options.traffic?.() ?? []).map((traffic) => ({
+        ...traffic,
+        routeWaypoints: traffic.routeWaypoints.map((waypoint) => ({...waypoint}))
+      })),
+      trafficLaneGraph: cloneTrafficLaneGraph(this.options.trafficLaneGraph?.()),
       trafficSignals: (this.options.trafficSignals?.() ?? []).map((signal) => ({
         ...signal,
         waitingVehicleIds: [...signal.waitingVehicleIds]
@@ -125,6 +133,7 @@ export class DebugSnapshotController {
         waypoints: unit.waypoints.map((waypoint) => ({...waypoint}))
       })),
       policeFleet: this.options.policeFleet?.(),
+      policeResponse: clonePoliceResponse(this.options.policeResponse?.()),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
@@ -188,4 +197,25 @@ function positiveInteger(value: number, name: string): number {
     throw new RangeError(`${name} must be a positive integer.`);
   }
   return value;
+}
+
+function cloneTrafficLaneGraph(
+  graph: DebugTrafficLaneGraphEntry | undefined
+): DebugTrafficLaneGraphEntry | undefined {
+  return graph ? {
+    ...graph,
+    nodes: graph.nodes.map((node) => ({...node})),
+    edges: graph.edges.map((edge) => ({...edge}))
+  } : undefined;
+}
+
+function clonePoliceResponse(
+  response: DebugPoliceResponseEntry | undefined
+): DebugPoliceResponseEntry | undefined {
+  return response ? {
+    ...response,
+    demands: response.demands.map((demand) => ({...demand})),
+    assignments: response.assignments.map((assignment) => ({...assignment})),
+    lastChanges: response.lastChanges.map((change) => ({...change}))
+  } : undefined;
 }

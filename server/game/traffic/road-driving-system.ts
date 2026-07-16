@@ -28,6 +28,7 @@ export interface RoadDrivingResult {
   speedReason: TrafficSpeedReason | 'blocked';
   obstacleId: string;
   obstacleDistance: number;
+  timeToContactSeconds: number;
 }
 
 export class RoadDrivingSystem {
@@ -41,14 +42,18 @@ export class RoadDrivingSystem {
     const deltaY = input.targetY - vehicle.y;
     const distance = Math.hypot(deltaX, deltaY);
     const routeAngle = Math.atan2(deltaY, deltaX);
+    const collision = vehicleConfig(vehicle.kind).collision;
     const ignored = input.ignoredObstacleIds ?? new Set<string>();
     const awareness = this.awareness.evaluate({
       vehicleId: vehicle.id,
       x: vehicle.x,
       y: vehicle.y,
       angle: routeAngle,
+      bodyAngle: vehicle.angle,
       speed: vehicle.speed,
       radius: VEHICLE_RADIUS,
+      halfLength: collision.length / 2,
+      halfWidth: collision.width / 2,
       cruiseSpeed: input.cruiseSpeed,
       brakeDeceleration: configuration.brakeDeceleration,
       minimumGap: configuration.minimumGap * (input.minimumGapScale ?? 1),
@@ -63,7 +68,8 @@ export class RoadDrivingSystem {
       obstacleId: awareness.obstacleId,
       obstacleDistance: Number.isFinite(awareness.obstacleDistance)
         ? awareness.obstacleDistance
-        : -1
+        : -1,
+      timeToContactSeconds: awareness.timeToContactSeconds
     };
     if (awareness.desiredSpeed > 0 && distance <= Math.max(8, vehicle.speed * input.deltaSeconds)) {
       return {...base, moved: false, reached: true, blocked: false};
@@ -102,7 +108,8 @@ export class RoadDrivingSystem {
       desiredSpeed: 0,
       speedReason: 'blocked',
       obstacleId: '',
-      obstacleDistance: 0
+      obstacleDistance: 0,
+      timeToContactSeconds: -1
     };
   }
 

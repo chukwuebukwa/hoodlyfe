@@ -32,6 +32,9 @@ export interface TrafficSpawn extends RoadNode {
   angle: number;
   targetColumn: number;
   targetRow: number;
+  laneEdgeId?: string;
+  laneFromNodeId?: string;
+  laneToNodeId?: string;
 }
 
 export class CollisionMap {

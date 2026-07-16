@@ -150,7 +150,7 @@ Recommended NOCK0 model:
 - `WantedSystem`: heat, tier, cooldown rules, identity changes, jail and respawn reset policy.
 - `IncidentRegistry`: active incidents and evidence.
 - `WitnessSystem`: who saw or heard what and whether they can report it.
-- `PoliceDispatchSystem`: district response capacity and unit assignments.
+- `PoliceResponseAllocationSystem`: one finite district response budget with deterministic foot/cruiser leases across simultaneous suspects.
 - `PursuitCoordinator`: last-known position, containment targets, and pursuit membership.
 - `ArrestSystem`: surrender, restraint, transport, jail, escape, death, and respawn outcomes.
 
@@ -407,7 +407,8 @@ server/game/
     wanted-system.ts
     wanted-policy.ts
   police/
-    police-dispatch-system.ts
+    police-response-allocation-system.ts
+    police-response-fleet-controller.ts
     pursuit-coordinator.ts
     police-unit-system.ts
     arrest-system.ts

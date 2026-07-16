@@ -1,7 +1,12 @@
-import {VehicleState, type DistrictState, type PlayerState} from '../../state.ts';
+import {VehicleState, type DistrictState} from '../../state.ts';
 import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
 import {RoadRoutePlanner} from '../traffic/road-route-planner.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
+import {
+  responseLimitsForWanted,
+  type PoliceResponseFleetPlan,
+  type PoliceResponseFleetTarget
+} from './police-response-allocation-system.ts';
 
 const SPAWN_ATTEMPTS = 48;
 const SPAWN_CLEARANCE = 96;
@@ -19,6 +24,7 @@ interface PoliceFleetRuntime {
 interface PoliceResponseFleetControllerOptions {
   state: DistrictState;
   world: CollisionMap;
+  responsePlan: () => PoliceResponseFleetPlan;
   police: {
     register(vehicleId: string): void;
     release(vehicleId: string): void;
@@ -33,6 +39,8 @@ export interface PoliceResponseFleetDiagnostic {
   availableUnits: number;
   managedUnits: number;
   nextSpawnAt: number;
+  targetSuspectId: string;
+  demandedSuspects: number;
 }
 
 /** Owns wanted-level response population, not pursuit strategy or vehicle driving. */
@@ -42,6 +50,8 @@ export class PoliceResponseFleetController {
   private spawnSequence = 0;
   private desiredUnits = 0;
   private nextSpawnAt = 0;
+  private targetSuspectId = '';
+  private demandedSuspects = 0;
 
   constructor(private readonly options: PoliceResponseFleetControllerOptions) {
     this.planner = new RoadRoutePlanner(options.world);
@@ -49,15 +59,18 @@ export class PoliceResponseFleetController {
 
   update(nowMs: number): void {
     this.releaseUnavailableManagedVehicles();
-    const target = this.primaryTarget();
-    this.desiredUnits = target ? responseVehicleLimit(target.wanted) : 0;
+    const plan = this.options.responsePlan();
+    const target = plan.targets[0];
+    this.desiredUnits = plan.desiredUnits;
+    this.targetSuspectId = target?.suspectId ?? '';
+    this.demandedSuspects = plan.targets.length;
     this.markSurplusForStandDown(nowMs);
     this.removeSafeSurplus(nowMs);
 
     const available = this.availablePoliceVehicles().length;
     if (!target || available >= this.desiredUnits || nowMs < this.nextSpawnAt) return;
     const spawn = this.findResponseSpawn(target, nowMs);
-    this.nextSpawnAt = nowMs + responseSpawnInterval(target.wanted);
+    this.nextSpawnAt = nowMs + responseSpawnInterval(target.wantedLevel);
     if (!spawn) return;
     this.spawn(spawn, nowMs);
   }
@@ -67,18 +80,14 @@ export class PoliceResponseFleetController {
       desiredUnits: this.desiredUnits,
       availableUnits: this.availablePoliceVehicles().length,
       managedUnits: this.managed.size,
-      nextSpawnAt: this.nextSpawnAt
+      nextSpawnAt: this.nextSpawnAt,
+      targetSuspectId: this.targetSuspectId,
+      demandedSuspects: this.demandedSuspects
     };
   }
 
   managedVehicleIds(): string[] {
     return [...this.managed.keys()].sort();
-  }
-
-  private primaryTarget(): PlayerState | undefined {
-    return [...this.options.state.players.values()]
-      .filter((player) => player.alive && player.spaceId === 'street' && player.wanted >= 1)
-      .sort((left, right) => right.wanted - left.wanted || left.id.localeCompare(right.id))[0];
   }
 
   private availablePoliceVehicles(): VehicleState[] {
@@ -132,7 +141,7 @@ export class PoliceResponseFleetController {
     }
   }
 
-  private findResponseSpawn(target: PlayerState, nowMs: number): TrafficSpawn | undefined {
+  private findResponseSpawn(target: PoliceResponseFleetTarget, nowMs: number): TrafficSpawn | undefined {
     const targetNode = this.options.world.nearestRoadNode(target.x, target.y, VEHICLE_RADIUS);
     if (!targetNode) return undefined;
     for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
@@ -185,7 +194,7 @@ export class PoliceResponseFleetController {
 }
 
 export function responseVehicleLimit(wantedLevel: number): number {
-  return Math.max(0, Math.min(3, Math.floor(wantedLevel)));
+  return responseLimitsForWanted(wantedLevel).vehicle;
 }
 
 export function responseSpawnInterval(wantedLevel: number): number {

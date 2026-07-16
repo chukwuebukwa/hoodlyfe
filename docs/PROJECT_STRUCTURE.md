@@ -191,8 +191,12 @@ The first room-facing facades are now live:
 - `MissionSystem` owns Freemode roster/deadline/optional-target/contribution/terminal lifecycle; `MissionObjectiveSystem` evaluates ordered target, participant, hold, and eliminate predicates; `MissionEncounterSystem` owns bounded wave/actor/role/kill-contribution runtime through narrow pedestrian ports. Shared mission content owns definitions and target/reward/encounter policy. Target-free jobs never fabricate a vehicle, while combat contracts expose one stable mission-owned NPC target without taking over pedestrian AI.
 - `CrimeResponseController` composes incident registration, witness selection, wanted heat, district dispatch, and pursuit memory.
 - `VehicleAccessController` owns entry, hijacking, seats, exits, passenger promotion, and player cleanup.
-- `TrafficController` owns deterministic ambient routes and driving targets.
-- `DistrictPopulationController` owns idempotent map bootstrap, initial archetype budgets, parked/traffic vehicle creation, and registration through domain APIs.
+- `TrafficController` is the room-facing traffic facade. It composes route, awareness,
+  junction, maneuver, emergency-yield, and low-level driving owners without implementing
+  their policy.
+- `DistrictPopulationController` owns idempotent persistent map bootstrap and registration
+  through domain APIs. In the live room it creates parked/service vehicles only; disposable
+  moving pedestrians and traffic belong to streamed population.
 - `DebugSnapshotController` owns bounded event summaries, sampled simulation diagnostics, domain-to-protocol copies, and developer snapshot publication.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, `ThrownProjectileController`, `ExplosionController`, and `DamageController` separate weapon use, bullets, bounded thrown/fused motion, one-shot radial resolution/vehicle-chain adaptation, and victim response.
@@ -211,13 +215,31 @@ The first room-facing facades are now live:
 - `PedestrianMeleeSystem` owns a fixed NPC victim, windup/contact/recovery runtime, one-contact identity, impact-time range/arc/line-of-sight validation, reaction interruption, cooldown, damage requests, and replicated presentation facts. It does not select mission targets, navigate, fire projectiles, mutate survivability directly, or choose renderer animations.
 - `PedestrianNavigationSystem` owns private goals and route progress behind bounded per-tick search work; the current collision-grid planner is a replaceable adapter for a future authored sidewalk/crossing graph.
 - The shared vehicle catalog owns stable model content; vehicle access, player handling, damage/collision, population, traffic, and presentation consume focused portions of the same definition.
-- `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead corridor; `TrafficController` retains route, acceleration/braking, hijack, blockage, and deterministic recovery ownership.
+- `LaneGraph` compiles and validates versioned authored centerlines, directed right-hand
+  lanes, junction connectors, turnarounds, speed limits, and vehicle-class admission.
+- `TrafficRoutePlanner` owns deterministic visit-bounded lane A*; `TrafficRouteSystem` owns
+  durable destination/progress state, recovery reprojection, debug waypoints, and active
+  versus dormant population route adapters. The collision-grid route is a compatibility
+  adapter, not the production district representation.
+- `TrafficAwarenessSystem` computes a bounded desired speed and reason from an ahead
+  corridor; `RoadDrivingSystem` owns steering/acceleration/braking; `TrafficController`
+  retains only composition, hijack handoff, and blockage timing.
 - `StreetEconomyController` is the in-memory implementation of the cash mutation port. Combat and missions propose stable idempotent rewards; services propose purchases; persistent account/ledger adapters can replace it without entering simulation domains.
 - `StreetServiceController` owns replicated nonmedical service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it delegates hospital interactions and does not own cash, health, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictReplicationController` owns per-client Colyseus `StateView` membership and patch-time diffs. Gameplay domains mutate one authoritative district; the replication adapter exposes same-space players/services plus street-only simulation collections without teaching those domains about clients. Newly attached schemas remain in a one-cycle completion set so the installed encoder can force unchanged scalar fields after its initial new-object encode.
-- `street-streaming-policy.ts` owns street AOI hysteresis, deterministic priority, and patch budgets; `PopulationStreamingController` owns lightweight potential records, materialization/dematerialization limits, dormant progress, active ceilings, and gameplay pin rules.
-- `TrafficJunctionSystem` owns expiring deterministic connector reservations; `TrafficManeuverSystem` owns legitimate-stop filtering plus bounded reverse/pass/merge recovery; `TrafficController` composes those policies with lane-offset route targets.
+- `street-streaming-policy.ts` owns per-client street AOI hysteresis, deterministic priority,
+  and patch budgets. `population-activation-policy.ts` owns the player-union hot, prewarm,
+  retained, and cold tiers. `population-interest-anchor-policy.ts` converts authoritative
+  street-player/vehicle poses into real visibility guards and bounded non-visibility
+  lookahead anchors. `PopulationStreamingController` owns lightweight potential records,
+  prewarm-only materialization, dormant progress, active ceilings, and gameplay pin rules.
+  Population activation remains separate from replication and interaction-island prediction.
+- `TrafficJunctionSystem` owns expiring deterministic connector reservations;
+  `TrafficManeuverSystem` owns local legitimate-stop filtering plus bounded
+  reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle
+  detection and one safe recovery owner; `TrafficController` composes those policies with
+  lane-offset route targets.
 - `VehicleCollisionSystem` owns catalog-sized oriented-box narrow-phase contact, minimum-axis separation, impulse, and impact-zone facts. The spatial index provides only broad-phase candidates.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
@@ -308,6 +330,7 @@ traffic/
   traffic-controller.ts
   traffic-awareness-system.ts
   traffic-route-planner.ts
+  traffic-route-system.ts
   lane-graph.ts
   driving-agent.ts
   local-steering.ts
@@ -318,21 +341,29 @@ traffic/
 
 ### Lane Graph
 
-The current road-cell graph should evolve into versioned lane metadata:
+The Industrial District now has schema-versioned authored lane metadata for:
 
 - lane centerlines and direction;
 - speed limits;
 - allowed turns;
 - intersection entry and exit links;
-- stop lines, signals, crossings, and parking points;
+- junction ownership and terminal turnaround policy;
 - vehicle class restrictions;
-- district transfer edges.
 
-The map pipeline should validate disconnected lanes, impossible turns, overlapping spawn points, and missing intersection ownership.
+Stop lines, crossing priority, parking points, and district transfer edges remain future
+schema extensions.
+
+Runtime loading validates malformed ownership, blocked geometry, sinks, and directed
+strong connectivity. A future map-pipeline command should run the same validator before
+content reaches a deployment artifact.
 
 ### Route Planning
 
-The current `RoadRoutePlanner` provides deterministic bounded A* over compatibility road cells and returns explicit partial work when capped. A future lane route planner selects a destination and lane-level route. Both run infrequently under a work budget; route planning must not happen for every traffic car every simulation tick.
+`TrafficRoutePlanner` now provides deterministic bounded A* over directed lane edges and
+returns explicit partial work when capped. `TrafficRouteSystem` selects a stable distant
+destination and keeps the plan until completion or recovery. `RoadRoutePlanner` remains
+for compatibility road cells and other callers. Neither planner runs every simulation
+tick.
 
 ### Local Steering
 
@@ -364,27 +395,22 @@ Police should not be implemented as civilians with one target rule. Separate dis
 
 ```text
 police/
-  dispatch-system.ts
   crime-response-controller.ts
+  police-response-allocation-system.ts
+  police-response-fleet-controller.ts
   pursuit-memory.ts
-  police-vehicle-dispatch-system.ts
   police-vehicle-policy.ts
   police-vehicle-controller.ts
-  incident-registry.ts
-  police-unit-system.ts
-  pursuit-coordinator.ts
-  roadblock-planner.ts
-  arrest-system.ts
 ```
 
 - Crimes create incidents with location, severity, witnesses, suspect, and expiry.
-- Dispatch assigns available units based on distance and escalation.
-- Pursuit coordination prevents every officer from choosing the same position.
+- Shared response allocation gives simultaneous suspects deterministic shares of one finite foot/cruiser budget, retains leases, replaces materially poor assignments, and suppresses expired unit-report pairs.
+- Fleet control realizes aggregate cruiser demand; foot and vehicle controllers execute their assigned target with separate search memory and movement behavior.
 - Wanted heat controls the response budget, not individual officer omniscience.
 - Officers need search behavior after losing sight rather than permanent direct knowledge.
 - Arrest, surrender, jail, death, and respawn are separate outcomes.
 
-The first `PoliceVehicleController` consumes reported suspect snapshots from crime response, composes a dedicated cruiser dispatch module, pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. This preserves the production-style split between dispatch facts, car mission selection, road execution, and impact physics.
+`PoliceVehicleController` consumes shared assignments and reported suspect snapshots from crime response, composes pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. Planned pursuit coordination, roadblock planning, arrest, surrender, and jail remain separate future modules rather than additions to this controller.
 
 ## Combat Organization
 

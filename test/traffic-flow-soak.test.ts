@@ -6,18 +6,28 @@ import {
   trafficLanePoint
 } from '../server/game/traffic/traffic-controller.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
+import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-config.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
 
 test('a streamed street population continues circulating through a one-minute soak', () => {
   const world = CollisionMap.load();
   const random = new DeterministicRandom('traffic-flow-soak');
-  const traffic = new TrafficController({world, random});
+  const traffic = new TrafficController({world, random, laneGraph: LaneGraph.load(world)});
   const vehicles: VehicleState[] = [];
   const starts = new Map<string, {x: number; y: number}>();
+  const previousJunctionPhase = new Map<string, string>();
+  const observedJunctionPhases = new Set<string>();
+  let completedJunctionTraversals = 0;
+  let maximumQueuePosition = 0;
+  let maximumConcurrentOverlaps = 0;
+  let overlapPairTicks = 0;
+  let maximumDeadlockCycles = 0;
+  let deadlockRecoveryCount = 0;
 
   for (let index = 0; index < 24; index++) {
-    const spawn = world.trafficSpawn(30_000 + index * 307, VEHICLE_RADIUS);
+    const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
     const lane = trafficLanePoint(spawn);
     if (vehicles.some((vehicle) => Math.hypot(vehicle.x - lane.x, vehicle.y - lane.y) < 64)) continue;
     const vehicle = new VehicleState();
@@ -35,22 +45,55 @@ test('a streamed street population continues circulating through a one-minute so
 
   for (let tick = 1; tick <= 1_800; tick++) {
     const nowMs = tick * 1_000 / 30;
+    traffic.beginTick(nowMs);
     for (const vehicle of vehicles) {
-      traffic.update(vehicle, 1 / 30, nowMs, {
-        obstacles: vehicles
-          .filter((other) => other.id !== vehicle.id &&
-            Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
-          .map((other) => ({
-            id: other.id,
-            kind: 'vehicle' as const,
-            x: other.x,
-            y: other.y,
-            radius: VEHICLE_RADIUS,
-            speed: other.speed,
-            angle: other.angle
-          }))
-      });
+      const obstacles = vehicles
+        .filter((other) => other.id !== vehicle.id &&
+          Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
+        .map((other) => ({
+          halfLength: vehicleConfig(other.kind).collision.length / 2,
+          halfWidth: vehicleConfig(other.kind).collision.width / 2,
+          id: other.id,
+          kind: 'vehicle' as const,
+          x: other.x,
+          y: other.y,
+          radius: VEHICLE_RADIUS,
+          speed: other.speed,
+          angle: other.angle
+        }));
+      traffic.update(vehicle, 1 / 30, nowMs, {obstacles});
+      traffic.observe(vehicle, nowMs, obstacles);
     }
+    const diagnostics = traffic.diagnostics();
+    maximumDeadlockCycles = Math.max(maximumDeadlockCycles, new Set(diagnostics
+      .filter((entry) => entry.deadlockCycleId)
+      .map((entry) => entry.deadlockCycleId)).size);
+    deadlockRecoveryCount = Math.max(
+      deadlockRecoveryCount,
+      diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0)
+    );
+    const ownersByJunction = new Map<string, number>();
+    for (const entry of diagnostics) {
+      observedJunctionPhases.add(entry.junctionPhase);
+      maximumQueuePosition = Math.max(maximumQueuePosition, entry.junctionQueuePosition);
+      const previous = previousJunctionPhase.get(entry.vehicleId) ?? 'none';
+      if (previous === 'clearing' && entry.junctionPhase === 'none') completedJunctionTraversals++;
+      previousJunctionPhase.set(entry.vehicleId, entry.junctionPhase);
+      if (!['approach', 'crossing', 'clearing'].includes(entry.junctionPhase)) continue;
+      ownersByJunction.set(entry.junctionId, (ownersByJunction.get(entry.junctionId) ?? 0) + 1);
+    }
+    assert.ok(
+      [...ownersByJunction.values()].every((owners) => owners === 1),
+      'A junction admitted more than one active owner in the same tick.'
+    );
+    let overlapsThisTick = 0;
+    for (let left = 0; left < vehicles.length; left++) {
+      for (let right = left + 1; right < vehicles.length; right++) {
+        if (vehicleBoxesOverlap(vehicles[left], vehicles[right])) overlapsThisTick++;
+      }
+    }
+    maximumConcurrentOverlaps = Math.max(maximumConcurrentOverlaps, overlapsThisTick);
+    overlapPairTicks += overlapsThisTick;
   }
 
   const circulated = vehicles.filter((vehicle) => {
@@ -70,4 +113,53 @@ test('a streamed street population continues circulating through a one-minute so
     prolongedBlocks.length <= Math.floor(vehicles.length * 0.15),
     `${prolongedBlocks.length}/${vehicles.length} traffic vehicles remained blocked.`
   );
+  assert.deepEqual(
+    [...observedJunctionPhases].sort(),
+    ['approach', 'clearing', 'crossing', 'none', 'waiting']
+  );
+  assert.ok(
+    completedJunctionTraversals >= vehicles.length * 3,
+    `Only ${completedJunctionTraversals} junction traversals completed for ${vehicles.length} vehicles.`
+  );
+  assert.ok(maximumQueuePosition <= 6, `Junction queue reached position ${maximumQueuePosition}.`);
+  assert.ok(
+    maximumConcurrentOverlaps <= 1,
+    `${maximumConcurrentOverlaps} traffic vehicle pairs overlapped concurrently.`
+  );
+  assert.ok(
+    overlapPairTicks <= 60,
+    `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
+  );
+  if (process.env.TRAFFIC_SOAK_TRACE === '1') {
+    console.log(JSON.stringify({
+      vehicles: vehicles.length,
+      circulated: circulated.length,
+      completedJunctionTraversals,
+      maximumQueuePosition,
+      maximumConcurrentOverlaps,
+      overlapPairTicks,
+      maximumDeadlockCycles,
+      deadlockRecoveryCount
+    }));
+  }
 });
+
+function vehicleBoxesOverlap(left: VehicleState, right: VehicleState): boolean {
+  const leftCollision = vehicleConfig(left.kind).collision;
+  const rightCollision = vehicleConfig(right.kind).collision;
+  return interactionShapesOverlap({
+    shape: 'box',
+    x: left.x,
+    y: left.y,
+    angle: left.angle,
+    halfLength: leftCollision.length / 2,
+    halfWidth: leftCollision.width / 2
+  }, {
+    shape: 'box',
+    x: right.x,
+    y: right.y,
+    angle: right.angle,
+    halfLength: rightCollision.length / 2,
+    halfWidth: rightCollision.width / 2
+  });
+}

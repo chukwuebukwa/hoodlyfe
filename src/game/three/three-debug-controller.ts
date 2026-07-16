@@ -42,8 +42,12 @@ export class ThreeDebugController {
     incidents: document.querySelector('#debug-incidents'),
     pursuits: document.querySelector('#debug-pursuits'),
     cruisers: document.querySelector('#debug-cruisers'),
+    response: document.querySelector('#debug-police-response'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
+    junctions: document.querySelector('#debug-junctions'),
+    trafficRisk: document.querySelector('#debug-traffic-risk'),
+    roads: document.querySelector('#debug-roads'),
     region: document.querySelector('#debug-region'),
     latency: document.querySelector('#debug-latency'),
     patchGap: document.querySelector('#debug-patch-gap'),
@@ -162,6 +166,22 @@ export class ThreeDebugController {
         this.surfaceHeightAt
       ));
     }
+    const laneGraph = this.snapshot?.trafficLaneGraph;
+    if (laneGraph) {
+      const nodes = new Map(laneGraph.nodes.map((node) => [node.id, node]));
+      for (const edge of laneGraph.edges) {
+        const from = nodes.get(edge.fromNodeId);
+        const to = nodes.get(edge.toNodeId);
+        if (!from || !to) continue;
+        const color = edge.kind === 'lane'
+          ? 0x427866
+          : edge.kind === 'connector' ? 0xf0b64c : 0xb47cff;
+        this.group.add(debugLine([
+          point(from.x, from.y, this.surfaceHeightAt(from.x, from.y) + 18),
+          point(to.x, to.y, this.surfaceHeightAt(to.x, to.y) + 18)
+        ], color));
+      }
+    }
     this.drawInteractionIsland(state);
     for (const bullet of state.bullets.values()) {
       this.group.add(debugLine([
@@ -192,9 +212,92 @@ export class ThreeDebugController {
       }
       this.group.add(debugLine(points, entry.strategy === 'ram' ? 0xff5e68 : 0x5bbcff));
     }
+    for (const assignment of this.snapshot?.policeResponse?.assignments ?? []) {
+      const suspect = state.players.get(assignment.suspectId);
+      const unit = assignment.unitKind === 'foot'
+        ? state.npcs.get(assignment.unitId)
+        : state.vehicles.get(assignment.unitId);
+      if (!unit || !suspect) continue;
+      this.group.add(debugLine([
+        point(unit.x, unit.y, this.surfaceHeightAt(unit.x, unit.y) + 32),
+        point(suspect.x, suspect.y, this.surfaceHeightAt(suspect.x, suspect.y) + 32)
+      ], assignment.unitKind === 'foot' ? 0xff6f78 : 0x58c8ff));
+    }
+    const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {
-      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const vehicle = state.vehicles.get(entry.vehicleId);
+      if (vehicle && entry.routeWaypoints.length > 0) {
+        const points = [
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 30),
+          ...entry.routeWaypoints.map((waypoint) => point(
+            waypoint.x,
+            waypoint.y,
+            this.surfaceHeightAt(waypoint.x, waypoint.y) + 30
+          ))
+        ];
+        this.group.add(debugLine(points, entry.routeComplete ? 0x45d7ff : 0xff8b4d));
+      }
+      const junctionCenter = entry.junctionId
+        ? trafficJunctionCenter(this.snapshot, entry.junctionId)
+        : undefined;
+      if (junctionCenter && vehicle && entry.junctionPhase !== 'none') {
+        const color = junctionPhaseColor(entry.junctionPhase);
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 34),
+          point(
+            junctionCenter.x,
+            junctionCenter.y,
+            this.surfaceHeightAt(junctionCenter.x, junctionCenter.y) + 34
+          )
+        ], color));
+        if (!drawnJunctions.has(entry.junctionId)) {
+          drawnJunctions.add(entry.junctionId);
+          this.group.add(debugRing(
+            junctionCenter.x,
+            junctionCenter.y,
+            34,
+            color,
+            this.surfaceHeightAt(junctionCenter.x, junctionCenter.y) + 33
+          ));
+        }
+      }
+      const contactObstacle = entry.timeToContactSeconds >= 0
+        ? trafficObstaclePosition(state, entry.obstacleId)
+        : undefined;
+      if (vehicle && contactObstacle) {
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 36),
+          point(
+            contactObstacle.x,
+            contactObstacle.y,
+            this.surfaceHeightAt(contactObstacle.x, contactObstacle.y) + 36
+          )
+        ], entry.timeToContactSeconds < 0.75 ? 0xff4f5e : 0xff9f43));
+      }
+      const deadlockObstacle = entry.deadlockCycleId
+        ? trafficObstaclePosition(state, entry.obstacleId)
+        : undefined;
+      if (vehicle && deadlockObstacle) {
+        const color = entry.deadlockRecovering ? 0xff2bd6 : 0xb86bff;
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 39),
+          point(
+            deadlockObstacle.x,
+            deadlockObstacle.y,
+            this.surfaceHeightAt(deadlockObstacle.x, deadlockObstacle.y) + 39
+          )
+        ], color));
+        if (entry.deadlockRecovering) {
+          this.group.add(debugRing(
+            vehicle.x,
+            vehicle.y,
+            29,
+            color,
+            this.surfaceHeightAt(vehicle.x, vehicle.y) + 38
+          ));
+        }
+      }
+      if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
       if (!vehicle || !emergency) continue;
       this.group.add(debugLine([
@@ -297,6 +400,42 @@ export class ThreeDebugController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'F3') this.setVisible(!this.visible);
   };
+}
+
+function trafficJunctionCenter(
+  snapshot: DebugSnapshot | undefined,
+  junctionId: string
+): {x: number; y: number} | undefined {
+  const nodes = snapshot?.trafficLaneGraph?.nodes.filter((node) => node.junctionId === junctionId) ?? [];
+  if (nodes.length > 0) {
+    return {
+      x: nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length,
+      y: nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length
+    };
+  }
+  const [column, row] = junctionId.split(',').map(Number);
+  return Number.isFinite(column) && Number.isFinite(row)
+    ? {x: (column + 0.5) * 64, y: (row + 0.5) * 64}
+    : undefined;
+}
+
+function trafficObstaclePosition(
+  state: DistrictNetworkState,
+  obstacleId: string
+): {x: number; y: number} | undefined {
+  const vehicle = state.vehicles.get(obstacleId);
+  if (vehicle) return vehicle;
+  if (obstacleId.startsWith('player:')) return state.players.get(obstacleId.slice('player:'.length));
+  if (obstacleId.startsWith('npc:')) return state.npcs.get(obstacleId.slice('npc:'.length));
+  return undefined;
+}
+
+function junctionPhaseColor(phase: string): number {
+  if (phase === 'waiting') return 0xffb347;
+  if (phase === 'approach') return 0xffe066;
+  if (phase === 'crossing') return 0x58e58c;
+  if (phase === 'clearing') return 0x55cfff;
+  return 0x777777;
 }
 
 function entityGlyph(

@@ -78,17 +78,60 @@ export interface DebugSimulationPhaseEntry {
 
 export interface DebugTrafficAiEntry {
   vehicleId: string;
+  mission: 'cruise-route';
+  drivingStyle: 'lawful';
   cruiseSpeed: number;
   desiredSpeed: number;
   speedReason: 'cruise' | 'vehicle' | 'pedestrian' | 'signal' | 'siren' | 'blocked' | 'hijack';
   obstacleId: string;
   obstacleDistance: number;
+  timeToContactSeconds: number;
   blockedSince: number;
   recoveryCount: number;
+  deadlockCycleId: string;
+  deadlockCycleSize: number;
+  deadlockRecovering: boolean;
+  deadlockRecoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
   maneuverAttempts: number;
   emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';
   emergencyVehicleId: string;
+  junctionId: string;
+  junctionPhase: 'none' | 'waiting' | 'approach' | 'crossing' | 'clearing';
+  junctionQueuePosition: number;
+  junctionLeaseExpiresAt: number;
+  routeSource: 'lane-graph' | 'road-cell-fallback';
+  currentLaneNodeId: string;
+  destinationLaneNodeId: string;
+  routeRemaining: number;
+  routeRevision: number;
+  routeComplete: boolean;
+  routeVisited: number;
+  routeWaypoints: Array<{x: number; y: number}>;
+}
+
+export interface DebugTrafficLaneNodeEntry {
+  id: string;
+  x: number;
+  y: number;
+  junctionId: string;
+}
+
+export interface DebugTrafficLaneEdgeEntry {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  kind: 'lane' | 'connector' | 'turnaround';
+  turn: 'none' | 'left' | 'right' | 'straight' | 'uturn';
+  speedLimit: number;
+  junctionId: string;
+}
+
+export interface DebugTrafficLaneGraphEntry {
+  schemaVersion: number;
+  districtId: string;
+  nodes: DebugTrafficLaneNodeEntry[];
+  edges: DebugTrafficLaneEdgeEntry[];
 }
 
 export interface DebugTrafficSignalEntry {
@@ -120,6 +163,47 @@ export interface DebugPoliceFleetEntry {
   availableUnits: number;
   managedUnits: number;
   nextSpawnAt: number;
+  targetSuspectId: string;
+  demandedSuspects: number;
+}
+
+export interface DebugPoliceResponseAssignmentEntry {
+  unitId: string;
+  unitKind: 'foot' | 'vehicle';
+  suspectId: string;
+  reportAt: number;
+  assignedAt: number;
+  distance: number;
+}
+
+export interface DebugPoliceResponseDemandEntry {
+  suspectId: string;
+  wantedLevel: number;
+  desiredFoot: number;
+  assignedFoot: number;
+  desiredVehicles: number;
+  assignedVehicles: number;
+}
+
+export interface DebugPoliceResponseChangeEntry {
+  unitId: string;
+  unitKind: 'foot' | 'vehicle';
+  previousSuspectId: string;
+  suspectId: string;
+  reason: string;
+}
+
+export interface DebugPoliceResponseEntry {
+  maxResponsePoints: number;
+  usedResponsePoints: number;
+  maxFootUnits: number;
+  maxVehicleUnits: number;
+  assignedFootUnits: number;
+  assignedVehicleUnits: number;
+  suppressedPairs: number;
+  demands: DebugPoliceResponseDemandEntry[];
+  assignments: DebugPoliceResponseAssignmentEntry[];
+  lastChanges: DebugPoliceResponseChangeEntry[];
 }
 
 export interface DebugReplicationEntry {
@@ -138,6 +222,12 @@ export interface DebugPopulationStreamingEntry {
   activeTraffic: number;
   pinnedPedestrians: number;
   pinnedTraffic: number;
+  jamRetirements: number;
+  hotActors: number;
+  warmActors: number;
+  dormantActors: number;
+  deferredVisibleActors: number;
+  lookaheadAnchors: number;
 }
 
 export interface DebugSnapshot {
@@ -156,9 +246,11 @@ export interface DebugSnapshot {
   pedestrianAi?: DebugPedestrianAiEntry[];
   stimuli?: DebugStimulusEntry[];
   trafficAi?: DebugTrafficAiEntry[];
+  trafficLaneGraph?: DebugTrafficLaneGraphEntry;
   trafficSignals?: DebugTrafficSignalEntry[];
   policeVehicles?: DebugPoliceVehicleEntry[];
   policeFleet?: DebugPoliceFleetEntry;
+  policeResponse?: DebugPoliceResponseEntry;
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

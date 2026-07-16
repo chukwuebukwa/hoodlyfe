@@ -140,6 +140,11 @@ G0 architecture checklist:
 
 ### G1 - Crime, wanted, and response-budget vertical slice
 
+Status: Complete on 2026-07-15. See
+[`CRIME_WANTED_RESPONSE_BUDGET_RESEARCH.md`](CRIME_WANTED_RESPONSE_BUDGET_RESEARCH.md),
+[`decisions/0007-shared-police-response-allocation.md`](decisions/0007-shared-police-response-allocation.md),
+and the timestamped devlog checkpoint.
+
 Implement the full path:
 
 ```text
@@ -154,7 +159,47 @@ cooldown rules, assignment scoring, and replacement of unsuitable or distant uni
 Acceptance: two simultaneous wanted players share a bounded district police pool without
 duplicate assignments, unstable oscillation, or client authority.
 
+G1 architecture checklist:
+
+- [x] Only identified, living street suspects with a current witness report enter response
+  allocation; wanted pressure does not grant units omniscient position knowledge.
+- [x] One deterministic `PoliceResponseAllocationSystem` owns all foot and cruiser leases,
+  bounded by five foot units, three cruisers, and an 11-point district budget.
+- [x] Simultaneous suspects receive weighted fair quotas without duplicate unit ownership;
+  insertion order does not affect the result.
+- [x] Leases retain useful units, replace materially distant assignments only after
+  hysteresis, contract immediately when wanted limits fall, and remain stable afterward.
+- [x] Foot and cruiser search expiry suppress only the expired unit/report pair; a newer
+  report makes that pair eligible again.
+- [x] Fleet population consumes aggregate shared cruiser demand without owning suspect
+  selection, while foot and vehicle controllers retain separate execution/search behavior.
+- [x] Suspect clear, death, unavailable units, destroyed cruisers, hijacking, and player
+  vehicle control release ownership through the shared allocator.
+- [x] F3 exposes points, caps, simultaneous demand, assignments, suppression, and change
+  reasons; the Three overlay draws foot and cruiser assignment links.
+- [x] Prediction, reconciliation, interpolation, AOI, island selection/replay, rewind,
+  rollout, and shared movement/contact kernels are unchanged.
+- [x] Deterministic focused coverage, the complete serial suite, permanent netcode suite,
+  strict impairment soak, production build, real two-client flow, and live Three debug QA
+  pass.
+
 ### G2 - Road graph and production traffic behavior
+
+Status: G2a authored lane routing, G2b.1 junction conflict ownership, and G2b.2a predictive
+contact awareness implemented on
+2026-07-15; G2 remains in progress. See
+[`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
+[`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
+[`TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md`](TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md),
+[`TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md`](TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md),
+[`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
+[`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md),
+and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
+Visible deadlock ownership is recorded in
+[`decisions/0012-visible-traffic-deadlock-recovery.md`](decisions/0012-visible-traffic-deadlock-recovery.md).
+Player-union population activation is recorded in
+[`POPULATION_INTEREST_STREAMING_RESEARCH.md`](POPULATION_INTEREST_STREAMING_RESEARCH.md) and
+[`decisions/0013-player-union-population-interest.md`](decisions/0013-player-union-population-interest.md).
 
 Introduce an authored directed lane graph and separate:
 
@@ -169,6 +214,45 @@ yielding, reverse recovery, maneuver cooldowns, and deterministic deadlock resol
 Netcode gate: traffic AI remains server-only. A promoted traffic car exposes physical
 state plus its last applied command for short island replay; the client never runs route
 selection or driving AI.
+
+G2a architecture checklist:
+
+- [x] A versioned authored district asset compiles centerlines and owned junctions into
+  immutable right-hand lane, connector, and turnaround edges.
+- [x] Startup validates geometry, occupancy, sinks, ownership, and forward/reverse strong
+  connectivity instead of silently accepting unusable graph content.
+- [x] Deterministic visit-bounded A* returns legal complete routes or explicit partial work.
+- [x] `TrafficRouteSystem` owns durable destinations, progress, recovery, diagnostics, and
+  active/dormant population adapters outside `TrafficController`.
+- [x] The collision-grid route remains an explicit map-compatibility adapter.
+- [x] F3 and the Three overlay expose graph topology, route state, partial plans, and
+  revisions to opt-in debug subscribers.
+- [x] Route, population, and AI policy remain server-only; frozen interaction-island
+  netcode and shared movement/contact kernels are unchanged.
+- [x] G2b.1 resolves authored conflict centers, queues approaches deterministically, admits
+  only an unblocked owner, preserves a commit window, and holds ownership through rear
+  clearance.
+- [x] G2b.1 treats signals and unqueued physical occupants as admission blockers, stops
+  denied traffic before the connector, and suppresses reverse/pass/siren maneuvers while a
+  car is crossing or clearing.
+- [x] G2b.1 F3 diagnostics expose junction phase, FIFO position, lease, center, and
+  color-coded ownership; focused lifecycle/controller tests and a dense one-minute soak
+  enforce exclusivity, bounded queues, and throughput.
+- [x] G2b.1 remains server-only and leaves frozen interaction-island netcode and shared
+  movement/contact kernels unchanged.
+- [x] G2b.2a adds catalog-sized swept oriented-box/time-to-contact awareness, composes it
+  with junction ownership, exposes risk through F3/Three diagnostics, and bounds overlap
+  pair-ticks in a dense one-minute soak.
+- [ ] G2b.2b adds movement-class conflict arbitration for compatible simultaneous turns.
+- [x] G2c pressure relief retires only sustained offscreen disposable traffic, ranks blocker
+  roots deterministically, rate-limits removals, and advances virtual routes before reuse.
+- [x] G2c detects persistent strongly connected vehicle blocker cycles, elects one stable
+  rear-clear recovery owner, applies a bounded reverse command, and exposes the cycle/owner
+  without despawning visible actors.
+- [x] Disposable moving ambient pedestrians and traffic share one player-union lifecycle:
+  prewarm outside every protected view, retain through AOI hysteresis, and dematerialize to
+  coarse virtual records beyond every player while gameplay-owned actors remain pinned.
+- [ ] G2c adds authored lane-change and richer queue-aware passing/yielding policy.
 
 ### G3 - Police tactics and escalation
 
@@ -222,6 +306,11 @@ Drive archetypes, density, traffic classes, police presence, services, schedules
 ambience from zone/time profiles. Maintain one population around merged player, mission,
 pursuit, property, and high-speed lookahead anchors. Persist compact virtual state outside
 active cells and pin owned, mission, damaged, or engaged actors.
+
+Foundation delivered 2026-07-15: disposable moving ambient actors now use merged
+street-player anchors, prewarm-only admission, AOI-aligned hysteresis, cold virtual records,
+coarse dormant progress, speed-aware vehicle lookahead, and F3 tier diagnostics. Zone/time
+profiles, interest-cluster quotas, non-player gameplay anchors, and durable ownership remain.
 
 ### G9 - Durable social and economic systems
 

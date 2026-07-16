@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {TrafficController, trafficLanePoint} from '../server/game/traffic/traffic-controller.ts';
+import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
+import {VEHICLE_KINDS, vehicleDefinition} from '../shared/content/vehicle-catalog.ts';
 
 test('traffic controller follows deterministic road routes and releases hijacked cars', () => {
   const world = CollisionMap.load();
@@ -38,6 +40,128 @@ test('traffic controller follows deterministic road routes and releases hijacked
   first.vehicle.hijackBy = '';
   firstController.update(first.vehicle, 1, 6000);
   assert.deepEqual({x: first.vehicle.x, y: first.vehicle.y, speed: first.vehicle.speed}, released);
+});
+
+test('traffic controller owns a durable authored lane route instead of choosing every tick', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('authored-route')
+  });
+  const spawn = controller.spawn(211, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'authored-traffic';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+
+  const initial = controller.diagnostics()[0];
+  assert.equal(initial.mission, 'cruise-route');
+  assert.equal(initial.drivingStyle, 'lawful');
+  assert.equal(initial.routeSource, 'lane-graph');
+  assert.equal(initial.routeRevision, 1);
+  assert.equal(initial.routeComplete, true);
+  assert.ok(initial.routeRemaining >= 2);
+  assert.equal(initial.routeWaypoints.length, initial.routeRemaining);
+
+  for (let tick = 1; tick <= 30; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+  }
+  const duringEdge = controller.diagnostics()[0];
+  assert.equal(duringEdge.routeRevision, 1);
+  assert.equal(duringEdge.destinationLaneNodeId, initial.destinationLaneNodeId);
+  assert.ok(Math.hypot(vehicle.x - spawn.x, vehicle.y - spawn.y) > 0);
+
+  for (let tick = 31; tick <= 1800; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+  }
+  const circulated = controller.diagnostics()[0];
+  assert.ok(circulated.routeRevision > 1);
+  assert.equal(circulated.routeSource, 'lane-graph');
+  assert.ok(circulated.currentLaneNodeId);
+  assert.ok(circulated.destinationLaneNodeId);
+  assert.equal(world.isRoadAt(vehicle.x, vehicle.y), true);
+});
+
+test('authored traffic holds junction ownership through crossing and rear clearance', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('junction-lifecycle')
+  });
+  const spawn = controller.spawn(0, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'junction-lifecycle';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+
+  const transitions: string[] = [];
+  let previous = 'none';
+  for (let tick = 1; tick <= 720; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30);
+    const phase = controller.diagnostics()[0].junctionPhase;
+    if (phase === previous) continue;
+    transitions.push(phase);
+    previous = phase;
+  }
+
+  assert.ok(transitions.includes('approach'));
+  assert.ok(transitions.includes('crossing'));
+  assert.ok(transitions.includes('clearing'));
+  const crossing = transitions.indexOf('crossing');
+  assert.deepEqual(transitions.slice(crossing, crossing + 3), ['crossing', 'clearing', 'none']);
+});
+
+test('authored traffic waits before reserving a physically occupied conflict zone', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('junction-occupancy')
+  });
+  const spawn = controller.spawn(0, 20);
+  const vehicle = new VehicleState();
+  vehicle.id = 'junction-waiter';
+  vehicle.x = spawn.x;
+  vehicle.y = spawn.y;
+  vehicle.angle = spawn.angle;
+  vehicle.speed = 80;
+  vehicle.traffic = true;
+  controller.register(vehicle.id, spawn, 118);
+  const center = laneGraph.junction('inner-center')!;
+
+  const blocker = {
+    id: 'player-car',
+    kind: 'vehicle' as const,
+    x: center.x,
+    y: center.y,
+    radius: 22,
+    speed: 0,
+    angle: 0
+  };
+  for (let tick = 1; tick <= 120; tick++) {
+    controller.update(vehicle, 1 / 30, tick * 1000 / 30, {obstacles: [blocker]});
+  }
+  assert.equal(controller.diagnostics()[0].junctionPhase, 'waiting');
+  assert.equal(controller.diagnostics()[0].junctionQueuePosition, 1);
+  assert.equal(vehicle.speed, 0);
+  const stopLine = controller.diagnostics()[0].routeWaypoints[0];
+  assert.ok(Math.hypot(vehicle.x - stopLine.x, vehicle.y - stopLine.y) >= 32);
+
+  controller.update(vehicle, 1 / 30, 4100);
+  assert.equal(controller.diagnostics()[0].junctionPhase, 'approach');
 });
 
 test('traffic controller brakes for an ahead obstacle and exposes its speed reason', () => {
@@ -172,6 +296,11 @@ test('opposing traffic spawns on opposite right-hand lane offsets', () => {
   assert.ok(eastbound.y > 100);
   assert.ok(westbound.y < 100);
   assert.equal(eastbound.x, westbound.x);
+  const widestCollider = Math.max(...VEHICLE_KINDS.map((kind) => vehicleDefinition(kind).collision.width));
+  assert.ok(
+    eastbound.y - westbound.y >= widestCollider + 8,
+    'Opposing lane centers must clear the widest vehicle collider plus a safety margin.'
+  );
 });
 
 test('traffic scans the active route and does not node-snap through a stopping obstacle', () => {
@@ -215,6 +344,89 @@ test('traffic scans the active route and does not node-snap through a stopping o
   assert.equal(controller.diagnostics()[0].speedReason, 'pedestrian');
   assert.ok(vehicle.y > 90 && vehicle.y < 96, `Vehicle moved to ${vehicle.y}.`);
 });
+
+test('traffic controller breaks a visible mutual blocker cycle with one bounded recovery owner', () => {
+  const world = {
+    tileWidth: 64,
+    tileHeight: 64,
+    canOccupy: () => true,
+    isRoadAt: () => true,
+    roadNeighbors: (column: number) => column === 0
+      ? [{column: 1, row: 0}]
+      : [{column: 0, row: 0}]
+  } as unknown as CollisionMap;
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('visible-deadlock')
+  });
+  const left = trafficVehicle('cycle-left', 0, 0, 0);
+  const right = trafficVehicle('cycle-right', 96, 0, Math.PI);
+  controller.register(left.id, fallbackSpawn(0, 1, 0), 96);
+  controller.register(right.id, fallbackSpawn(1, 0, Math.PI), 96);
+  let maximumConcurrentOwners = 0;
+
+  for (let tick = 1; tick <= 360; tick++) {
+    const nowMs = tick * 1_000 / 30;
+    controller.beginTick(nowMs);
+    for (const [vehicle, blocker] of [[left, right], [right, left]] as const) {
+      const obstacles = [{
+        id: blocker.id,
+        kind: 'vehicle' as const,
+        x: blocker.x,
+        y: blocker.y,
+        radius: 20,
+        speed: blocker.speed,
+        angle: blocker.angle,
+        halfLength: 23,
+        halfWidth: 12
+      }, {
+        id: `protected-stop:${vehicle.id}`,
+        kind: 'signal' as const,
+        x: vehicle.x,
+        y: vehicle.y + 100,
+        radius: 8,
+        speed: 0
+      }];
+      controller.update(vehicle, 1 / 30, nowMs, {obstacles});
+      controller.observe(vehicle, nowMs, obstacles);
+    }
+    maximumConcurrentOwners = Math.max(
+      maximumConcurrentOwners,
+      controller.diagnostics().filter((entry) => entry.deadlockRecovering).length
+    );
+  }
+
+  const diagnostics = controller.diagnostics();
+  assert.equal(maximumConcurrentOwners, 1);
+  assert.equal(diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0), 1);
+  assert.ok(
+    Math.hypot(left.x, left.y) > 4 || Math.hypot(right.x - 96, right.y) > 4,
+    'The elected recovery owner did not move away from the blocker.'
+  );
+});
+
+function trafficVehicle(id: string, x: number, y: number, angle: number): VehicleState {
+  const vehicle = new VehicleState();
+  vehicle.id = id;
+  vehicle.x = x;
+  vehicle.y = y;
+  vehicle.angle = angle;
+  vehicle.speed = 0;
+  vehicle.traffic = true;
+  return vehicle;
+}
+
+function fallbackSpawn(column: number, targetColumn: number, angle: number) {
+  return {
+    x: column * 96,
+    y: 0,
+    angle,
+    column,
+    row: 0,
+    targetColumn,
+    targetRow: 0
+  };
+}
 
 function createTraffic(world: CollisionMap, id: string, seed: number) {
   const spawn = world.trafficSpawn(seed, 20);
