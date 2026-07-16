@@ -146,7 +146,10 @@ function populationSummary(snapshot?: DebugSnapshot): string {
   const active = population.activePedestrians + population.activeTraffic;
   const potential = population.potentialPedestrians + population.potentialTraffic;
   const pinned = population.pinnedPedestrians + population.pinnedTraffic;
-  return `${active}/${potential}${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
+  return `${active}/${potential} / ${population.hotActors} hot / ${population.warmActors} warm` +
+    ` / ${population.dormantActors} cold` +
+    `${population.deferredVisibleActors > 0 ? ` / ${population.deferredVisibleActors} pop guarded` : ''}` +
+    `${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
     `${population.jamRetirements > 0 ? ` / ${population.jamRetirements} jam retired` : ''}`;
 }
 

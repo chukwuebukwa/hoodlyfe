@@ -23,6 +23,7 @@ interface DistrictPopulationControllerOptions {
   world: CollisionMap;
   pedestrians: PedestrianController;
   traffic: TrafficController;
+  includeAmbientPedestrians?: boolean;
   includeAmbientTraffic?: boolean;
   onVehicleSpawned?: (vehicle: VehicleState) => void;
 }
@@ -44,13 +45,13 @@ export class DistrictPopulationController {
     if (this.initialized && this.result) return {...this.result};
     this.options.state.missionContactX = this.options.world.spawn.x;
     this.options.state.missionContactY = this.options.world.spawn.y;
-    this.spawnPedestrians();
+    if (this.options.includeAmbientPedestrians !== false) this.spawnPedestrians();
     this.spawnParkedVehicles();
     if (this.options.includeAmbientTraffic !== false) this.spawnTraffic();
     this.initialized = true;
     this.result = {
-      civilians: 10,
-      police: 3,
+      civilians: this.options.includeAmbientPedestrians === false ? 0 : 10,
+      police: this.options.includeAmbientPedestrians === false ? 0 : 3,
       parkedVehicles: PARKED_VEHICLE_KINDS.length,
       trafficVehicles: this.options.includeAmbientTraffic === false ? 0 : AMBIENT_TRAFFIC_TARGET
     };

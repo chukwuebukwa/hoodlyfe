@@ -49,7 +49,11 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** catalog-sized oriented-box car collisions with broad-phase bounds, minimum-axis separation, momentum transfer, pedestrian impacts, component damage, staged body damage, engine degradation, ignition, delayed explosion, occupant ejection, and restoration.
 - **Foundation** local driving uses sequenced fixed-step input, saved-move rewind/replay, swept oriented static-world collision, and render-only correction smoothing. Dynamic contacts remain server-only until the bounded nearby prediction island and timestamped remote vehicle buffers are complete.
 - **Playable** Sedan, Taxi, and Police Cruiser consume one shared catalog but have distinct health, mass, impact resistance, acceleration, braking, speed, steering, traffic policy, seating, and presentation metadata.
-- **Foundation** streamed traffic now owns 64 potential records with a 24-car active ceiling; additional vehicle classes, authored directed lane centerlines/turn connectors, segment capacity, and parking remain incomplete. A functional repair garage is playable.
+- **Foundation** streamed population owns 80 pedestrian and 64 traffic potential records
+  with 40/24 active ceilings. Actors materialize only outside every player's protected view,
+  prewarm before AOI entry, retain through hysteresis, and become coarse virtual records when
+  cold. Additional vehicle classes, per-player-cluster quotas, segment capacity, and parking
+  remain incomplete. A functional repair garage is playable.
 
 ### Crime, Police, and Pedestrians
 
@@ -114,6 +118,10 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
 - **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
 - **Delivered foundation**: sustained ambient jams outside every player's 1,536-pixel replication radius retire at a bounded rate, including minor collision-damaged traffic, while occupied, hijacked, mission, burning, destroyed, and visible vehicles remain protected.
+- **Delivered foundation**: all disposable moving ambient pedestrians and traffic are owned
+  by one player-union population lifecycle. The 720-to-1,280-pixel prewarm ring is the only
+  admission tier; 1,280-to-1,536 retains actors; cold records advance at coarse cadence
+  without full AI, physics, schemas, replication, or interaction-island history.
 - **Delivered playable**: persistent visible vehicle blocker cycles elect exactly one
   rear-clear recovery owner, release only that car's junction claim, reverse for a bounded
   window, and return to the existing route; F3 and Three expose the cycle and owner.

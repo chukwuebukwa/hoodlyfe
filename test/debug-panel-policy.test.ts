@@ -53,6 +53,27 @@ test('debug panel projects authoritative counters and bounded event summaries', 
   });
 });
 
+test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', () => {
+  const snapshot = createSnapshot();
+  snapshot.populationStreaming = {
+    potentialPedestrians: 80,
+    activePedestrians: 12,
+    potentialTraffic: 64,
+    activeTraffic: 8,
+    pinnedPedestrians: 1,
+    pinnedTraffic: 1,
+    jamRetirements: 3,
+    hotActors: 14,
+    warmActors: 6,
+    dormantActors: 124,
+    deferredVisibleActors: 4
+  };
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).population,
+    '20/144 / 14 hot / 6 warm / 124 cold / 4 pop guarded / 2 pinned / 3 jam retired'
+  );
+});
+
 test('debug panel summarizes authored road topology and route planner pressure', () => {
   const snapshot = createSnapshot();
   snapshot.trafficLaneGraph = {

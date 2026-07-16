@@ -181,6 +181,15 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     debugSnapshot.players + debugSnapshot.npcs + debugSnapshot.vehicles
   );
   assert.equal(debugSnapshot.deferredCommands, 0);
+  assert.ok(debugSnapshot.populationStreaming);
+  const streamedPopulation = debugSnapshot.populationStreaming;
+  const activePopulation = streamedPopulation.activePedestrians + streamedPopulation.activeTraffic;
+  assert.ok(streamedPopulation.hotActors + streamedPopulation.warmActors <= activePopulation);
+  assert.equal(
+    streamedPopulation.dormantActors,
+    streamedPopulation.potentialPedestrians + streamedPopulation.potentialTraffic - activePopulation
+  );
+  assert.ok(streamedPopulation.deferredVisibleActors >= 0);
 
   first.send(MISSION_START_MESSAGE);
   await waitUntil(() => first.state.missions.size === 1 && second.state.missions.size === 1);
@@ -431,7 +440,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     false,
     'Authoritative pistol fire did not kill the target before the bounded duel deadline.'
   );
-  await waitUntil(() => debugSnapshots.some((snapshot) => snapshot.pursuits.length > 0));
+  await waitUntil(() => debugSnapshots.some((snapshot) => (
+    snapshot.pursuits.length > 0 ||
+    snapshot.policeResponse?.assignments.some((assignment) => (
+      assignment.suspectId === first.sessionId
+    ))
+  )));
   assert.ok(debugSnapshots.some((snapshot) => (
     snapshot.events.some((event) => event.type === 'incident.reported')
   )));

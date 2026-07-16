@@ -194,7 +194,9 @@ The first room-facing facades are now live:
 - `TrafficController` is the room-facing traffic facade. It composes route, awareness,
   junction, maneuver, emergency-yield, and low-level driving owners without implementing
   their policy.
-- `DistrictPopulationController` owns idempotent map bootstrap, initial archetype budgets, parked/traffic vehicle creation, and registration through domain APIs.
+- `DistrictPopulationController` owns idempotent persistent map bootstrap and registration
+  through domain APIs. In the live room it creates parked/service vehicles only; disposable
+  moving pedestrians and traffic belong to streamed population.
 - `DebugSnapshotController` owns bounded event summaries, sampled simulation diagnostics, domain-to-protocol copies, and developer snapshot publication.
 - `VehicleSimulationController` owns handling, impacts, collisions, localized damage, fire, destruction, restoration, and occupant projection.
 - `FireControlController`, `ProjectileController`, `ThrownProjectileController`, `ExplosionController`, and `DamageController` separate weapon use, bullets, bounded thrown/fused motion, one-shot radial resolution/vehicle-chain adaptation, and victim response.
@@ -226,7 +228,12 @@ The first room-facing facades are now live:
 - `StreetServiceController` owns replicated nonmedical service placement, eligibility, quote/debit coordination, notices, and narrow restoration ports; it delegates hospital interactions and does not own cash, health, ammunition, or vehicle damage fields.
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictReplicationController` owns per-client Colyseus `StateView` membership and patch-time diffs. Gameplay domains mutate one authoritative district; the replication adapter exposes same-space players/services plus street-only simulation collections without teaching those domains about clients. Newly attached schemas remain in a one-cycle completion set so the installed encoder can force unchanged scalar fields after its initial new-object encode.
-- `street-streaming-policy.ts` owns street AOI hysteresis, deterministic priority, and patch budgets; `PopulationStreamingController` owns lightweight potential records, materialization/dematerialization limits, dormant progress, active ceilings, and gameplay pin rules.
+- `street-streaming-policy.ts` owns per-client street AOI hysteresis, deterministic priority,
+  and patch budgets. `population-activation-policy.ts` owns the player-union hot, prewarm,
+  retained, and cold tiers. `PopulationStreamingController` owns lightweight potential
+  records, prewarm-only materialization, dormant progress, active ceilings, and gameplay pin
+  rules. Population activation remains separate from replication and interaction-island
+  prediction.
 - `TrafficJunctionSystem` owns expiring deterministic connector reservations;
   `TrafficManeuverSystem` owns local legitimate-stop filtering plus bounded
   reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle

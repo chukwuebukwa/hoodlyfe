@@ -98,7 +98,25 @@ test('bootstrapped traffic is registered and moves on district roads', () => {
   assert.equal(world.isRoadAt(vehicle.x, vehicle.y), true);
 });
 
-function createPopulation(seed: string) {
+test('district bootstrap can delegate all ambient moving population to streaming', () => {
+  const {population, state} = createPopulation('streaming-owned-population', {
+    includeAmbientPedestrians: false,
+    includeAmbientTraffic: false
+  });
+  assert.deepEqual(population.populate(), {
+    civilians: 0,
+    police: 0,
+    parkedVehicles: 5,
+    trafficVehicles: 0
+  });
+  assert.equal(state.npcs.size, 0);
+  assert.equal(state.vehicles.size, 5);
+});
+
+function createPopulation(
+  seed: string,
+  options: {includeAmbientPedestrians?: boolean; includeAmbientTraffic?: boolean} = {}
+) {
   const state = new DistrictState();
   const world = CollisionMap.load();
   const random = new DeterministicRandom(seed);
@@ -118,6 +136,7 @@ function createPopulation(seed: string) {
     world,
     pedestrians,
     traffic,
+    ...options,
     onVehicleSpawned: (vehicle) => spawnedVehicles.push(vehicle.id)
   });
   return {population, state, traffic, world, spawnedVehicles};

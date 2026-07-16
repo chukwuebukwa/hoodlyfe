@@ -197,6 +197,9 @@ contact awareness implemented on
 and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
 Visible deadlock ownership is recorded in
 [`decisions/0012-visible-traffic-deadlock-recovery.md`](decisions/0012-visible-traffic-deadlock-recovery.md).
+Player-union population activation is recorded in
+[`POPULATION_INTEREST_STREAMING_RESEARCH.md`](POPULATION_INTEREST_STREAMING_RESEARCH.md) and
+[`decisions/0013-player-union-population-interest.md`](decisions/0013-player-union-population-interest.md).
 
 Introduce an authored directed lane graph and separate:
 
@@ -246,6 +249,9 @@ G2a architecture checklist:
 - [x] G2c detects persistent strongly connected vehicle blocker cycles, elects one stable
   rear-clear recovery owner, applies a bounded reverse command, and exposes the cycle/owner
   without despawning visible actors.
+- [x] Disposable moving ambient pedestrians and traffic share one player-union lifecycle:
+  prewarm outside every protected view, retain through AOI hysteresis, and dematerialize to
+  coarse virtual records beyond every player while gameplay-owned actors remain pinned.
 - [ ] G2c adds authored lane-change and richer queue-aware passing/yielding policy.
 
 ### G3 - Police tactics and escalation
@@ -300,6 +306,11 @@ Drive archetypes, density, traffic classes, police presence, services, schedules
 ambience from zone/time profiles. Maintain one population around merged player, mission,
 pursuit, property, and high-speed lookahead anchors. Persist compact virtual state outside
 active cells and pin owned, mission, damaged, or engaged actors.
+
+Foundation delivered 2026-07-15: disposable moving ambient actors now use merged
+street-player anchors, prewarm-only admission, AOI-aligned hysteresis, cold virtual records,
+coarse dormant progress, and F3 tier diagnostics. Zone/time profiles, interest-cluster
+quotas, non-player gameplay anchors, and durable ownership remain.
 
 ### G9 - Durable social and economic systems
 

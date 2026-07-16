@@ -16,9 +16,15 @@ NOCK0 keeps a clean-room TypeScript implementation. The reference establishes mi
 - Same-space players and services remain visible. Occupied vehicles and participant mission targets are pinned regardless of distance.
 - Adds and removes are budgeted per patch. Complete-state delivery for newly attached schemas remains explicit.
 - `PopulationStreamingController` owns 80 pedestrian and 64 traffic records without materializing all 144 entities.
-- Population materializes within 1,536 pixels and dematerializes beyond 1,920 pixels, with per-tick operation budgets and active ceilings of 40 pedestrians and 24 traffic cars.
+- Population materializes only in the 720-to-1,280-pixel prewarm ring, remains active
+  through the 1,536-pixel AOI retention ring, and dematerializes beyond it. A dormant record
+  never appears inside any player's protected view, while the client receives the actor
+  before presentation. Per-tick operation budgets and active ceilings remain 40 pedestrians
+  and 24 traffic cars.
 - Dormant records advance coarse route or wander state. Combat pedestrians and occupied, damaged, burning, destroyed, or mission-owned vehicles remain materialized.
-- `DistrictPopulationController` now creates persistent pedestrians and parked/service vehicles in the live room but does not create a second ambient traffic population.
+- `DistrictPopulationController` creates only persistent parked/service vehicles in the live
+  room. `PopulationStreamingController` owns all disposable moving ambient pedestrians and
+  traffic, eliminating the permanently simulated bootstrap population.
 
 Network observation and simulation activation remain separate policies. A client view never decides whether an entity exists.
 

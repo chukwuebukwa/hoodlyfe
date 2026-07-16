@@ -646,6 +646,7 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
+      includeAmbientPedestrians: false,
       includeAmbientTraffic: false,
       onVehicleSpawned: (vehicle) => {
         this.indexVehicle(vehicle);

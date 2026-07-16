@@ -223,6 +223,10 @@ export interface DebugPopulationStreamingEntry {
   pinnedPedestrians: number;
   pinnedTraffic: number;
   jamRetirements: number;
+  hotActors: number;
+  warmActors: number;
+  dormantActors: number;
+  deferredVisibleActors: number;
 }
 
 export interface DebugSnapshot {

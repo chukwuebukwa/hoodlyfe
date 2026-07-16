@@ -10,6 +10,12 @@ import {
   TRAFFIC_JAM_RETIREMENT,
   selectInvisibleTrafficJamRetirements
 } from './traffic-jam-retirement-policy.ts';
+import {
+  POPULATION_INTEREST,
+  nearestPopulationAnchorDistance,
+  populationInterestAt,
+  type PopulationInterestAnchor
+} from './population-activation-policy.ts';
 
 export const STREAMED_CIVILIAN_RECORDS = 72;
 export const STREAMED_POLICE_RECORDS = 8;
@@ -24,8 +30,8 @@ const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = [
 ];
 
 export const POPULATION_STREAMING = Object.freeze({
-  materializeRadius: 1_536,
-  dematerializeRadius: 1_920,
+  materializeRadius: POPULATION_INTEREST.prewarmRadius,
+  dematerializeRadius: POPULATION_INTEREST.retentionRadius,
   maxMaterializationsPerTick: 10,
   maxDematerializationsPerTick: 10,
   dormantStepMs: 3_000,
@@ -33,11 +39,6 @@ export const POPULATION_STREAMING = Object.freeze({
   maxActivePedestrians: 40,
   maxActiveTraffic: 24
 });
-
-interface PopulationAnchor {
-  x: number;
-  y: number;
-}
 
 interface VirtualPedestrianRecord {
   id: string;
@@ -84,6 +85,10 @@ export interface PopulationStreamingDiagnostic {
   pinnedPedestrians: number;
   pinnedTraffic: number;
   jamRetirements: number;
+  hotActors: number;
+  warmActors: number;
+  dormantActors: number;
+  deferredVisibleActors: number;
 }
 
 export class PopulationStreamingController {
@@ -93,6 +98,7 @@ export class PopulationStreamingController {
   private dormantPedestrianCursor = 0;
   private dormantTrafficCursor = 0;
   private readonly trafficStationarySince = new Map<string, number>();
+  private anchors: PopulationInterestAnchor[] = [];
   private lastJamRetirementAt = Number.NEGATIVE_INFINITY;
   private jamRetirementCount = 0;
 
@@ -131,9 +137,10 @@ export class PopulationStreamingController {
     this.initialized = true;
   }
 
-  update(anchors: readonly PopulationAnchor[], nowMs: number): void {
+  update(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     if (!this.initialized) this.initialize(nowMs);
     const normalized = anchors.filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
+    this.anchors = normalized.map((anchor) => ({x: anchor.x, y: anchor.y}));
     this.materializeNearby(normalized, nowMs);
     this.retireInvisibleTrafficJams(normalized, nowMs);
     this.dematerializeFar(normalized, nowMs);
@@ -143,6 +150,24 @@ export class PopulationStreamingController {
   diagnostics(): PopulationStreamingDiagnostic {
     const activePedestrians = [...this.pedestrians.values()].filter((record) => record.active);
     const activeTraffic = [...this.traffic.values()].filter((record) => record.active);
+    let hotActors = 0;
+    let warmActors = 0;
+    let deferredVisibleActors = 0;
+    for (const record of this.pedestrians.values()) {
+      const npc = record.active ? this.options.state.npcs.get(record.id) : undefined;
+      const interest = populationInterestAt(npc?.x ?? record.x, npc?.y ?? record.y, this.anchors);
+      if (record.active && interest.tier === 'hot') hotActors++;
+      else if (record.active && interest.retain) warmActors++;
+      else if (!record.active && interest.tier === 'hot') deferredVisibleActors++;
+    }
+    for (const record of this.traffic.values()) {
+      const vehicle = record.active ? this.options.state.vehicles.get(record.id) : undefined;
+      const position = vehicle ?? this.trafficPosition(record.spawn);
+      const interest = populationInterestAt(position.x, position.y, this.anchors);
+      if (record.active && interest.tier === 'hot') hotActors++;
+      else if (record.active && interest.retain) warmActors++;
+      else if (!record.active && interest.tier === 'hot') deferredVisibleActors++;
+    }
     return {
       potentialPedestrians: this.pedestrians.size,
       activePedestrians: activePedestrians.length,
@@ -153,11 +178,18 @@ export class PopulationStreamingController {
         const vehicle = this.options.state.vehicles.get(record.id);
         return Boolean(vehicle && !this.canStreamOutVehicle(vehicle));
       }).length,
-      jamRetirements: this.jamRetirementCount
+      jamRetirements: this.jamRetirementCount,
+      hotActors,
+      warmActors,
+      dormantActors: this.pedestrians.size + this.traffic.size - activePedestrians.length - activeTraffic.length,
+      deferredVisibleActors
     };
   }
 
-  private retireInvisibleTrafficJams(anchors: readonly PopulationAnchor[], nowMs: number): void {
+  private retireInvisibleTrafficJams(
+    anchors: readonly PopulationInterestAnchor[],
+    nowMs: number
+  ): void {
     const diagnostics = this.options.traffic.diagnostics();
     const diagnosticById = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
     const blockedFollowers = new Map<string, number>();
@@ -189,7 +221,7 @@ export class PopulationStreamingController {
       this.trafficStationarySince.set(record.id, stationarySince);
       candidates.push({
         id: record.id,
-        distance: nearestDistance(vehicle.x, vehicle.y, anchors),
+        distance: nearestPopulationAnchorDistance(vehicle.x, vehicle.y, anchors),
         stationarySince,
         blockedFollowerCount: blockedFollowers.get(record.id) ?? 0,
         speedReason: diagnostic.speedReason,
@@ -221,14 +253,15 @@ export class PopulationStreamingController {
     this.jamRetirementCount++;
   }
 
-  private materializeNearby(anchors: readonly PopulationAnchor[], nowMs: number): void {
+  private materializeNearby(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     if (anchors.length === 0) return;
     let pedestrianBudget = Math.ceil(POPULATION_STREAMING.maxMaterializationsPerTick / 2);
     let trafficBudget = Math.floor(POPULATION_STREAMING.maxMaterializationsPerTick / 2);
     const pedestrianCandidates = [...this.pedestrians.values()]
       .filter((record) => !record.active)
-      .map((record) => ({record, distance: nearestDistance(record.x, record.y, anchors)}))
-      .filter((candidate) => candidate.distance <= POPULATION_STREAMING.materializeRadius)
+      .map((record) => ({record, interest: populationInterestAt(record.x, record.y, anchors)}))
+      .filter((candidate) => candidate.interest.materialize)
+      .map(({record, interest}) => ({record, distance: interest.distance}))
       .sort(compareCandidate);
     pedestrianBudget = Math.min(
       pedestrianBudget,
@@ -250,11 +283,12 @@ export class PopulationStreamingController {
 
     const trafficCandidates = [...this.traffic.values()]
       .filter((record) => !record.active)
-      .map((record) => ({
-        record,
-        distance: nearestDistance(record.spawn.x, record.spawn.y, anchors)
-      }))
-      .filter((candidate) => candidate.distance <= POPULATION_STREAMING.materializeRadius)
+      .map((record) => {
+        const position = this.trafficPosition(record.spawn);
+        return {record, interest: populationInterestAt(position.x, position.y, anchors)};
+      })
+      .filter((candidate) => candidate.interest.materialize)
+      .map(({record, interest}) => ({record, distance: interest.distance}))
       .sort(compareCandidate);
     trafficBudget = Math.min(
       trafficBudget,
@@ -270,7 +304,7 @@ export class PopulationStreamingController {
     }
   }
 
-  private dematerializeFar(anchors: readonly PopulationAnchor[], nowMs: number): void {
+  private dematerializeFar(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     let pedestrianBudget = Math.ceil(POPULATION_STREAMING.maxDematerializationsPerTick / 2);
     let trafficBudget = Math.floor(POPULATION_STREAMING.maxDematerializationsPerTick / 2);
     for (const record of this.pedestrians.values()) {
@@ -280,9 +314,7 @@ export class PopulationStreamingController {
         record.active = false;
         continue;
       }
-      if (nearestDistance(npc.x, npc.y, anchors) <= POPULATION_STREAMING.dematerializeRadius) {
-        continue;
-      }
+      if (populationInterestAt(npc.x, npc.y, anchors).retain) continue;
       if (!this.options.pedestrians.canStreamOut(record.id)) continue;
       record.x = npc.x;
       record.y = npc.y;
@@ -299,9 +331,7 @@ export class PopulationStreamingController {
         record.active = false;
         continue;
       }
-      if (nearestDistance(vehicle.x, vehicle.y, anchors) <= POPULATION_STREAMING.dematerializeRadius) {
-        continue;
-      }
+      if (populationInterestAt(vehicle.x, vehicle.y, anchors).retain) continue;
       if (!this.canStreamOutVehicle(vehicle)) continue;
       this.captureVehicleRoute(record, vehicle);
       this.options.traffic.release(vehicle.id);
@@ -448,12 +478,6 @@ export class PopulationStreamingController {
       POPULATION_STREAMING.dormantStepMs
     ));
   }
-}
-
-function nearestDistance(x: number, y: number, anchors: readonly PopulationAnchor[]): number {
-  let nearest = Number.POSITIVE_INFINITY;
-  for (const anchor of anchors) nearest = Math.min(nearest, Math.hypot(anchor.x - x, anchor.y - y));
-  return nearest;
 }
 
 function compareCandidate<T extends {id: string}>(

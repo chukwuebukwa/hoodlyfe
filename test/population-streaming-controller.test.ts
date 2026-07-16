@@ -10,6 +10,7 @@ import {NpcState, DistrictState} from '../server/state.ts';
 import type {CollisionMap, RoadNode, TrafficSpawn} from '../server/world-map.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import type {TrafficDiagnostic} from '../server/game/traffic/traffic-controller.ts';
+import {POPULATION_INTEREST} from '../server/game/population/population-activation-policy.ts';
 
 test('population streaming materializes a bounded nearby subset and virtualizes it when far', () => {
   const fixture = createFixture();
@@ -21,20 +22,35 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
     activeTraffic: 0,
     pinnedPedestrians: 0,
     pinnedTraffic: 0,
-    jamRetirements: 0
+    jamRetirements: 0,
+    hotActors: 0,
+    warmActors: 0,
+    dormantActors: STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS + STREAMED_TRAFFIC_RECORDS,
+    deferredVisibleActors: 0
   });
 
   fixture.controller.update([{x: 0, y: 0}], 100);
-  assert.equal(fixture.state.npcs.size, 5);
-  assert.equal(fixture.state.vehicles.size, 5);
-  assert.equal(fixture.registered.length, 5);
-  assert.equal(fixture.controller.diagnostics().activePedestrians, 5);
-  assert.equal(fixture.controller.diagnostics().activeTraffic, 5);
+  assert.ok(fixture.state.npcs.size > 0 && fixture.state.npcs.size <= 5);
+  assert.ok(fixture.state.vehicles.size > 0 && fixture.state.vehicles.size <= 5);
+  assert.equal(fixture.registered.length, fixture.state.vehicles.size);
+  assert.equal(fixture.controller.diagnostics().activePedestrians, fixture.state.npcs.size);
+  assert.equal(fixture.controller.diagnostics().activeTraffic, fixture.state.vehicles.size);
+  for (const actor of [...fixture.state.npcs.values(), ...fixture.state.vehicles.values()]) {
+    const distance = Math.hypot(actor.x, actor.y);
+    assert.ok(distance > POPULATION_INTEREST.protectedViewRadius);
+    assert.ok(distance <= POPULATION_INTEREST.prewarmRadius);
+  }
+  assert.equal(fixture.controller.diagnostics().hotActors, 0);
+  assert.equal(
+    fixture.controller.diagnostics().warmActors,
+    fixture.state.npcs.size + fixture.state.vehicles.size
+  );
+  assert.ok(fixture.controller.diagnostics().deferredVisibleActors > 0);
 
   fixture.controller.update([{x: 10_000, y: 10_000}], 200);
   assert.equal(fixture.state.npcs.size, 0);
   assert.equal(fixture.state.vehicles.size, 0);
-  assert.equal(fixture.released.length, 5);
+  assert.equal(fixture.released.length, fixture.registered.length);
   assert.equal(fixture.controller.diagnostics().activePedestrians, 0);
   assert.equal(fixture.controller.diagnostics().activeTraffic, 0);
 });
@@ -56,6 +72,21 @@ test('combat pedestrians and damaged traffic remain pinned outside every player 
   assert.equal(fixture.controller.diagnostics().pinnedTraffic, 1);
 });
 
+test('an actor stays hot while any street player remains nearby', () => {
+  const fixture = createFixture();
+  fixture.controller.initialize(0);
+  fixture.controller.update([{x: 0, y: 0}], 100);
+  const protectedVehicle = [...fixture.state.vehicles.values()][0];
+  assert.ok(protectedVehicle);
+
+  fixture.controller.update([
+    {x: 10_000, y: 10_000},
+    {x: protectedVehicle.x, y: protectedVehicle.y}
+  ], 200);
+  assert.equal(fixture.state.vehicles.has(protectedVehicle.id), true);
+  assert.ok(fixture.controller.diagnostics().hotActors > 0);
+});
+
 test('sustained invisible ambient traffic jams retire blockers without popping visible cars', () => {
   const fixture = createFixture();
   fixture.controller.initialize(0);
@@ -74,8 +105,9 @@ test('sustained invisible ambient traffic jams retire blockers without popping v
     obstacleId: blocker.id
   });
 
-  fixture.controller.update([{x: 1_540, y: 0}], 1_000);
-  fixture.controller.update([{x: 1_540, y: 0}], 20_000);
+  const invisibleAnchor = {x: blocker.x + 1_540, y: blocker.y};
+  fixture.controller.update([invisibleAnchor], 1_000);
+  fixture.controller.update([invisibleAnchor], 20_000);
   assert.equal(fixture.state.vehicles.has(blocker.id), false);
   assert.equal(fixture.state.vehicles.has(follower.id), true);
   assert.equal(fixture.controller.diagnostics().jamRetirements, 1);
