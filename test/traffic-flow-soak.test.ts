@@ -25,6 +25,28 @@ test('a streamed street population continues circulating through a one-minute so
   let overlapPairTicks = 0;
   let maximumDeadlockCycles = 0;
   let deadlockRecoveryCount = 0;
+  let maximumLaneChanges = 0;
+  let laneChangeCompletions = 0;
+  let firstOverlapTrace: typeof maximumOverlapTrace = [];
+  let maximumOverlapTrace: Array<{
+    tick: number;
+    left: string;
+    right: string;
+    leftLaneChange: string;
+    rightLaneChange: string;
+    leftRoute: string;
+    rightRoute: string;
+    leftPosition: string;
+    rightPosition: string;
+    leftSpeed: number;
+    rightSpeed: number;
+    leftReason: string;
+    rightReason: string;
+    leftTarget: string;
+    rightTarget: string;
+    leftJunction: string;
+    rightJunction: string;
+  }> = [];
 
   for (let index = 0; index < 24; index++) {
     const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
@@ -68,6 +90,16 @@ test('a streamed street population continues circulating through a one-minute so
     maximumDeadlockCycles = Math.max(maximumDeadlockCycles, new Set(diagnostics
       .filter((entry) => entry.deadlockCycleId)
       .map((entry) => entry.deadlockCycleId)).size);
+    maximumLaneChanges = Math.max(
+      maximumLaneChanges,
+      diagnostics.filter((entry) => (
+        entry.laneChangePhase !== 'none' && entry.laneChangePhase !== 'requesting'
+      )).length
+    );
+    laneChangeCompletions = Math.max(
+      laneChangeCompletions,
+      diagnostics.reduce((sum, entry) => sum + entry.laneChangeCompletions, 0)
+    );
     deadlockRecoveryCount = Math.max(
       deadlockRecoveryCount,
       diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0)
@@ -87,11 +119,45 @@ test('a streamed street population continues circulating through a one-minute so
       'A junction admitted more than one active owner in the same tick.'
     );
     let overlapsThisTick = 0;
+    const overlapTrace: typeof maximumOverlapTrace = [];
+    const diagnosticsByVehicle = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
     for (let left = 0; left < vehicles.length; left++) {
       for (let right = left + 1; right < vehicles.length; right++) {
-        if (vehicleBoxesOverlap(vehicles[left], vehicles[right])) overlapsThisTick++;
+        if (!vehicleBoxesOverlap(vehicles[left], vehicles[right])) continue;
+        overlapsThisTick++;
+        const leftDiagnostic = diagnosticsByVehicle.get(vehicles[left].id);
+        const rightDiagnostic = diagnosticsByVehicle.get(vehicles[right].id);
+        overlapTrace.push({
+          tick,
+          left: vehicles[left].id,
+          right: vehicles[right].id,
+          leftLaneChange: leftDiagnostic?.laneChangePhase ?? 'missing',
+          rightLaneChange: rightDiagnostic?.laneChangePhase ?? 'missing',
+          leftRoute: leftDiagnostic?.currentLaneNodeId ?? 'missing',
+          rightRoute: rightDiagnostic?.currentLaneNodeId ?? 'missing',
+          leftPosition: `${vehicles[left].x.toFixed(1)},${vehicles[left].y.toFixed(1)},${vehicles[left].angle.toFixed(2)}`,
+          rightPosition: `${vehicles[right].x.toFixed(1)},${vehicles[right].y.toFixed(1)},${vehicles[right].angle.toFixed(2)}`,
+          leftSpeed: Number(vehicles[left].speed.toFixed(1)),
+          rightSpeed: Number(vehicles[right].speed.toFixed(1)),
+          leftReason: `${leftDiagnostic?.speedReason ?? 'missing'}:${leftDiagnostic?.obstacleId ?? ''}`,
+          rightReason: `${rightDiagnostic?.speedReason ?? 'missing'}:${rightDiagnostic?.obstacleId ?? ''}`,
+          leftTarget: leftDiagnostic?.routeWaypoints[0]
+            ? `${leftDiagnostic.routeWaypoints[0].x},${leftDiagnostic.routeWaypoints[0].y}`
+            : 'none',
+          rightTarget: rightDiagnostic?.routeWaypoints[0]
+            ? `${rightDiagnostic.routeWaypoints[0].x},${rightDiagnostic.routeWaypoints[0].y}`
+            : 'none',
+          leftJunction: leftDiagnostic
+            ? `${leftDiagnostic.junctionId}:${leftDiagnostic.junctionPhase}:${leftDiagnostic.junctionQueuePosition}`
+            : 'missing',
+          rightJunction: rightDiagnostic
+            ? `${rightDiagnostic.junctionId}:${rightDiagnostic.junctionPhase}:${rightDiagnostic.junctionQueuePosition}`
+            : 'missing'
+        });
       }
     }
+    if (firstOverlapTrace.length === 0 && overlapTrace.length > 0) firstOverlapTrace = overlapTrace;
+    if (overlapsThisTick > maximumConcurrentOverlaps) maximumOverlapTrace = overlapTrace;
     maximumConcurrentOverlaps = Math.max(maximumConcurrentOverlaps, overlapsThisTick);
     overlapPairTicks += overlapsThisTick;
   }
@@ -104,6 +170,22 @@ test('a streamed street population continues circulating through a one-minute so
     entry.blockedSince > 0 && 60_000 - entry.blockedSince > 8_000
   ));
 
+  if (process.env.TRAFFIC_SOAK_TRACE === '1') {
+    console.log(JSON.stringify({
+      vehicles: vehicles.length,
+      circulated: circulated.length,
+      completedJunctionTraversals,
+      maximumQueuePosition,
+      maximumConcurrentOverlaps,
+      overlapPairTicks,
+      maximumDeadlockCycles,
+      deadlockRecoveryCount,
+      maximumLaneChanges,
+      laneChangeCompletions,
+      firstOverlapTrace,
+      maximumOverlapTrace
+    }));
+  }
   assert.ok(vehicles.length >= 16, `Only ${vehicles.length} separated traffic spawns were available.`);
   assert.ok(
     circulated.length >= Math.ceil(vehicles.length * 0.75),
@@ -130,18 +212,6 @@ test('a streamed street population continues circulating through a one-minute so
     overlapPairTicks <= 60,
     `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
   );
-  if (process.env.TRAFFIC_SOAK_TRACE === '1') {
-    console.log(JSON.stringify({
-      vehicles: vehicles.length,
-      circulated: circulated.length,
-      completedJunctionTraversals,
-      maximumQueuePosition,
-      maximumConcurrentOverlaps,
-      overlapPairTicks,
-      maximumDeadlockCycles,
-      deadlockRecoveryCount
-    }));
-  }
 });
 
 function vehicleBoxesOverlap(left: VehicleState, right: VehicleState): boolean {

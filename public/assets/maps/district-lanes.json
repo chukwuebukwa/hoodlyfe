@@ -1,13 +1,15 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "districtId": "industrial-district",
   "driveSide": "right",
   "laneOffset": 24,
+  "laneSpacing": 40,
   "allowTerminalTurnarounds": true,
   "corridors": [
     {
       "id": "west-avenue",
       "speedLimit": 104,
+      "lanesPerDirection": 2,
       "points": [{"x": 224, "y": 352}, {"x": 224, "y": 1696}]
     },
     {
@@ -18,11 +20,13 @@
     {
       "id": "central-avenue",
       "speedLimit": 122,
+      "lanesPerDirection": 2,
       "points": [{"x": 2336, "y": 32}, {"x": 2336, "y": 3808}]
     },
     {
       "id": "north-service-road",
       "speedLimit": 104,
+      "lanesPerDirection": 2,
       "points": [{"x": 160, "y": 416}, {"x": 2464, "y": 416}]
     },
     {
@@ -33,11 +37,13 @@
     {
       "id": "west-market-road",
       "speedLimit": 96,
+      "lanesPerDirection": 2,
       "points": [{"x": 32, "y": 1440}, {"x": 1504, "y": 1440}]
     },
     {
       "id": "east-market-road",
       "speedLimit": 104,
+      "lanesPerDirection": 2,
       "points": [{"x": 2272, "y": 2080}, {"x": 4064, "y": 2080}]
     },
     {
@@ -48,11 +54,13 @@
     {
       "id": "south-boulevard-north",
       "speedLimit": 126,
+      "lanesPerDirection": 2,
       "points": [{"x": 32, "y": 3488}, {"x": 4064, "y": 3488}]
     },
     {
       "id": "south-boulevard-south",
       "speedLimit": 126,
+      "lanesPerDirection": 2,
       "points": [{"x": 32, "y": 3744}, {"x": 4064, "y": 3744}]
     }
   ],

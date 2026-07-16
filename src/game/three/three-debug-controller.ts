@@ -297,6 +297,26 @@ export class ThreeDebugController {
           ));
         }
       }
+      if (vehicle && entry.laneChangeTargets.length > 0) {
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 41),
+          ...entry.laneChangeTargets.map((target) => point(
+            target.x,
+            target.y,
+            this.surfaceHeightAt(target.x, target.y) + 41
+          ))
+        ], entry.laneChangePhase === 'requesting' ? 0x8a9ab5 : 0x42a5ff));
+        this.group.add(debugRing(
+          entry.laneChangeTargets[0].x,
+          entry.laneChangeTargets[0].y,
+          18,
+          0x42a5ff,
+          this.surfaceHeightAt(
+            entry.laneChangeTargets[0].x,
+            entry.laneChangeTargets[0].y
+          ) + 40
+        ));
+      }
       if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
       if (!vehicle || !emergency) continue;

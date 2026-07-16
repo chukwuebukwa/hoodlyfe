@@ -16,15 +16,26 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   assert.deepEqual(central && {id: central.id, x: central.x, y: central.y}, {
     id: 'central-center', x: 2336, y: 2656
   });
-  assert.equal(graph.junctions().length, 12);
-  assert.equal(graph.schemaVersion, 1);
+  assert.ok((graph.junction('west-north-service')?.conflictRadius ?? 0) > 90);
+  assert.equal(graph.junctions().length, 32);
+  assert.equal(graph.schemaVersion, 2);
   assert.equal(graph.districtId, 'industrial-district');
-  assert.equal(graph.nodes().length, 88);
-  assert.equal(graph.edges().length, 184);
+  assert.equal(graph.nodes().length, 150);
+  assert.equal(graph.edges().length, 246);
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'left'));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'right'));
-  assert.ok(graph.edges().some((edge) => edge.kind === 'turnaround'));
+  assert.ok(graph.edges().some((edge) => (
+    edge.kind === 'turnaround' && edge.junctionId === 'terminal:west-avenue:end'
+  )));
   assert.ok(graph.nodes().every((node) => graph.outgoing(node.id).length > 0));
+
+  const multiLaneEdge = graph.edge('central-avenue:forward:edge:2');
+  assert.ok(multiLaneEdge);
+  const adjacent = graph.adjacentLaneEdges(multiLaneEdge.id);
+  assert.equal(adjacent.length, 1);
+  assert.equal(graph.node(adjacent[0].fromNodeId)?.laneIndex, 1);
+  assert.equal(graph.node(adjacent[0].fromNodeId)?.direction, 'forward');
+  assert.equal(graph.node(adjacent[0].fromNodeId)?.corridorId, 'central-avenue');
 
   const planner = new TrafficRoutePlanner(graph);
   const origin = graph.nodes()[0].id;
@@ -47,12 +58,18 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
 test('right-hand lane compilation offsets opposing directions to opposite sides', () => {
   const graph = LaneGraph.load(CollisionMap.load());
   const southbound = graph.node('central-avenue:forward:2');
+  const outerSouthbound = graph.node('central-avenue:forward:lane-1:2');
   const northbound = graph.node('central-avenue:reverse:5');
+  const outerNorthbound = graph.node('central-avenue:reverse:lane-1:5');
   assert.ok(southbound);
+  assert.ok(outerSouthbound);
   assert.ok(northbound);
+  assert.ok(outerNorthbound);
   assert.equal(southbound.y, northbound.y);
   assert.ok(southbound.x < 2336);
+  assert.ok(outerSouthbound.x < southbound.x);
   assert.ok(northbound.x > 2336);
+  assert.ok(outerNorthbound.x > northbound.x);
 });
 
 test('lane route planner crosses corridors deterministically without violating direction', () => {
@@ -96,10 +113,11 @@ test('bounded lane planning returns explicit partial work rather than hiding fai
 
 test('lane graph rejects invalid junction ownership and blocked geometry', () => {
   const document: LaneGraphDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     districtId: 'test',
     driveSide: 'right',
     laneOffset: 4,
+    laneSpacing: 7,
     allowTerminalTurnarounds: true,
     corridors: [
       {id: 'horizontal', speedLimit: 80, points: [{x: 0, y: 0}, {x: 100, y: 0}]},

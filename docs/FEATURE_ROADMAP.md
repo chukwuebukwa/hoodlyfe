@@ -136,12 +136,18 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable**: server traffic predicts catalog-sized oriented-box contact from
   relative motion, combines TTC with following-distance speed caps, preserves admitted
   junction throughput, and exposes limiting risk through F3 and Three overlays.
+- **Delivered playable**: selected district corridors compile two lanes per direction;
+  turn legality consumes lane index; slow-lead passing reserves one adjacent-lane segment,
+  validates lead/front/rear/path clearance, and executes bounded change-out/pass/return
+  phases. Multi-lane and terminal conflict bounds own fixed braking-distance stop lines,
+  and the dense one-minute traffic soak records zero overlap pair-ticks.
 - **Delivered playable**: an authored cruiser plus bounded dynamic reinforcements consume reported suspect facts without traffic/wanted coupling, use bounded deterministic A*, search last-known positions, intercept visible targets, scale speed and unit count with heat, and permit occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.
 - **Delivered foundation**: the Industrial District now has authored directed lane
   centerlines, legal turn connectors, owned junctions, deterministic A*, durable routes,
-  and graph validation. Parking points, lane capacity, and lane-based overtaking remain.
+  graph validation, lane counts, adjacent-lane geometry, and server-owned passing. Parking
+  points, permanent route-lane transitions, and turn pockets remain.
 - Add coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 

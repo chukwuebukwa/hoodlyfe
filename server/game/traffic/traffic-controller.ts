@@ -25,10 +25,15 @@ import {
 import {vehicleConfig} from '../vehicles/vehicle-config.ts';
 import type {TrafficJunctionPhase} from './traffic-junction-system.ts';
 import {TrafficDeadlockSystem} from './traffic-deadlock-system.ts';
+import {
+  TrafficLaneChangeSystem,
+  type TrafficLaneChangePhase,
+  type TrafficLaneChangeRuntime
+} from './traffic-lane-change-system.ts';
+import type {TrafficLaneChangeRejectReason} from './traffic-lane-change-policy.ts';
 
 const JUNCTION_APPROACH_DISTANCE = 112;
 const JUNCTION_COMMIT_DISTANCE = 60;
-const JUNCTION_CONFLICT_RADIUS = 34;
 const JUNCTION_CLEARANCE_MARGIN = 12;
 const JUNCTION_STOP_LINE_OFFSET = 34;
 
@@ -46,6 +51,7 @@ interface TrafficRuntime {
   reversingUntil: number;
   recoveryCount: number;
   maneuver: TrafficManeuverRuntime;
+  laneChange: TrafficLaneChangeRuntime;
   emergencyYield: EmergencyYieldRuntime;
 }
 
@@ -72,6 +78,15 @@ export interface TrafficDiagnostic {
   deadlockRecoveryCount: number;
   maneuverPhase: TrafficManeuverPhase;
   maneuverAttempts: number;
+  laneChangePhase: TrafficLaneChangePhase;
+  laneChangeLeadId: string;
+  laneChangeFromLane: number;
+  laneChangeToLane: number;
+  laneChangeAttempts: number;
+  laneChangeCompletions: number;
+  laneChangeRejectReason: TrafficLaneChangeRejectReason;
+  laneChangeReservationKey: string;
+  laneChangeTargets: Array<{x: number; y: number}>;
   emergencyYieldPhase: EmergencyYieldPhase;
   emergencyVehicleId: string;
   junctionId: string;
@@ -102,12 +117,14 @@ export class TrafficController {
   private readonly junctions = new TrafficJunctionSystem();
   private readonly emergencyYield: EmergencyYieldSystem;
   private readonly deadlocks = new TrafficDeadlockSystem();
+  private readonly laneChanges: TrafficLaneChangeSystem;
 
   constructor(private readonly options: TrafficControllerOptions) {
     this.driver = new RoadDrivingSystem(options.world);
     this.routes = new TrafficRouteSystem(options);
     this.maneuvers = new TrafficManeuverSystem(options.world);
     this.emergencyYield = new EmergencyYieldSystem(options.world);
+    this.laneChanges = new TrafficLaneChangeSystem(options.world);
   }
 
   register(vehicleId: string, spawn: TrafficSpawn, cruiseSpeed: number): void {
@@ -125,6 +142,7 @@ export class TrafficController {
       reversingUntil: 0,
       recoveryCount: 0,
       maneuver: this.maneuvers.createRuntime(),
+      laneChange: this.laneChanges.createRuntime(),
       emergencyYield: this.emergencyYield.createRuntime()
     };
     this.runtime.set(vehicleId, runtime);
@@ -147,6 +165,8 @@ export class TrafficController {
   }
 
   release(vehicleId: string): void {
+    const runtime = this.runtime.get(vehicleId);
+    this.laneChanges.release(vehicleId, runtime?.laneChange);
     this.runtime.delete(vehicleId);
     this.junctions.release(vehicleId);
     this.deadlocks.release(vehicleId);
@@ -158,6 +178,7 @@ export class TrafficController {
 
   beginTick(nowMs: number): void {
     this.deadlocks.beginTick(nowMs);
+    this.laneChanges.beginTick(nowMs);
   }
 
   observe(vehicle: VehicleState, nowMs: number, obstacles: readonly TrafficObstacle[]): void {
@@ -178,6 +199,7 @@ export class TrafficController {
     return [...this.runtime.entries()].map(([vehicleId, runtime]) => {
       const junction = this.junctions.diagnostic(vehicleId);
       const deadlock = this.deadlocks.diagnostic(vehicleId);
+      const laneChange = this.laneChanges.diagnostic(runtime.laneChange);
       return {
         vehicleId,
         mission: runtime.mission,
@@ -196,6 +218,15 @@ export class TrafficController {
         deadlockRecoveryCount: deadlock.recoveryCount,
         maneuverPhase: runtime.maneuver.phase,
         maneuverAttempts: runtime.maneuver.attempts,
+        laneChangePhase: laneChange.phase,
+        laneChangeLeadId: laneChange.leadId,
+        laneChangeFromLane: laneChange.fromLaneIndex,
+        laneChangeToLane: laneChange.toLaneIndex,
+        laneChangeAttempts: laneChange.attempts,
+        laneChangeCompletions: laneChange.completions,
+        laneChangeRejectReason: laneChange.rejectReason,
+        laneChangeReservationKey: laneChange.reservationKey,
+        laneChangeTargets: laneChange.targets,
         emergencyYieldPhase: runtime.emergencyYield.phase,
         emergencyVehicleId: runtime.emergencyYield.emergencyId,
         junctionId: junction.junctionId,
@@ -215,11 +246,17 @@ export class TrafficController {
   ): boolean {
     const runtime = this.runtime.get(vehicle.id);
     if (!runtime) return false;
-    const clearanceDistance = vehicleConfig(vehicle.kind).collision.length / 2 + JUNCTION_CLEARANCE_MARGIN;
+    const collisionHalfLength = vehicleConfig(vehicle.kind).collision.length / 2;
+    const ownedJunction = this.junctions.diagnostic(vehicle.id);
+    const clearanceDistance = collisionHalfLength + JUNCTION_CLEARANCE_MARGIN +
+      (ownedJunction.junctionId
+        ? this.routes.junctionConflictExtent(ownedJunction.junctionId, vehicle.angle)
+        : 0);
     this.junctions.maintain(vehicle.id, vehicle.x, vehicle.y, clearanceDistance, nowMs);
     if (vehicle.hijackBy) {
       this.junctions.release(vehicle.id);
       this.maneuvers.reset(runtime.maneuver);
+      this.laneChanges.cancel(vehicle.id, runtime.laneChange, nowMs, false);
       this.emergencyYield.reset(runtime.emergencyYield);
       this.driver.brake(vehicle, deltaSeconds);
       runtime.desiredSpeed = 0;
@@ -234,6 +271,7 @@ export class TrafficController {
     if (deadlockRecovery) {
       this.junctions.release(vehicle.id);
       this.maneuvers.reset(runtime.maneuver);
+      this.laneChanges.cancel(vehicle.id, runtime.laneChange, nowMs, false);
       this.emergencyYield.reset(runtime.emergencyYield);
       const moved = this.driver.reverse(vehicle, deltaSeconds);
       runtime.desiredSpeed = -42;
@@ -248,6 +286,7 @@ export class TrafficController {
     const routeTarget = this.routes.target(runtime.route);
     const targetX = routeTarget.x;
     const targetY = routeTarget.y;
+    const laneSegment = this.routes.laneSegment(runtime.route);
     const routeCruiseSpeed = this.routes.cruiseSpeed(runtime.route, runtime.cruiseSpeed);
     const obstacles = context.obstacles ?? [];
     const activeJunction = this.junctions.diagnostic(vehicle.id);
@@ -264,6 +303,7 @@ export class TrafficController {
       if (yieldCommand.phase !== 'none') {
         this.junctions.release(vehicle.id);
         this.maneuvers.reset(runtime.maneuver);
+        this.laneChanges.cancel(vehicle.id, runtime.laneChange, nowMs, false);
         if (yieldCommand.phase === 'wait') {
           this.driver.brake(vehicle, deltaSeconds);
           runtime.desiredSpeed = 0;
@@ -296,22 +336,61 @@ export class TrafficController {
     const junctionTarget = this.routes.junctionTarget(runtime.route);
     const junctionKey = junctionTarget?.id ?? '';
     const junctionDistance = Math.hypot(targetX - vehicle.x, targetY - vehicle.y);
+    const routeAngle = laneSegment
+      ? Math.atan2(laneSegment.toY - laneSegment.fromY, laneSegment.toX - laneSegment.fromX)
+      : Math.atan2(targetY - vehicle.y, targetX - vehicle.x);
+    const junctionTravelExtent = junctionTarget
+      ? Math.abs(Math.cos(routeAngle)) * junctionTarget.conflictHalfExtentX +
+        Math.abs(Math.sin(routeAngle)) * junctionTarget.conflictHalfExtentY
+      : 34;
+    const junctionStopOffset = junctionTravelExtent + collisionHalfLength +
+      JUNCTION_CLEARANCE_MARGIN;
+    const brakeDeceleration = vehicleConfig(vehicle.kind).traffic.brakeDeceleration;
+    const stoppingDistance = Math.max(0, vehicle.speed) ** 2 /
+      (2 * Math.max(1, brakeDeceleration));
+    const junctionApproachDistance = Math.max(
+      JUNCTION_APPROACH_DISTANCE,
+      junctionStopOffset + stoppingDistance + 48
+    );
     const junctionBlocked = Boolean(junctionTarget) && (
       obstacles.some((obstacle) => obstacle.kind === 'signal') ||
       (runtime.route.source === 'lane-graph' && obstacles.some((obstacle) => (
           obstacle.kind !== 'signal' &&
           !this.junctions.isQueued(obstacle.id, junctionTarget!.id) &&
-          Math.hypot(obstacle.x - junctionTarget!.x, obstacle.y - junctionTarget!.y) <=
-            JUNCTION_CONFLICT_RADIUS + obstacle.radius
+          Math.abs(obstacle.x - junctionTarget!.x) <=
+            junctionTarget!.conflictHalfExtentX + obstacle.radius &&
+          Math.abs(obstacle.y - junctionTarget!.y) <=
+            junctionTarget!.conflictHalfExtentY + obstacle.radius
         )))
     );
     const existingJunction = this.junctions.diagnostic(vehicle.id);
     const committedApproach = existingJunction.phase === 'approach' &&
       existingJunction.junctionId === junctionKey &&
       junctionDistance <= JUNCTION_COMMIT_DISTANCE;
-    const junctionGranted = !junctionKey || junctionDistance > JUNCTION_APPROACH_DISTANCE ||
+    const junctionGranted = !junctionKey || junctionDistance > junctionApproachDistance ||
       this.junctions.request(vehicle.id, junctionKey, nowMs, junctionBlocked && !committedApproach);
-    const stopPoint = junctionStopPoint(vehicle, targetX, targetY);
+    const stopPoint = junctionStopPoint(
+      vehicle,
+      targetX,
+      targetY,
+      junctionStopOffset,
+      laneSegment
+    );
+    if (
+      junctionKey &&
+      !junctionGranted &&
+      reachedJunctionStopLine(vehicle, stopPoint, targetX, targetY)
+    ) {
+      this.maneuvers.reset(runtime.maneuver);
+      this.laneChanges.cancel(vehicle.id, runtime.laneChange, nowMs, false);
+      this.driver.brake(vehicle, deltaSeconds, brakeDeceleration);
+      runtime.desiredSpeed = 0;
+      runtime.speedReason = 'signal';
+      runtime.obstacleId = `junction:${junctionKey}`;
+      runtime.obstacleDistance = 0;
+      runtime.timeToContactSeconds = -1;
+      return false;
+    }
     const routedObstacles = junctionGranted ? obstacles : [...obstacles, {
       id: `junction:${junctionKey}`,
       kind: 'signal' as const,
@@ -327,8 +406,52 @@ export class TrafficController {
         obstacle.kind === 'vehicle' && this.junctions.isQueued(obstacle.id, currentJunction.junctionId)
       )).map((obstacle) => obstacle.id))
       : undefined;
+    const laneChangePhaseBefore = runtime.laneChange.phase;
+    const laneChange = this.laneChanges.command({
+      vehicle,
+      runtime: runtime.laneChange,
+      segment: laneSegment,
+      obstacles: routedObstacles,
+      speedReason: runtime.speedReason,
+      obstacleId: runtime.obstacleId,
+      desiredSpeed: runtime.desiredSpeed,
+      cruiseSpeed: routeCruiseSpeed,
+      protectedJunction: junctionTraversal || (
+        Boolean(junctionTarget) &&
+        junctionDistance <= junctionApproachDistance + 80
+      ),
+      nowMs
+    });
+    const activeLaneChange = laneChange.phase !== 'none' && laneChange.phase !== 'requesting';
+    if (activeLaneChange) {
+      this.junctions.release(vehicle.id);
+      this.maneuvers.reset(runtime.maneuver);
+      const result = this.driver.update(vehicle, {
+        targetX: laneChange.targetX!,
+        targetY: laneChange.targetY!,
+        cruiseSpeed: Math.min(routeCruiseSpeed, 96),
+        deltaSeconds,
+        obstacles: routedObstacles,
+        ignoredObstacleIds: laneChange.ignoredObstacleIds,
+        minimumGapScale: 0.8
+      });
+      runtime.desiredSpeed = result.desiredSpeed;
+      runtime.speedReason = result.blocked ? 'blocked' : result.speedReason;
+      runtime.obstacleId = result.obstacleId;
+      runtime.obstacleDistance = result.obstacleDistance;
+      runtime.timeToContactSeconds = result.timeToContactSeconds;
+      return result.moved;
+    }
+
     let maneuver: TrafficManeuverCommand;
-    if (junctionTraversal) {
+    const authoredLaneQueue = laneSegment && laneSegment.laneCount > 1 &&
+      runtime.speedReason === 'vehicle';
+    if (
+      junctionTraversal ||
+      laneChange.phase === 'requesting' ||
+      laneChangePhaseBefore !== 'none' ||
+      authoredLaneQueue
+    ) {
       this.maneuvers.reset(runtime.maneuver);
       maneuver = {phase: 'none'};
     } else {
@@ -464,16 +587,41 @@ function isProtectedJunctionPhase(phase: TrafficJunctionPhase): boolean {
 function junctionStopPoint(
   vehicle: Pick<VehicleState, 'x' | 'y'>,
   targetX: number,
-  targetY: number
+  targetY: number,
+  stopLineOffset = JUNCTION_STOP_LINE_OFFSET,
+  laneSegment?: {
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }
 ): {x: number; y: number} {
-  const deltaX = targetX - vehicle.x;
-  const deltaY = targetY - vehicle.y;
+  const originX = laneSegment?.fromX ?? vehicle.x;
+  const originY = laneSegment?.fromY ?? vehicle.y;
+  const deltaX = targetX - originX;
+  const deltaY = targetY - originY;
   const distance = Math.hypot(deltaX, deltaY);
-  if (distance <= JUNCTION_STOP_LINE_OFFSET) return {x: targetX, y: targetY};
+  if (distance <= 0.001) return {x: targetX, y: targetY};
   return {
-    x: targetX - deltaX / distance * JUNCTION_STOP_LINE_OFFSET,
-    y: targetY - deltaY / distance * JUNCTION_STOP_LINE_OFFSET
+    x: targetX - deltaX / distance * stopLineOffset,
+    y: targetY - deltaY / distance * stopLineOffset
   };
+}
+
+function reachedJunctionStopLine(
+  vehicle: Pick<VehicleState, 'x' | 'y'>,
+  stopPoint: {x: number; y: number},
+  targetX: number,
+  targetY: number
+): boolean {
+  const deltaX = targetX - stopPoint.x;
+  const deltaY = targetY - stopPoint.y;
+  const distance = Math.hypot(deltaX, deltaY);
+  if (distance <= 0.001) return Math.hypot(vehicle.x - stopPoint.x, vehicle.y - stopPoint.y) <= 8;
+  return (
+    (vehicle.x - stopPoint.x) * deltaX / distance +
+    (vehicle.y - stopPoint.y) * deltaY / distance
+  ) >= -2;
 }
 
 function combineIds(

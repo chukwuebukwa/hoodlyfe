@@ -1,7 +1,7 @@
 import type {VehicleState} from '../../state.ts';
 import type {CollisionMap, RoadNode, TrafficSpawn} from '../../world-map.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
-import type {LaneGraph, LaneGraphEdge} from './lane-graph.ts';
+import type {LaneDirection, LaneGraph, LaneGraphEdge} from './lane-graph.ts';
 import {TrafficRoutePlanner} from './traffic-route-planner.ts';
 
 export const TRAFFIC_LANE_OFFSET = 24;
@@ -36,6 +36,31 @@ export interface TrafficJunctionTarget {
   id: string;
   x: number;
   y: number;
+  conflictRadius: number;
+  conflictHalfExtentX: number;
+  conflictHalfExtentY: number;
+}
+
+export interface TrafficLaneSegment {
+  edgeId: string;
+  corridorId: string;
+  direction: LaneDirection;
+  laneIndex: number;
+  laneCount: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  adjacent: TrafficAdjacentLaneSegment[];
+}
+
+export interface TrafficAdjacentLaneSegment {
+  edgeId: string;
+  laneIndex: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
 }
 
 interface TrafficRouteSystemOptions {
@@ -118,7 +143,14 @@ export class TrafficRouteSystem {
       const nodeId = runtime.nodeIds[runtime.nodeIndex];
       const junctionId = (nodeId ? this.options.laneGraph?.node(nodeId)?.junctionId : '') ?? '';
       const junction = junctionId ? this.options.laneGraph?.junction(junctionId) : undefined;
-      return junction ? {id: junction.id, x: junction.x, y: junction.y} : undefined;
+      return junction ? {
+        id: junction.id,
+        x: junction.x,
+        y: junction.y,
+        conflictRadius: junction.conflictRadius,
+        conflictHalfExtentX: junction.conflictHalfExtentX,
+        conflictHalfExtentY: junction.conflictHalfExtentY
+      } : undefined;
     }
     if (this.options.world.roadNeighbors(runtime.targetColumn, runtime.targetRow).length < 3) {
       return undefined;
@@ -126,14 +158,57 @@ export class TrafficRouteSystem {
     return {
       id: `${runtime.targetColumn},${runtime.targetRow}`,
       x: (runtime.targetColumn + 0.5) * this.options.world.tileWidth,
-      y: (runtime.targetRow + 0.5) * this.options.world.tileHeight
+      y: (runtime.targetRow + 0.5) * this.options.world.tileHeight,
+      conflictRadius: 34,
+      conflictHalfExtentX: 34,
+      conflictHalfExtentY: 34
     };
+  }
+
+  junctionConflictExtent(junctionId: string, angle: number): number {
+    const junction = this.options.laneGraph?.junction(junctionId);
+    const halfExtentX = junction?.conflictHalfExtentX ?? 34;
+    const halfExtentY = junction?.conflictHalfExtentY ?? 34;
+    return Math.abs(Math.cos(angle)) * halfExtentX +
+      Math.abs(Math.sin(angle)) * halfExtentY;
   }
 
   cruiseSpeed(runtime: TrafficRouteRuntime, configuredCruiseSpeed: number): number {
     if (runtime.source !== 'lane-graph') return configuredCruiseSpeed;
     const edge = this.currentEdge(runtime);
     return edge ? Math.min(configuredCruiseSpeed, edge.speedLimit) : configuredCruiseSpeed;
+  }
+
+  laneSegment(runtime: TrafficRouteRuntime): TrafficLaneSegment | undefined {
+    const graph = this.options.laneGraph;
+    const edge = this.currentEdge(runtime);
+    if (!graph || !edge || edge.kind !== 'lane') return undefined;
+    const from = graph.node(edge.fromNodeId);
+    const to = graph.node(edge.toNodeId);
+    if (!from || !to) return undefined;
+    return {
+      edgeId: edge.id,
+      corridorId: from.corridorId,
+      direction: from.direction,
+      laneIndex: from.laneIndex,
+      laneCount: from.laneCount,
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      adjacent: graph.adjacentLaneEdges(edge.id).map((candidate) => {
+        const candidateFrom = graph.node(candidate.fromNodeId)!;
+        const candidateTo = graph.node(candidate.toNodeId)!;
+        return {
+          edgeId: candidate.id,
+          laneIndex: candidateFrom.laneIndex,
+          fromX: candidateFrom.x,
+          fromY: candidateFrom.y,
+          toX: candidateTo.x,
+          toY: candidateTo.y
+        };
+      })
+    };
   }
 
   advance(vehicleId: string, runtime: TrafficRouteRuntime, nowMs: number): void {

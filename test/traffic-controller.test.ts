@@ -202,6 +202,82 @@ test('traffic controller brakes for an ahead obstacle and exposes its speed reas
   assert.ok(controller.diagnostics()[0].desiredSpeed > 0);
 });
 
+test('authored traffic reserves, executes, and completes a lane change through the controller', () => {
+  const world = CollisionMap.load();
+  const laneGraph = LaneGraph.load(world);
+  const controller = new TrafficController({
+    world,
+    laneGraph,
+    random: new DeterministicRandom('controller-lane-change')
+  });
+  const edge = laneGraph.edge('central-avenue:forward:edge:2')!;
+  const from = laneGraph.node(edge.fromNodeId)!;
+  const to = laneGraph.node(edge.toNodeId)!;
+  const progress = 0.2;
+  const vehicle = new VehicleState();
+  vehicle.id = 'lane-change-controller';
+  vehicle.kind = 'sedan';
+  vehicle.x = from.x + (to.x - from.x) * progress;
+  vehicle.y = from.y + (to.y - from.y) * progress;
+  vehicle.angle = Math.atan2(to.y - from.y, to.x - from.x);
+  vehicle.speed = 100;
+  vehicle.traffic = true;
+  const spawn = {
+    x: vehicle.x,
+    y: vehicle.y,
+    angle: vehicle.angle,
+    column: Math.floor(vehicle.x / world.tileWidth),
+    row: Math.floor(vehicle.y / world.tileHeight),
+    targetColumn: Math.floor(to.x / world.tileWidth),
+    targetRow: Math.floor(to.y / world.tileHeight),
+    laneEdgeId: edge.id,
+    laneFromNodeId: edge.fromNodeId,
+    laneToNodeId: edge.toNodeId
+  };
+  controller.register(vehicle.id, spawn, 118);
+
+  const lead = {
+    id: 'slow-lead',
+    kind: 'vehicle' as const,
+    x: vehicle.x,
+    y: vehicle.y + 120,
+    radius: 20,
+    speed: 0,
+    angle: vehicle.angle,
+    halfLength: 29,
+    halfWidth: 16
+  };
+  const update = (nowMs: number) => {
+    controller.beginTick(nowMs);
+    controller.update(vehicle, 0, nowMs, {obstacles: [lead]});
+    return controller.diagnostics()[0];
+  };
+
+  assert.equal(update(100).speedReason, 'vehicle');
+  assert.equal(update(200).laneChangePhase, 'none');
+  assert.equal(update(1_201).laneChangePhase, 'requesting');
+  let diagnostic = update(1_202);
+  assert.equal(diagnostic.laneChangePhase, 'change-out');
+  assert.equal(diagnostic.laneChangeLeadId, lead.id);
+  assert.equal(diagnostic.laneChangeFromLane, 0);
+  assert.equal(diagnostic.laneChangeToLane, 1);
+  assert.equal(diagnostic.laneChangeTargets.length, 3);
+
+  vehicle.x = diagnostic.laneChangeTargets[0].x;
+  vehicle.y = diagnostic.laneChangeTargets[0].y;
+  diagnostic = update(1_203);
+  assert.equal(diagnostic.laneChangePhase, 'passing');
+  vehicle.x = diagnostic.laneChangeTargets[1].x;
+  vehicle.y = diagnostic.laneChangeTargets[1].y;
+  diagnostic = update(1_204);
+  assert.equal(diagnostic.laneChangePhase, 'returning');
+  vehicle.x = diagnostic.laneChangeTargets[2].x;
+  vehicle.y = diagnostic.laneChangeTargets[2].y;
+  diagnostic = update(1_205);
+  assert.equal(diagnostic.laneChangePhase, 'none');
+  assert.equal(diagnostic.laneChangeCompletions, 1);
+});
+
 test('traffic controller yields away from an active police siren and reports the maneuver', () => {
   const world = CollisionMap.load();
   const fixture = createTraffic(world, 'traffic-yield', 211);
