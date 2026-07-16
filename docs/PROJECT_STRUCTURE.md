@@ -236,6 +236,10 @@ The first room-facing facades are now live:
   player-interest components and nearest-component ownership.
   `population-cluster-capacity-policy.ts` owns stable equal entitlements, idle-capacity
   borrowing, pressure, relief math, and fair candidate ordering. `PopulationStreamingController`
+  consumes original `district-population-zones.ts` content through the pure
+  `population-zone-profile-policy.ts` resolver, time blender, density gate, and composition
+  selector. Profiles remain inside cluster/global limits and only converge offscreen.
+  `PopulationStreamingController`
   owns lightweight potential records, round-robin
   prewarm-only materialization, bounded offscreen quota rebalancing, dormant progress,
   active ceilings, and gameplay pin rules. Population activation remains separate from

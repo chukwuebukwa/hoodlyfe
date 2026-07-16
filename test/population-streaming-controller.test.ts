@@ -30,7 +30,12 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
     lookaheadAnchors: 0,
     interestClusters: 0,
     quotaPressureClusters: 0,
-    quotaRebalances: 0
+    quotaRebalances: 0,
+    worldMinute: 480,
+    populationDayWeight: 1,
+    zoneActivity: 'none',
+    profileDeferredActors: 0,
+    profileRebalances: 0
   });
 
   fixture.controller.update([{x: 0, y: 0}], 100);
@@ -99,6 +104,47 @@ test('population diagnostics expose predictive lookahead anchors', () => {
     {x: 480, y: 0, kind: 'lookahead', protectsVisibility: false}
   ], 100);
   assert.equal(fixture.controller.diagnostics().lookaheadAnchors, 1);
+});
+
+test('zone profiles reduce night population without changing cluster capacity ownership', () => {
+  let minute = 8 * 60;
+  const day = createFixture(true, () => minute);
+  day.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    day.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const dayActors = day.state.npcs.size + day.state.vehicles.size;
+
+  minute = 22 * 60;
+  const night = createFixture(true, () => minute);
+  night.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    night.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const nightActors = night.state.npcs.size + night.state.vehicles.size;
+
+  assert.ok(dayActors > nightActors);
+  assert.equal(night.controller.diagnostics().worldMinute, 22 * 60);
+  assert.equal(night.controller.diagnostics().populationDayWeight, 0);
+  assert.ok(night.controller.diagnostics().profileDeferredActors > 0);
+});
+
+test('day-to-night convergence removes only offscreen disposable profile excess', () => {
+  let minute = 8 * 60;
+  const fixture = createFixture(true, () => minute);
+  fixture.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const dayActors = fixture.state.npcs.size + fixture.state.vehicles.size;
+
+  minute = 22 * 60;
+  for (let tick = 11; tick <= 20; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+
+  assert.ok(fixture.state.npcs.size + fixture.state.vehicles.size < dayActors);
+  assert.ok(fixture.controller.diagnostics().profileRebalances > 0);
 });
 
 test('distant player clusters converge to fair bounded ambient shares', () => {
@@ -219,7 +265,7 @@ test('jam retirement never removes traffic inside a player replication radius', 
   assert.equal(fixture.controller.diagnostics().jamRetirements, 0);
 });
 
-function createFixture(clustered = false) {
+function createFixture(clustered = false, worldMinute?: () => number) {
   const state = new DistrictState();
   const pinnedPedestrians = new Set<string>();
   const registered: string[] = [];
@@ -296,6 +342,7 @@ function createFixture(clustered = false) {
     state,
     world,
     random: new DeterministicRandom('population-test'),
+    worldMinute,
     pedestrians,
     traffic: {
       register: (id: string) => registered.push(id),

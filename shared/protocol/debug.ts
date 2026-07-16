@@ -231,6 +231,11 @@ export interface DebugPopulationStreamingEntry {
   interestClusters: number;
   quotaPressureClusters: number;
   quotaRebalances: number;
+  worldMinute: number;
+  populationDayWeight: number;
+  zoneActivity: string;
+  profileDeferredActors: number;
+  profileRebalances: number;
 }
 
 export interface DebugSnapshot {

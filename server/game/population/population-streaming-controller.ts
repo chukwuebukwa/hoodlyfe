@@ -25,6 +25,7 @@ import {
   fairPopulationCandidateOrder,
   populationClusterCapacityPlan
 } from './population-cluster-capacity-policy.ts';
+import {PopulationZoneProfileController} from './population-zone-profile-controller.ts';
 
 export const STREAMED_CIVILIAN_RECORDS = 72;
 export const STREAMED_POLICE_RECORDS = 8;
@@ -82,6 +83,7 @@ interface PopulationStreamingControllerOptions {
     TrafficController,
     'register' | 'release' | 'spawn' | 'advanceVirtual' | 'captureVirtual' | 'diagnostics'
   >;
+  worldMinute?: () => number;
   onVehicleMaterialized?: (vehicle: VehicleState) => void;
   onVehicleDematerialized?: (vehicleId: string) => void;
 }
@@ -107,6 +109,11 @@ export interface PopulationStreamingDiagnostic {
   interestClusters: number;
   quotaPressureClusters: number;
   quotaRebalances: number;
+  worldMinute: number;
+  populationDayWeight: number;
+  zoneActivity: string;
+  profileDeferredActors: number;
+  profileRebalances: number;
 }
 
 export class PopulationStreamingController {
@@ -121,8 +128,15 @@ export class PopulationStreamingController {
   private lastJamRetirementAt = Number.NEGATIVE_INFINITY;
   private jamRetirementCount = 0;
   private quotaRebalanceCount = 0;
+  private profileRebalanceCount = 0;
+  private readonly zoneProfiles: PopulationZoneProfileController;
 
-  constructor(private readonly options: PopulationStreamingControllerOptions) {}
+  constructor(private readonly options: PopulationStreamingControllerOptions) {
+    this.zoneProfiles = new PopulationZoneProfileController({
+      random: options.random,
+      worldMinute: options.worldMinute
+    });
+  }
 
   initialize(nowMs = 0): void {
     if (this.initialized) return;
@@ -159,6 +173,7 @@ export class PopulationStreamingController {
 
   update(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     if (!this.initialized) this.initialize(nowMs);
+    this.zoneProfiles.update();
     const normalized = anchors.filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
     this.anchors = normalized.map((anchor) => ({
       x: anchor.x,
@@ -173,6 +188,7 @@ export class PopulationStreamingController {
       traffic: Math.floor(POPULATION_STREAMING.maxDematerializationsPerTick / 2)
     };
     this.rebalanceClusterQuotas(normalized, nowMs, dematerializationBudget);
+    this.rebalanceZoneProfiles(normalized, nowMs, dematerializationBudget);
     this.materializeNearby(normalized, nowMs);
     this.retireInvisibleTrafficJams(normalized, nowMs);
     this.dematerializeFar(normalized, nowMs, dematerializationBudget);
@@ -182,6 +198,12 @@ export class PopulationStreamingController {
   diagnostics(): PopulationStreamingDiagnostic {
     const activePedestrians = [...this.pedestrians.values()].filter((record) => record.active);
     const activeTraffic = [...this.traffic.values()].filter((record) => record.active);
+    const profile = this.zoneProfiles.diagnostics([
+      ...activePedestrians.map((record) => this.options.state.npcs.get(record.id))
+        .filter((npc): npc is NpcState => Boolean(npc)),
+      ...activeTraffic.map((record) => this.options.state.vehicles.get(record.id))
+        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle))
+    ]);
     let hotActors = 0;
     let warmActors = 0;
     let deferredVisibleActors = 0;
@@ -218,7 +240,12 @@ export class PopulationStreamingController {
       lookaheadAnchors: this.anchors.filter((anchor) => anchor.kind === 'lookahead').length,
       interestClusters: this.clusters.length,
       quotaPressureClusters: this.quotaPressureClusters(),
-      quotaRebalances: this.quotaRebalanceCount
+      quotaRebalances: this.quotaRebalanceCount,
+      worldMinute: profile.worldMinute,
+      populationDayWeight: profile.populationDayWeight,
+      zoneActivity: profile.zoneActivity,
+      profileDeferredActors: this.profileDeferredActorCount(),
+      profileRebalances: this.profileRebalanceCount
     };
   }
 
@@ -297,6 +324,36 @@ export class PopulationStreamingController {
     if (this.clusters.length <= 1) return;
     this.rebalancePedestrianClusters(anchors, nowMs, budget);
     this.rebalanceTrafficClusters(anchors, nowMs, budget);
+  }
+
+  private rebalanceZoneProfiles(
+    anchors: readonly PopulationInterestAnchor[],
+    nowMs: number,
+    budget: DematerializationBudget
+  ): void {
+    if (!this.zoneProfiles.enabled) return;
+    for (const record of this.pedestrians.values()) {
+      if (!record.active || budget.pedestrians <= 0) continue;
+      const npc = this.options.state.npcs.get(record.id);
+      if (!npc) continue;
+      if (populationInterestAt(npc.x, npc.y, anchors).tier === 'hot') continue;
+      if (this.zoneProfiles.pedestrianAdmits(record.id, npc.x, npc.y)) continue;
+      if (!this.options.pedestrians.canStreamOut(record.id)) continue;
+      if (!this.dematerializePedestrian(record, npc, nowMs)) continue;
+      budget.pedestrians--;
+      this.profileRebalanceCount++;
+    }
+    for (const record of this.traffic.values()) {
+      if (!record.active || budget.traffic <= 0) continue;
+      const vehicle = this.options.state.vehicles.get(record.id);
+      if (!vehicle) continue;
+      if (populationInterestAt(vehicle.x, vehicle.y, anchors).tier === 'hot') continue;
+      if (this.zoneProfiles.trafficAdmits(record.id, vehicle.x, vehicle.y)) continue;
+      if (!this.canStreamOutVehicle(vehicle)) continue;
+      if (!this.dematerializeVehicle(record, vehicle, nowMs)) continue;
+      budget.traffic--;
+      this.profileRebalanceCount++;
+    }
   }
 
   private rebalancePedestrianClusters(
@@ -415,7 +472,15 @@ export class PopulationStreamingController {
         interest: populationInterestAt(record.x, record.y, anchors),
         nearest: nearestPopulationInterestCluster(record.x, record.y, this.clusters)
       }))
-      .filter((candidate) => candidate.interest.materialize && candidate.nearest)
+      .filter((candidate) => (
+        candidate.interest.materialize &&
+        candidate.nearest &&
+        this.zoneProfiles.pedestrianAdmits(
+          candidate.record.id,
+          candidate.record.x,
+          candidate.record.y
+        )
+      ))
       .map(({record, nearest}) => ({
         record,
         distance: nearest!.distance,
@@ -434,6 +499,9 @@ export class PopulationStreamingController {
     );
     for (const {record} of orderedPedestrians) {
       if (pedestrianBudget <= 0) break;
+      if (this.zoneProfiles.enabled) {
+        record.kind = this.zoneProfiles.pedestrianKind(record.id, record.x, record.y);
+      }
       this.options.pedestrians.spawnAmbientAt(
         record.id,
         record.kind,
@@ -458,7 +526,15 @@ export class PopulationStreamingController {
           nearest: nearestPopulationInterestCluster(position.x, position.y, this.clusters)
         };
       })
-      .filter((candidate) => candidate.interest.materialize && candidate.nearest)
+      .filter((candidate) => (
+        candidate.interest.materialize &&
+        candidate.nearest &&
+        this.zoneProfiles.trafficAdmits(
+          candidate.record.id,
+          candidate.position.x,
+          candidate.position.y
+        )
+      ))
       .map(({record, position, nearest}) => ({
         record,
         position,
@@ -545,7 +621,11 @@ export class PopulationStreamingController {
   ): Map<string, number> {
     const demand = new Map<string, number>();
     for (const record of this.pedestrians.values()) {
-      if (record.active || !populationInterestAt(record.x, record.y, anchors).materialize) continue;
+      if (
+        record.active ||
+        !populationInterestAt(record.x, record.y, anchors).materialize ||
+        !this.zoneProfiles.pedestrianAdmits(record.id, record.x, record.y)
+      ) continue;
       const nearest = nearestPopulationInterestCluster(record.x, record.y, this.clusters);
       if (nearest) increment(demand, nearest.cluster.id);
     }
@@ -559,7 +639,10 @@ export class PopulationStreamingController {
     for (const record of this.traffic.values()) {
       if (record.active) continue;
       const position = this.trafficPosition(record.spawn);
-      if (!populationInterestAt(position.x, position.y, anchors).materialize) continue;
+      if (
+        !populationInterestAt(position.x, position.y, anchors).materialize ||
+        !this.zoneProfiles.trafficAdmits(record.id, position.x, position.y)
+      ) continue;
       const nearest = nearestPopulationInterestCluster(position.x, position.y, this.clusters);
       if (nearest) increment(demand, nearest.cluster.id);
     }
@@ -665,6 +748,9 @@ export class PopulationStreamingController {
 
   private materializeVehicle(record: VirtualTrafficRecord): void {
     const position = this.trafficPosition(record.spawn);
+    if (this.zoneProfiles.enabled) {
+      record.kind = this.zoneProfiles.trafficKind(record.id, position.x, position.y);
+    }
     const vehicle = new VehicleState();
     vehicle.id = record.id;
     vehicle.kind = record.kind;
@@ -740,6 +826,27 @@ export class PopulationStreamingController {
 
   private activeTrafficCount(): number {
     return [...this.traffic.values()].filter((record) => record.active).length;
+  }
+
+  private profileDeferredActorCount(): number {
+    if (!this.zoneProfiles.enabled) return 0;
+    let count = 0;
+    for (const record of this.pedestrians.values()) {
+      if (
+        !record.active &&
+        populationInterestAt(record.x, record.y, this.anchors).materialize &&
+        !this.zoneProfiles.pedestrianAdmits(record.id, record.x, record.y)
+      ) count++;
+    }
+    for (const record of this.traffic.values()) {
+      const position = this.trafficPosition(record.spawn);
+      if (
+        !record.active &&
+        populationInterestAt(position.x, position.y, this.anchors).materialize &&
+        !this.zoneProfiles.trafficAdmits(record.id, position.x, position.y)
+      ) count++;
+    }
+    return count;
   }
 
   private stepOffset(id: string): number {

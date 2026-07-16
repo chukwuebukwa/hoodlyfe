@@ -54,6 +54,7 @@ import {
   type NetcodeRolloutRequest
 } from '../shared/protocol/netcode-rollout.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
+import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
@@ -659,6 +660,7 @@ export class DistrictRoom extends Room<DistrictState> {
       random: this.random,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
+      worldMinute: () => worldMinuteAt(this.state, Date.now()),
       onVehicleMaterialized: (vehicle) => this.indexVehicle(vehicle),
       onVehicleDematerialized: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });

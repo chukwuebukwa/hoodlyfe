@@ -148,6 +148,15 @@ far away. Parked/service vehicles remain persistent bootstrap entities for now. 
 ownership should eventually serialize into compact persistence rather than rely on an
 ambient virtual record.
 
+### Zone and time composition
+
+The next G8 layer now resolves original day/night density and composition profiles for North
+Works, West Market, Civic East, South Freight, and unknown coordinates. Profiles filter
+dormant candidates beneath cluster entitlements and global caps. Sparse-profile convergence
+uses the existing offscreen removal budget and all gameplay pin rules. Full reference,
+authority, selection, and limitation details are in
+[`ZONE_TIME_POPULATION_RESEARCH.md`](ZONE_TIME_POPULATION_RESEARCH.md).
+
 ## Netcode Boundary
 
 Population activation is server-only world lifecycle policy. It does not run inside client
@@ -166,6 +175,8 @@ F3 Population reports:
 - predictive high-speed lookahead anchors;
 - deterministic interest components and components under quota pressure;
 - cumulative safe quota rebalances;
+- world time, day blend, active zone mix, profile-held candidates, and safe profile
+  rebalances;
 - pop-guarded records that cannot safely materialize;
 - pinned gameplay actors;
 - cumulative invisible-jam retirements.
@@ -175,7 +186,7 @@ observable without drawing every virtual record in the world.
 
 ## Remaining Work
 
-- Author zone/time density profiles and pedestrian destinations instead of uniform records.
+- Author pedestrian destinations and broaden profiles beyond civilian/police archetypes.
 - Add pursuit, mission, property, and group-event anchors.
 - Consider a clamped, server-validated camera presentation hint for unusual ultrawide or
   zoom modes; it must only enlarge the guard and never remove actors another player needs.

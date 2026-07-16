@@ -312,7 +312,10 @@ street-player anchors, prewarm-only admission, AOI-aligned hysteresis, cold virt
 coarse dormant progress, speed-aware vehicle lookahead, deterministic disconnected-player
 interest components, fair 40/24 component shares, bounded safe rebalancing, and F3 tier/quota
 diagnostics. Uncontended components may borrow idle room capacity and return it when distant
-demand appears. Zone/time profiles, non-player gameplay anchors, and durable ownership remain.
+demand appears. Original North Works, West Market, Civic East, and South Freight profiles now
+blend pedestrian/traffic density and composition by world time, select kinds only on dormant
+materialization, and converge sparse periods through bounded offscreen cleanup. Non-player
+gameplay anchors, broader archetypes/destinations, and durable ownership remain.
 
 ### G9 - Durable social and economic systems
 

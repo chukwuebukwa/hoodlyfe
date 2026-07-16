@@ -146,13 +146,20 @@ function populationSummary(snapshot?: DebugSnapshot): string {
   const active = population.activePedestrians + population.activeTraffic;
   const potential = population.potentialPedestrians + population.potentialTraffic;
   const pinned = population.pinnedPedestrians + population.pinnedTraffic;
+  const hour = Math.floor(population.worldMinute / 60) % 24;
+  const minute = Math.floor(population.worldMinute) % 60;
+  const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   return `${active}/${potential} / ${population.hotActors} hot / ${population.warmActors} warm` +
     ` / ${population.dormantActors} cold` +
+    ` / ${time} ${Math.round(population.populationDayWeight * 100)}% day` +
+    ` / ${population.zoneActivity}` +
     ` / ${population.interestClusters} clusters` +
     `${population.lookaheadAnchors > 0 ? ` / ${population.lookaheadAnchors} lookahead` : ''}` +
     `${population.quotaPressureClusters > 0 ? ` / ${population.quotaPressureClusters} quota pressure` : ''}` +
     `${population.quotaRebalances > 0 ? ` / ${population.quotaRebalances} rebalanced` : ''}` +
     `${population.deferredVisibleActors > 0 ? ` / ${population.deferredVisibleActors} pop guarded` : ''}` +
+    `${population.profileDeferredActors > 0 ? ` / ${population.profileDeferredActors} profile held` : ''}` +
+    `${population.profileRebalances > 0 ? ` / ${population.profileRebalances} profile rebalanced` : ''}` +
     `${pinned > 0 ? ` / ${pinned} pinned` : ''}` +
     `${population.jamRetirements > 0 ? ` / ${population.jamRetirements} jam retired` : ''}`;
 }
