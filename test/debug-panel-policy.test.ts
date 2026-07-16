@@ -67,11 +67,19 @@ test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', ()
     warmActors: 6,
     dormantActors: 124,
     deferredVisibleActors: 4,
-    lookaheadAnchors: 2
+    lookaheadAnchors: 2,
+    interestClusters: 2,
+    quotaPressureClusters: 1,
+    quotaRebalances: 7,
+    worldMinute: 19 * 60 + 30,
+    populationDayWeight: 0.16,
+    zoneActivity: 'civic-east:8,west-market:12',
+    profileDeferredActors: 3,
+    profileRebalances: 5
   };
   assert.equal(
     projectDebugPanel(createState(), snapshot).population,
-    '20/144 / 14 hot / 6 warm / 124 cold / 2 lookahead / 4 pop guarded / 2 pinned / 3 jam retired'
+    '20/144 / 14 hot / 6 warm / 124 cold / 19:30 16% day / civic-east:8,west-market:12 / 2 clusters / 2 lookahead / 1 quota pressure / 7 rebalanced / 4 pop guarded / 3 profile held / 5 profile rebalanced / 2 pinned / 3 jam retired'
   );
 });
 

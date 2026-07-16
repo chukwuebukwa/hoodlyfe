@@ -46,11 +46,15 @@ test('invalid observers cannot create population interest', () => {
 test('players share one authoritative lookahead per occupied vehicle', () => {
   const vehicle = {id: 'vehicle-1', x: 100, y: 200, angle: 0, speed: 300};
   const anchors = populationInterestAnchorsForPlayers([
-    {x: 90, y: 200, angle: 1, vehicleId: vehicle.id},
-    {x: 110, y: 200, angle: 2, vehicleId: vehicle.id},
-    {x: 5_000, y: 5_000, angle: 0, vehicleId: ''}
+    {id: 'driver', x: 90, y: 200, angle: 1, vehicleId: vehicle.id},
+    {id: 'passenger', x: 110, y: 200, angle: 2, vehicleId: vehicle.id},
+    {id: 'walker', x: 5_000, y: 5_000, angle: 0, vehicleId: ''}
   ], (vehicleId) => vehicleId === vehicle.id ? vehicle : undefined);
   assert.equal(anchors.filter((anchor) => anchor.kind === 'player').length, 3);
   assert.equal(anchors.filter((anchor) => anchor.kind === 'lookahead').length, 1);
   assert.equal(anchors.find((anchor) => anchor.kind === 'lookahead')?.x, 550);
+  assert.deepEqual(
+    anchors.filter((anchor) => anchor.kind === 'player').map((anchor) => anchor.ownerId),
+    ['driver', 'passenger', 'walker']
+  );
 });

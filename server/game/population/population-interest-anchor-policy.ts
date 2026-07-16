@@ -14,6 +14,7 @@ export interface PopulationInterestObserver {
 }
 
 export interface PopulationPlayerObserver {
+  id: string;
   x: number;
   y: number;
   angle: number;
@@ -31,13 +32,13 @@ export function populationInterestAnchorsForPlayers(
   const anchors: PopulationInterestAnchor[] = [];
   const projectedVehicles = new Set<string>();
   for (const player of players) {
-    anchors.push(...populationInterestAnchorsFor({...player, speed: 0}));
+    anchors.push(...populationInterestAnchorsFor({...player, speed: 0}, player.id));
     if (!player.vehicleId || projectedVehicles.has(player.vehicleId)) continue;
     const vehicle = vehicleForId(player.vehicleId);
     if (!vehicle) continue;
     projectedVehicles.add(player.vehicleId);
     anchors.push(
-      ...populationInterestAnchorsFor(vehicle)
+      ...populationInterestAnchorsFor(vehicle, player.id)
         .filter((anchor) => anchor.kind === 'lookahead')
     );
   }
@@ -45,14 +46,16 @@ export function populationInterestAnchorsForPlayers(
 }
 
 export function populationInterestAnchorsFor(
-  observer: PopulationInterestObserver
+  observer: PopulationInterestObserver,
+  ownerId?: string
 ): PopulationInterestAnchor[] {
   if (!validObserver(observer)) return [];
   const anchors: PopulationInterestAnchor[] = [{
     x: observer.x,
     y: observer.y,
     kind: 'player',
-    protectsVisibility: true
+    protectsVisibility: true,
+    ...(ownerId ? {ownerId} : {})
   }];
   if (Math.abs(observer.speed) < POPULATION_LOOKAHEAD.minimumVehicleSpeed) return anchors;
 
@@ -65,7 +68,8 @@ export function populationInterestAnchorsFor(
     x: observer.x + Math.cos(observer.angle) * projectedDistance,
     y: observer.y + Math.sin(observer.angle) * projectedDistance,
     kind: 'lookahead',
-    protectsVisibility: false
+    protectsVisibility: false,
+    ...(ownerId ? {ownerId} : {})
   });
   return anchors;
 }

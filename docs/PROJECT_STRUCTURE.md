@@ -232,9 +232,18 @@ The first room-facing facades are now live:
   and patch budgets. `population-activation-policy.ts` owns the player-union hot, prewarm,
   retained, and cold tiers. `population-interest-anchor-policy.ts` converts authoritative
   street-player/vehicle poses into real visibility guards and bounded non-visibility
-  lookahead anchors. `PopulationStreamingController` owns lightweight potential records,
-  prewarm-only materialization, dormant progress, active ceilings, and gameplay pin rules.
-  Population activation remains separate from replication and interaction-island prediction.
+  lookahead anchors. `population-interest-cluster-policy.ts` compiles disconnected merged
+  player-interest components and nearest-component ownership.
+  `population-cluster-capacity-policy.ts` owns stable equal entitlements, idle-capacity
+  borrowing, pressure, relief math, and fair candidate ordering. `PopulationStreamingController`
+  consumes original `district-population-zones.ts` content through the pure
+  `population-zone-profile-policy.ts` resolver, time blender, density gate, and composition
+  selector. Profiles remain inside cluster/global limits and only converge offscreen.
+  `PopulationStreamingController`
+  owns lightweight potential records, round-robin
+  prewarm-only materialization, bounded offscreen quota rebalancing, dormant progress,
+  active ceilings, and gameplay pin rules. Population activation remains separate from
+  replication and interaction-island prediction.
 - `TrafficJunctionSystem` owns expiring deterministic connector reservations;
   `TrafficManeuverSystem` owns local legitimate-stop filtering plus bounded
   reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle

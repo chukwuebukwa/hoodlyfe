@@ -27,7 +27,15 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
     warmActors: 0,
     dormantActors: STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS + STREAMED_TRAFFIC_RECORDS,
     deferredVisibleActors: 0,
-    lookaheadAnchors: 0
+    lookaheadAnchors: 0,
+    interestClusters: 0,
+    quotaPressureClusters: 0,
+    quotaRebalances: 0,
+    worldMinute: 480,
+    populationDayWeight: 1,
+    zoneActivity: 'none',
+    profileDeferredActors: 0,
+    profileRebalances: 0
   });
 
   fixture.controller.update([{x: 0, y: 0}], 100);
@@ -98,6 +106,121 @@ test('population diagnostics expose predictive lookahead anchors', () => {
   assert.equal(fixture.controller.diagnostics().lookaheadAnchors, 1);
 });
 
+test('zone profiles reduce night population without changing cluster capacity ownership', () => {
+  let minute = 8 * 60;
+  const day = createFixture(true, () => minute);
+  day.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    day.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const dayActors = day.state.npcs.size + day.state.vehicles.size;
+
+  minute = 22 * 60;
+  const night = createFixture(true, () => minute);
+  night.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    night.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const nightActors = night.state.npcs.size + night.state.vehicles.size;
+
+  assert.ok(dayActors > nightActors);
+  assert.equal(night.controller.diagnostics().worldMinute, 22 * 60);
+  assert.equal(night.controller.diagnostics().populationDayWeight, 0);
+  assert.ok(night.controller.diagnostics().profileDeferredActors > 0);
+});
+
+test('day-to-night convergence removes only offscreen disposable profile excess', () => {
+  let minute = 8 * 60;
+  const fixture = createFixture(true, () => minute);
+  fixture.controller.initialize(0);
+  for (let tick = 1; tick <= 10; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  const dayActors = fixture.state.npcs.size + fixture.state.vehicles.size;
+
+  minute = 22 * 60;
+  for (let tick = 11; tick <= 20; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+
+  assert.ok(fixture.state.npcs.size + fixture.state.vehicles.size < dayActors);
+  assert.ok(fixture.controller.diagnostics().profileRebalances > 0);
+});
+
+test('distant player clusters converge to fair bounded ambient shares', () => {
+  const fixture = createFixture(true);
+  fixture.controller.initialize(0);
+  for (let tick = 1; tick <= 8; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  assert.equal(fixture.state.npcs.size, 40);
+  assert.equal(fixture.state.vehicles.size, 24);
+  assert.equal(fixture.controller.diagnostics().interestClusters, 1);
+
+  const anchors = [
+    {x: 0, y: 0, ownerId: 'west'},
+    {x: 8_000, y: 0, ownerId: 'east'}
+  ];
+  fixture.controller.update(anchors, 900);
+  assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 1);
+  for (let tick = 10; tick <= 13; tick++) fixture.controller.update(anchors, tick * 100);
+
+  assert.equal(countWest(fixture.state.npcs.values()), 20);
+  assert.equal(countWest(fixture.state.vehicles.values()), 12);
+  assert.equal(fixture.state.npcs.size, 40);
+  assert.equal(fixture.state.vehicles.size, 24);
+  assert.equal(fixture.controller.diagnostics().interestClusters, 2);
+  assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 0);
+  assert.equal(fixture.controller.diagnostics().quotaRebalances, 32);
+});
+
+test('busy clusters borrow unused capacity and return it when distant demand appears', () => {
+  const fixture = createFixture(true);
+  fixture.controller.initialize(0);
+  const idleEastAnchors = [
+    {x: 0, y: 0, ownerId: 'west'},
+    {x: 20_000, y: 0, ownerId: 'east'}
+  ];
+  for (let tick = 1; tick <= 8; tick++) {
+    fixture.controller.update(idleEastAnchors, tick * 100);
+  }
+  assert.equal(countWest(fixture.state.npcs.values()), 40);
+  assert.equal(countWest(fixture.state.vehicles.values()), 24);
+  assert.equal(fixture.controller.diagnostics().interestClusters, 2);
+  assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 0);
+
+  const activeEastAnchors = [
+    {x: 0, y: 0, ownerId: 'west'},
+    {x: 8_000, y: 0, ownerId: 'east'}
+  ];
+  for (let tick = 9; tick <= 13; tick++) {
+    fixture.controller.update(activeEastAnchors, tick * 100);
+  }
+  assert.equal(countWest(fixture.state.npcs.values()), 20);
+  assert.equal(countWest(fixture.state.vehicles.values()), 12);
+  assert.equal(fixture.state.npcs.size, 40);
+  assert.equal(fixture.state.vehicles.size, 24);
+});
+
+test('hot or pinned overages defeat fairness without visible despawn', () => {
+  const fixture = createFixture(true);
+  fixture.controller.initialize(0);
+  for (let tick = 1; tick <= 8; tick++) {
+    fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
+  }
+  for (const id of fixture.state.npcs.keys()) fixture.pinnedPedestrians.add(id);
+  const anchors = [
+    {x: 0, y: 0, ownerId: 'west'},
+    {x: 8_000, y: 0, ownerId: 'east'}
+  ];
+  for (let tick = 9; tick <= 14; tick++) fixture.controller.update(anchors, tick * 100);
+
+  assert.equal(countWest(fixture.state.npcs.values()), 40);
+  assert.equal(fixture.state.npcs.size, 40);
+  assert.equal(fixture.controller.diagnostics().pinnedPedestrians, 40);
+  assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 1);
+});
+
 test('sustained invisible ambient traffic jams retire blockers without popping visible cars', () => {
   const fixture = createFixture();
   fixture.controller.initialize(0);
@@ -142,7 +265,7 @@ test('jam retirement never removes traffic inside a player replication radius', 
   assert.equal(fixture.controller.diagnostics().jamRetirements, 0);
 });
 
-function createFixture() {
+function createFixture(clustered = false, worldMinute?: () => number) {
   const state = new DistrictState();
   const pinnedPedestrians = new Set<string>();
   const registered: string[] = [];
@@ -154,10 +277,27 @@ function createFixture() {
   const world = {
     tileWidth: 64,
     tileHeight: 64,
-    openPoint: (index: number) => ({x: (index - 5_000) * 4, y: 0}),
-    pedestrianSpawn: (index: number) => ({x: (index - 5_000) * 4, y: 0}),
+    openPoint: (index: number) => clustered
+      ? clusteredPoint(Math.round((index - 5_000) / 47), 40, 900)
+      : {x: (index - 5_000) * 4, y: 0},
+    pedestrianSpawn: (index: number) => clustered
+      ? clusteredPoint(Math.round((index - 5_000) / 47), 40, 900)
+      : {x: (index - 5_000) * 4, y: 0},
     openPointNear: (x: number, y: number) => ({x: x + 64, y}),
     trafficSpawn: (index: number): TrafficSpawn => {
+      if (clustered) {
+        const recordIndex = Math.round((index - 10_000) / 193);
+        const point = clusteredPoint(recordIndex, 32, 1_000);
+        return {
+          ...point,
+          column: Math.round(point.x / 64),
+          row: Math.round(point.y / 64),
+          targetColumn: Math.round(point.x / 64) + 1,
+          targetRow: Math.round(point.y / 64),
+          angle: recordIndex / 32 * Math.PI * 2,
+          laneEdgeId: `fixture-${recordIndex}`
+        };
+      }
       const column = Math.round((index - 10_000) / 193) * 2;
       return {
         x: column * 64,
@@ -202,6 +342,7 @@ function createFixture() {
     state,
     world,
     random: new DeterministicRandom('population-test'),
+    worldMinute,
     pedestrians,
     traffic: {
       register: (id: string) => registered.push(id),
@@ -213,7 +354,16 @@ function createFixture() {
         column: spawn.targetColumn,
         targetColumn: spawn.targetColumn + 1
       }),
-      captureVirtual: (vehicle: {x: number; y: number; angle: number}) => ({
+      captureVirtual: (vehicle: {x: number; y: number; angle: number}) => clustered ? ({
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        column: Math.round(vehicle.x / 64),
+        row: Math.round(vehicle.y / 64),
+        targetColumn: Math.round(vehicle.x / 64) + 1,
+        targetRow: Math.round(vehicle.y / 64),
+        laneEdgeId: 'captured-fixture'
+      }) : ({
         ...world.trafficSpawn(Math.round(vehicle.x + vehicle.y), 20),
         x: vehicle.x,
         y: vehicle.y,
@@ -255,4 +405,18 @@ function createFixture() {
     }
   });
   return {state, controller, registered, released, pinnedPedestrians, trafficDiagnostics};
+}
+
+function clusteredPoint(index: number, recordsPerCluster: number, radius: number) {
+  const cluster = Math.floor(index / recordsPerCluster);
+  const localIndex = index % recordsPerCluster;
+  const angle = localIndex / recordsPerCluster * Math.PI * 2;
+  return {
+    x: cluster * 8_000 + Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius
+  };
+}
+
+function countWest(actors: Iterable<{x: number}>): number {
+  return [...actors].filter((actor) => actor.x < 4_000).length;
 }
