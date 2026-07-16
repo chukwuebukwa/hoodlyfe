@@ -15,6 +15,7 @@ import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {radialGlow, updateRadialGlow} from './three-glow.ts';
 import type {PredictedProjectilePresentation} from '../network/combat-fire-prediction-controller.ts';
+import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -338,11 +339,9 @@ export class ThreeDistrictWorld {
       present.add(id);
       let group = this.fires.get(id);
       if (!group) {
-        group = new THREE.Group();
+        group = createFireSmokeEffect({radius: fire.radius, seed: id.length});
         group.add(
-          radialGlow(fire.radius * 1.35, 0xff5a24, 0.2, 20),
-          disc(30, 0xff6a24, 0.7, 23),
-          disc(16, 0xffd15c, 0.9, 24)
+          radialGlow(fire.radius * 1.55, 0xff5a24, 0.2, 20)
         );
         this.fires.set(id, group);
         this.scene.add(group);
@@ -350,7 +349,9 @@ export class ThreeDistrictWorld {
       positionAtSurface(group, fire.x, fire.y, this.surfaceHeightAt(fire.x, fire.y) + 10);
       const remaining = Math.max(0, fire.expiresAt - nowMs);
       const pulse = 0.88 + Math.sin(nowMs / 105 + id.length) * 0.12;
-      group.scale.setScalar(pulse * Math.min(1, remaining / 500));
+      const intensity = Math.min(1, remaining / 500);
+      updateFireSmokeEffect(group, nowMs, intensity, id.length);
+      group.scale.setScalar(pulse * intensity);
       group.rotation.z = Math.sin(nowMs / 230 + id.length) * 0.08;
     }
     removeAbsent(this.fires, present);
@@ -368,6 +369,7 @@ export class ThreeDistrictWorld {
       }
       const progress = Math.min(1, (nowMs - rendered.startedAt) / 720);
       rendered.group.scale.setScalar(0.3 + progress * 1.35);
+      updateFireSmokeEffect(rendered.group, nowMs, Math.max(0, 1 - progress), rendered.radius);
       rendered.group.traverse((object) => {
         if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshBasicMaterial) {
           object.material.opacity = Math.max(0, 1 - progress);
@@ -379,10 +381,9 @@ export class ThreeDistrictWorld {
 
   private createExplosion(explosion: NetworkExplosion, nowMs: number): TimedExplosion {
     const radius = Math.max(28, explosion.radius * 0.52);
-    const group = new THREE.Group();
+    const group = createFireSmokeEffect({radius: radius * 0.9, seed: nowMs % 997, burst: true});
     group.add(
-      disc(radius * 0.38, 0xff6b2d, 0.82, 28),
-      disc(radius * 0.18, 0xfff2a6, 1, 29),
+      radialGlow(radius * 1.35, 0xff6a24, 0.28, 26),
       ring(radius * 0.24, radius * 0.33, 0xffd167, 0.9, 27)
     );
     positionAtSurface(

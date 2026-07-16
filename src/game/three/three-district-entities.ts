@@ -87,13 +87,14 @@ import {
   type OnFootInteractionReplayPreparation
 } from '../prediction/on-foot-interaction-replay.ts';
 import {InteractionReplayPresentation} from '../rendering/interaction-replay-presentation.ts';
+import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   label?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   weapon?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  smoke?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
-  fire?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
+  smoke?: THREE.Object3D;
+  fire?: THREE.Object3D;
   blood?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   headlight?: RadialGlow;
   taillight?: RadialGlow;
@@ -606,7 +607,7 @@ export class ThreeDistrictEntities {
         label: nameLabel(player.name),
         weapon,
         blood: spriteMesh(this.textures.blood, 4, 1, 3, 64, 64),
-        fire: effectDisc(9, 0xff762e, 0.78),
+        fire: createFireSmokeEffect({radius: 11, seed: id.length, smokeWeight: 0.36}),
         appearanceKey: appearance.textureKey,
         motion: createRemoteMotionTimeline('player'),
         onFootPrediction: initializedOnFootPrediction(player),
@@ -828,7 +829,7 @@ export class ThreeDistrictEntities {
       );
       rendered.fire.visible = burn.visible && !vehicle;
       rendered.fire.scale.set(burn.scaleX, burn.scaleY, 1);
-      rendered.fire.material.opacity = burn.alpha;
+      updateFireSmokeEffect(rendered.fire, performance.now(), burn.alpha, id.length);
     }
     if (rendered.weapon) {
       const baseX = attachments.weaponBase.x;
@@ -869,7 +870,7 @@ export class ThreeDistrictEntities {
     const rendered = this.obtain(id, () => ({
       mesh: spriteMesh(texture, 3, 3, 0, 54, 54),
       blood: spriteMesh(this.textures.blood, 4, 1, 3, 60, 60),
-      fire: effectDisc(9, 0xff762e, 0.78),
+      fire: createFireSmokeEffect({radius: 10, seed: id.length, smokeWeight: 0.36}),
       spriteKey: 'walk',
       motion: createRemoteMotionTimeline('npc')
     }));
@@ -964,7 +965,7 @@ export class ThreeDistrictEntities {
       );
       rendered.fire.visible = burn.visible;
       rendered.fire.scale.set(burn.scaleX, burn.scaleY, 1);
-      rendered.fire.material.opacity = burn.alpha;
+      updateFireSmokeEffect(rendered.fire, performance.now(), burn.alpha, id.length);
     }
   }
 
@@ -990,8 +991,17 @@ export class ThreeDistrictEntities {
         definition.presentation.width,
         definition.presentation.height
       ),
-      smoke: effectDisc(11, 0x3b4244, 0.72),
-      fire: effectDisc(7, 0xff7a24, 0.92),
+      smoke: createFireSmokeEffect({
+        radius: Math.max(16, definition.presentation.width * 0.22),
+        seed: id.length * 2.13,
+        fireWeight: 0,
+        smokeWeight: 1.2
+      }),
+      fire: createFireSmokeEffect({
+        radius: Math.max(14, definition.presentation.width * 0.18),
+        seed: id.length * 3.17,
+        smokeWeight: 0.74
+      }),
       headlight: radialGlow(84, 0xfff2c7, 0, 12),
       taillight: radialGlow(34, 0xff1f2f, 0, 10),
       emergencyRed: definition.presentation.emergencyLights
@@ -1192,24 +1202,26 @@ export class ThreeDistrictEntities {
     }
     if (rendered.smoke) {
       rendered.smoke.position.set(
-        rendered.mesh.position.x - 12,
-        rendered.mesh.position.y + 5,
-        rendered.mesh.position.z + 4
+        rendered.mesh.position.x - 14,
+        rendered.mesh.position.y + 7,
+        rendered.mesh.position.z + 8
       );
       const visual = vehicleVisualState(vehicle);
-      rendered.smoke.visible = visual.smoke;
+      rendered.smoke.visible = visual.smoke && !visual.fire;
       const pulse = 0.85 + Math.sin(performance.now() / 170) * 0.18;
       rendered.smoke.scale.setScalar(pulse);
+      updateFireSmokeEffect(rendered.smoke, performance.now(), visual.smoke ? 0.9 : 0, vehicle.id.length);
     }
     if (rendered.fire) {
       rendered.fire.position.set(
-        rendered.mesh.position.x - 9,
-        rendered.mesh.position.y + 4,
-        rendered.mesh.position.z + 5
+        rendered.mesh.position.x - 10,
+        rendered.mesh.position.y + 5,
+        rendered.mesh.position.z + 9
       );
       const visual = vehicleVisualState(vehicle);
       rendered.fire.visible = visual.fire;
       rendered.fire.scale.setScalar(0.82 + Math.sin(performance.now() / 65) * 0.2);
+      updateFireSmokeEffect(rendered.fire, performance.now(), visual.fire ? 1 : 0, vehicle.id.length);
     }
   }
 
@@ -1254,9 +1266,7 @@ export class ThreeDistrictEntities {
     ]) {
       if (!effect) continue;
       this.scene.remove(effect);
-      effect.geometry.dispose();
-      if (effect.material instanceof THREE.MeshBasicMaterial) effect.material.map?.dispose();
-      effect.material.dispose();
+      disposeObjectTree(effect);
     }
     this.rendered.delete(id);
   }
@@ -1421,22 +1431,16 @@ function nameLabel(name: string): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasi
   return mesh;
 }
 
-function effectDisc(
-  radius: number,
-  color: number,
-  opacity: number
-): THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial> {
-  const material = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity,
-    depthTest: true,
-    depthWrite: false,
-    side: THREE.DoubleSide
+function disposeObjectTree(object: THREE.Object3D): void {
+  object.traverse((entry) => {
+    if (!(entry instanceof THREE.Mesh)) return;
+    entry.geometry.dispose();
+    const materials = Array.isArray(entry.material) ? entry.material : [entry.material];
+    for (const material of materials) {
+      if (material instanceof THREE.MeshBasicMaterial) material.map?.dispose();
+      material.dispose();
+    }
   });
-  const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 18), material);
-  mesh.renderOrder = 12;
-  return mesh;
 }
 
 function replaceTexture(
