@@ -191,9 +191,12 @@ contact awareness implemented on
 [`TRAFFIC_LANE_GRAPH_RESEARCH.md`](TRAFFIC_LANE_GRAPH_RESEARCH.md),
 [`TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md`](TRAFFIC_JUNCTION_OWNERSHIP_RESEARCH.md),
 [`TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md`](TRAFFIC_PREDICTIVE_CONTACT_RESEARCH.md),
+[`TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md`](TRAFFIC_DEADLOCK_RECOVERY_RESEARCH.md),
 [`decisions/0008-authored-directed-lane-routing.md`](decisions/0008-authored-directed-lane-routing.md),
 [`decisions/0009-junction-conflict-zone-ownership.md`](decisions/0009-junction-conflict-zone-ownership.md),
 and [`decisions/0010-predictive-traffic-contact-policy.md`](decisions/0010-predictive-traffic-contact-policy.md).
+Visible deadlock ownership is recorded in
+[`decisions/0012-visible-traffic-deadlock-recovery.md`](decisions/0012-visible-traffic-deadlock-recovery.md).
 
 Introduce an authored directed lane graph and separate:
 
@@ -240,8 +243,10 @@ G2a architecture checklist:
 - [ ] G2b.2b adds movement-class conflict arbitration for compatible simultaneous turns.
 - [x] G2c pressure relief retires only sustained offscreen disposable traffic, ranks blocker
   roots deterministically, rate-limits removals, and advances virtual routes before reuse.
-- [ ] G2c adds visible passing/yielding, strongly connected wait-graph detection, and
-  deterministic multi-vehicle deadlock recovery without despawning visible actors.
+- [x] G2c detects persistent strongly connected vehicle blocker cycles, elects one stable
+  rear-clear recovery owner, applies a bounded reverse command, and exposes the cycle/owner
+  without despawning visible actors.
+- [ ] G2c adds authored lane-change and richer queue-aware passing/yielding policy.
 
 ### G3 - Police tactics and escalation
 

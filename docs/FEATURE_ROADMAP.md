@@ -114,6 +114,9 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
 - **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
 - **Delivered foundation**: sustained ambient jams outside every player's 1,536-pixel replication radius retire at a bounded rate, including minor collision-damaged traffic, while occupied, hijacked, mission, burning, destroyed, and visible vehicles remain protected.
+- **Delivered playable**: persistent visible vehicle blocker cycles elect exactly one
+  rear-clear recovery owner, release only that car's junction claim, reverse for a bounded
+  window, and return to the existing route; F3 and Three expose the cycle and owner.
 - **Delivered playable**: authored conflict zones serialize FIFO approaches, reject blocked
   admission, preserve a commit window, hold ownership until the rear collider clears, and
   expire abandoned ownership; catalog-sized oriented rectangles replace circular

@@ -173,9 +173,13 @@ function trafficJunctionSummary(snapshot?: DebugSnapshot): string {
   const approach = traffic.filter((entry) => entry.junctionPhase === 'approach').length;
   const crossing = traffic.filter((entry) => entry.junctionPhase === 'crossing').length;
   const clearing = traffic.filter((entry) => entry.junctionPhase === 'clearing').length;
+  const cycles = new Set(traffic
+    .filter((entry) => entry.deadlockCycleId)
+    .map((entry) => entry.deadlockCycleId)).size;
+  const recovering = traffic.filter((entry) => entry.deadlockRecovering).length;
   const active = waiting + approach + crossing + clearing;
   return `${active} active / ${waiting} wait / ${approach} approach / ` +
-    `${crossing} cross / ${clearing} clear`;
+    `${crossing} cross / ${clearing} clear / ${cycles} cycle / ${recovering} recover`;
 }
 
 function trafficRiskSummary(snapshot?: DebugSnapshot): string {

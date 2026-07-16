@@ -88,6 +88,10 @@ export interface DebugTrafficAiEntry {
   timeToContactSeconds: number;
   blockedSince: number;
   recoveryCount: number;
+  deadlockCycleId: string;
+  deadlockCycleSize: number;
+  deadlockRecovering: boolean;
+  deadlockRecoveryCount: number;
   maneuverPhase: 'none' | 'reverse' | 'pass-left' | 'pass-right' | 'merge';
   maneuverAttempts: number;
   emergencyYieldPhase: 'none' | 'yield-left' | 'yield-right' | 'wait';

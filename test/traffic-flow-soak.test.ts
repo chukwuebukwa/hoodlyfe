@@ -23,6 +23,8 @@ test('a streamed street population continues circulating through a one-minute so
   let maximumQueuePosition = 0;
   let maximumConcurrentOverlaps = 0;
   let overlapPairTicks = 0;
+  let maximumDeadlockCycles = 0;
+  let deadlockRecoveryCount = 0;
 
   for (let index = 0; index < 24; index++) {
     const spawn = traffic.spawn(30_000 + index * 307, VEHICLE_RADIUS);
@@ -43,25 +45,33 @@ test('a streamed street population continues circulating through a one-minute so
 
   for (let tick = 1; tick <= 1_800; tick++) {
     const nowMs = tick * 1_000 / 30;
+    traffic.beginTick(nowMs);
     for (const vehicle of vehicles) {
-      traffic.update(vehicle, 1 / 30, nowMs, {
-        obstacles: vehicles
-          .filter((other) => other.id !== vehicle.id &&
-            Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
-          .map((other) => ({
-            halfLength: vehicleConfig(other.kind).collision.length / 2,
-            halfWidth: vehicleConfig(other.kind).collision.width / 2,
-            id: other.id,
-            kind: 'vehicle' as const,
-            x: other.x,
-            y: other.y,
-            radius: VEHICLE_RADIUS,
-            speed: other.speed,
-            angle: other.angle
-          }))
-      });
+      const obstacles = vehicles
+        .filter((other) => other.id !== vehicle.id &&
+          Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
+        .map((other) => ({
+          halfLength: vehicleConfig(other.kind).collision.length / 2,
+          halfWidth: vehicleConfig(other.kind).collision.width / 2,
+          id: other.id,
+          kind: 'vehicle' as const,
+          x: other.x,
+          y: other.y,
+          radius: VEHICLE_RADIUS,
+          speed: other.speed,
+          angle: other.angle
+        }));
+      traffic.update(vehicle, 1 / 30, nowMs, {obstacles});
+      traffic.observe(vehicle, nowMs, obstacles);
     }
     const diagnostics = traffic.diagnostics();
+    maximumDeadlockCycles = Math.max(maximumDeadlockCycles, new Set(diagnostics
+      .filter((entry) => entry.deadlockCycleId)
+      .map((entry) => entry.deadlockCycleId)).size);
+    deadlockRecoveryCount = Math.max(
+      deadlockRecoveryCount,
+      diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0)
+    );
     const ownersByJunction = new Map<string, number>();
     for (const entry of diagnostics) {
       observedJunctionPhases.add(entry.junctionPhase);
@@ -127,7 +137,9 @@ test('a streamed street population continues circulating through a one-minute so
       completedJunctionTraversals,
       maximumQueuePosition,
       maximumConcurrentOverlaps,
-      overlapPairTicks
+      overlapPairTicks,
+      maximumDeadlockCycles,
+      deadlockRecoveryCount
     }));
   }
 });

@@ -24,6 +24,7 @@ import {
 } from './emergency-yield-system.ts';
 import {vehicleConfig} from '../vehicles/vehicle-config.ts';
 import type {TrafficJunctionPhase} from './traffic-junction-system.ts';
+import {TrafficDeadlockSystem} from './traffic-deadlock-system.ts';
 
 const JUNCTION_APPROACH_DISTANCE = 112;
 const JUNCTION_COMMIT_DISTANCE = 60;
@@ -65,6 +66,10 @@ export interface TrafficDiagnostic {
   timeToContactSeconds: number;
   blockedSince: number;
   recoveryCount: number;
+  deadlockCycleId: string;
+  deadlockCycleSize: number;
+  deadlockRecovering: boolean;
+  deadlockRecoveryCount: number;
   maneuverPhase: TrafficManeuverPhase;
   maneuverAttempts: number;
   emergencyYieldPhase: EmergencyYieldPhase;
@@ -96,6 +101,7 @@ export class TrafficController {
   private readonly maneuvers: TrafficManeuverSystem;
   private readonly junctions = new TrafficJunctionSystem();
   private readonly emergencyYield: EmergencyYieldSystem;
+  private readonly deadlocks = new TrafficDeadlockSystem();
 
   constructor(private readonly options: TrafficControllerOptions) {
     this.driver = new RoadDrivingSystem(options.world);
@@ -143,15 +149,35 @@ export class TrafficController {
   release(vehicleId: string): void {
     this.runtime.delete(vehicleId);
     this.junctions.release(vehicleId);
+    this.deadlocks.release(vehicleId);
   }
 
   has(vehicleId: string): boolean {
     return this.runtime.has(vehicleId);
   }
 
+  beginTick(nowMs: number): void {
+    this.deadlocks.beginTick(nowMs);
+  }
+
+  observe(vehicle: VehicleState, nowMs: number, obstacles: readonly TrafficObstacle[]): void {
+    const runtime = this.runtime.get(vehicle.id);
+    if (!runtime) return;
+    this.deadlocks.observe({
+      vehicleId: vehicle.id,
+      obstacleId: runtime.obstacleId,
+      speedReason: runtime.speedReason,
+      speed: vehicle.speed,
+      junctionPhase: this.junctions.diagnostic(vehicle.id).phase,
+      canReverse: this.hasReverseClearance(vehicle, obstacles),
+      observedAt: nowMs
+    });
+  }
+
   diagnostics(): TrafficDiagnostic[] {
     return [...this.runtime.entries()].map(([vehicleId, runtime]) => {
       const junction = this.junctions.diagnostic(vehicleId);
+      const deadlock = this.deadlocks.diagnostic(vehicleId);
       return {
         vehicleId,
         mission: runtime.mission,
@@ -164,6 +190,10 @@ export class TrafficController {
         timeToContactSeconds: runtime.timeToContactSeconds,
         blockedSince: runtime.blockedSince,
         recoveryCount: runtime.recoveryCount,
+        deadlockCycleId: deadlock.cycleId,
+        deadlockCycleSize: deadlock.cycleSize,
+        deadlockRecovering: deadlock.recovering,
+        deadlockRecoveryCount: deadlock.recoveryCount,
         maneuverPhase: runtime.maneuver.phase,
         maneuverAttempts: runtime.maneuver.attempts,
         emergencyYieldPhase: runtime.emergencyYield.phase,
@@ -198,6 +228,21 @@ export class TrafficController {
       runtime.obstacleDistance = -1;
       runtime.timeToContactSeconds = -1;
       return false;
+    }
+
+    const deadlockRecovery = this.deadlocks.command(vehicle.id, nowMs);
+    if (deadlockRecovery) {
+      this.junctions.release(vehicle.id);
+      this.maneuvers.reset(runtime.maneuver);
+      this.emergencyYield.reset(runtime.emergencyYield);
+      const moved = this.driver.reverse(vehicle, deltaSeconds);
+      runtime.desiredSpeed = -42;
+      runtime.speedReason = 'blocked';
+      runtime.obstacleId = deadlockRecovery.blockerId;
+      runtime.obstacleDistance = 0;
+      runtime.timeToContactSeconds = -1;
+      runtime.blockedSince = runtime.blockedSince || nowMs;
+      return moved;
     }
 
     const routeTarget = this.routes.target(runtime.route);
@@ -377,6 +422,37 @@ export class TrafficController {
       runtime.recoveryCount++;
     }
     return false;
+  }
+
+  private hasReverseClearance(
+    vehicle: VehicleState,
+    obstacles: readonly TrafficObstacle[]
+  ): boolean {
+    const collision = vehicleConfig(vehicle.kind).collision;
+    const reverseX = -Math.cos(vehicle.angle);
+    const reverseY = -Math.sin(vehicle.angle);
+    const reverseDistance = 48;
+    const occupancyRadius = Math.max(12, collision.width / 2);
+    for (const distance of [16, 32, reverseDistance]) {
+      const x = vehicle.x + reverseX * distance;
+      const y = vehicle.y + reverseY * distance;
+      if (!this.options.world.canOccupy(x, y, occupancyRadius) || !this.options.world.isRoadAt(x, y)) {
+        return false;
+      }
+    }
+    for (const obstacle of obstacles) {
+      if (obstacle.kind === 'signal') continue;
+      const deltaX = obstacle.x - vehicle.x;
+      const deltaY = obstacle.y - vehicle.y;
+      const longitudinal = deltaX * reverseX + deltaY * reverseY;
+      const lateral = Math.abs(deltaX * -reverseY + deltaY * reverseX);
+      const obstacleHalfLength = obstacle.halfLength ?? obstacle.radius;
+      const obstacleHalfWidth = obstacle.halfWidth ?? obstacle.radius;
+      if (longitudinal < -obstacleHalfLength) continue;
+      if (longitudinal > collision.length / 2 + reverseDistance + obstacleHalfLength) continue;
+      if (lateral < collision.width / 2 + obstacleHalfWidth + 6) return false;
+    }
+    return true;
   }
 
 }

@@ -36,7 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     stimuli: 0,
     signals: '0',
-    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear',
+    junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover',
     trafficRisk: 'clear',
     roads: 'off',
     region: 'unknown',
@@ -89,7 +89,29 @@ test('debug panel summarizes junction queue and traversal phases', () => {
   ];
   assert.equal(
     projectDebugPanel(createState(), snapshot).junctions,
-    '4 active / 1 wait / 1 approach / 1 cross / 1 clear'
+    '4 active / 1 wait / 1 approach / 1 cross / 1 clear / 0 cycle / 0 recover'
+  );
+});
+
+test('debug panel summarizes visible traffic blocker cycles and recovery owners', () => {
+  const snapshot = createSnapshot();
+  snapshot.trafficAi = [
+    {
+      ...trafficDebugEntry('cycle-a', true, 1),
+      deadlockCycleId: 'cycle-a|cycle-b',
+      deadlockCycleSize: 2,
+      deadlockRecovering: true,
+      deadlockRecoveryCount: 1
+    },
+    {
+      ...trafficDebugEntry('cycle-b', true, 1),
+      deadlockCycleId: 'cycle-a|cycle-b',
+      deadlockCycleSize: 2
+    }
+  ];
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).junctions,
+    '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 1 cycle / 1 recover'
   );
 });
 
@@ -310,6 +332,10 @@ function trafficDebugEntry(vehicleId: string, routeComplete: boolean, routeRevis
     timeToContactSeconds: -1,
     blockedSince: 0,
     recoveryCount: 0,
+    deadlockCycleId: '',
+    deadlockCycleSize: 0,
+    deadlockRecovering: false,
+    deadlockRecoveryCount: 0,
     maneuverPhase: 'none' as const,
     maneuverAttempts: 0,
     emergencyYieldPhase: 'none' as const,

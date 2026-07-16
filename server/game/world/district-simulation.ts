@@ -143,7 +143,7 @@ export class DistrictSimulation {
         this.options.policeFleet.update(nowMs);
       }),
       phase('vehicle-motion', ({deltaSeconds, nowMs}) => {
-        this.options.vehicles.beginTick();
+        this.options.vehicles.beginTick(nowMs);
         this.options.state.vehicles.forEach((vehicle) => {
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
           this.options.indexVehicle(vehicle);

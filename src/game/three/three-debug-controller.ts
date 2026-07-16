@@ -274,6 +274,29 @@ export class ThreeDebugController {
           )
         ], entry.timeToContactSeconds < 0.75 ? 0xff4f5e : 0xff9f43));
       }
+      const deadlockObstacle = entry.deadlockCycleId
+        ? trafficObstaclePosition(state, entry.obstacleId)
+        : undefined;
+      if (vehicle && deadlockObstacle) {
+        const color = entry.deadlockRecovering ? 0xff2bd6 : 0xb86bff;
+        this.group.add(debugLine([
+          point(vehicle.x, vehicle.y, this.surfaceHeightAt(vehicle.x, vehicle.y) + 39),
+          point(
+            deadlockObstacle.x,
+            deadlockObstacle.y,
+            this.surfaceHeightAt(deadlockObstacle.x, deadlockObstacle.y) + 39
+          )
+        ], color));
+        if (entry.deadlockRecovering) {
+          this.group.add(debugRing(
+            vehicle.x,
+            vehicle.y,
+            29,
+            color,
+            this.surfaceHeightAt(vehicle.x, vehicle.y) + 38
+          ));
+        }
+      }
       if (entry.emergencyYieldPhase === 'none' || !entry.emergencyVehicleId) continue;
       const emergency = state.vehicles.get(entry.emergencyVehicleId);
       if (!vehicle || !emergency) continue;

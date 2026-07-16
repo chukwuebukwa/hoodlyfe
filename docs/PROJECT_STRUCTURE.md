@@ -227,7 +227,11 @@ The first room-facing facades are now live:
 - `PlayerInteractionController` owns service-versus-vehicle action priority and same-tick input deduplication, keeping contextual interaction policy out of the room transport adapter.
 - `DistrictReplicationController` owns per-client Colyseus `StateView` membership and patch-time diffs. Gameplay domains mutate one authoritative district; the replication adapter exposes same-space players/services plus street-only simulation collections without teaching those domains about clients. Newly attached schemas remain in a one-cycle completion set so the installed encoder can force unchanged scalar fields after its initial new-object encode.
 - `street-streaming-policy.ts` owns street AOI hysteresis, deterministic priority, and patch budgets; `PopulationStreamingController` owns lightweight potential records, materialization/dematerialization limits, dormant progress, active ceilings, and gameplay pin rules.
-- `TrafficJunctionSystem` owns expiring deterministic connector reservations; `TrafficManeuverSystem` owns legitimate-stop filtering plus bounded reverse/pass/merge recovery; `TrafficController` composes those policies with lane-offset route targets.
+- `TrafficJunctionSystem` owns expiring deterministic connector reservations;
+  `TrafficManeuverSystem` owns local legitimate-stop filtering plus bounded
+  reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle
+  detection and one safe recovery owner; `TrafficController` composes those policies with
+  lane-offset route targets.
 - `VehicleCollisionSystem` owns catalog-sized oriented-box narrow-phase contact, minimum-axis separation, impulse, and impact-zone facts. The spatial index provides only broad-phase candidates.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 

@@ -80,9 +80,10 @@ export class VehicleSimulationController {
     this.humanoidContacts = new VehicleHumanoidContactSystem(options);
   }
 
-  beginTick(): void {
+  beginTick(nowMs = this.options.state.serverTimeMs): void {
     this.collisionPairsThisTick.clear();
     this.humanoidContacts.beginTick();
+    this.options.traffic.beginTick(nowMs);
   }
 
   finishTick(nowMs: number): readonly VehicleState[] {
@@ -133,14 +134,16 @@ export class VehicleSimulationController {
       return;
     }
     if (vehicle.traffic && !vehicle.driverId) {
+      const obstacles = this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs);
       this.options.traffic.update(vehicle, deltaSeconds, nowMs, {
-        obstacles: this.trafficObstacles(vehicle, configuration.traffic.lookAhead, nowMs),
+        obstacles,
         emergencyVehicles: this.options.nearbyVehicles(
           vehicle.x,
           vehicle.y,
           Math.max(340, configuration.traffic.lookAhead)
         ).filter((candidate) => candidate.siren && !candidate.destroyed)
       });
+      this.options.traffic.observe(vehicle, nowMs, obstacles);
       return;
     }
 

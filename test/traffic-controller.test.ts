@@ -345,6 +345,89 @@ test('traffic scans the active route and does not node-snap through a stopping o
   assert.ok(vehicle.y > 90 && vehicle.y < 96, `Vehicle moved to ${vehicle.y}.`);
 });
 
+test('traffic controller breaks a visible mutual blocker cycle with one bounded recovery owner', () => {
+  const world = {
+    tileWidth: 64,
+    tileHeight: 64,
+    canOccupy: () => true,
+    isRoadAt: () => true,
+    roadNeighbors: (column: number) => column === 0
+      ? [{column: 1, row: 0}]
+      : [{column: 0, row: 0}]
+  } as unknown as CollisionMap;
+  const controller = new TrafficController({
+    world,
+    random: new DeterministicRandom('visible-deadlock')
+  });
+  const left = trafficVehicle('cycle-left', 0, 0, 0);
+  const right = trafficVehicle('cycle-right', 96, 0, Math.PI);
+  controller.register(left.id, fallbackSpawn(0, 1, 0), 96);
+  controller.register(right.id, fallbackSpawn(1, 0, Math.PI), 96);
+  let maximumConcurrentOwners = 0;
+
+  for (let tick = 1; tick <= 360; tick++) {
+    const nowMs = tick * 1_000 / 30;
+    controller.beginTick(nowMs);
+    for (const [vehicle, blocker] of [[left, right], [right, left]] as const) {
+      const obstacles = [{
+        id: blocker.id,
+        kind: 'vehicle' as const,
+        x: blocker.x,
+        y: blocker.y,
+        radius: 20,
+        speed: blocker.speed,
+        angle: blocker.angle,
+        halfLength: 23,
+        halfWidth: 12
+      }, {
+        id: `protected-stop:${vehicle.id}`,
+        kind: 'signal' as const,
+        x: vehicle.x,
+        y: vehicle.y + 100,
+        radius: 8,
+        speed: 0
+      }];
+      controller.update(vehicle, 1 / 30, nowMs, {obstacles});
+      controller.observe(vehicle, nowMs, obstacles);
+    }
+    maximumConcurrentOwners = Math.max(
+      maximumConcurrentOwners,
+      controller.diagnostics().filter((entry) => entry.deadlockRecovering).length
+    );
+  }
+
+  const diagnostics = controller.diagnostics();
+  assert.equal(maximumConcurrentOwners, 1);
+  assert.equal(diagnostics.reduce((sum, entry) => sum + entry.deadlockRecoveryCount, 0), 1);
+  assert.ok(
+    Math.hypot(left.x, left.y) > 4 || Math.hypot(right.x - 96, right.y) > 4,
+    'The elected recovery owner did not move away from the blocker.'
+  );
+});
+
+function trafficVehicle(id: string, x: number, y: number, angle: number): VehicleState {
+  const vehicle = new VehicleState();
+  vehicle.id = id;
+  vehicle.x = x;
+  vehicle.y = y;
+  vehicle.angle = angle;
+  vehicle.speed = 0;
+  vehicle.traffic = true;
+  return vehicle;
+}
+
+function fallbackSpawn(column: number, targetColumn: number, angle: number) {
+  return {
+    x: column * 96,
+    y: 0,
+    angle,
+    column,
+    row: 0,
+    targetColumn,
+    targetRow: 0
+  };
+}
+
 function createTraffic(world: CollisionMap, id: string, seed: number) {
   const spawn = world.trafficSpawn(seed, 20);
   const vehicle = new VehicleState();
