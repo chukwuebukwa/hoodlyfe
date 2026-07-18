@@ -225,6 +225,7 @@ function vehicleState(vehicle: VehicleState): VehicleInteractionState {
     speed: vehicle.speed,
     steering: 0,
     engineDamage: vehicle.engineDamage,
+    tyreDamageMask: vehicle.tyreDamageMask,
     onFire: vehicle.onFire,
     destroyed: vehicle.destroyed
   };

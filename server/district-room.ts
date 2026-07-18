@@ -69,6 +69,7 @@ import {PoliceArrestController} from './game/police/police-arrest-controller.ts'
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {PoliceResponseFleetController} from './game/police/police-response-fleet-controller.ts';
 import {PoliceRoadblockController} from './game/police/police-roadblock-controller.ts';
+import {PoliceStingerController} from './game/police/police-stinger-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {WorldClockController} from './game/world/world-clock-controller.ts';
@@ -211,6 +212,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private populationStreaming!: PopulationStreamingController;
   private policeResponseFleet!: PoliceResponseFleetController;
   private policeRoadblocks!: PoliceRoadblockController;
+  private policeStingers!: PoliceStingerController;
   private roadClosures!: RoadClosureRegistry;
   private worldClock!: WorldClockController;
   private serviceController!: StreetServiceController;
@@ -304,7 +306,8 @@ export class DistrictRoom extends Room<DistrictState> {
         untilMs
       ),
       isReservedPoliceUnit: (kind, unitId) => (
-        kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)
+        (kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)) ||
+        (kind === 'foot' && this.policeStingers?.ownsOfficer(unitId))
       )
     });
     this.policeVehicleController = new PoliceVehicleController({
@@ -385,6 +388,7 @@ export class DistrictRoom extends Room<DistrictState> {
       policeTactics: () => this.crimeController.pursuitTacticsSnapshot(),
       policeArrests: () => this.policeArrests?.diagnostics() ?? [],
       policeRoadblocks: () => this.policeRoadblocks?.diagnostics() ?? [],
+      policeStingers: () => this.policeStingers?.diagnostics() ?? [],
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
@@ -712,6 +716,14 @@ export class DistrictRoom extends Room<DistrictState> {
       onSpawned: (npc) => this.indexNpc(npc),
       onDespawned: (npcId) => this.spatialIndex.remove('npc', npcId)
     });
+    this.policeStingers = new PoliceStingerController({
+      state: this.state,
+      roadblocks: () => this.policeRoadblocks.activeDeployments(),
+      pedestrians: this.pedestrians,
+      closures: this.roadClosures,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick})
+    });
     this.population = new DistrictPopulationController({
       state: this.state,
       world: this.world,
@@ -871,6 +883,7 @@ export class DistrictRoom extends Room<DistrictState> {
       explosions: this.explosionController,
       policeFleet: this.policeResponseFleet,
       policeRoadblocks: this.policeRoadblocks,
+      policeStingers: this.policeStingers,
       vehicles: this.vehicleSimulation,
       reactions: this.combatReactions,
       melee: this.meleeCombat,

@@ -1,6 +1,7 @@
 import type {VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {vehicleConfig} from '../vehicles/vehicle-config.ts';
+import {vehicleTyreHandlingModifiers} from '../../../shared/simulation/vehicle-tyre-state.ts';
 import {
   TrafficAwarenessSystem,
   type TrafficObstacle,
@@ -38,6 +39,7 @@ export class RoadDrivingSystem {
 
   update(vehicle: VehicleState, input: RoadDrivingInput): RoadDrivingResult {
     const configuration = vehicleConfig(vehicle.kind).traffic;
+    const tyreHandling = vehicleTyreHandlingModifiers(vehicle.tyreDamageMask);
     const deltaX = input.targetX - vehicle.x;
     const deltaY = input.targetY - vehicle.y;
     const distance = Math.hypot(deltaX, deltaY);
@@ -54,7 +56,7 @@ export class RoadDrivingSystem {
       radius: VEHICLE_RADIUS,
       halfLength: collision.length / 2,
       halfWidth: collision.width / 2,
-      cruiseSpeed: input.cruiseSpeed,
+      cruiseSpeed: input.cruiseSpeed * tyreHandling.maximumSpeedMultiplier,
       brakeDeceleration: configuration.brakeDeceleration,
       minimumGap: configuration.minimumGap * (input.minimumGapScale ?? 1),
       followingTime: configuration.followingTime,
@@ -75,13 +77,17 @@ export class RoadDrivingSystem {
       return {...base, moved: false, reached: true, blocked: false};
     }
 
-    vehicle.angle = rotateToward(vehicle.angle, routeAngle, 4.2 * input.deltaSeconds);
+    vehicle.angle = rotateToward(
+      vehicle.angle,
+      routeAngle,
+      4.2 * tyreHandling.steeringRateMultiplier * input.deltaSeconds
+    );
     vehicle.speed = approach(
       vehicle.speed,
       awareness.desiredSpeed,
       (awareness.desiredSpeed < vehicle.speed
-        ? configuration.brakeDeceleration
-        : configuration.acceleration) * input.deltaSeconds
+        ? configuration.brakeDeceleration * tyreHandling.brakeDecelerationMultiplier
+        : configuration.acceleration * tyreHandling.accelerationMultiplier) * input.deltaSeconds
     );
     const movement = Math.min(distance, vehicle.speed * input.deltaSeconds);
     const nextX = vehicle.x + Math.cos(routeAngle) * movement;
@@ -114,11 +120,21 @@ export class RoadDrivingSystem {
   }
 
   brake(vehicle: VehicleState, deltaSeconds: number, deceleration = 520): void {
-    vehicle.speed = approach(vehicle.speed, 0, deceleration * deltaSeconds);
+    const tyres = vehicleTyreHandlingModifiers(vehicle.tyreDamageMask);
+    vehicle.speed = approach(
+      vehicle.speed,
+      0,
+      deceleration * tyres.brakeDecelerationMultiplier * deltaSeconds
+    );
   }
 
   reverse(vehicle: VehicleState, deltaSeconds: number, speed = 48): boolean {
-    vehicle.speed = approach(vehicle.speed, -speed, 260 * deltaSeconds);
+    const tyres = vehicleTyreHandlingModifiers(vehicle.tyreDamageMask);
+    vehicle.speed = approach(
+      vehicle.speed,
+      -speed * tyres.maximumSpeedMultiplier,
+      260 * tyres.accelerationMultiplier * deltaSeconds
+    );
     const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
     const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
     if (!this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) || !this.world.isRoadAt(nextX, nextY)) {

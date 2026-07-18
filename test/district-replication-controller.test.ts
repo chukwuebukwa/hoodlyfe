@@ -10,6 +10,7 @@ import {
   NpcState,
   PlayerState,
   RocketProjectileState,
+  StingerState,
   StreetServiceState,
   VehicleState
 } from '../server/state.ts';
@@ -104,6 +105,37 @@ test('district replication streams cash pickups with street AOI hysteresis', () 
   local.spaceId = 'threads-showroom';
   controller.synchronize();
   assert.equal(view.has(cash), false);
+});
+
+test('district replication streams police stingers with street AOI hysteresis', () => {
+  const state = new DistrictState();
+  const local = player('local', 'street');
+  state.players.set(local.id, local);
+  const stinger = new StingerState();
+  stinger.id = 'police-stinger:roadblock-1';
+  stinger.x = 1_200;
+  stinger.activeSegmentCount = 12;
+  state.stingers.set(stinger.id, stinger);
+  const controller = new DistrictReplicationController(state);
+  const view = controller.attach(local.id);
+
+  assert.equal(view.has(stinger), true);
+  stinger.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(stinger), true);
+  stinger.x = 1_600;
+  controller.synchronize();
+  assert.equal(view.has(stinger), false);
+  stinger.x = 1_400;
+  controller.synchronize();
+  assert.equal(view.has(stinger), false);
+  stinger.x = 1_200;
+  controller.synchronize();
+  assert.equal(view.has(stinger), true);
+
+  local.spaceId = 'threads-showroom';
+  controller.synchronize();
+  assert.equal(view.has(stinger), false);
 });
 
 test('mission participants retain a marked NPC target outside ordinary street AOI', () => {

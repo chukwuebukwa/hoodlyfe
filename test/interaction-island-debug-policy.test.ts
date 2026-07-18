@@ -114,6 +114,7 @@ function vehicle(id: string, x: number): VehicleInteractionState {
     speed: 0,
     steering: 0,
     engineDamage: 0,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   };

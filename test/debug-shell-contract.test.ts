@@ -7,6 +7,7 @@ const REQUIRED_MARKUP = [
   'id="debug-police-response"',
   'id="debug-police-arrests"',
   'id="debug-police-roadblocks"',
+  'id="debug-police-stingers"',
   'id="debug-junctions"',
   'id="debug-roads"',
   'id="debug-traffic-risk"',
@@ -29,6 +30,7 @@ const REQUIRED_MARKUP = [
 const REQUIRED_WIDE_ROWS = [
   'Police response',
   'Roadblocks',
+  'Stingers',
   'Road graph',
   'Traffic risk',
   'Netcode rollout',

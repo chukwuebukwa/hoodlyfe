@@ -351,6 +351,7 @@ export class VehicleState extends Schema {
   hijackBy = '';
   siren = false;
   radioStation = 'station-0';
+  tyreDamageMask = 0;
 }
 
 defineTypes(VehicleState, {
@@ -375,7 +376,38 @@ defineTypes(VehicleState, {
   traffic: 'boolean',
   hijackBy: 'string',
   siren: 'boolean',
-  radioStation: 'string'
+  radioStation: 'string',
+  tyreDamageMask: 'number'
+});
+
+export class StingerState extends Schema {
+  id = '';
+  roadblockId = '';
+  slotId = '';
+  suspectId = '';
+  ownerId = '';
+  x = 0;
+  y = 0;
+  angle = 0;
+  phase = 'preparing';
+  phaseStartedAt = 0;
+  createdAt = 0;
+  activeSegmentCount = 0;
+}
+
+defineTypes(StingerState, {
+  id: 'string',
+  roadblockId: 'string',
+  slotId: 'string',
+  suspectId: 'string',
+  ownerId: 'string',
+  x: 'number',
+  y: 'number',
+  angle: 'number',
+  phase: 'string',
+  phaseStartedAt: 'number',
+  createdAt: 'number',
+  activeSegmentCount: 'number'
 });
 
 export class MissionParticipantState extends Schema {
@@ -517,6 +549,7 @@ export class DistrictState extends Schema {
   serverTimeMs = 0;
   missionContactX = 0;
   missionContactY = 0;
+  stingers = new MapSchema<StingerState>();
 }
 
 defineTypes(DistrictState, {
@@ -539,7 +572,8 @@ defineTypes(DistrictState, {
   serverTick: 'number',
   serverTimeMs: 'number',
   missionContactX: 'number',
-  missionContactY: 'number'
+  missionContactY: 'number',
+  stingers: {map: StingerState}
 });
 
 for (const field of [
@@ -554,7 +588,8 @@ for (const field of [
   'npcs',
   'vehicles',
   'missions',
-  'services'
+  'services',
+  'stingers'
 ] as const) {
   view()(DistrictState.prototype, field);
 }

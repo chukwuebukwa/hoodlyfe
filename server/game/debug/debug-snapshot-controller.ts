@@ -4,6 +4,7 @@ import {
   type DebugPedestrianAiEntry,
   type DebugPoliceArrestEntry,
   type DebugPoliceRoadblockEntry,
+  type DebugPoliceStingerEntry,
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
   type DebugPoliceResponseEntry,
@@ -47,6 +48,7 @@ interface DebugSnapshotControllerOptions {
   policeTactics?: () => ReadonlyArray<DebugPoliceTacticEntry>;
   policeArrests?: () => ReadonlyArray<DebugPoliceArrestEntry>;
   policeRoadblocks?: () => ReadonlyArray<DebugPoliceRoadblockEntry>;
+  policeStingers?: () => ReadonlyArray<DebugPoliceStingerEntry>;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -149,6 +151,7 @@ export class DebugSnapshotController {
         vehicleIds: [...roadblock.vehicleIds],
         blockedEdgeIds: [...roadblock.blockedEdgeIds]
       })),
+      policeStingers: (this.options.policeStingers?.() ?? []).map((stinger) => ({...stinger})),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
@@ -205,6 +208,12 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.roadblockId} deployed for ${event.suspectId} at ${event.slotId}`;
     case 'police.roadblock-cleared':
       return `${event.roadblockId} cleared: ${event.reason}`;
+    case 'police.stinger-deployed':
+      return `${event.stingerId} deployed by ${event.officerId}`;
+    case 'vehicle.tyres-burst':
+      return `${event.vehicleId} burst tyre mask ${event.burstMask} on ${event.stingerId}`;
+    case 'police.stinger-cleared':
+      return `${event.stingerId} cleared`;
     case 'mission.phase-changed':
       return `${event.missionId} ${event.previousPhase} -> ${event.phase}`;
     case 'mission.payout':

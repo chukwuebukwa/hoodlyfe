@@ -88,7 +88,13 @@
         "north-boulevard:forward:edge:1",
         "north-boulevard:reverse:edge:0"
       ],
-      "vehiclePoses": [{"x": 3300, "y": 928, "angle": 1.5707963267948966}]
+      "vehiclePoses": [{"x": 3300, "y": 928, "angle": 1.5707963267948966}],
+      "stinger": {
+        "x": 3240,
+        "y": 928,
+        "angle": 1.5707963267948966,
+        "officerPose": {"x": 3240, "y": 864, "angle": 1.5707963267948966}
+      }
     },
     {
       "id": "central-avenue-mid",
@@ -104,7 +110,13 @@
       "vehiclePoses": [
         {"x": 2300, "y": 1700, "angle": 0},
         {"x": 2372, "y": 1700, "angle": 0}
-      ]
+      ],
+      "stinger": {
+        "x": 2336,
+        "y": 1628,
+        "angle": 0,
+        "officerPose": {"x": 2216, "y": 1628, "angle": 0}
+      }
     },
     {
       "id": "south-boulevard-east",
@@ -120,7 +132,13 @@
       "vehiclePoses": [
         {"x": 3000, "y": 3452, "angle": 1.5707963267948966},
         {"x": 3000, "y": 3524, "angle": 1.5707963267948966}
-      ]
+      ],
+      "stinger": {
+        "x": 2928,
+        "y": 3488,
+        "angle": 1.5707963267948966,
+        "officerPose": {"x": 2928, "y": 3368, "angle": 1.5707963267948966}
+      }
     }
   ]
 }

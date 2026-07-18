@@ -175,6 +175,55 @@ export class PedestrianController {
     return npc;
   }
 
+  spawnOwnedAt(
+    id: string,
+    kind: 'civilian' | 'police',
+    x: number,
+    y: number,
+    angle: number,
+    action = 'stand'
+  ): NpcState {
+    const existing = this.options.state.npcs.get(id);
+    const existingRuntime = this.runtime.get(id);
+    if (existing && existingRuntime?.lifecycle === 'owned') return existing;
+    if (existing || existingRuntime) {
+      throw new Error(`Owned pedestrian id ${id} is already in use.`);
+    }
+    const npc = new NpcState();
+    npc.id = id;
+    npc.kind = kind;
+    npc.x = x;
+    npc.y = y;
+    npc.angle = angle;
+    npc.health = healthFor(kind);
+    npc.action = action;
+    this.options.state.npcs.set(id, npc);
+    this.runtime.set(id, {
+      ...createPedestrianRuntime(angle, 1, Number.MAX_SAFE_INTEGER),
+      lifecycle: 'owned',
+      objective: 'contain'
+    });
+    this.options.onSpawned?.(npc);
+    return npc;
+  }
+
+  releaseOwned(npcId: string, nowMs: number): boolean {
+    const runtime = this.runtime.get(npcId);
+    const npc = this.options.state.npcs.get(npcId);
+    if (!runtime || runtime.lifecycle !== 'owned' || !npc) return false;
+    runtime.lifecycle = 'ambient';
+    runtime.objective = 'wander';
+    runtime.nextThinkAt = nowMs;
+    runtime.nextPerceptionAt = nowMs;
+    runtime.respawnAt = npc.alive ? 0 : nowMs + 5_000;
+    npc.action = npc.alive ? 'wander' : 'dead';
+    return true;
+  }
+
+  owns(npcId: string): boolean {
+    return this.runtime.get(npcId)?.lifecycle === 'owned';
+  }
+
   canStreamOut(npcId: string): boolean {
     const npc = this.options.state.npcs.get(npcId);
     const runtime = this.runtime.get(npcId);
@@ -211,6 +260,7 @@ export class PedestrianController {
       this.tryRespawn(npc, runtime, nowMs);
       return;
     }
+    if (runtime.lifecycle === 'owned') return;
     if (this.options.isPoliceArresting?.(npc.id)) return;
     if (npc.reactionKind && npc.reactionProgress < 1) {
       if (runtime.melee.phase !== 'idle') this.melee.interrupt(npc, runtime, nowMs);
@@ -387,7 +437,7 @@ export class PedestrianController {
   }
 
   private tryRespawn(npc: NpcState, runtime: PedestrianRuntime, nowMs: number): void {
-    if (runtime.lifecycle === 'mission') return;
+    if (runtime.lifecycle !== 'ambient') return;
     if (nowMs < runtime.respawnAt) return;
     const position = this.options.world.openPointNear(
       this.options.world.spawn.x,

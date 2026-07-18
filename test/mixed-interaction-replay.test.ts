@@ -147,6 +147,7 @@ function vehicle(): VehicleInteractionState {
     speed: 180,
     steering: 0,
     engineDamage: 0,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   };

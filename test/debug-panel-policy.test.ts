@@ -36,6 +36,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     arrests: '0 active',
     roadblocks: '0 active',
+    stingers: '0 active',
     stimuli: 0,
     signals: '0',
     junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass',
@@ -147,6 +148,44 @@ test('debug panel exposes roadblock lifecycle and closed-edge pressure', () => {
   assert.equal(
     projectDebugPanel(createState(), snapshot).roadblocks,
     '2 active / C1 D1 R0 / 3 edges / 2 vehicles'
+  );
+});
+
+test('debug panel exposes stinger deployment, segment, and tyre contact state', () => {
+  const snapshot = createSnapshot();
+  snapshot.policeStingers = [{
+    stingerId: 'police-stinger:roadblock-1',
+    roadblockId: 'roadblock-1',
+    slotId: 'central-avenue-mid',
+    suspectId: 'driver',
+    officerId: 'police-stinger:roadblock-1:officer',
+    phase: 'deployed',
+    x: 2336,
+    y: 1628,
+    angle: 0,
+    activeSegmentCount: 12,
+    contacts: 2,
+    lastVehicleId: 'traffic-7',
+    lastBurstMask: 5
+  }, {
+    stingerId: 'police-stinger:roadblock-2',
+    roadblockId: 'roadblock-2',
+    slotId: 'south-boulevard-east',
+    suspectId: 'driver-2',
+    officerId: 'police-stinger:roadblock-2:officer',
+    phase: 'deploying',
+    x: 2928,
+    y: 3488,
+    angle: Math.PI / 2,
+    activeSegmentCount: 6,
+    contacts: 0,
+    lastVehicleId: '',
+    lastBurstMask: 0
+  }];
+
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).stingers,
+    '2 active / P0 E1 D1 R0 / 18 segments / 2 contacts / traffic-7 mask 5'
   );
 });
 

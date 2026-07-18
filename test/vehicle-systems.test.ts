@@ -76,6 +76,7 @@ test('overlapping vehicles moving apart separate without taking impact damage', 
 test('vehicle damage tracks components, ignition, delayed explosion, and weapon lethality', () => {
   const damage = new VehicleDamageSystem();
   const healthy = damage.reset(1000);
+  assert.equal(healthy.tyreDamageMask, 0);
   const frontHit = damage.apply(healthy, 120, 'vehicle', 'front', 1000);
   assert.equal(frontHit.health, 880);
   assert.equal(frontHit.damageFront, 120);

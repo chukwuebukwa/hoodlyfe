@@ -197,6 +197,29 @@ export interface PoliceRoadblockClearedEvent extends EventMetadata {
   reason: string;
 }
 
+export interface PoliceStingerDeployedEvent extends EventMetadata {
+  type: 'police.stinger-deployed';
+  stingerId: string;
+  roadblockId: string;
+  officerId: string;
+  suspectId: string;
+}
+
+export interface VehicleTyresBurstEvent extends EventMetadata {
+  type: 'vehicle.tyres-burst';
+  stingerId: string;
+  vehicleId: string;
+  burstMask: number;
+  tyreDamageMask: number;
+}
+
+export interface PoliceStingerClearedEvent extends EventMetadata {
+  type: 'police.stinger-cleared';
+  stingerId: string;
+  roadblockId: string;
+  officerId: string;
+}
+
 export interface MissionPhaseChangedEvent extends EventMetadata {
   type: 'mission.phase-changed';
   missionId: string;
@@ -254,6 +277,9 @@ export type GameEvent =
   | PlayerBustedEvent
   | PoliceRoadblockDeployedEvent
   | PoliceRoadblockClearedEvent
+  | PoliceStingerDeployedEvent
+  | VehicleTyresBurstEvent
+  | PoliceStingerClearedEvent
   | MissionPhaseChangedEvent
   | MissionPayoutEvent
   | MissionFailedEvent

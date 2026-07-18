@@ -245,6 +245,7 @@ function snapshotFor(
       speed: pose.speed,
       steering: input.steering,
       engineDamage: 0,
+      tyreDamageMask: 0,
       onFire: false,
       destroyed: false
     }],

@@ -47,5 +47,13 @@ test('roadblock cooldown contracts as wanted pressure rises', () => {
 });
 
 function opportunity(id: string, x: number, y: number): LaneRoadblockDefinition {
-  return {id, x, y, angle: 0, blockedEdgeIds: [`${id}:edge`], vehiclePoses: []};
+  return {
+    id,
+    x,
+    y,
+    angle: 0,
+    blockedEdgeIds: [`${id}:edge`],
+    vehiclePoses: [],
+    stinger: {x, y, angle: 0, officerPose: {x, y, angle: 0}}
+  };
 }

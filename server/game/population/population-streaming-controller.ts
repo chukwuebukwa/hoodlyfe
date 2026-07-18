@@ -777,6 +777,7 @@ export class PopulationStreamingController {
     if (
       vehicle.health !== vehicle.maxHealth ||
       vehicle.engineDamage > 0 ||
+      vehicle.tyreDamageMask > 0 ||
       vehicle.damageFront > 0 ||
       vehicle.damageRear > 0 ||
       vehicle.damageLeft > 0 ||

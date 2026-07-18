@@ -12,7 +12,7 @@ import {
   type PoliceRoadblockSuspect
 } from './police-roadblock-policy.ts';
 
-type PoliceRoadblockPhase = 'clearing' | 'deployed' | 'retiring';
+export type PoliceRoadblockPhase = 'clearing' | 'deployed' | 'retiring';
 type PoliceRoadblockClearReason = 'wanted-cleared' | 'breached' | 'deployment-timeout';
 
 interface PoliceRoadblockRuntime {
@@ -54,6 +54,15 @@ export interface PoliceRoadblockDiagnostic {
   clearReason: string;
 }
 
+export interface PoliceRoadblockDeployment {
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  phase: PoliceRoadblockPhase;
+  blockedEdgeIds: readonly string[];
+  stinger: LaneRoadblockDefinition['stinger'];
+}
+
 const DEPLOYMENT_TIMEOUT_MS = 9_000;
 const DEPLOYMENT_VISIBILITY_RADIUS = 640;
 const DEPLOYMENT_VEHICLE_CLEARANCE = 72;
@@ -82,6 +91,19 @@ export class PoliceRoadblockController {
       if (runtime.vehicleIds.has(vehicleId)) return true;
     }
     return false;
+  }
+
+  activeDeployments(): readonly PoliceRoadblockDeployment[] {
+    return Object.freeze([...this.runtimes.values()].sort(compareRuntime).map((runtime) => (
+      Object.freeze({
+        roadblockId: runtime.id,
+        slotId: runtime.opportunity.id,
+        suspectId: runtime.suspectId,
+        phase: runtime.phase,
+        blockedEdgeIds: Object.freeze([...runtime.opportunity.blockedEdgeIds]),
+        stinger: runtime.opportunity.stinger
+      })
+    )));
   }
 
   diagnostics(): PoliceRoadblockDiagnostic[] {

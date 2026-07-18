@@ -23,6 +23,7 @@ export interface DebugPanelProjection {
   response: string;
   arrests: string;
   roadblocks: string;
+  stingers: string;
   stimuli: number;
   signals: string;
   junctions: string;
@@ -67,6 +68,7 @@ export function projectDebugPanel(
     response: policeResponseSummary(snapshot),
     arrests: policeArrestSummary(snapshot),
     roadblocks: policeRoadblockSummary(snapshot),
+    stingers: policeStingerSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
     junctions: trafficJunctionSummary(snapshot),
@@ -283,4 +285,21 @@ function policeRoadblockSummary(snapshot?: DebugSnapshot): string {
   const vehicles = roadblocks.reduce((sum, roadblock) => sum + roadblock.vehicleIds.length, 0);
   return `${roadblocks.length} active / C${clearing} D${deployed} R${retiring} / ` +
     `${closedEdges} edges / ${vehicles} vehicles`;
+}
+
+function policeStingerSummary(snapshot?: DebugSnapshot): string {
+  const stingers = snapshot?.policeStingers ?? [];
+  if (stingers.length === 0) return '0 active';
+  const preparing = stingers.filter((stinger) => stinger.phase === 'preparing').length;
+  const deploying = stingers.filter((stinger) => stinger.phase === 'deploying').length;
+  const deployed = stingers.filter((stinger) => stinger.phase === 'deployed').length;
+  const retiring = stingers.filter((stinger) => stinger.phase === 'retiring').length;
+  const segments = stingers.reduce((sum, stinger) => sum + stinger.activeSegmentCount, 0);
+  const contacts = stingers.reduce((sum, stinger) => sum + stinger.contacts, 0);
+  const lastContact = [...stingers].reverse().find((stinger) => stinger.lastVehicleId);
+  const last = lastContact
+    ? ` / ${lastContact.lastVehicleId} mask ${lastContact.lastBurstMask}`
+    : '';
+  return `${stingers.length} active / P${preparing} E${deploying} D${deployed} R${retiring} / ` +
+    `${segments} segments / ${contacts} contacts${last}`;
 }

@@ -426,6 +426,7 @@ police/
   custody-outcome-controller.ts
   police-roadblock-policy.ts
   police-roadblock-controller.ts
+  police-stinger-controller.ts
   police-vehicle-policy.ts
   police-vehicle-controller.ts
 ```
@@ -443,7 +444,7 @@ police/
   custody economy/release, medical death/respawn, and future jail transport are separate
   owners.
 
-`PoliceVehicleController` consumes shared assignments and reported suspect snapshots from crime response, composes pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. Arrest contact, custody, and roadblock lifecycle are separate modules. `PoliceRoadblockController` consumes response facts and authored lane opportunities, while the traffic-owned `RoadClosureRegistry` supplies generic edge admission. Planned officer exits, stingers, surrender presentation, transport, and jail remain separate future modules rather than additions to either controller.
+`PoliceVehicleController` consumes shared assignments and reported suspect snapshots from crime response, composes pure strategy/speed policy, private search memory, and route cadence, then delegates steering to `RoadDrivingSystem`. It does not import wanted internals, ambient traffic policy, collision damage, or player control. Arrest contact, custody, roadblock lifecycle, and stinger lifecycle are separate modules. `PoliceRoadblockController` consumes response facts and authored lane opportunities, while `PoliceStingerController` owns the deployment officer, replicated strip, swept wheel contact, and overlapping closure claim. The traffic-owned `RoadClosureRegistry` supplies generic edge admission. Planned officer exits, surrender presentation, transport, and jail remain separate future modules rather than additions to either controller.
 
 ## Combat Organization
 

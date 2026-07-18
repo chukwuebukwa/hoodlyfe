@@ -9,7 +9,7 @@ import {
 function vehicle(overrides: Partial<NetworkVehicle> = {}): NetworkVehicle {
   return {
     id: 'car', kind: 'sedan', x: 0, y: 0, angle: 0, speed: 20,
-    health: 1000, maxHealth: 1000, engineDamage: 0,
+    health: 1000, maxHealth: 1000, engineDamage: 0, tyreDamageMask: 0,
     damageFront: 0, damageRear: 0, damageLeft: 0, damageRight: 0,
     onFire: false, fireStartedAt: 0, destroyed: false, respawnAt: 0,
     driverId: 'driver', traffic: false, hijackBy: '', ...overrides

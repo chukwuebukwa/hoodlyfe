@@ -13,7 +13,7 @@ import {
 } from '../../../shared/simulation/vehicle-dynamic-contact.ts';
 import {
   stepVehicleWithWorldCollision,
-  vehicleMechanicalSpeedMultiplier
+  vehicleMechanicalStepModifiers
 } from '../../../shared/simulation/vehicle-step.ts';
 import {
   type InteractionIslandReplayResult,
@@ -115,12 +115,11 @@ export function createVehicleInteractionBodyStep(
       entity.vehicleKind,
       context.deltaSeconds,
       (x, y, radius) => canOccupy(entity.spaceId, x, y, radius),
-      {
-        maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(
-          entity.engineDamage,
-          entity.onFire
-        )
-      }
+      vehicleMechanicalStepModifiers(
+        entity.engineDamage,
+        entity.onFire,
+        entity.tyreDamageMask
+      )
     );
     return interactionVehicleState(entity, movement.pose, steering, context.deltaSeconds);
   };

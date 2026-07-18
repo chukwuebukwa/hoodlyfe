@@ -167,6 +167,7 @@ export interface NetworkVehicle {
   health: number;
   maxHealth: number;
   engineDamage: number;
+  tyreDamageMask: number;
   damageFront: number;
   damageRear: number;
   damageLeft: number;
@@ -180,6 +181,21 @@ export interface NetworkVehicle {
   hijackBy: string;
   siren?: boolean;
   radioStation?: string;
+}
+
+export interface NetworkStinger {
+  id: string;
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  ownerId: string;
+  x: number;
+  y: number;
+  angle: number;
+  phase: 'preparing' | 'deploying' | 'deployed' | 'retiring';
+  phaseStartedAt: number;
+  createdAt: number;
+  activeSegmentCount: number;
 }
 
 export interface NetworkMissionParticipant {
@@ -253,6 +269,7 @@ export interface DistrictNetworkState {
   trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
+  stingers?: Map<string, NetworkStinger>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
   worldTimeStartedAt?: number;

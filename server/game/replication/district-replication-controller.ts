@@ -179,6 +179,15 @@ export class DistrictReplicationController {
     projection: ClientProjection,
     desired: Map<Schema, DesiredSchema>
   ): number {
+    for (const stinger of this.state.stingers.values()) {
+      const stingerDistance = distance(x, y, stinger.x, stinger.y);
+      if (!shouldReplicateStreetEntity({
+        distance: stingerDistance,
+        visible: projection.visible.has(stinger),
+        alwaysRelevant: false
+      })) continue;
+      this.addDesired(desired, stinger, 1, stingerDistance, `stinger:${stinger.id}`);
+    }
     for (const pickup of this.state.weaponPickups.values()) {
       this.addDesired(desired, pickup, 2, distance(x, y, pickup.x, pickup.y), `pickup:${pickup.id}`);
     }

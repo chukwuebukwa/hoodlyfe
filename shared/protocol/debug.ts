@@ -288,6 +288,22 @@ export interface DebugPoliceRoadblockEntry {
   clearReason: string;
 }
 
+export interface DebugPoliceStingerEntry {
+  stingerId: string;
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  officerId: string;
+  phase: 'preparing' | 'deploying' | 'deployed' | 'retiring';
+  x: number;
+  y: number;
+  angle: number;
+  activeSegmentCount: number;
+  contacts: number;
+  lastVehicleId: string;
+  lastBurstMask: number;
+}
+
 export interface DebugReplicationEntry {
   playerId: string;
   spaceId: string;
@@ -344,6 +360,7 @@ export interface DebugSnapshot {
   policeTactics?: DebugPoliceTacticEntry[];
   policeArrests?: DebugPoliceArrestEntry[];
   policeRoadblocks?: DebugPoliceRoadblockEntry[];
+  policeStingers?: DebugPoliceStingerEntry[];
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

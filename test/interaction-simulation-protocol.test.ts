@@ -111,6 +111,10 @@ test('interaction snapshot validation fails closed on stale or incompatible base
   }, context).accepted, false);
   assert.equal(validateInteractionSnapshot({
     ...snapshot(),
+    entities: [{...vehicleEntity(), tyreDamageMask: 16}, playerEntity()]
+  }, context).accepted, false);
+  assert.equal(validateInteractionSnapshot({
+    ...snapshot(),
     remoteIntents: [{...remoteIntent(), entityId: 'missing'}]
   }, context).accepted, false);
 });
@@ -164,6 +168,7 @@ function vehicleEntity(): Record<string, unknown> {
     speed: 30,
     steering: 0.25,
     engineDamage: 12,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   };

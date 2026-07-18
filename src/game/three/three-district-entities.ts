@@ -3,6 +3,7 @@ import type {
   DistrictNetworkState,
   NetworkNpc,
   NetworkPlayer,
+  NetworkStinger,
   NetworkVehicle
 } from '../types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
@@ -57,7 +58,7 @@ import {
   type VehicleInputMove,
   type VehiclePredictionCorrection
 } from '../prediction/saved-vehicle-prediction.ts';
-import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
+import {vehicleMechanicalStepModifiers} from '../../../shared/simulation/vehicle-step.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
 import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
@@ -88,6 +89,7 @@ import {
 } from '../prediction/on-foot-interaction-replay.ts';
 import {InteractionReplayPresentation} from '../rendering/interaction-replay-presentation.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
+import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -311,10 +313,37 @@ export class ThreeDistrictEntities {
         estimatedServerTimeMs
       );
     });
+    state.stingers?.forEach((stinger, id) => {
+      if (localSpaceId !== 'street') return;
+      present.add(`stinger:${id}`);
+      this.synchronizeStinger(`stinger:${id}`, stinger);
+    });
     for (const [id, rendered] of this.rendered) {
       if (present.has(id)) continue;
       this.remove(id, rendered);
     }
+  }
+
+  private synchronizeStinger(id: string, stinger: NetworkStinger): void {
+    const rendered = this.obtain(id, () => ({mesh: policeStingerMesh()}));
+    const segmentCount = Math.max(
+      0,
+      Math.min(POLICE_STINGER_SEGMENT_COUNT, Math.floor(stinger.activeSegmentCount))
+    );
+    if (
+      rendered.mesh.userData.activeSegmentCount !== segmentCount ||
+      rendered.mesh.userData.stingerPhase !== stinger.phase
+    ) {
+      paintPoliceStinger(rendered.mesh, segmentCount, stinger.phase);
+    }
+    rendered.mesh.position.set(
+      stinger.x,
+      serverYToThree(stinger.y),
+      this.surfaceHeightAt(stinger.x, stinger.y) + 7
+    );
+    rendered.mesh.rotation.z = serverAngleToThree(stinger.angle);
+    rendered.mesh.visible = segmentCount > 0;
+    rendered.mesh.userData.stinger = stinger;
   }
 
   vehiclePose(vehicleId: string): VehicleRenderPose | undefined {
@@ -395,12 +424,11 @@ export class ThreeDistrictEntities {
       vehicle.kind,
       deltaSeconds,
       (x, y, radius) => this.canOccupy('street', x, y, radius),
-      {
-        maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(
-          vehicle.engineDamage,
-          vehicle.onFire
-        )
-      }
+      vehicleMechanicalStepModifiers(
+        vehicle.engineDamage,
+        vehicle.onFire,
+        vehicle.tyreDamageMask
+      )
     );
     if (!advanced) return undefined;
     rendered.visualOffsetX = decayCorrectionOffset(
@@ -1082,12 +1110,11 @@ export class ThreeDistrictEntities {
         x,
         y,
         radius
-      ), {
-        maximumSpeedMultiplier: vehicleMechanicalSpeedMultiplier(
-          vehicle.engineDamage,
-          vehicle.onFire
-        )
-      });
+      ), vehicleMechanicalStepModifiers(
+        vehicle.engineDamage,
+        vehicle.onFire,
+        vehicle.tyreDamageMask
+      ));
       if (correction) {
         rendered.vehicleCorrection = correction;
         const offset = positionCorrectionOffset(
@@ -1393,6 +1420,60 @@ function spriteMesh(
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
   mesh.renderOrder = 10;
   return mesh;
+}
+
+function policeStingerMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 384;
+  canvas.height = 48;
+  const texture = new THREE.CanvasTexture(canvas);
+  configureTexture(texture);
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    alphaTest: 0.05,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(104, 13), material);
+  mesh.renderOrder = 13;
+  paintPoliceStinger(mesh, 0, 'preparing');
+  return mesh;
+}
+
+function paintPoliceStinger(
+  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>,
+  activeSegmentCount: number,
+  phase: NetworkStinger['phase']
+): void {
+  const canvas = mesh.material.map?.image as HTMLCanvasElement | undefined;
+  const context = canvas?.getContext('2d');
+  if (!canvas || !context) return;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  const count = Math.max(0, Math.min(POLICE_STINGER_SEGMENT_COUNT, activeSegmentCount));
+  const spacing = 30;
+  const startX = (canvas.width - (POLICE_STINGER_SEGMENT_COUNT - 1) * spacing) / 2;
+  const metal = phase === 'retiring' ? '#6f6256' : phase === 'deploying' ? '#a98935' : '#4d555d';
+  for (let index = 0; index < count; index++) {
+    const x = startX + index * spacing;
+    context.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    context.fillRect(x - 12, 15, 24, 20);
+    context.fillStyle = metal;
+    context.fillRect(x - 10, 13, 20, 18);
+    context.fillStyle = '#bcc3c8';
+    context.fillRect(x - 7, 20, 14, 3);
+    context.fillStyle = '#e0d7b0';
+    context.beginPath();
+    context.moveTo(x, 5);
+    context.lineTo(x + 4, 17);
+    context.lineTo(x - 4, 17);
+    context.closePath();
+    context.fill();
+  }
+  if (mesh.material.map) mesh.material.map.needsUpdate = true;
+  mesh.userData.activeSegmentCount = count;
+  mesh.userData.stingerPhase = phase;
 }
 
 function weaponPlaneGeometry(

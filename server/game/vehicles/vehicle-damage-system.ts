@@ -1,6 +1,9 @@
 import type {VehicleDamageSource} from '../events/game-events.ts';
 import type {VehicleDamageZone} from './vehicle-collision-system.ts';
-import {vehicleMechanicalSpeedMultiplier} from '../../../shared/simulation/vehicle-step.ts';
+import {
+  vehicleMechanicalSpeedMultiplier,
+  vehicleMechanicalStepModifiers
+} from '../../../shared/simulation/vehicle-step.ts';
 
 const ENGINE_STEAM_1 = 100;
 const ENGINE_STEAM_2 = 150;
@@ -13,6 +16,7 @@ export interface VehicleMechanicalState {
   health: number;
   maxHealth: number;
   engineDamage: number;
+  tyreDamageMask: number;
   damageFront: number;
   damageRear: number;
   damageLeft: number;
@@ -58,6 +62,7 @@ export class VehicleDamageSystem {
       health: nextHealth,
       maxHealth: state.maxHealth,
       engineDamage: Math.min(250, Math.round(engineDamage)),
+      tyreDamageMask: state.tyreDamageMask,
       damageFront: zone === 'front' ? componentDamage : state.damageFront,
       damageRear: zone === 'rear' ? componentDamage : state.damageRear,
       damageLeft: zone === 'left' ? componentDamage : state.damageLeft,
@@ -86,11 +91,16 @@ export class VehicleDamageSystem {
     return vehicleMechanicalSpeedMultiplier(engineDamage, onFire);
   }
 
+  stepModifiers(engineDamage: number, onFire: boolean, tyreDamageMask: number) {
+    return vehicleMechanicalStepModifiers(engineDamage, onFire, tyreDamageMask);
+  }
+
   reset(maxHealth: number): VehicleMechanicalState {
     return {
       health: maxHealth,
       maxHealth,
       engineDamage: 0,
+      tyreDamageMask: 0,
       damageFront: 0,
       damageRear: 0,
       damageLeft: 0,

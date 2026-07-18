@@ -332,6 +332,7 @@ function createVehicle(): NetworkVehicle {
     health: 1000,
     maxHealth: 1000,
     engineDamage: 0,
+    tyreDamageMask: 0,
     damageFront: 0,
     damageRear: 0,
     damageLeft: 0,

@@ -27,6 +27,7 @@ import {
   safeNonnegativeInteger,
   safePositiveInteger
 } from './interaction-validation.ts';
+import {normalizeVehicleTyreMask} from '../simulation/vehicle-tyre-state.ts';
 
 export function validateInteractionSnapshot(
   message: unknown,
@@ -161,8 +162,10 @@ function parseVehicle(
   const speed = finiteInRange(record.speed, -MAX_ABSOLUTE_VELOCITY, MAX_ABSOLUTE_VELOCITY);
   const steering = finiteInRange(record.steering, -1, 1);
   const engineDamage = finiteInRange(record.engineDamage, 0, 250);
+  const tyreDamageMask = safeNonnegativeInteger(record.tyreDamageMask);
   if (
     !vehicleKind || speed === undefined || steering === undefined || engineDamage === undefined ||
+    tyreDamageMask === undefined || tyreDamageMask !== normalizeVehicleTyreMask(tyreDamageMask) ||
     typeof record.onFire !== 'boolean' || typeof record.destroyed !== 'boolean'
   ) return undefined;
   return Object.freeze({
@@ -172,6 +175,7 @@ function parseVehicle(
     speed,
     steering,
     engineDamage,
+    tyreDamageMask,
     onFire: record.onFire,
     destroyed: record.destroyed
   });

@@ -17,6 +17,7 @@ import {
   INTERACTION_ISLAND_DEBUG_COLOR,
   projectInteractionIslandDebug
 } from '../debug/interaction-island-debug-policy.ts';
+import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -45,6 +46,7 @@ export class ThreeDebugController {
     response: document.querySelector('#debug-police-response'),
     arrests: document.querySelector('#debug-police-arrests'),
     roadblocks: document.querySelector('#debug-police-roadblocks'),
+    stingers: document.querySelector('#debug-police-stingers'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
     junctions: document.querySelector('#debug-junctions'),
@@ -272,6 +274,35 @@ export class ThreeDebugController {
         color,
         this.surfaceHeightAt(roadblock.x, roadblock.y) + 42
       ));
+    }
+    for (const stinger of state.stingers?.values() ?? []) {
+      const color = stinger.phase === 'preparing'
+        ? 0xffc857
+        : stinger.phase === 'deploying'
+        ? 0xe3b341
+        : stinger.phase === 'deployed' ? 0xe5edf2 : 0x9b78ff;
+      for (const segment of policeStingerSegmentPositions(stinger)) {
+        this.group.add(debugRing(
+          segment.x,
+          segment.y,
+          6,
+          color,
+          this.surfaceHeightAt(segment.x, segment.y) + 46
+        ));
+      }
+      const halfLength = 48;
+      this.group.add(debugLine([
+        point(
+          stinger.x - Math.cos(stinger.angle) * halfLength,
+          stinger.y - Math.sin(stinger.angle) * halfLength,
+          this.surfaceHeightAt(stinger.x, stinger.y) + 47
+        ),
+        point(
+          stinger.x + Math.cos(stinger.angle) * halfLength,
+          stinger.y + Math.sin(stinger.angle) * halfLength,
+          this.surfaceHeightAt(stinger.x, stinger.y) + 47
+        )
+      ], color));
     }
     const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {

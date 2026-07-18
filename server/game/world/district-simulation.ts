@@ -22,6 +22,7 @@ import type {CrimeResponseController} from '../police/crime-response-controller.
 import type {PoliceArrestController} from '../police/police-arrest-controller.ts';
 import type {PoliceResponseFleetController} from '../police/police-response-fleet-controller.ts';
 import type {PoliceRoadblockController} from '../police/police-roadblock-controller.ts';
+import type {PoliceStingerController} from '../police/police-stinger-controller.ts';
 import {populationInterestAnchorsForPlayers} from '../population/population-interest-anchor-policy.ts';
 import type {PopulationStreamingController} from '../population/population-streaming-controller.ts';
 import type {TrafficSignalController} from '../traffic/traffic-signal-controller.ts';
@@ -75,6 +76,7 @@ export interface DistrictSimulationOptions {
   explosions: ExplosionController;
   policeFleet: PoliceResponseFleetController;
   policeRoadblocks: PoliceRoadblockController;
+  policeStingers: PoliceStingerController;
   vehicles: VehicleSimulationController;
   reactions: CombatReactionController;
   melee: MeleeCombatController;
@@ -184,6 +186,7 @@ export class DistrictSimulation {
         this.options.crime.processReports(nowMs);
         this.options.crime.updateResponse(nowMs);
         this.options.policeRoadblocks.update(nowMs);
+        this.options.policeStingers.update(nowMs);
         this.options.policeArrests.update(nowMs);
       }),
       phase('pedestrian-motion', ({deltaSeconds, nowMs}) => {

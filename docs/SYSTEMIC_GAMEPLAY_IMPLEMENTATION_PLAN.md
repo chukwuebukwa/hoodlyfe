@@ -327,8 +327,15 @@ G3c architecture checklist:
 - [x] F3 exposes lifecycle counts, closed-edge pressure, red closed lanes, and slot phases.
 - [x] G3c changes no prediction, reconciliation, interpolation, AOI, rewind, rollout,
   interaction-island, or shared movement/contact implementation.
-- [ ] G3d adds original tyre state, replicated stinger actors, officer deployment, wheel
-  contact, and timed teardown as a separate lifecycle.
+- [x] G3d adds original four-wheel tyre state, schema-validated authored strip/officer
+  poses, replicated twelve-segment actors, owned officer deployment, swept wheel contact,
+  overlapping closure ownership, and timed teardown as a separate lifecycle.
+- [x] Pure tyre handling modifiers are shared by authority, player prediction, interaction
+  replay, and AI driving; strip lifecycle/contact/events remain server-only.
+- [x] F3 exposes strip phase, segments, contacts, last burst mask, and exact shared segment
+  geometry without adding static strips to the dynamic interaction-island body budget.
+- [x] G3d advances the interaction protocol to version 5 and keeps Colyseus schema additions
+  append-only for rolling deployment safety.
 - [ ] Add explicit surrender input/presentation, officer exits, and reinforcement staging
   as separate G3 slices.
 

@@ -30,11 +30,17 @@ export interface LaneRoadblockVehiclePose extends LanePointDefinition {
   angle: number;
 }
 
+export interface LaneRoadblockStingerDefinition extends LanePointDefinition {
+  angle: number;
+  officerPose: LaneRoadblockVehiclePose;
+}
+
 export interface LaneRoadblockDefinition extends LanePointDefinition {
   id: string;
   angle: number;
   blockedEdgeIds: string[];
   vehiclePoses: LaneRoadblockVehiclePose[];
+  stinger: LaneRoadblockStingerDefinition;
 }
 
 export interface LaneGraphJunction extends LanePointDefinition {
@@ -438,6 +444,13 @@ function validateDocument(document: LaneGraphDocument): string[] {
         issues.push(`Roadblock ${roadblock.id} contains an invalid vehicle pose.`);
       }
     }
+    if (
+      !finitePoint(roadblock.stinger) || !Number.isFinite(roadblock.stinger?.angle) ||
+      !finitePoint(roadblock.stinger?.officerPose) ||
+      !Number.isFinite(roadblock.stinger?.officerPose?.angle)
+    ) {
+      issues.push(`Roadblock ${roadblock.id} requires finite stinger and officer poses.`);
+    }
   }
   return issues;
 }
@@ -782,6 +795,19 @@ function validateRoadblockDefinitions(
         issues.push(`Roadblock ${roadblock.id} vehicle pose crosses blocked or non-road space.`);
       }
     }
+    if (
+      !world.isRoadAt(roadblock.stinger.x, roadblock.stinger.y) ||
+      !world.canOccupy(roadblock.stinger.x, roadblock.stinger.y, VALIDATION_RADIUS)
+    ) {
+      issues.push(`Roadblock ${roadblock.id} stinger pose crosses blocked or non-road space.`);
+    }
+    if (!world.canOccupy(
+      roadblock.stinger.officerPose.x,
+      roadblock.stinger.officerPose.y,
+      VALIDATION_RADIUS
+    )) {
+      issues.push(`Roadblock ${roadblock.id} officer pose crosses blocked space.`);
+    }
   }
   return [...new Set(issues)].sort();
 }
@@ -919,7 +945,11 @@ function freezeRoadblockDefinition(definition: LaneRoadblockDefinition): LaneRoa
   return Object.freeze({
     ...definition,
     blockedEdgeIds: Object.freeze([...definition.blockedEdgeIds]),
-    vehiclePoses: Object.freeze(definition.vehiclePoses.map((pose) => Object.freeze({...pose})))
+    vehiclePoses: Object.freeze(definition.vehiclePoses.map((pose) => Object.freeze({...pose}))),
+    stinger: Object.freeze({
+      ...definition.stinger,
+      officerPose: Object.freeze({...definition.stinger.officerPose})
+    })
   }) as LaneRoadblockDefinition;
 }
 

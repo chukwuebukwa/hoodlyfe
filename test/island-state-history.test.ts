@@ -118,6 +118,7 @@ function vehicle(id: string, x: number) {
     speed: 0,
     steering: 0,
     engineDamage: 0,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   };

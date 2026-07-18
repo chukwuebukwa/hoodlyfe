@@ -161,12 +161,11 @@ export class VehicleSimulationController {
         vehicle.kind,
         deltaSeconds,
         (x, y, radius) => this.options.world.canOccupy(x, y, radius),
-        {
-          maximumSpeedMultiplier: this.damageSystem.speedMultiplier(
-            vehicle.engineDamage,
-            vehicle.onFire
-          )
-        }
+        this.damageSystem.stepModifiers(
+          vehicle.engineDamage,
+          vehicle.onFire,
+          vehicle.tyreDamageMask
+        )
       );
       vehicle.siren = false;
       vehicle.x = movement.pose.x;

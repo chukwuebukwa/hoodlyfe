@@ -164,6 +164,10 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered playable** authored roadblock opportunities now close lane edges before
   deployment, drain/replan ambient routes, materialize ordinary authoritative police cars,
   detect breach/hijack, retire owned actors offscreen, and expose the lifecycle in F3.
+- **Delivered playable** authored roadblocks now stage separately owned police spike strips
+  with twelve timed segments, swept per-wheel contact, four-wheel tyre condition, asymmetric
+  handling loss shared with prediction/replay, overlapping closure teardown, AOI rendering,
+  repair reset, typed events, and F3 contact diagnostics.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.

@@ -85,11 +85,16 @@ The first balance pass targets these rough outcomes for a standard 1000-health s
 
 These are starting targets, not constants promised to players. Scenario telemetry and playtests should tune them by session outcome: cars must survive ordinary traffic contact, clearly degrade after repeated hard crashes, and give occupants time to react to fire.
 
+## G3d Tyre Extension
+
+The G3d police-stinger milestone now adds four-wheel tyre condition and deterministic
+asymmetric steering pull. See `POLICE_STINGER_RESEARCH.md` and ADR 0022 for the source audit,
+authoritative contact ownership, shared prediction boundary, and verification contract.
+
 ## Next Vehicle Depth
 
-1. Add wheel/tyre condition and asymmetric steering pull.
-2. Add explosion radius, chain reactions, fire damage, and crime attribution.
-3. Add NPC driver reactions to gunfire, smoke, and severe damage.
-4. Add repair/respray service policy and condition-adjusted mission payouts.
-5. Add proof flags for mission vehicles and armored archetypes.
-6. Add door/bonnet/wreck sprite variants when original vehicle art supports them.
+1. Add explosion radius, chain reactions, fire damage, and crime attribution.
+2. Add NPC driver reactions to gunfire, smoke, burst tyres, and severe damage.
+3. Add condition-adjusted mission payouts and tyre-specific repair presentation.
+4. Add proof flags for mission vehicles and armored archetypes.
+5. Add wheel, door, bonnet, and wreck sprite variants when original art supports them.

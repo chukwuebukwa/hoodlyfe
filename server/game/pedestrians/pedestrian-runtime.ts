@@ -53,7 +53,7 @@ export interface PedestrianMeleeRuntime {
 }
 
 export interface PedestrianRuntime {
-  lifecycle: 'ambient' | 'mission';
+  lifecycle: 'ambient' | 'mission' | 'owned';
   objective: PedestrianObjective;
   bravery: number;
   wanderAngle: number;

@@ -3,7 +3,7 @@ import type {VehicleKind} from '../content/vehicle-catalog.ts';
 export const PLAYER_INPUT_COMMAND_MESSAGE = 'simulation.input';
 export const APPLIED_INPUT_RECEIPT_MESSAGE = 'simulation.input.applied';
 export const INTERACTION_SNAPSHOT_MESSAGE = 'simulation.snapshot';
-export const INTERACTION_PROTOCOL_VERSION = 4;
+export const INTERACTION_PROTOCOL_VERSION = 5;
 export const MAX_INPUT_SEQUENCE_ADVANCE = 4_096;
 export const MAX_PREDICTED_SPAWN_IDS = 8;
 export const MAX_INTERACTION_ENTITIES = 64;
@@ -84,6 +84,7 @@ export interface VehicleInteractionState extends KinematicInteractionState {
   readonly speed: number;
   readonly steering: number;
   readonly engineDamage: number;
+  readonly tyreDamageMask: number;
   readonly onFire: boolean;
   readonly destroyed: boolean;
 }

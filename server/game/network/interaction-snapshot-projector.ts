@@ -479,6 +479,7 @@ export class InteractionSnapshotProjector {
       speed: finite(vehicle.speed),
       steering: clamp(intent?.inputX ?? 0, -1, 1),
       engineDamage: clamp(finite(vehicle.engineDamage), 0, 250),
+      tyreDamageMask: Math.max(0, Math.min(15, Math.trunc(finite(vehicle.tyreDamageMask)))),
       onFire: Boolean(vehicle.onFire),
       destroyed: Boolean(vehicle.destroyed)
     });

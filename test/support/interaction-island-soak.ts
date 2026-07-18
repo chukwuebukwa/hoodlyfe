@@ -614,6 +614,7 @@ function vehicle(
     speed,
     steering: 0,
     engineDamage: 0,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   });

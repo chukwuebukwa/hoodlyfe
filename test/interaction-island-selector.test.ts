@@ -245,6 +245,7 @@ function vehicle(id: string, x: number, velocityX = 0): VehicleInteractionState 
     speed: velocityX,
     steering: 0,
     engineDamage: 0,
+    tyreDamageMask: 0,
     onFire: false,
     destroyed: false
   };
