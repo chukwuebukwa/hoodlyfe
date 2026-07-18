@@ -26,6 +26,17 @@ export interface LaneJunctionDefinition extends LanePointDefinition {
   allowedTurns?: Array<Exclude<LaneTurn, 'none' | 'uturn'>>;
 }
 
+export interface LaneRoadblockVehiclePose extends LanePointDefinition {
+  angle: number;
+}
+
+export interface LaneRoadblockDefinition extends LanePointDefinition {
+  id: string;
+  angle: number;
+  blockedEdgeIds: string[];
+  vehiclePoses: LaneRoadblockVehiclePose[];
+}
+
 export interface LaneGraphJunction extends LanePointDefinition {
   readonly id: string;
   readonly corridors: readonly string[];
@@ -44,6 +55,7 @@ export interface LaneGraphDocument {
   allowTerminalTurnarounds?: boolean;
   corridors: LaneCorridorDefinition[];
   junctions: LaneJunctionDefinition[];
+  roadblocks?: LaneRoadblockDefinition[];
 }
 
 export interface LaneGraphNode {
@@ -122,6 +134,7 @@ export class LaneGraph {
   private readonly junctionById = new Map<string, LaneGraphJunction>();
   private readonly outgoingByNode = new Map<string, LaneGraphEdge[]>();
   private readonly laneEdges: LaneGraphEdge[];
+  private readonly roadblockDefinitions: LaneRoadblockDefinition[];
 
   private constructor(
     document: LaneGraphDocument,
@@ -131,6 +144,7 @@ export class LaneGraph {
   ) {
     this.schemaVersion = document.schemaVersion;
     this.districtId = document.districtId;
+    this.roadblockDefinitions = (document.roadblocks ?? []).map(freezeRoadblockDefinition);
     for (const junction of allJunctionDefinitions(document, nodes)) {
       const laneNodes = nodes.filter((node) => node.junctionId === junction.id);
       const halfExtentX = laneNodes.reduce(
@@ -179,6 +193,7 @@ export class LaneGraph {
     if (issues.length > 0) throw new LaneGraphValidationError(issues);
     const compiled = compileDocument(document);
     issues.push(...validateCompiledGraph(compiled.nodes, compiled.edges, world));
+    issues.push(...validateRoadblockDefinitions(document.roadblocks ?? [], compiled.edges, world));
     if (issues.length > 0) throw new LaneGraphValidationError(issues);
     return new LaneGraph(document, world, compiled.nodes, compiled.edges);
   }
@@ -232,6 +247,10 @@ export class LaneGraph {
     return [...this.junctionById.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
+  roadblocks(): readonly LaneRoadblockDefinition[] {
+    return this.roadblockDefinitions;
+  }
+
   outgoing(nodeId: string, vehicleClass: LaneVehicleClass = 'civilian'): readonly LaneGraphEdge[] {
     return (this.outgoingByNode.get(nodeId) ?? [])
       .filter((edge) => edge.vehicleClasses.includes(vehicleClass));
@@ -243,12 +262,17 @@ export class LaneGraph {
       .map((node) => node.id);
   }
 
-  spawn(index: number, radius: number): TrafficSpawn | undefined {
+  spawn(
+    index: number,
+    radius: number,
+    edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
+  ): TrafficSpawn | undefined {
     if (this.laneEdges.length === 0) return undefined;
     const normalized = Math.abs(Number.isFinite(index) ? Math.trunc(index) : 0);
     const progressOptions = [0.22, 0.38, 0.55, 0.72];
     for (let attempt = 0; attempt < this.laneEdges.length * progressOptions.length; attempt++) {
       const edge = this.laneEdges[(normalized * 131 + attempt * 53) % this.laneEdges.length];
+      if (!edgeAllowed(edge)) continue;
       const progress = progressOptions[(normalized + attempt) % progressOptions.length];
       const spawn = this.spawnOnEdge(edge, progress);
       if (!this.world.isRoadAt(spawn.x, spawn.y) || !this.world.canOccupy(spawn.x, spawn.y, radius)) {
@@ -259,12 +283,16 @@ export class LaneGraph {
     return undefined;
   }
 
-  advance(spawn: TrafficSpawn, seed: number): TrafficSpawn | undefined {
+  advance(
+    spawn: TrafficSpawn,
+    seed: number,
+    edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
+  ): TrafficSpawn | undefined {
     const current = spawn.laneEdgeId ? this.edge(spawn.laneEdgeId) : undefined;
     const projected = current ? undefined : this.project(spawn.x, spawn.y, spawn.angle);
     const edge = current ?? projected?.edge;
     if (!edge) return undefined;
-    const choices = this.outgoing(edge.toNodeId);
+    const choices = this.outgoing(edge.toNodeId).filter(edgeAllowed);
     if (choices.length === 0) return undefined;
     const normalized = Math.abs(Number.isFinite(seed) ? Math.trunc(seed) : 0);
     const preferred = choices.filter((candidate) => candidate.kind !== 'turnaround');
@@ -385,6 +413,29 @@ function validateDocument(document: LaneGraphDocument): string[] {
       const corridor = document.corridors.find(({id}) => id === corridorId)!;
       if (!pointOnPolyline(junction, corridor.points)) {
         issues.push(`Junction ${junction.id} does not lie on corridor ${corridorId}.`);
+      }
+    }
+  }
+  const roadblockIds = new Set<string>();
+  for (const roadblock of document.roadblocks ?? []) {
+    if (!roadblock.id?.trim()) issues.push('Every roadblock requires a non-empty id.');
+    if (roadblockIds.has(roadblock.id)) issues.push(`Duplicate roadblock id ${roadblock.id}.`);
+    roadblockIds.add(roadblock.id);
+    if (!finitePoint(roadblock) || !Number.isFinite(roadblock.angle)) {
+      issues.push(`Roadblock ${roadblock.id} has an invalid pose.`);
+    }
+    if (!Array.isArray(roadblock.blockedEdgeIds) || roadblock.blockedEdgeIds.length === 0) {
+      issues.push(`Roadblock ${roadblock.id} requires blockedEdgeIds.`);
+    }
+    for (const edgeId of roadblock.blockedEdgeIds ?? []) {
+      if (!edgeId?.trim()) issues.push(`Roadblock ${roadblock.id} contains an empty edge id.`);
+    }
+    if (!Array.isArray(roadblock.vehiclePoses) || roadblock.vehiclePoses.length === 0) {
+      issues.push(`Roadblock ${roadblock.id} requires at least one vehicle pose.`);
+    }
+    for (const pose of roadblock.vehiclePoses ?? []) {
+      if (!finitePoint(pose) || !Number.isFinite(pose.angle)) {
+        issues.push(`Roadblock ${roadblock.id} contains an invalid vehicle pose.`);
       }
     }
   }
@@ -713,6 +764,28 @@ function validateCompiledGraph(
   return [...new Set(issues)].sort();
 }
 
+function validateRoadblockDefinitions(
+  roadblocks: readonly LaneRoadblockDefinition[],
+  edges: readonly LaneGraphEdge[],
+  world: LaneGraphWorld
+): string[] {
+  const issues: string[] = [];
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  for (const roadblock of roadblocks) {
+    for (const edgeId of roadblock.blockedEdgeIds) {
+      if (!edgeIds.has(edgeId)) {
+        issues.push(`Roadblock ${roadblock.id} references unknown edge ${edgeId}.`);
+      }
+    }
+    for (const pose of roadblock.vehiclePoses) {
+      if (!world.isRoadAt(pose.x, pose.y) || !world.canOccupy(pose.x, pose.y, VALIDATION_RADIUS)) {
+        issues.push(`Roadblock ${roadblock.id} vehicle pose crosses blocked or non-road space.`);
+      }
+    }
+  }
+  return [...new Set(issues)].sort();
+}
+
 function reachableNodeIds(
   origin: string,
   neighbors: (nodeId: string) => readonly string[]
@@ -840,6 +913,14 @@ function freezeNode(node: LaneGraphNode): LaneGraphNode {
 
 function freezeEdge(edge: LaneGraphEdge): LaneGraphEdge {
   return Object.freeze({...edge, vehicleClasses: Object.freeze([...edge.vehicleClasses])}) as LaneGraphEdge;
+}
+
+function freezeRoadblockDefinition(definition: LaneRoadblockDefinition): LaneRoadblockDefinition {
+  return Object.freeze({
+    ...definition,
+    blockedEdgeIds: Object.freeze([...definition.blockedEdgeIds]),
+    vehiclePoses: Object.freeze(definition.vehiclePoses.map((pose) => Object.freeze({...pose})))
+  }) as LaneRoadblockDefinition;
 }
 
 function compareNodes(left: LaneGraphNode, right: LaneGraphNode): number {

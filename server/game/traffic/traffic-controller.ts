@@ -31,6 +31,7 @@ import {
   type TrafficLaneChangeRuntime
 } from './traffic-lane-change-system.ts';
 import type {TrafficLaneChangeRejectReason} from './traffic-lane-change-policy.ts';
+import type {RoadClosureRegistry} from './road-closure-registry.ts';
 
 const JUNCTION_APPROACH_DISTANCE = 112;
 const JUNCTION_COMMIT_DISTANCE = 60;
@@ -103,6 +104,7 @@ export interface TrafficDiagnostic {
   destinationLaneNodeId: string;
   routeRemaining: number;
   routeRevision: number;
+  closureRevision?: number;
   routeComplete: boolean;
   routeVisited: number;
   routeWaypoints: Array<{x: number; y: number}>;
@@ -112,6 +114,7 @@ interface TrafficControllerOptions {
   world: CollisionMap;
   random: DeterministicRandom;
   laneGraph?: LaneGraph;
+  closures?: RoadClosureRegistry;
 }
 
 export class TrafficController {
@@ -163,6 +166,21 @@ export class TrafficController {
 
   captureVirtual(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'>): TrafficSpawn {
     return this.routes.captureVirtual(vehicle);
+  }
+
+  allowsSpawn(spawn: TrafficSpawn): boolean {
+    return this.routes.allowsSpawn(spawn);
+  }
+
+  activeVehicleIdsOnEdges(edgeIds: readonly string[]): string[] {
+    const accepted = new Set(edgeIds);
+    return [...this.runtime.entries()]
+      .filter(([, runtime]) => {
+        const segment = this.routes.laneSegment(runtime.route);
+        return Boolean(segment && accepted.has(segment.edgeId));
+      })
+      .map(([vehicleId]) => vehicleId)
+      .sort();
   }
 
   laneGraph(): LaneGraph | undefined {
@@ -295,6 +313,7 @@ export class TrafficController {
       return moved;
     }
 
+    this.routes.synchronizeClosures(vehicle.id, runtime.route, nowMs);
     const routeTarget = this.routes.target(runtime.route);
     const targetX = routeTarget.x;
     const targetY = routeTarget.y;

@@ -3,6 +3,7 @@ import {
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
   type DebugPoliceArrestEntry,
+  type DebugPoliceRoadblockEntry,
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
   type DebugPoliceResponseEntry,
@@ -45,6 +46,7 @@ interface DebugSnapshotControllerOptions {
   policeResponse?: () => DebugPoliceResponseEntry;
   policeTactics?: () => ReadonlyArray<DebugPoliceTacticEntry>;
   policeArrests?: () => ReadonlyArray<DebugPoliceArrestEntry>;
+  policeRoadblocks?: () => ReadonlyArray<DebugPoliceRoadblockEntry>;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -142,6 +144,11 @@ export class DebugSnapshotController {
       policeResponse: clonePoliceResponse(this.options.policeResponse?.()),
       policeTactics: (this.options.policeTactics?.() ?? []).map((tactic) => ({...tactic})),
       policeArrests: (this.options.policeArrests?.() ?? []).map((arrest) => ({...arrest})),
+      policeRoadblocks: (this.options.policeRoadblocks?.() ?? []).map((roadblock) => ({
+        ...roadblock,
+        vehicleIds: [...roadblock.vehicleIds],
+        blockedEdgeIds: [...roadblock.blockedEdgeIds]
+      })),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
@@ -194,6 +201,10 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.arrestId} cancelled: ${event.reason}`;
     case 'player.busted':
       return `${event.playerId} busted by ${event.officerId}; $${event.fine} seized`;
+    case 'police.roadblock-deployed':
+      return `${event.roadblockId} deployed for ${event.suspectId} at ${event.slotId}`;
+    case 'police.roadblock-cleared':
+      return `${event.roadblockId} cleared: ${event.reason}`;
     case 'mission.phase-changed':
       return `${event.missionId} ${event.previousPhase} -> ${event.phase}`;
     case 'mission.payout':

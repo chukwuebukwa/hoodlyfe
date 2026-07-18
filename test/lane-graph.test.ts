@@ -22,6 +22,15 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   assert.equal(graph.districtId, 'industrial-district');
   assert.equal(graph.nodes().length, 150);
   assert.equal(graph.edges().length, 246);
+  assert.deepEqual(graph.roadblocks().map((roadblock) => roadblock.id), [
+    'north-boulevard-east',
+    'central-avenue-mid',
+    'south-boulevard-east'
+  ]);
+  assert.ok(graph.roadblocks().every((roadblock) => (
+    roadblock.blockedEdgeIds.every((edgeId) => Boolean(graph.edge(edgeId))) &&
+    roadblock.vehiclePoses.every((pose) => world.canOccupy(pose.x, pose.y, 20))
+  )));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'left'));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'right'));
   assert.ok(graph.edges().some((edge) => (
@@ -163,4 +172,28 @@ test('virtual lane advancement preserves legal directed edge ownership', () => {
   assert.ok(currentEdge);
   assert.ok(nextEdge);
   assert.equal(currentEdge.toNodeId, nextEdge.fromNodeId);
+});
+
+test('lane spawning, advancement, and planning honor dynamic edge closures', () => {
+  const graph = LaneGraph.load(CollisionMap.load());
+  const blocked = new Set(graph.roadblocks().flatMap((roadblock) => roadblock.blockedEdgeIds));
+  const edgeAllowed = (edge: {id: string}) => !blocked.has(edge.id);
+
+  for (let index = 0; index < 60; index++) {
+    const spawn = graph.spawn(index * 79, 20, edgeAllowed);
+    assert.ok(spawn);
+    assert.equal(blocked.has(spawn.laneEdgeId ?? ''), false);
+    const next = graph.advance(spawn, index * 41, edgeAllowed);
+    if (next) assert.equal(blocked.has(next.laneEdgeId ?? ''), false);
+  }
+
+  const closed = graph.roadblocks().find((roadblock) => roadblock.id === 'central-avenue-mid')!;
+  const directEdge = graph.edge(closed.blockedEdgeIds[0])!;
+  const plan = new TrafficRoutePlanner(graph, 512, edgeAllowed).plan(
+    directEdge.fromNodeId,
+    directEdge.toNodeId
+  );
+  assert.equal(plan.complete, true);
+  assert.ok(plan.edgeIds.length > 1, 'the closure should force a detour');
+  assert.equal(plan.edgeIds.some((edgeId) => blocked.has(edgeId)), false);
 });

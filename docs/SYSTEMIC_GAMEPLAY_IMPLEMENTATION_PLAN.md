@@ -313,8 +313,24 @@ G3b architecture checklist:
 - [x] F3 exposes active custody ownership, remaining time, contact links, and typed events.
 - [x] G3b changes no prediction, reconciliation, interpolation, AOI, rewind, rollout,
   interaction-island, or shared movement/contact implementation.
-- [ ] Add explicit surrender input/presentation, officer exits, authored roadblock/stinger
-  opportunities, and reinforcement staging as separate G3 slices.
+
+G3c architecture checklist:
+
+- [x] Schema-validated authored roadblock slots own blocked lane edges and vehicle poses.
+- [x] Owner-scoped dynamic closures block spawn and future routing while allowing active
+  traffic to clear its current edge before replanning.
+- [x] Pure heat/motion/ahead-distance policy selects deterministic opportunities without
+  allocating pursuit units.
+- [x] One server controller reserves, drains, deploys ordinary police vehicles, detects
+  breach, preserves hijacked actors, and tears down offscreen before releasing the route.
+- [x] Parked roadblock cars are excluded from ordinary response allocation.
+- [x] F3 exposes lifecycle counts, closed-edge pressure, red closed lanes, and slot phases.
+- [x] G3c changes no prediction, reconciliation, interpolation, AOI, rewind, rollout,
+  interaction-island, or shared movement/contact implementation.
+- [ ] G3d adds original tyre state, replicated stinger actors, officer deployment, wheel
+  contact, and timed teardown as a separate lifecycle.
+- [ ] Add explicit surrender input/presentation, officer exits, and reinforcement staging
+  as separate G3 slices.
 
 ### G4 - Ped objective stack, personality, and attractors
 

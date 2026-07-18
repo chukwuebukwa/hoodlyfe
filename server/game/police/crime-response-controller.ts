@@ -33,6 +33,7 @@ interface CrimeResponseControllerOptions {
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
   queryVehicles?: (x: number, y: number, radius: number) => VehicleState[];
   panicWitness: (witnessId: string, suspectId: string, untilMs: number) => void;
+  isReservedPoliceUnit?: (kind: 'foot' | 'vehicle', unitId: string) => boolean;
 }
 
 export interface PoliceTarget {
@@ -148,7 +149,9 @@ export class CrimeResponseController {
     const suspects = this.responseSuspects();
     const units = [
       ...[...state.npcs.values()]
-        .filter((npc) => npc.kind === 'police')
+        .filter((npc) => (
+          npc.kind === 'police' && !this.options.isReservedPoliceUnit?.('foot', npc.id)
+        ))
         .map((npc) => ({
           id: npc.id,
           kind: 'foot' as const,
@@ -157,7 +160,9 @@ export class CrimeResponseController {
           available: npc.alive
         })),
       ...[...state.vehicles.values()]
-        .filter((vehicle) => vehicle.kind === 'police')
+        .filter((vehicle) => (
+          vehicle.kind === 'police' && !this.options.isReservedPoliceUnit?.('vehicle', vehicle.id)
+        ))
         .map((vehicle) => ({
           id: vehicle.id,
           kind: 'vehicle' as const,

@@ -6,6 +6,7 @@ const SHELL_FILES = ['components/GameShell.tsx', 'index.html'] as const;
 const REQUIRED_MARKUP = [
   'id="debug-police-response"',
   'id="debug-police-arrests"',
+  'id="debug-police-roadblocks"',
   'id="debug-junctions"',
   'id="debug-roads"',
   'id="debug-traffic-risk"',
@@ -27,6 +28,7 @@ const REQUIRED_MARKUP = [
 ] as const;
 const REQUIRED_WIDE_ROWS = [
   'Police response',
+  'Roadblocks',
   'Road graph',
   'Traffic risk',
   'Netcode rollout',

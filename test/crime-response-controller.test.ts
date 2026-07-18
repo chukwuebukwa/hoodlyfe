@@ -62,7 +62,29 @@ test('foot search expiry releases only the expired report and a newer report rea
   assert.equal(fixture.controller.responseAllocationSnapshot().suppressedPairs, 0);
 });
 
-function createFixture(options: {footUnits?: number; vehicleUnits?: number} = {}) {
+test('roadblock-reserved cruisers do not consume ordinary pursuit slots', () => {
+  const fixture = createFixture({
+    footUnits: 1,
+    vehicleUnits: 2,
+    reservedVehicleIds: new Set(['cruiser-1'])
+  });
+  fixture.controller.record('alpha', 'murder-police', 0, 'victim-a');
+  fixture.clock.nowMs = 120;
+  fixture.controller.processReports(120);
+  fixture.controller.updateResponse(120);
+
+  const response = fixture.controller.responseAllocationSnapshot();
+  assert.equal(response.assignedVehicleUnits, 1);
+  assert.deepEqual(response.assignments
+    .filter((entry) => entry.unitKind === 'vehicle')
+    .map((entry) => entry.unitId), ['cruiser-2']);
+});
+
+function createFixture(options: {
+  footUnits?: number;
+  vehicleUnits?: number;
+  reservedVehicleIds?: ReadonlySet<string>;
+} = {}) {
   const state = new DistrictState();
   const alpha = player('alpha', 0, 0);
   const bravo = player('bravo', 1_000, 0);
@@ -97,6 +119,9 @@ function createFixture(options: {footUnits?: number; vehicleUnits?: number} = {}
     clock: () => clock,
     queryNpcs: () => [...state.npcs.values()],
     queryVehicles: () => [...state.vehicles.values()],
+    isReservedPoliceUnit: (kind, unitId) => (
+      kind === 'vehicle' && Boolean(options.reservedVehicleIds?.has(unitId))
+    ),
     panicWitness() {}
   });
   return {state, controller, events, clock, lineOfSight};

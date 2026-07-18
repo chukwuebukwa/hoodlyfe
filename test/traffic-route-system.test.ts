@@ -12,6 +12,7 @@ import {
   TrafficRouteSystem,
   type TrafficRouteRuntime
 } from '../server/game/traffic/traffic-route-system.ts';
+import {RoadClosureRegistry} from '../server/game/traffic/road-closure-registry.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {CollisionMap} from '../server/world-map.ts';
 
@@ -101,6 +102,28 @@ test('traffic route system preserves the road-cell fallback when no authored gra
   assert.equal(world.isRoadAt(virtual.x, virtual.y), true);
   const captured = routes.captureVirtual({x: virtual.x, y: virtual.y, angle: virtual.angle});
   assert.equal(world.isRoadAt(captured.x, captured.y), true);
+});
+
+test('virtual authored traffic waits instead of leaking into legacy routing at a closure', () => {
+  const world = CollisionMap.load();
+  const graph = LaneGraph.load(world);
+  const closures = new RoadClosureRegistry();
+  const routes = new TrafficRouteSystem({
+    world,
+    laneGraph: graph,
+    closures,
+    random: new DeterministicRandom('route-closure-hold')
+  });
+  const spawn = routes.spawn(41, 20);
+  const edge = graph.edge(spawn.laneEdgeId ?? '');
+  assert.ok(edge);
+  closures.acquire('test-roadblock', graph.outgoing(edge.toNodeId).map((candidate) => candidate.id));
+
+  const held = routes.advanceVirtual(spawn, 123);
+
+  assert.deepEqual(held, spawn);
+  assert.equal(held.laneEdgeId, edge.id);
+  assert.equal(routes.allowsSpawn(held), true, 'the occupied edge remains drainable');
 });
 
 test('authored route movements expose real compatible and conflicting junction streams', () => {

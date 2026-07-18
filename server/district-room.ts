@@ -68,12 +68,14 @@ import {CustodyOutcomeController} from './game/police/custody-outcome-controller
 import {PoliceArrestController} from './game/police/police-arrest-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {PoliceResponseFleetController} from './game/police/police-response-fleet-controller.ts';
+import {PoliceRoadblockController} from './game/police/police-roadblock-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {WorldClockController} from './game/world/world-clock-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {LaneGraph} from './game/traffic/lane-graph.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
+import {RoadClosureRegistry} from './game/traffic/road-closure-registry.ts';
 import {DamageController} from './game/combat/damage-controller.ts';
 import {CombatReactionController} from './game/combat/combat-reaction-controller.ts';
 import {FireControlController} from './game/combat/fire-control-controller.ts';
@@ -208,6 +210,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
   private policeResponseFleet!: PoliceResponseFleetController;
+  private policeRoadblocks!: PoliceRoadblockController;
+  private roadClosures!: RoadClosureRegistry;
   private worldClock!: WorldClockController;
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
@@ -230,6 +234,7 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.laneGraph = LaneGraph.load(this.world);
+    this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
     this.worldStimulusAdapter = new WorldStimulusAdapter({
       state: this.state,
@@ -275,7 +280,8 @@ export class DistrictRoom extends Room<DistrictState> {
     this.trafficController = new TrafficController({
       world: this.world,
       random: this.random,
-      laneGraph: this.laneGraph
+      laneGraph: this.laneGraph,
+      closures: this.roadClosures
     });
     this.crimeController = new CrimeResponseController({
       state: this.state,
@@ -296,6 +302,9 @@ export class DistrictRoom extends Room<DistrictState> {
         witnessId,
         suspectId,
         untilMs
+      ),
+      isReservedPoliceUnit: (kind, unitId) => (
+        kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)
       )
     });
     this.policeVehicleController = new PoliceVehicleController({
@@ -313,6 +322,18 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       responsePlan: () => this.crimeController.responseFleetPlan(),
       police: this.policeVehicleController,
+      onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
+      onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
+    });
+    this.policeRoadblocks = new PoliceRoadblockController({
+      state: this.state,
+      world: this.world,
+      laneGraph: this.laneGraph,
+      closures: this.roadClosures,
+      responsePlan: () => this.crimeController.responseFleetPlan(),
+      traffic: this.trafficController,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
       onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
@@ -363,6 +384,7 @@ export class DistrictRoom extends Room<DistrictState> {
       policeResponse: () => this.crimeController.responseAllocationSnapshot(),
       policeTactics: () => this.crimeController.pursuitTacticsSnapshot(),
       policeArrests: () => this.policeArrests?.diagnostics() ?? [],
+      policeRoadblocks: () => this.policeRoadblocks?.diagnostics() ?? [],
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
@@ -848,6 +870,7 @@ export class DistrictRoom extends Room<DistrictState> {
       trafficSignals: this.trafficSignalController,
       explosions: this.explosionController,
       policeFleet: this.policeResponseFleet,
+      policeRoadblocks: this.policeRoadblocks,
       vehicles: this.vehicleSimulation,
       reactions: this.combatReactions,
       melee: this.meleeCombat,

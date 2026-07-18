@@ -44,6 +44,7 @@ export class ThreeDebugController {
     cruisers: document.querySelector('#debug-cruisers'),
     response: document.querySelector('#debug-police-response'),
     arrests: document.querySelector('#debug-police-arrests'),
+    roadblocks: document.querySelector('#debug-police-roadblocks'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
     junctions: document.querySelector('#debug-junctions'),
@@ -169,12 +170,17 @@ export class ThreeDebugController {
     }
     const laneGraph = this.snapshot?.trafficLaneGraph;
     if (laneGraph) {
+      const closedEdgeIds = new Set(
+        (this.snapshot?.policeRoadblocks ?? []).flatMap((roadblock) => roadblock.blockedEdgeIds)
+      );
       const nodes = new Map(laneGraph.nodes.map((node) => [node.id, node]));
       for (const edge of laneGraph.edges) {
         const from = nodes.get(edge.fromNodeId);
         const to = nodes.get(edge.toNodeId);
         if (!from || !to) continue;
-        const color = edge.kind === 'lane'
+        const color = closedEdgeIds.has(edge.id)
+          ? 0xff4f5e
+          : edge.kind === 'lane'
           ? 0x427866
           : edge.kind === 'connector' ? 0xf0b64c : 0xb47cff;
         this.group.add(debugLine([
@@ -240,6 +246,32 @@ export class ThreeDebugController {
         point(arrest.officerX, arrest.officerY, this.surfaceHeightAt(arrest.officerX, arrest.officerY) + 39),
         point(arrest.suspectX, arrest.suspectY, this.surfaceHeightAt(arrest.suspectX, arrest.suspectY) + 39)
       ], 0xff3fa4));
+    }
+    for (const roadblock of this.snapshot?.policeRoadblocks ?? []) {
+      const color = roadblock.phase === 'clearing'
+        ? 0xffc857
+        : roadblock.phase === 'deployed' ? 0xff4f5e : 0x9b78ff;
+      const halfWidth = 76;
+      const acrossAngle = roadblock.angle + Math.PI / 2;
+      this.group.add(debugLine([
+        point(
+          roadblock.x - Math.cos(acrossAngle) * halfWidth,
+          roadblock.y - Math.sin(acrossAngle) * halfWidth,
+          this.surfaceHeightAt(roadblock.x, roadblock.y) + 43
+        ),
+        point(
+          roadblock.x + Math.cos(acrossAngle) * halfWidth,
+          roadblock.y + Math.sin(acrossAngle) * halfWidth,
+          this.surfaceHeightAt(roadblock.x, roadblock.y) + 43
+        )
+      ], color));
+      this.group.add(debugRing(
+        roadblock.x,
+        roadblock.y,
+        24,
+        color,
+        this.surfaceHeightAt(roadblock.x, roadblock.y) + 42
+      ));
     }
     const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {

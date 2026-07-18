@@ -35,6 +35,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     cruisers: '1/1 pursuit / 1/2 ready / 1 dyn',
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
     arrests: '0 active',
+    roadblocks: '0 active',
     stimuli: 0,
     signals: '0',
     junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass',
@@ -111,6 +112,42 @@ test('debug panel exposes active custody ownership and remaining secure time', (
   assert.equal(projectDebugPanel(createState(), snapshot).arrests, (
     '1 active / police-1 -> driver / 2.3s'
   ));
+});
+
+test('debug panel exposes roadblock lifecycle and closed-edge pressure', () => {
+  const snapshot = createSnapshot();
+  snapshot.policeRoadblocks = [{
+    roadblockId: 'roadblock-1',
+    slotId: 'central-avenue-mid',
+    suspectId: 'driver',
+    phase: 'deployed',
+    x: 2336,
+    y: 1700,
+    angle: Math.PI / 2,
+    reservedAt: 800,
+    deployedAt: 1000,
+    vehicleIds: ['barrier-1', 'barrier-2'],
+    blockedEdgeIds: ['edge-a', 'edge-b'],
+    clearReason: ''
+  }, {
+    roadblockId: 'roadblock-2',
+    slotId: 'south-boulevard-east',
+    suspectId: 'driver-2',
+    phase: 'clearing',
+    x: 3000,
+    y: 3488,
+    angle: 0,
+    reservedAt: 1200,
+    deployedAt: 0,
+    vehicleIds: [],
+    blockedEdgeIds: ['edge-b', 'edge-c'],
+    clearReason: ''
+  }];
+
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).roadblocks,
+    '2 active / C1 D1 R0 / 3 edges / 2 vehicles'
+  );
 });
 
 test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', () => {

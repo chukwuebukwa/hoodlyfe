@@ -22,6 +22,7 @@ export interface DebugPanelProjection {
   cruisers: string;
   response: string;
   arrests: string;
+  roadblocks: string;
   stimuli: number;
   signals: string;
   junctions: string;
@@ -65,6 +66,7 @@ export function projectDebugPanel(
     cruisers: policeVehicleSummary(snapshot),
     response: policeResponseSummary(snapshot),
     arrests: policeArrestSummary(snapshot),
+    roadblocks: policeRoadblockSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
     junctions: trafficJunctionSummary(snapshot),
@@ -269,4 +271,16 @@ function policeArrestSummary(snapshot?: DebugSnapshot): string {
   const remaining = Math.max(0, next.completesAt - (snapshot?.nowMs ?? 0));
   return `${arrests.length} active / ${next.officerId} -> ${next.suspectId} / ` +
     `${Math.ceil(remaining / 100) / 10}s`;
+}
+
+function policeRoadblockSummary(snapshot?: DebugSnapshot): string {
+  const roadblocks = snapshot?.policeRoadblocks ?? [];
+  if (roadblocks.length === 0) return '0 active';
+  const clearing = roadblocks.filter((roadblock) => roadblock.phase === 'clearing').length;
+  const deployed = roadblocks.filter((roadblock) => roadblock.phase === 'deployed').length;
+  const retiring = roadblocks.filter((roadblock) => roadblock.phase === 'retiring').length;
+  const closedEdges = new Set(roadblocks.flatMap((roadblock) => roadblock.blockedEdgeIds)).size;
+  const vehicles = roadblocks.reduce((sum, roadblock) => sum + roadblock.vehicleIds.length, 0);
+  return `${roadblocks.length} active / C${clearing} D${deployed} R${retiring} / ` +
+    `${closedEdges} edges / ${vehicles} vehicles`;
 }

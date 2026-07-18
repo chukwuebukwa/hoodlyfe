@@ -159,8 +159,11 @@ These are ordered by how much of the city loop they improve and by their depende
   points, permanent route-lane transitions, and turn pockets remain.
 - **Delivered foundation** coordinated foot containment/support and cruiser intercept goals
   now consume stable response leases. Add disabled-car avoidance, force policy,
-  surrender/arrest, officer exit behavior, authored roadblocks/stingers, and response
-  population level of detail as separate G3 slices.
+  surrender/arrest, officer exit behavior, stingers, and response population level of
+  detail as separate G3 slices.
+- **Delivered playable** authored roadblock opportunities now close lane edges before
+  deployment, drain/replan ambient routes, materialize ordinary authoritative police cars,
+  detect breach/hijack, retire owned actors offscreen, and expose the lifecycle in F3.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.

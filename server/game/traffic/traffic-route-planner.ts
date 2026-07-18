@@ -24,7 +24,8 @@ export class TrafficRoutePlanner {
 
   constructor(
     private readonly graph: LaneGraph,
-    private readonly visitLimit = 512
+    private readonly visitLimit = 512,
+    private readonly edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
   ) {
     this.maximumTraversalSpeed = Math.max(1, ...graph.edges().map((edge) => edge.speedLimit));
   }
@@ -79,6 +80,7 @@ export class TrafficRoutePlanner {
       }
 
       for (const edge of this.graph.outgoing(current.id, vehicleClass)) {
+        if (!this.edgeAllowed(edge)) continue;
         const next = this.graph.node(edge.toNodeId);
         if (!next) continue;
         const nextCost = currentEntry.cost + edgeCost(edge);

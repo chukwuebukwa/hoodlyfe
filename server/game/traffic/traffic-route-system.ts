@@ -8,6 +8,7 @@ import {
   type TrafficJunctionMovementPoint
 } from './traffic-junction-conflict-policy.ts';
 import {TrafficRoutePlanner} from './traffic-route-planner.ts';
+import type {RoadClosureRegistry} from './road-closure-registry.ts';
 
 export const TRAFFIC_LANE_OFFSET = 24;
 
@@ -22,6 +23,7 @@ export interface TrafficRouteRuntime {
   nodeIds: string[];
   nodeIndex: number;
   revision: number;
+  closureRevision?: number;
   complete: boolean;
   visited: number;
 }
@@ -32,6 +34,7 @@ export interface TrafficRouteDiagnostic {
   destinationLaneNodeId: string;
   routeRemaining: number;
   routeRevision: number;
+  closureRevision?: number;
   routeComplete: boolean;
   routeVisited: number;
   routeWaypoints: Array<{x: number; y: number}>;
@@ -75,13 +78,20 @@ interface TrafficRouteSystemOptions {
   world: CollisionMap;
   random: DeterministicRandom;
   laneGraph?: LaneGraph;
+  closures?: Pick<RoadClosureRegistry, 'revision' | 'isClosed'>;
 }
 
 export class TrafficRouteSystem {
   private readonly planner?: TrafficRoutePlanner;
 
   constructor(private readonly options: TrafficRouteSystemOptions) {
-    this.planner = options.laneGraph ? new TrafficRoutePlanner(options.laneGraph) : undefined;
+    this.planner = options.laneGraph
+      ? new TrafficRoutePlanner(
+          options.laneGraph,
+          512,
+          (edge) => !options.closures?.isClosed(edge.id)
+        )
+      : undefined;
   }
 
   create(vehicleId: string, spawn: TrafficSpawn): TrafficRouteRuntime {
@@ -96,6 +106,7 @@ export class TrafficRouteSystem {
       nodeIds: [],
       nodeIndex: 0,
       revision: 0,
+      closureRevision: this.options.closures?.revision ?? 0,
       complete: false,
       visited: 0
     };
@@ -111,11 +122,41 @@ export class TrafficRouteSystem {
   }
 
   spawn(index: number, radius: number): TrafficSpawn {
-    return this.options.laneGraph?.spawn(index, radius) ?? this.options.world.trafficSpawn(index, radius);
+    return this.options.laneGraph?.spawn(
+      index,
+      radius,
+      (edge) => !this.options.closures?.isClosed(edge.id)
+    ) ?? this.options.world.trafficSpawn(index, radius);
   }
 
   advanceVirtual(spawn: TrafficSpawn, seed: number): TrafficSpawn {
-    return this.options.laneGraph?.advance(spawn, seed) ?? this.advanceLegacySpawn(spawn, seed);
+    const graph = this.options.laneGraph;
+    if (!graph) return this.advanceLegacySpawn(spawn, seed);
+    const advanced = graph.advance(
+      spawn,
+      seed,
+      (edge) => !this.options.closures?.isClosed(edge.id)
+    );
+    if (advanced) return advanced;
+    const authoredEdge = spawn.laneEdgeId
+      ? graph.edge(spawn.laneEdgeId)
+      : graph.project(spawn.x, spawn.y, spawn.angle)?.edge;
+    return authoredEdge ? {...spawn} : this.advanceLegacySpawn(spawn, seed);
+  }
+
+  allowsSpawn(spawn: TrafficSpawn): boolean {
+    return !spawn.laneEdgeId || !this.options.closures?.isClosed(spawn.laneEdgeId);
+  }
+
+  synchronizeClosures(vehicleId: string, runtime: TrafficRouteRuntime, nowMs: number): void {
+    const closures = this.options.closures;
+    if (!closures || runtime.source !== 'lane-graph' || runtime.closureRevision === closures.revision) {
+      return;
+    }
+    runtime.closureRevision = closures.revision;
+    if (!this.remainingRouteUsesClosure(runtime)) return;
+    const currentTargetNodeId = runtime.nodeIds[runtime.nodeIndex];
+    if (currentTargetNodeId) this.plan(vehicleId, runtime, currentTargetNodeId, nowMs, true);
   }
 
   captureVirtual(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'>): TrafficSpawn {
@@ -360,6 +401,7 @@ export class TrafficRouteSystem {
       destinationLaneNodeId: runtime.destinationLaneNodeId,
       routeRemaining: Math.max(0, runtime.nodeIds.length - runtime.nodeIndex),
       routeRevision: runtime.revision,
+      closureRevision: runtime.closureRevision ?? 0,
       routeComplete: runtime.complete,
       routeVisited: runtime.visited,
       routeWaypoints: this.waypoints(runtime)
@@ -400,7 +442,8 @@ export class TrafficRouteSystem {
       }
     }
     if (plan.nodeIds.length < 2) {
-      const fallback = graph.outgoing(startNodeId)[0];
+      const fallback = graph.outgoing(startNodeId)
+        .find((edge) => !this.options.closures?.isClosed(edge.id));
       if (fallback) {
         plan = {
           nodeIds: [startNodeId, fallback.toNodeId],
@@ -425,6 +468,21 @@ export class TrafficRouteSystem {
     if (!targetNodeId || !runtime.currentLaneNodeId) return undefined;
     return this.options.laneGraph?.outgoing(runtime.currentLaneNodeId)
       .find((edge) => edge.toNodeId === targetNodeId);
+  }
+
+  private remainingRouteUsesClosure(runtime: TrafficRouteRuntime): boolean {
+    const graph = this.options.laneGraph;
+    const closures = this.options.closures;
+    if (!graph || !closures) return false;
+    // The vehicle may already be traversing the first edge. Let it clear that edge;
+    // only edges that have not been entered are replanned around.
+    for (let index = runtime.nodeIndex; index < runtime.nodeIds.length - 1; index++) {
+      const fromNodeId = runtime.nodeIds[index];
+      const toNodeId = runtime.nodeIds[index + 1];
+      const edge = graph.outgoing(fromNodeId).find((candidate) => candidate.toNodeId === toNodeId);
+      if (edge && closures.isClosed(edge.id)) return true;
+    }
+    return false;
   }
 
   private updateLegacyTarget(runtime: TrafficRouteRuntime): void {

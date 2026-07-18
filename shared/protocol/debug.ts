@@ -132,6 +132,7 @@ export interface DebugTrafficAiEntry {
   destinationLaneNodeId: string;
   routeRemaining: number;
   routeRevision: number;
+  closureRevision?: number;
   routeComplete: boolean;
   routeVisited: number;
   routeWaypoints: Array<{x: number; y: number}>;
@@ -272,6 +273,21 @@ export interface DebugPoliceArrestEntry {
   suspectY: number;
 }
 
+export interface DebugPoliceRoadblockEntry {
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  phase: 'clearing' | 'deployed' | 'retiring';
+  x: number;
+  y: number;
+  angle: number;
+  reservedAt: number;
+  deployedAt: number;
+  vehicleIds: string[];
+  blockedEdgeIds: string[];
+  clearReason: string;
+}
+
 export interface DebugReplicationEntry {
   playerId: string;
   spaceId: string;
@@ -327,6 +343,7 @@ export interface DebugSnapshot {
   policeResponse?: DebugPoliceResponseEntry;
   policeTactics?: DebugPoliceTacticEntry[];
   policeArrests?: DebugPoliceArrestEntry[];
+  policeRoadblocks?: DebugPoliceRoadblockEntry[];
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

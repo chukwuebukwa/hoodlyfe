@@ -181,6 +181,22 @@ export interface PlayerBustedEvent extends EventMetadata {
   y: number;
 }
 
+export interface PoliceRoadblockDeployedEvent extends EventMetadata {
+  type: 'police.roadblock-deployed';
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  vehicleIds: string[];
+}
+
+export interface PoliceRoadblockClearedEvent extends EventMetadata {
+  type: 'police.roadblock-cleared';
+  roadblockId: string;
+  slotId: string;
+  suspectId: string;
+  reason: string;
+}
+
 export interface MissionPhaseChangedEvent extends EventMetadata {
   type: 'mission.phase-changed';
   missionId: string;
@@ -236,6 +252,8 @@ export type GameEvent =
   | PoliceArrestStartedEvent
   | PoliceArrestCancelledEvent
   | PlayerBustedEvent
+  | PoliceRoadblockDeployedEvent
+  | PoliceRoadblockClearedEvent
   | MissionPhaseChangedEvent
   | MissionPayoutEvent
   | MissionFailedEvent

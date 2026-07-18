@@ -82,7 +82,7 @@ interface PopulationStreamingControllerOptions {
   traffic: Pick<
     TrafficController,
     'register' | 'release' | 'spawn' | 'advanceVirtual' | 'captureVirtual' | 'diagnostics'
-  >;
+  > & {allowsSpawn?: (spawn: TrafficSpawn) => boolean};
   worldMinute?: () => number;
   onVehicleMaterialized?: (vehicle: VehicleState) => void;
   onVehicleDematerialized?: (vehicleId: string) => void;
@@ -554,6 +554,7 @@ export class PopulationStreamingController {
     );
     for (const candidate of orderedTraffic) {
       if (trafficBudget <= 0) break;
+      if (this.options.traffic.allowsSpawn?.(candidate.record.spawn) === false) continue;
       if (!this.vehicleSpawnIsClear(candidate.position.x, candidate.position.y)) continue;
       this.materializeVehicle(candidate.record);
       candidate.record.nextStepAt = nowMs + POPULATION_STREAMING.dormantStepMs;
