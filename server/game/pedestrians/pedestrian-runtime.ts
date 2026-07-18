@@ -8,6 +8,7 @@ export type PedestrianObjective =
   | 'recover'
   | 'assault'
   | 'pursue'
+  | 'contain'
   | 'search';
 
 export type PedestrianReactionPhase = 'none' | 'orient' | 'respond' | 'recover';

@@ -1,5 +1,6 @@
 import type {DistrictState, NpcState} from '../../state.ts';
 import type {PursuitRecord} from '../police/pursuit-memory.ts';
+import type {PoliceTactic} from '../police/pursuit-coordinator.ts';
 import {
   clearPedestrianStimulus,
   clearPedestrianThreat,
@@ -13,6 +14,7 @@ export interface PedestrianPoliceTarget {
   pursuit?: PursuitRecord;
   canSeeTarget: boolean;
   targetDistance: number;
+  tactic: PoliceTactic;
 }
 
 export type PedestrianObservation =

@@ -172,7 +172,15 @@ export interface DebugTrafficSignalEntry {
 export interface DebugPoliceVehicleEntry {
   vehicleId: string;
   suspectId: string;
-  strategy: 'idle' | 'hijack' | 'search' | 'pursuit' | 'intercept' | 'ram' | 'route-failed';
+  strategy:
+    | 'idle'
+    | 'hijack'
+    | 'search'
+    | 'pursuit'
+    | 'intercept'
+    | 'contain'
+    | 'ram'
+    | 'route-failed';
   canSeeTarget: boolean;
   lastKnownX: number;
   lastKnownY: number;
@@ -233,6 +241,23 @@ export interface DebugPoliceResponseEntry {
   lastChanges: DebugPoliceResponseChangeEntry[];
 }
 
+export interface DebugPoliceTacticEntry {
+  unitId: string;
+  unitKind: 'foot' | 'vehicle';
+  suspectId: string;
+  role:
+    | 'primary'
+    | 'contain-left'
+    | 'contain-right'
+    | 'support-left'
+    | 'support-right'
+    | 'intercept-left'
+    | 'intercept-right';
+  phase: 'observe' | 'search' | 'pursue' | 'intercept' | 'contain' | 'arrest' | 'disengage';
+  goalX: number;
+  goalY: number;
+}
+
 export interface DebugReplicationEntry {
   playerId: string;
   spaceId: string;
@@ -286,6 +311,7 @@ export interface DebugSnapshot {
   policeVehicles?: DebugPoliceVehicleEntry[];
   policeFleet?: DebugPoliceFleetEntry;
   policeResponse?: DebugPoliceResponseEntry;
+  policeTactics?: DebugPoliceTacticEntry[];
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

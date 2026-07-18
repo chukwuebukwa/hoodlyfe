@@ -59,6 +59,7 @@ game/
     police-response-fleet-controller.ts
     police-vehicle-controller.ts
     police-vehicle-policy.ts
+    pursuit-coordinator.ts
     pursuit-memory.ts
   pickups/
     weapon-pickup-controller.ts
@@ -140,6 +141,10 @@ Extracted domain policies and room adapters now include:
 - `wanted-system.ts` for per-suspect heat and response tiers;
 - `police-response-allocation-system.ts` for one bounded, deterministic district response pool shared by foot officers and cruisers, with per-suspect quotas, stable leases, materially-better replacement, report suppression, and diagnostics.
 - `pursuit-memory.ts` for visible pursuit and last-known-position search state.
+- `pursuit-coordinator.ts` for stable server-only primary, containment, support, and
+  intercept role projection over allocator leases, plus role-relative goals and copied
+  diagnostics. It does not allocate units, perceive suspects, navigate actors, or decide
+  combat/arrest outcomes.
 - `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, shared response allocation, and foot-pursuit modules;
 - `mission-system.ts` for plain deterministic group roster, reservation, deadline, objective-progress, payout, and terminal transitions;
 - `mission-objective-system.ts` for bounded reusable acquire-vehicle, ordered-checkpoint, wanted-clear, and delivery predicates, plus `mission-reward-policy.ts` for condition-sensitive payout calculation;

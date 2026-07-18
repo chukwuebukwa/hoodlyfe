@@ -5,6 +5,7 @@ import {
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
   type DebugPoliceResponseEntry,
+  type DebugPoliceTacticEntry,
   type DebugReplicationEntry,
   type DebugPopulationStreamingEntry,
   type DebugSnapshot,
@@ -41,6 +42,7 @@ interface DebugSnapshotControllerOptions {
   policeVehicles?: () => ReadonlyArray<DebugPoliceVehicleEntry>;
   policeFleet?: () => DebugPoliceFleetEntry;
   policeResponse?: () => DebugPoliceResponseEntry;
+  policeTactics?: () => ReadonlyArray<DebugPoliceTacticEntry>;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -136,6 +138,7 @@ export class DebugSnapshotController {
       })),
       policeFleet: this.options.policeFleet?.(),
       policeResponse: clonePoliceResponse(this.options.policeResponse?.()),
+      policeTactics: (this.options.policeTactics?.() ?? []).map((tactic) => ({...tactic})),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),

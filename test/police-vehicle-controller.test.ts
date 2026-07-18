@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {PoliceVehicleController} from '../server/game/police/police-vehicle-controller.ts';
+import {
+  policeVehicleStrategy,
+  predictPoliceDestination
+} from '../server/game/police/police-vehicle-policy.ts';
 import type {PoliceVehicleTargetSnapshot} from '../server/game/police/crime-response-controller.ts';
 import {VehicleState} from '../server/state.ts';
 import type {CollisionMap, RoadNode} from '../server/world-map.ts';
@@ -90,6 +94,31 @@ test('police cruiser forgets an expired report and yields immediately to hijacki
   assert.ok(vehicle.speed <= speedBeforeHijack);
 });
 
+test('secondary cruisers intercept flanks without inheriting primary ram behavior', () => {
+  const target = createTarget({
+    wantedLevel: 4,
+    currentX: 200,
+    currentY: 300,
+    currentAngle: 0,
+    currentSpeed: 100,
+    targetVehicleId: 'getaway-car',
+    tacticalRole: 'intercept-left'
+  });
+
+  assert.equal(policeVehicleStrategy(target, 'pursuit', 80), 'intercept');
+  assert.deepEqual(predictPoliceDestination(target, 10, 20, true), {
+    x: 360,
+    y: 378
+  });
+  target.targetVehicleId = '';
+  assert.equal(policeVehicleStrategy(target, 'pursuit', 80), 'contain');
+  assert.deepEqual(predictPoliceDestination(target, 10, 20, true), {
+    x: 310,
+    y: 378
+  });
+  assert.deepEqual(predictPoliceDestination(target, 10, 20, false), {x: 10, y: 20});
+});
+
 function createTarget(
   overrides: Partial<PoliceVehicleTargetSnapshot> = {}
 ): PoliceVehicleTargetSnapshot {
@@ -104,6 +133,7 @@ function createTarget(
     currentAngle: 0,
     currentSpeed: 0,
     targetVehicleId: '',
+    tacticalRole: 'primary',
     ...overrides
   };
 }

@@ -1,4 +1,5 @@
 import type {PoliceVehicleTargetSnapshot} from './crime-response-controller.ts';
+import {tacticalGoal} from './pursuit-coordinator.ts';
 
 export type PoliceVehicleStrategy =
   | 'idle'
@@ -6,6 +7,7 @@ export type PoliceVehicleStrategy =
   | 'search'
   | 'pursuit'
   | 'intercept'
+  | 'contain'
   | 'ram'
   | 'route-failed';
 
@@ -17,6 +19,9 @@ export function policeVehicleStrategy(
   distance: number
 ): PoliceVehicleStrategy {
   if (mode === 'search') return 'search';
+  if (target.tacticalRole !== 'primary') {
+    return target.targetVehicleId ? 'intercept' : 'contain';
+  }
   if (target.wantedLevel >= 3 && target.targetVehicleId) return 'ram';
   if (distance <= DIRECT_PURSUIT_DISTANCE) return 'intercept';
   return 'pursuit';
@@ -39,10 +44,17 @@ export function predictPoliceDestination(
   lastKnownY: number,
   canSeeTarget: boolean
 ): {x: number; y: number} {
-  if (!canSeeTarget || !target.targetVehicleId) return {x: lastKnownX, y: lastKnownY};
-  const leadSeconds = target.wantedLevel >= 3 ? 0.5 : 0.28;
-  return {
+  if (!canSeeTarget) return {x: lastKnownX, y: lastKnownY};
+  const leadSeconds = target.targetVehicleId
+    ? (target.wantedLevel >= 3 ? 0.5 : 0.28)
+    : 0;
+  const predicted = {
     x: target.currentX + Math.cos(target.currentAngle) * target.currentSpeed * leadSeconds,
     y: target.currentY + Math.sin(target.currentAngle) * target.currentSpeed * leadSeconds
   };
+  return tacticalGoal(target.tacticalRole, {
+    ...predicted,
+    angle: target.currentAngle,
+    inVehicle: Boolean(target.targetVehicleId)
+  });
 }

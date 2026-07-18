@@ -13,6 +13,12 @@ import {
   type PoliceResponseSuspect
 } from './police-response-allocation-system.ts';
 import {PursuitMemory, type PursuitRecord} from './pursuit-memory.ts';
+import {
+  PursuitCoordinator,
+  type PoliceTactic,
+  type PoliceTacticalPhase,
+  type PoliceTacticalRole
+} from './pursuit-coordinator.ts';
 
 interface CrimeClock {
   tick: number;
@@ -34,6 +40,7 @@ export interface PoliceTarget {
   pursuit?: PursuitRecord;
   canSeeTarget: boolean;
   targetDistance: number;
+  tactic: PoliceTactic;
 }
 
 export interface PoliceVehicleTargetSnapshot {
@@ -47,6 +54,7 @@ export interface PoliceVehicleTargetSnapshot {
   currentAngle: number;
   currentSpeed: number;
   targetVehicleId: string;
+  tacticalRole: PoliceTacticalRole;
 }
 
 export class CrimeResponseController {
@@ -55,6 +63,7 @@ export class CrimeResponseController {
   private readonly wanted = new WantedSystem();
   private readonly responseAllocation = new PoliceResponseAllocationSystem();
   private readonly pursuitMemory = new PursuitMemory();
+  private readonly pursuitCoordinator = new PursuitCoordinator();
   private readonly reportedSuspectLocations = new Map<
     string,
     {x: number; y: number; reportedAt: number}
@@ -134,6 +143,7 @@ export class CrimeResponseController {
 
   updateResponse(nowMs: number): void {
     const {state} = this.options;
+    const suspects = this.responseSuspects();
     const units = [
       ...[...state.npcs.values()]
         .filter((npc) => npc.kind === 'police')
@@ -154,11 +164,8 @@ export class CrimeResponseController {
           available: !vehicle.destroyed && !vehicle.hijackBy && !vehicle.driverId
         }))
     ];
-    this.applyAllocationChanges(this.responseAllocation.update(
-      this.responseSuspects(),
-      units,
-      nowMs
-    ), nowMs);
+    this.applyAllocationChanges(this.responseAllocation.update(suspects, units, nowMs), nowMs);
+    this.pursuitCoordinator.update(this.responseAllocation.entries());
   }
 
   private applyAllocationChanges(changes: readonly PoliceResponseChange[], nowMs: number): void {
@@ -209,7 +216,16 @@ export class CrimeResponseController {
 
   policeVehicleTarget(vehicleId: string): PoliceVehicleTargetSnapshot | undefined {
     const assignment = this.responseAllocation.assignmentFor('vehicle', vehicleId);
-    return assignment ? this.vehicleTargetSnapshot(assignment.suspectId) : undefined;
+    return assignment ? this.vehicleTargetSnapshot(vehicleId, assignment.suspectId) : undefined;
+  }
+
+  recordPoliceVehicleTactic(
+    vehicleId: string,
+    phase: PoliceTacticalPhase,
+    goalX: number,
+    goalY: number
+  ): void {
+    this.pursuitCoordinator.record('vehicle', vehicleId, phase, goalX, goalY);
   }
 
   forgetPoliceVehicleTarget(
@@ -264,7 +280,20 @@ export class CrimeResponseController {
       }
       return undefined;
     }
-    return {player, pursuit, canSeeTarget, targetDistance};
+    const vehicle = player.vehicleId ? this.options.state.vehicles.get(player.vehicleId) : undefined;
+    const tactic = this.pursuitCoordinator.resolve(
+      'foot',
+      officer.id,
+      pursuit.mode,
+      canSeeTarget,
+      {
+        x: pursuit.lastKnownX,
+        y: pursuit.lastKnownY,
+        angle: vehicle?.angle ?? player.angle,
+        inVehicle: Boolean(vehicle)
+      }
+    );
+    return {player, pursuit, canSeeTarget, targetDistance, tactic};
   }
 
   clearSuspect(suspectId: string): void {
@@ -273,6 +302,7 @@ export class CrimeResponseController {
     this.wanted.reset(suspectId);
     this.applyAllocationChanges(this.responseAllocation.clearSuspect(suspectId, nowMs), nowMs);
     this.pursuitMemory.clearSuspect(suspectId);
+    this.pursuitCoordinator.clearSuspect(suspectId);
     this.reportedSuspectLocations.delete(suspectId);
   }
 
@@ -286,6 +316,10 @@ export class CrimeResponseController {
 
   pursuitSnapshot(): PursuitRecord[] {
     return this.pursuitMemory.entries();
+  }
+
+  pursuitTacticsSnapshot(): PoliceTactic[] {
+    return this.pursuitCoordinator.diagnostics();
   }
 
   private witnessCandidates(incident: Incident) {
@@ -314,7 +348,10 @@ export class CrimeResponseController {
     });
   }
 
-  private vehicleTargetSnapshot(suspectId: string): PoliceVehicleTargetSnapshot | undefined {
+  private vehicleTargetSnapshot(
+    vehicleId: string,
+    suspectId: string
+  ): PoliceVehicleTargetSnapshot | undefined {
     const player = this.options.state.players.get(suspectId);
     const report = this.reportedSuspectLocations.get(suspectId);
     if (!player?.alive || player.spaceId !== 'street' || player.wanted <= 0 || !report) {
@@ -333,7 +370,8 @@ export class CrimeResponseController {
       currentY: player.y,
       currentAngle: vehicle?.angle ?? player.angle,
       currentSpeed: vehicle?.speed ?? 0,
-      targetVehicleId: vehicle?.id ?? ''
+      targetVehicleId: vehicle?.id ?? '',
+      tacticalRole: this.pursuitCoordinator.roleFor('vehicle', vehicleId)
     };
   }
 }

@@ -12,6 +12,7 @@ import {
   type PoliceVehicleStrategy
 } from './police-vehicle-policy.ts';
 import {PursuitMemory} from './pursuit-memory.ts';
+import type {PoliceTacticalPhase} from './pursuit-coordinator.ts';
 
 interface PoliceVehicleRuntime {
   suspectId: string;
@@ -55,6 +56,12 @@ interface PoliceVehicleControllerOptions {
     suspectId: string,
     reportedAt: number,
     nowMs: number
+  ) => void;
+  reportTactic?: (
+    vehicleId: string,
+    phase: PoliceTacticalPhase,
+    goalX: number,
+    goalY: number
   ) => void;
 }
 
@@ -102,6 +109,7 @@ export class PoliceVehicleController {
       runtime.speedReason = 'hijack';
       runtime.desiredSpeed = 0;
       runtime.obstacleId = '';
+      this.options.reportTactic?.(vehicle.id, 'disengage', vehicle.x, vehicle.y);
       return false;
     }
 
@@ -109,6 +117,7 @@ export class PoliceVehicleController {
     if (!target) {
       this.clearAssignment(vehicle.id, runtime);
       this.idle(vehicle, runtime, deltaSeconds);
+      this.options.reportTactic?.(vehicle.id, 'disengage', vehicle.x, vehicle.y);
       return false;
     }
     if (runtime.suspectId !== target.suspectId || runtime.reportAt !== target.reportedAt) {
@@ -135,6 +144,7 @@ export class PoliceVehicleController {
       this.options.forgetTarget(vehicle.id, target.suspectId, target.reportedAt, nowMs);
       this.clearAssignment(vehicle.id, runtime);
       this.idle(vehicle, runtime, deltaSeconds);
+      this.options.reportTactic?.(vehicle.id, 'disengage', vehicle.x, vehicle.y);
       return false;
     }
 
@@ -146,6 +156,12 @@ export class PoliceVehicleController {
       pursuit.lastKnownX,
       pursuit.lastKnownY,
       canSeeTarget
+    );
+    this.options.reportTactic?.(
+      vehicle.id,
+      tacticPhaseForStrategy(runtime.strategy),
+      predicted.x,
+      predicted.y
     );
     const direct = canSeeTarget && distance <= DIRECT_PURSUIT_DISTANCE &&
       this.options.world.isRoadAt(predicted.x, predicted.y);
@@ -298,6 +314,24 @@ export class PoliceVehicleController {
     runtime.desiredSpeed = 0;
     runtime.speedReason = 'idle';
     runtime.obstacleId = '';
+  }
+}
+
+function tacticPhaseForStrategy(strategy: PoliceVehicleStrategy): PoliceTacticalPhase {
+  switch (strategy) {
+    case 'search':
+    case 'route-failed':
+      return 'search';
+    case 'contain':
+      return 'contain';
+    case 'intercept':
+    case 'ram':
+      return 'intercept';
+    case 'pursuit':
+      return 'pursue';
+    case 'idle':
+    case 'hijack':
+      return 'disengage';
   }
 }
 

@@ -102,12 +102,15 @@ export class PedestrianBehaviorSystem {
     observation: Extract<PedestrianObservation, {kind: 'police'}>,
     nowMs: number
   ): PedestrianIntent {
-    const {pursuit, canSeeTarget, targetDistance, targetOnFootInStreet} = observation.response;
-    const angle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
-    const distance = Math.hypot(pursuit.lastKnownX - npc.x, pursuit.lastKnownY - npc.y);
-    const objective = pursuit.mode === 'pursuit' ? 'pursue' : 'search';
-    const stopDistance = pursuit.mode === 'pursuit' ? 165 : 28;
-    const pointBlank = canSeeTarget && targetOnFootInStreet &&
+    const {pursuit, canSeeTarget, targetDistance, targetOnFootInStreet, tactic} = observation.response;
+    const moveAngle = Math.atan2(tactic.goalY - npc.y, tactic.goalX - npc.x);
+    const aimAngle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
+    const distance = Math.hypot(tactic.goalX - npc.x, tactic.goalY - npc.y);
+    const objective = tactic.phase === 'contain'
+      ? 'contain'
+      : (tactic.phase === 'search' ? 'search' : 'pursue');
+    const stopDistance = tactic.phase === 'contain' ? 22 : (pursuit.mode === 'pursuit' ? 165 : 28);
+    const pointBlank = tactic.role === 'primary' && canSeeTarget && targetOnFootInStreet &&
       targetDistance <= NPC_MELEE.engageDistance;
     const canMelee = pointBlank && nowMs >= runtime.melee.cooldownUntil;
     const canFire = !pointBlank && canSeeTarget && targetDistance < 430 &&
@@ -115,12 +118,12 @@ export class PedestrianBehaviorSystem {
     if (canFire) runtime.lastShotAt = nowMs;
     return {
       objective,
-      angle,
+      angle: moveAngle,
       speed: pointBlank ? 0 : (distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0),
       fire: canFire,
-      aimAngle: angle,
-      targetX: pursuit.lastKnownX,
-      targetY: pursuit.lastKnownY,
+      aimAngle,
+      targetX: tactic.goalX,
+      targetY: tactic.goalY,
       meleeTargetId: canMelee ? pursuit.suspectId : undefined
     };
   }

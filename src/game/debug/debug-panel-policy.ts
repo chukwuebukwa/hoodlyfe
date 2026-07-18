@@ -244,8 +244,16 @@ function policeVehicleSummary(snapshot?: DebugSnapshot): string {
 function policeResponseSummary(snapshot?: DebugSnapshot): string {
   const response = snapshot?.policeResponse;
   if (!response) return 'off';
+  const tactics = snapshot?.policeTactics ?? [];
+  const primary = tactics.filter((tactic) => tactic.role === 'primary').length;
+  const containment = tactics.filter((tactic) => tactic.phase === 'contain').length;
+  const interception = tactics.filter((tactic) => tactic.phase === 'intercept').length;
+  const search = tactics.filter((tactic) => tactic.phase === 'search').length;
+  const tacticSummary = tactics.length > 0
+    ? ` / T${primary} primary C${containment} I${interception} S${search}`
+    : '';
   return `${response.usedResponsePoints}/${response.maxResponsePoints} pts / ` +
     `F${response.assignedFootUnits}/${response.maxFootUnits} / ` +
     `V${response.assignedVehicleUnits}/${response.maxVehicleUnits} / ` +
-    `${response.demands.length} suspects / ${response.suppressedPairs} suppressed`;
+    `${response.demands.length} suspects / ${response.suppressedPairs} suppressed${tacticSummary}`;
 }

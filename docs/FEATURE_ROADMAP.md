@@ -64,6 +64,10 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** crimes become bounded incidents; witnesses report after delay; unwitnessed incidents expire.
 - **Playable** wanted heat, response caps, police dispatch assignments, pursuit, last-known-position search, line-of-sight fire, heat decay, and respawn reset.
 - **Playable** bounded police response fleet with heat-scaled 1/2/3 unit budgets, delayed reinforcements, clear road-reachable placement, safe stand-down, hijack/destruction handoff, report-based search, visible-target pursuit/interception, high-heat vehicle ramming, pursuit-only siren, and F3 fleet/route/strategy diagnostics.
+- **Playable foundation** existing response leases now project into stable primary,
+  containment, support, and cruiser-intercept roles. Tactical goals rotate with suspect
+  heading, survive distance crossings without role churn, fall back to private last-known
+  search, prevent secondary cruiser ramming, and appear in F3 role/goal diagnostics.
 - **Playable** moving police sirens project a bounded response corridor: aligned civilian traffic pulls to a road-safe side, crossing/oncoming traffic waits, invalid sirens are ignored, and F3 exposes the temporary yielding relationship.
 - **Playable** ambient civilian/police population, ejected drivers, event stimuli, bravery, investigation, startle, sustained flee, recovery, death, and respawn.
 - **Playable** bounded deterministic pedestrian paths around large collision obstacles with per-tick work limits and private route memory.
@@ -153,7 +157,10 @@ These are ordered by how much of the city loop they improve and by their depende
   centerlines, legal turn connectors, owned junctions, deterministic A*, durable routes,
   graph validation, lane counts, adjacent-lane geometry, and server-owned passing. Parking
   points, permanent route-lane transitions, and turn pockets remain.
-- Add coordinated block/intercept positions, disabled-car avoidance, officer exit behavior, roadblocks, and response population level of detail after authored lane metadata.
+- **Delivered foundation** coordinated foot containment/support and cruiser intercept goals
+  now consume stable response leases. Add disabled-car avoidance, force policy,
+  surrender/arrest, officer exit behavior, authored roadblocks/stingers, and response
+  population level of detail as separate G3 slices.
 - Expand the private OpenGTA2 vehicle manifest for development while keeping gameplay IDs independent of GTA2 model numbers.
 
 Exit gate: visibly different vehicle classes share the same authoritative physics/damage primitives, and traffic can follow/brake/recover without uncontrolled collision chains.

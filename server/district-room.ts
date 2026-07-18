@@ -299,6 +299,9 @@ export class DistrictRoom extends Room<DistrictState> {
       targetFor: (vehicleId) => this.crimeController.policeVehicleTarget(vehicleId),
       forgetTarget: (vehicleId, suspectId, reportedAt, nowMs) => (
         this.crimeController.forgetPoliceVehicleTarget(vehicleId, suspectId, reportedAt, nowMs)
+      ),
+      reportTactic: (vehicleId, phase, goalX, goalY) => (
+        this.crimeController.recordPoliceVehicleTactic(vehicleId, phase, goalX, goalY)
       )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
@@ -349,6 +352,7 @@ export class DistrictRoom extends Room<DistrictState> {
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
       policeResponse: () => this.crimeController.responseAllocationSnapshot(),
+      policeTactics: () => this.crimeController.pursuitTacticsSnapshot(),
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],

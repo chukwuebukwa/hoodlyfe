@@ -71,7 +71,16 @@ test('navigation detours police locomotion without altering target aim or fire c
       },
       canSeeTarget: true,
       targetDistance: 200,
-      targetOnFootInStreet: true
+      targetOnFootInStreet: true,
+      tactic: {
+        unitId: npc.id,
+        unitKind: 'foot' as const,
+        suspectId: 'suspect',
+        role: 'primary' as const,
+        phase: 'pursue' as const,
+        goalX: 200,
+        goalY: 0
+      }
     }
   };
   const first = behavior.decide(npc, runtime, observation, 1000);

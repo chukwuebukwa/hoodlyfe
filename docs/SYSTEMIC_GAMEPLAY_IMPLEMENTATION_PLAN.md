@@ -284,6 +284,24 @@ Build police behavior on G1 budgets and G2 driving:
 Roadblocks and stingers are authored opportunities instantiated through ordinary actors,
 collision, damage, and mission-scope systems.
 
+G3a architecture checklist:
+
+- [x] One server-only `PursuitCoordinator` projects existing allocator leases into stable
+  primary, contain, support, and intercept roles without owning allocation or population.
+- [x] Retained leases keep their roles while distances cross; vacated roles promote one
+  deterministic replacement by assignment age, distance, and stable unit ID.
+- [x] Visible role goals rotate with authoritative target heading; lost units search only
+  their private last-known point.
+- [x] Foot containment uses independent movement and aim goals, and only the primary may
+  initiate the existing point-blank melee behavior.
+- [x] Secondary cruisers flank or contain and cannot inherit primary high-heat ramming.
+- [x] F3 reports tactical role pressure and draws server-owned goal lines without exposing
+  unresolved observe goals.
+- [x] G3a changes no prediction, reconciliation, interpolation, AOI, rewind, rollout, or
+  shared movement/contact implementation.
+- [ ] Add force policy, surrender/arrest outcomes, officer exits, authored roadblock/stinger
+  opportunities, and reinforcement staging as separate G3 slices.
+
 ### G4 - Ped objective stack, personality, and attractors
 
 Separate persistent goal, interruptible objective stack, movement state, reaction state,

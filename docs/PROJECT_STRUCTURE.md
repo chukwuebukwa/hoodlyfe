@@ -420,13 +420,18 @@ police/
   police-response-allocation-system.ts
   police-response-fleet-controller.ts
   pursuit-memory.ts
+  pursuit-coordinator.ts
   police-vehicle-policy.ts
   police-vehicle-controller.ts
 ```
 
 - Crimes create incidents with location, severity, witnesses, suspect, and expiry.
 - Shared response allocation gives simultaneous suspects deterministic shares of one finite foot/cruiser budget, retains leases, replaces materially poor assignments, and suppresses expired unit-report pairs.
-- Fleet control realizes aggregate cruiser demand; foot and vehicle controllers execute their assigned target with separate search memory and movement behavior.
+- Pursuit memory owns each unit's last-known facts. The pursuit coordinator projects stable
+  primary, containment, support, and intercept roles over allocator leases without becoming
+  a second allocator, perception system, navigation owner, or outcome authority.
+- Fleet control realizes aggregate cruiser demand; foot and vehicle controllers execute
+  role-relative goals through separate navigation and movement behavior.
 - Wanted heat controls the response budget, not individual officer omniscience.
 - Officers need search behavior after losing sight rather than permanent direct knowledge.
 - Arrest, surrender, jail, death, and respawn are separate outcomes.

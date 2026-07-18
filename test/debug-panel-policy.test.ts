@@ -53,6 +53,44 @@ test('debug panel projects authoritative counters and bounded event summaries', 
   });
 });
 
+test('debug panel summarizes server-owned police tactical roles', () => {
+  const snapshot = createSnapshot();
+  snapshot.policeTactics = [
+    {
+      unitId: 'police-1',
+      unitKind: 'foot',
+      suspectId: 'driver',
+      role: 'primary',
+      phase: 'pursue',
+      goalX: 10,
+      goalY: 20
+    },
+    {
+      unitId: 'police-2',
+      unitKind: 'foot',
+      suspectId: 'driver',
+      role: 'contain-left',
+      phase: 'contain',
+      goalX: 10,
+      goalY: 125
+    },
+    {
+      unitId: 'vehicle-2',
+      unitKind: 'vehicle',
+      suspectId: 'driver',
+      role: 'intercept-left',
+      phase: 'intercept',
+      goalX: 120,
+      goalY: 98
+    }
+  ];
+
+  assert.equal(
+    projectDebugPanel(createState(), snapshot).response,
+    '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed / T1 primary C1 I1 S0'
+  );
+});
+
 test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', () => {
   const snapshot = createSnapshot();
   snapshot.populationStreaming = {

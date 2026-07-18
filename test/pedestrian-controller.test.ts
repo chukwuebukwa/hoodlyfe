@@ -88,7 +88,16 @@ test('police pursue assigned targets and request rate-limited fire', () => {
       mode: 'pursuit'
     },
     canSeeTarget: true,
-    targetDistance: 200
+    targetDistance: 200,
+    tactic: {
+      unitId: police.id,
+      unitKind: 'foot',
+      suspectId: 'suspect',
+      role: 'primary',
+      phase: 'pursue',
+      goalX: police.x + 200,
+      goalY: police.y
+    }
   };
 
   const initialX = police.x;
@@ -231,7 +240,16 @@ test('police use point-blank melee only for a visible on-foot pursuit target', (
         mode: 'pursuit'
       },
       canSeeTarget: true,
-      targetDistance: 40
+      targetDistance: 40,
+      tactic: {
+        unitId: officerId,
+        unitKind: 'foot',
+        suspectId: 'suspect',
+        role: 'primary',
+        phase: 'pursue',
+        goalX: world.spawn.x + 40,
+        goalY: world.spawn.y
+      }
     }),
     requestPoliceFire: (_id, _x, _y, _angle, nowMs) => fired.push(nowMs),
     damagePlayer: (_target, amount) => damage.push(amount)

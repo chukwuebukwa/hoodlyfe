@@ -223,6 +223,17 @@ export class ThreeDebugController {
         point(suspect.x, suspect.y, this.surfaceHeightAt(suspect.x, suspect.y) + 32)
       ], assignment.unitKind === 'foot' ? 0xff6f78 : 0x58c8ff));
     }
+    for (const tactic of this.snapshot?.policeTactics ?? []) {
+      if (tactic.phase === 'observe') continue;
+      const unit = tactic.unitKind === 'foot'
+        ? state.npcs.get(tactic.unitId)
+        : state.vehicles.get(tactic.unitId);
+      if (!unit || !Number.isFinite(tactic.goalX) || !Number.isFinite(tactic.goalY)) continue;
+      this.group.add(debugLine([
+        point(unit.x, unit.y, this.surfaceHeightAt(unit.x, unit.y) + 35),
+        point(tactic.goalX, tactic.goalY, this.surfaceHeightAt(tactic.goalX, tactic.goalY) + 35)
+      ], policeTacticColor(tactic.phase)));
+    }
     const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {
       const vehicle = state.vehicles.get(entry.vehicleId);
@@ -430,6 +441,14 @@ export class ThreeDebugController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'F3') this.setVisible(!this.visible);
   };
+}
+
+function policeTacticColor(phase: string): number {
+  if (phase === 'contain') return 0xffc857;
+  if (phase === 'intercept') return 0x5bbcff;
+  if (phase === 'search') return 0xb47cff;
+  if (phase === 'disengage') return 0x7b828c;
+  return 0xff6f78;
 }
 
 function trafficJunctionCenter(

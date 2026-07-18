@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
+  DebugPoliceTacticEntry,
   DebugPoliceResponseEntry,
   DebugSnapshot,
   DebugTrafficAiEntry,
@@ -61,6 +62,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
   assert.equal(first.policeResponse?.assignments[0].distance, 40);
   assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
+  assert.equal(first.policeTactics?.[0].role, 'contain-left');
+  assert.equal(first.policeTactics?.[0].goalX, 180);
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -74,6 +77,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.response.demands[0].assignedFoot = 0;
   fixture.response.assignments[0].distance = 999;
   fixture.response.lastChanges[0].reason = 'mutated';
+  fixture.tactic.role = 'support-left';
+  fixture.tactic.goalX = 999;
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
@@ -86,6 +91,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeResponse?.demands[0].assignedFoot, 1);
   assert.equal(first.policeResponse?.assignments[0].distance, 40);
   assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
+  assert.equal(first.policeTactics?.[0].role, 'contain-left');
+  assert.equal(first.policeTactics?.[0].goalX, 180);
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -298,6 +305,15 @@ function createFixture(enabled: boolean) {
       reason: 'assigned'
     }]
   };
+  const tactic: DebugPoliceTacticEntry = {
+    unitId: 'police-1',
+    unitKind: 'foot',
+    suspectId: 'driver',
+    role: 'contain-left',
+    phase: 'contain',
+    goalX: 180,
+    goalY: 210
+  };
   const controller = new DebugSnapshotController({
     enabled,
     state,
@@ -320,6 +336,7 @@ function createFixture(enabled: boolean) {
     traffic: () => [traffic],
     trafficLaneGraph: () => laneGraph,
     policeResponse: () => response,
+    policeTactics: () => [tactic],
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
   return {
@@ -333,6 +350,7 @@ function createFixture(enabled: boolean) {
     traffic,
     laneGraph,
     response,
+    tactic,
     published
   };
 }
