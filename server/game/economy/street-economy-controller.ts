@@ -12,6 +12,7 @@ export type StreetEconomyReason =
   | 'ammunition'
   | 'vehicle-repair'
   | 'hospital'
+  | 'custody'
   | 'clothing';
 
 export type StreetEconomyStatus =

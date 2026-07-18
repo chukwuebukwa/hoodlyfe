@@ -299,7 +299,21 @@ G3a architecture checklist:
   unresolved observe goals.
 - [x] G3a changes no prediction, reconciliation, interpolation, AOI, rewind, rollout, or
   shared movement/contact implementation.
-- [ ] Add force policy, surrender/arrest outcomes, officer exits, authored roadblock/stinger
+
+G3b architecture checklist:
+
+- [x] Pure server force policy selects arrest, melee, fire, or hold from allocator role,
+  visibility, contact, target state, and officer control.
+- [x] One modular arrest controller owns cancellable officer/suspect contact and delegates
+  the terminal outcome exactly once.
+- [x] Player lifecycle owns busted mutation; custody owns idempotent fee and collision-safe
+  release planning.
+- [x] Active arrest blocks movement, attacks, and incoming damage through existing action
+  and protection gates without changing prediction kernels.
+- [x] F3 exposes active custody ownership, remaining time, contact links, and typed events.
+- [x] G3b changes no prediction, reconciliation, interpolation, AOI, rewind, rollout,
+  interaction-island, or shared movement/contact implementation.
+- [ ] Add explicit surrender input/presentation, officer exits, authored roadblock/stinger
   opportunities, and reinforcement staging as separate G3 slices.
 
 ### G4 - Ped objective stack, personality, and attractors

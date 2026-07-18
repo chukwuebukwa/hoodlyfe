@@ -57,6 +57,9 @@ game/
     crime-response-controller.ts
     police-response-allocation-system.ts
     police-response-fleet-controller.ts
+    police-arrest-controller.ts
+    police-force-policy.ts
+    custody-outcome-controller.ts
     police-vehicle-controller.ts
     police-vehicle-policy.ts
     pursuit-coordinator.ts
@@ -145,6 +148,10 @@ Extracted domain policies and room adapters now include:
   intercept role projection over allocator leases, plus role-relative goals and copied
   diagnostics. It does not allocate units, perceive suspects, navigate actors, or decide
   combat/arrest outcomes.
+- `police-force-policy.ts` for pure arrest/melee/fire/hold selection;
+  `police-arrest-controller.ts` for cancellable officer/suspect contact ownership; and
+  `custody-outcome-controller.ts` for idempotent wanted-scaled fees and collision-safe
+  release planning. Player lifecycle remains the sole owner of terminal busted mutation.
 - `crime-response-controller.ts` as the room-facing facade over incident, witness, wanted, shared response allocation, and foot-pursuit modules;
 - `mission-system.ts` for plain deterministic group roster, reservation, deadline, objective-progress, payout, and terminal transitions;
 - `mission-objective-system.ts` for bounded reusable acquire-vehicle, ordered-checkpoint, wanted-clear, and delivery predicates, plus `mission-reward-policy.ts` for condition-sensitive payout calculation;

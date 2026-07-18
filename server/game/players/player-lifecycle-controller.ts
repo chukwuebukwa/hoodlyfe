@@ -1,9 +1,10 @@
 import type {GameEventStream} from '../events/game-events.ts';
 import type {DistrictState, PlayerState} from '../../state.ts';
-import {refillAmmo} from '../../weapons.ts';
+import {confiscateWeapons, refillAmmo} from '../../weapons.ts';
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {MedicalCareController} from '../medical/medical-care-controller.ts';
+import type {CustodyOutcomePort} from '../police/custody-outcome-controller.ts';
 
 interface PlayerLifecycleControllerOptions {
   state: DistrictState;
@@ -11,8 +12,10 @@ interface PlayerLifecycleControllerOptions {
   access: VehicleAccessController;
   crime: CrimeResponseController;
   medical: Pick<MedicalCareController, 'begin' | 'complete' | 'clearPlayer'>;
+  custody: CustodyOutcomePort;
   clock: () => {tick: number};
   resetInput: (playerId: string) => void;
+  clearCombatState?: (playerId: string) => void;
 }
 
 const SPAWN_PROTECTION_MS = 3000;
@@ -83,8 +86,52 @@ export class PlayerLifecycleController {
     return true;
   }
 
+  completeArrest(
+    player: PlayerState,
+    arrestId: string,
+    officerId: string,
+    wantedLevel: number,
+    nowMs: number
+  ): boolean {
+    if (!player.alive || player.action !== 'arrested') return false;
+    const outcome = this.options.custody.resolve(player, arrestId, wantedLevel, nowMs);
+    this.options.clearCombatState?.(player.id);
+    this.options.access.removePlayer(player);
+    player.x = outcome.x;
+    player.y = outcome.y;
+    player.spaceId = outcome.spaceId;
+    player.angle = outcome.angle;
+    player.health = 100;
+    player.armor = 0;
+    player.wanted = 0;
+    player.spawnProtected = true;
+    player.onFire = false;
+    player.fireStartedAt = 0;
+    player.fireExpiresAt = 0;
+    player.reactionKind = '';
+    player.reactionProgress = 1;
+    confiscateWeapons(player);
+    this.protectionUntil.set(player.id, nowMs + SPAWN_PROTECTION_MS);
+    this.options.crime.clearSuspect(player.id);
+    this.options.resetInput(player.id);
+    this.options.events.publish({
+      type: 'player.busted',
+      tick: this.options.clock().tick,
+      nowMs,
+      arrestId,
+      officerId,
+      playerId: player.id,
+      wantedLevel,
+      fine: outcome.fine,
+      x: outcome.x,
+      y: outcome.y
+    });
+    return true;
+  }
+
   isProtected(playerId: string, nowMs: number): boolean {
-    return nowMs < (this.protectionUntil.get(playerId) ?? 0);
+    return this.options.state.players.get(playerId)?.action === 'arrested' ||
+      nowMs < (this.protectionUntil.get(playerId) ?? 0);
   }
 
   updateProtection(player: PlayerState, nowMs: number): void {

@@ -64,6 +64,8 @@ import {PlayerInteractionController} from './game/interactions/player-interactio
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
+import {CustodyOutcomeController} from './game/police/custody-outcome-controller.ts';
+import {PoliceArrestController} from './game/police/police-arrest-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
 import {PoliceResponseFleetController} from './game/police/police-response-fleet-controller.ts';
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
@@ -174,6 +176,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private missionController!: FreemodeMissionController;
   private medicalController!: MedicalCareController;
   private crimeController!: CrimeResponseController;
+  private custodyController!: CustodyOutcomeController;
+  private policeArrests!: PoliceArrestController;
   private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
@@ -319,6 +323,11 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: () => ({tick: this.simulationClock.tick}),
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
+    this.custodyController = new CustodyOutcomeController({
+      world: this.world,
+      economy: this.economyController,
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+    });
     this.debugProjection = new DebugSnapshotController({
       enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
       state: this.state,
@@ -353,6 +362,7 @@ export class DistrictRoom extends Room<DistrictState> {
       policeFleet: () => this.policeResponseFleet.diagnostics(),
       policeResponse: () => this.crimeController.responseAllocationSnapshot(),
       policeTactics: () => this.crimeController.pursuitTacticsSnapshot(),
+      policeArrests: () => this.policeArrests?.diagnostics() ?? [],
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
@@ -394,8 +404,13 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       crime: this.crimeController,
       medical: this.medicalController,
+      custody: this.custodyController,
       clock: () => ({tick: this.simulationClock.tick}),
-      resetInput: (playerId) => this.playerControl.reset(playerId)
+      resetInput: (playerId) => this.playerControl.reset(playerId),
+      clearCombatState: (playerId) => {
+        this.meleeCombat?.clearPlayer(playerId);
+        this.combatReactions?.clearPlayer(playerId);
+      }
     });
     this.combatReactions = new CombatReactionController({
       state: this.state,
@@ -618,6 +633,31 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicles: this.vehicleAccess,
       canUseVehicles: (playerId) => this.state.players.get(playerId)?.spaceId === 'street'
     });
+    this.policeArrests = new PoliceArrestController({
+      state: this.state,
+      world: this.world,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
+      targetFor: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
+      completeArrest: (player, arrestId, officerId, wantedLevel, nowMs) => (
+        this.playerLifecycle.completeArrest(
+          player,
+          arrestId,
+          officerId,
+          wantedLevel,
+          nowMs
+        )
+      ),
+      interruptPlayer: (player) => {
+        if (player.action === 'melee') this.meleeCombat.clearPlayer(player.id);
+        this.combatReactions.clearPlayer(player.id);
+        this.vehicleAccess.cancelAction(player);
+      },
+      resetInput: (playerId) => this.playerControl.reset(playerId),
+      recordTactic: (officerId, x, y) => (
+        this.crimeController.recordPoliceFootTactic(officerId, 'arrest', x, y)
+      )
+    });
     this.pedestrians = new PedestrianController({
       state: this.state,
       world: this.world,
@@ -626,6 +666,10 @@ export class DistrictRoom extends Room<DistrictState> {
       events: this.events,
       stimuli: this.worldStimuli,
       policeTarget: (officer, nowMs) => this.crimeController.policeTarget(officer, nowMs),
+      requestPoliceArrest: (officerId, suspectId, nowMs) => (
+        this.policeArrests.request(officerId, suspectId, nowMs)
+      ),
+      isPoliceArresting: (officerId) => this.policeArrests.holdsOfficer(officerId),
       requestPoliceFire: (officerId, x, y, angle, nowMs) => {
         this.fireControl.createNpcBullet(officerId, x, y, angle, nowMs, 'pistol');
       },
@@ -811,6 +855,7 @@ export class DistrictRoom extends Room<DistrictState> {
       playerControl: this.playerControl,
       vehicleAccess: this.vehicleAccess,
       crime: this.crimeController,
+      policeArrests: this.policeArrests,
       pedestrians: this.pedestrians,
       worldStimuli: this.worldStimuli,
       worldStimulusAdapter: this.worldStimulusAdapter,
@@ -979,6 +1024,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.networkProbe.clear(client.sessionId);
     this.authIdentities.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
+    this.policeArrests.clearPlayer(client.sessionId, this.simulationClock.nowMs);
     if (player) this.vehicleAccess.removePlayer(player);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);

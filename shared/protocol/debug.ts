@@ -258,6 +258,20 @@ export interface DebugPoliceTacticEntry {
   goalY: number;
 }
 
+export interface DebugPoliceArrestEntry {
+  arrestId: string;
+  officerId: string;
+  suspectId: string;
+  phase: 'securing';
+  startedAt: number;
+  completesAt: number;
+  wantedLevel: number;
+  officerX: number;
+  officerY: number;
+  suspectX: number;
+  suspectY: number;
+}
+
 export interface DebugReplicationEntry {
   playerId: string;
   spaceId: string;
@@ -312,6 +326,7 @@ export interface DebugSnapshot {
   policeFleet?: DebugPoliceFleetEntry;
   policeResponse?: DebugPoliceResponseEntry;
   policeTactics?: DebugPoliceTacticEntry[];
+  policeArrests?: DebugPoliceArrestEntry[];
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];

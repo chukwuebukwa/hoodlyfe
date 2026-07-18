@@ -217,11 +217,12 @@ test('mission hostile uses timed point-blank melee instead of firing through its
   assert.deepEqual(fired, []);
 });
 
-test('police use point-blank melee only for a visible on-foot pursuit target', () => {
+test('police request authoritative custody for a visible on-foot pursuit target', () => {
   const world = CollisionMap.load();
   const state = new DistrictState();
   const fired: number[] = [];
   const damage: number[] = [];
+  const arrests: Array<{officerId: string; suspectId: string; nowMs: number}> = [];
   let officerId = '';
   const controller = new PedestrianController({
     state,
@@ -252,6 +253,10 @@ test('police use point-blank melee only for a visible on-foot pursuit target', (
       }
     }),
     requestPoliceFire: (_id, _x, _y, _angle, nowMs) => fired.push(nowMs),
+    requestPoliceArrest: (requestedOfficerId, suspectId, nowMs) => {
+      arrests.push({officerId: requestedOfficerId, suspectId, nowMs});
+      return true;
+    },
     damagePlayer: (_target, amount) => damage.push(amount)
   });
   const police = controller.spawn('police-melee', 'police', 31, 0, 0);
@@ -266,10 +271,10 @@ test('police use point-blank melee only for a visible on-foot pursuit target', (
   state.players.set(player.id, player);
 
   controller.update(police, 1 / 30, 1_000);
-  assert.equal(police.action, 'melee');
+  assert.deepEqual(arrests, [{officerId: police.id, suspectId: player.id, nowMs: 1_000}]);
   assert.deepEqual(fired, []);
   controller.update(police, 1 / 30, 1_210);
-  assert.deepEqual(damage, [8]);
+  assert.deepEqual(damage, []);
 });
 
 test('carjacking creates a panicked ambient driver beside the vehicle', () => {

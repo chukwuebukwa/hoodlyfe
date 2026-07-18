@@ -61,6 +61,8 @@ interface PedestrianControllerOptions {
     angle: number,
     nowMs: number
   ) => void;
+  requestPoliceArrest?: (officerId: string, suspectId: string, nowMs: number) => boolean;
+  isPoliceArresting?: (officerId: string) => boolean;
   requestHostileFire?: (
     actorId: string,
     x: number,
@@ -209,6 +211,7 @@ export class PedestrianController {
       this.tryRespawn(npc, runtime, nowMs);
       return;
     }
+    if (this.options.isPoliceArresting?.(npc.id)) return;
     if (npc.reactionKind && npc.reactionProgress < 1) {
       if (runtime.melee.phase !== 'idle') this.melee.interrupt(npc, runtime, nowMs);
       npc.action = npc.reactionKind;
@@ -225,6 +228,13 @@ export class PedestrianController {
     const meleeTarget = intent.meleeTargetId
       ? this.options.state.players.get(intent.meleeTargetId)
       : undefined;
+    if (intent.arrestTargetId) {
+      if (this.options.requestPoliceArrest?.(npc.id, intent.arrestTargetId, nowMs)) return;
+      if (!this.options.requestPoliceArrest) {
+        const arrestTarget = this.options.state.players.get(intent.arrestTargetId);
+        if (arrestTarget && this.melee.begin(npc, runtime, arrestTarget, nowMs)) return;
+      }
+    }
     if (meleeTarget && this.melee.begin(npc, runtime, meleeTarget, nowMs)) return;
     const moveAngle = this.navigation.resolveAngle(npc, runtime, intent, nowMs);
     npc.action = intent.objective;

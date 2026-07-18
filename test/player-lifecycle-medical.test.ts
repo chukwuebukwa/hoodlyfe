@@ -69,6 +69,7 @@ function createLifecycle(restoreAmmo: boolean) {
     access: {removePlayer() {}, clearAction() {}} as any,
     crime: {clearSuspect() {}} as any,
     medical,
+    custody: {resolve() { throw new Error('Custody is not used by medical lifecycle tests.'); }},
     clock: () => ({tick: 4}),
     resetInput() {}
   });

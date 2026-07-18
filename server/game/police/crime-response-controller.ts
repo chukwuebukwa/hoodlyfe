@@ -41,6 +41,8 @@ export interface PoliceTarget {
   canSeeTarget: boolean;
   targetDistance: number;
   tactic: PoliceTactic;
+  targetAction: string;
+  wantedLevel: number;
 }
 
 export interface PoliceVehicleTargetSnapshot {
@@ -228,6 +230,15 @@ export class CrimeResponseController {
     this.pursuitCoordinator.record('vehicle', vehicleId, phase, goalX, goalY);
   }
 
+  recordPoliceFootTactic(
+    officerId: string,
+    phase: PoliceTacticalPhase,
+    goalX: number,
+    goalY: number
+  ): void {
+    this.pursuitCoordinator.record('foot', officerId, phase, goalX, goalY);
+  }
+
   forgetPoliceVehicleTarget(
     vehicleId: string,
     suspectId: string,
@@ -293,7 +304,15 @@ export class CrimeResponseController {
         inVehicle: Boolean(vehicle)
       }
     );
-    return {player, pursuit, canSeeTarget, targetDistance, tactic};
+    return {
+      player,
+      pursuit,
+      canSeeTarget,
+      targetDistance,
+      tactic,
+      targetAction: player.action,
+      wantedLevel: player.wanted
+    };
   }
 
   clearSuspect(suspectId: string): void {

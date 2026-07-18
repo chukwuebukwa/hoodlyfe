@@ -4,7 +4,7 @@ import type {PedestrianObservation} from './pedestrian-perception-system.ts';
 import type {PedestrianRuntime} from './pedestrian-runtime.ts';
 import type {PedestrianIntent} from './pedestrian-intent.ts';
 import {PedestrianReactionSystem} from './pedestrian-reaction-system.ts';
-import {NPC_MELEE} from '../../../shared/content/pedestrian-combat.ts';
+import {decidePoliceForce} from '../police/police-force-policy.ts';
 
 const POLICE_FIRE_COOLDOWN_MS = 680;
 
@@ -102,7 +102,15 @@ export class PedestrianBehaviorSystem {
     observation: Extract<PedestrianObservation, {kind: 'police'}>,
     nowMs: number
   ): PedestrianIntent {
-    const {pursuit, canSeeTarget, targetDistance, targetOnFootInStreet, tactic} = observation.response;
+    const {
+      pursuit,
+      canSeeTarget,
+      targetDistance,
+      targetOnFootInStreet,
+      targetAction = '',
+      wantedLevel = 1,
+      tactic
+    } = observation.response;
     const moveAngle = Math.atan2(tactic.goalY - npc.y, tactic.goalX - npc.x);
     const aimAngle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
     const distance = Math.hypot(tactic.goalX - npc.x, tactic.goalY - npc.y);
@@ -110,21 +118,32 @@ export class PedestrianBehaviorSystem {
       ? 'contain'
       : (tactic.phase === 'search' ? 'search' : 'pursue');
     const stopDistance = tactic.phase === 'contain' ? 22 : (pursuit.mode === 'pursuit' ? 165 : 28);
-    const pointBlank = tactic.role === 'primary' && canSeeTarget && targetOnFootInStreet &&
-      targetDistance <= NPC_MELEE.engageDistance;
-    const canMelee = pointBlank && nowMs >= runtime.melee.cooldownUntil;
-    const canFire = !pointBlank && canSeeTarget && targetDistance < 430 &&
+    const force = decidePoliceForce({
+      role: tactic.role,
+      officerInControl: npc.alive && npc.health > 0 && !npc.reactionKind,
+      targetAlive: true,
+      targetWantedLevel: wantedLevel,
+      targetAction,
+      targetOnFootInStreet,
+      canSeeTarget,
+      targetDistance
+    });
+    const canMelee = force.response === 'melee' && nowMs >= runtime.melee.cooldownUntil;
+    const canFire = force.response === 'fire' &&
       nowMs - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS;
     if (canFire) runtime.lastShotAt = nowMs;
     return {
       objective,
       angle: moveAngle,
-      speed: pointBlank ? 0 : (distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0),
+      speed: force.stopForContact
+        ? 0
+        : (distance > stopDistance ? (pursuit.mode === 'pursuit' ? 158 : 132) : 0),
       fire: canFire,
       aimAngle,
       targetX: tactic.goalX,
       targetY: tactic.goalY,
-      meleeTargetId: canMelee ? pursuit.suspectId : undefined
+      meleeTargetId: canMelee ? pursuit.suspectId : undefined,
+      arrestTargetId: force.response === 'arrest' ? pursuit.suspectId : undefined
     };
   }
 

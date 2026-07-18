@@ -34,6 +34,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     pursuits: 1,
     cruisers: '1/1 pursuit / 1/2 ready / 1 dyn',
     response: '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed',
+    arrests: '0 active',
     stimuli: 0,
     signals: '0',
     junctions: '0 active / 0 wait / 0 approach / 0 cross / 0 clear / 0 cycle / 0 recover / 0 shared / 0 conflict / 0 lane / 0 request / 0 pass',
@@ -89,6 +90,27 @@ test('debug panel summarizes server-owned police tactical roles', () => {
     projectDebugPanel(createState(), snapshot).response,
     '5/11 pts / F3/5 / V1/3 / 1 suspects / 0 suppressed / T1 primary C1 I1 S0'
   );
+});
+
+test('debug panel exposes active custody ownership and remaining secure time', () => {
+  const snapshot = createSnapshot();
+  snapshot.nowMs = 1000;
+  snapshot.policeArrests = [{
+    arrestId: 'arrest:driver:42',
+    officerId: 'police-1',
+    suspectId: 'driver',
+    phase: 'securing',
+    startedAt: 800,
+    completesAt: 3300,
+    wantedLevel: 2,
+    officerX: 10,
+    officerY: 20,
+    suspectX: 35,
+    suspectY: 20
+  }];
+  assert.equal(projectDebugPanel(createState(), snapshot).arrests, (
+    '1 active / police-1 -> driver / 2.3s'
+  ));
 });
 
 test('debug panel exposes hot, warm, cold, and pop-guarded population tiers', () => {

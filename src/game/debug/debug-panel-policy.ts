@@ -21,6 +21,7 @@ export interface DebugPanelProjection {
   pursuits: number;
   cruisers: string;
   response: string;
+  arrests: string;
   stimuli: number;
   signals: string;
   junctions: string;
@@ -63,6 +64,7 @@ export function projectDebugPanel(
     pursuits: snapshot?.pursuits.length ?? 0,
     cruisers: policeVehicleSummary(snapshot),
     response: policeResponseSummary(snapshot),
+    arrests: policeArrestSummary(snapshot),
     stimuli: snapshot?.stimuli?.length ?? 0,
     signals: trafficSignalSummary(snapshot),
     junctions: trafficJunctionSummary(snapshot),
@@ -256,4 +258,15 @@ function policeResponseSummary(snapshot?: DebugSnapshot): string {
     `F${response.assignedFootUnits}/${response.maxFootUnits} / ` +
     `V${response.assignedVehicleUnits}/${response.maxVehicleUnits} / ` +
     `${response.demands.length} suspects / ${response.suppressedPairs} suppressed${tacticSummary}`;
+}
+
+function policeArrestSummary(snapshot?: DebugSnapshot): string {
+  const arrests = snapshot?.policeArrests ?? [];
+  if (arrests.length === 0) return '0 active';
+  const next = arrests.reduce((earliest, arrest) => (
+    arrest.completesAt < earliest.completesAt ? arrest : earliest
+  ));
+  const remaining = Math.max(0, next.completesAt - (snapshot?.nowMs ?? 0));
+  return `${arrests.length} active / ${next.officerId} -> ${next.suspectId} / ` +
+    `${Math.ceil(remaining / 100) / 10}s`;
 }

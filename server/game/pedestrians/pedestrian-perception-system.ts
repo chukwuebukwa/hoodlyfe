@@ -15,6 +15,8 @@ export interface PedestrianPoliceTarget {
   canSeeTarget: boolean;
   targetDistance: number;
   tactic: PoliceTactic;
+  targetAction?: string;
+  wantedLevel?: number;
 }
 
 export type PedestrianObservation =

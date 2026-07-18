@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
+  DebugPoliceArrestEntry,
   DebugPoliceTacticEntry,
   DebugPoliceResponseEntry,
   DebugSnapshot,
@@ -64,6 +65,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
   assert.equal(first.policeTactics?.[0].role, 'contain-left');
   assert.equal(first.policeTactics?.[0].goalX, 180);
+  assert.equal(first.policeArrests?.[0].phase, 'securing');
+  assert.equal(first.policeArrests?.[0].suspectX, 120);
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -79,6 +82,7 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.response.lastChanges[0].reason = 'mutated';
   fixture.tactic.role = 'support-left';
   fixture.tactic.goalX = 999;
+  fixture.arrest.suspectX = 999;
   assert.equal(first.incidents[0].status, 'scheduled');
   assert.equal(first.pursuits[0].mode, 'search');
   assert.equal(first.pedestrianAi?.[0].objective, 'flee');
@@ -93,6 +97,7 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeResponse?.lastChanges[0].reason, 'assigned');
   assert.equal(first.policeTactics?.[0].role, 'contain-left');
   assert.equal(first.policeTactics?.[0].goalX, 180);
+  assert.equal(first.policeArrests?.[0].suspectX, 120);
 
   fixture.clock.tick = 11;
   fixture.controller.update([respawnEvent(11)]);
@@ -145,6 +150,27 @@ test('event summaries preserve compact gameplay context', () => {
     previousSuspectId: 'driver',
     suspectId: ''
   }), 'police-1 cleared from driver');
+  assert.equal(summarizeGameEvent({
+    type: 'police.arrest-started',
+    tick: 6,
+    nowMs: 180,
+    arrestId: 'arrest:driver:6',
+    officerId: 'police-1',
+    suspectId: 'driver',
+    wantedLevel: 2
+  }), 'police-1 securing driver (arrest:driver:6)');
+  assert.equal(summarizeGameEvent({
+    type: 'player.busted',
+    tick: 7,
+    nowMs: 2800,
+    arrestId: 'arrest:driver:6',
+    officerId: 'police-1',
+    playerId: 'driver',
+    wantedLevel: 2,
+    fine: 800,
+    x: 100,
+    y: 200
+  }), 'driver busted by police-1; $800 seized');
 });
 
 function createFixture(enabled: boolean) {
@@ -314,6 +340,19 @@ function createFixture(enabled: boolean) {
     goalX: 180,
     goalY: 210
   };
+  const arrest: DebugPoliceArrestEntry = {
+    arrestId: 'arrest:driver:6',
+    officerId: 'police-1',
+    suspectId: 'driver',
+    phase: 'securing',
+    startedAt: 200,
+    completesAt: 2800,
+    wantedLevel: 2,
+    officerX: 100,
+    officerY: 200,
+    suspectX: 120,
+    suspectY: 200
+  };
   const controller = new DebugSnapshotController({
     enabled,
     state,
@@ -337,6 +376,7 @@ function createFixture(enabled: boolean) {
     trafficLaneGraph: () => laneGraph,
     policeResponse: () => response,
     policeTactics: () => [tactic],
+    policeArrests: () => [arrest],
     publish: (_messageType, snapshot) => published.push(snapshot)
   });
   return {
@@ -351,6 +391,7 @@ function createFixture(enabled: boolean) {
     laneGraph,
     response,
     tactic,
+    arrest,
     published
   };
 }

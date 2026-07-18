@@ -154,6 +154,33 @@ export interface PlayerRespawnedEvent extends EventMetadata {
   y: number;
 }
 
+export interface PoliceArrestStartedEvent extends EventMetadata {
+  type: 'police.arrest-started';
+  arrestId: string;
+  officerId: string;
+  suspectId: string;
+  wantedLevel: number;
+}
+
+export interface PoliceArrestCancelledEvent extends EventMetadata {
+  type: 'police.arrest-cancelled';
+  arrestId: string;
+  officerId: string;
+  suspectId: string;
+  reason: string;
+}
+
+export interface PlayerBustedEvent extends EventMetadata {
+  type: 'player.busted';
+  arrestId: string;
+  officerId: string;
+  playerId: string;
+  wantedLevel: number;
+  fine: number;
+  x: number;
+  y: number;
+}
+
 export interface MissionPhaseChangedEvent extends EventMetadata {
   type: 'mission.phase-changed';
   missionId: string;
@@ -206,6 +233,9 @@ export type GameEvent =
   | VehicleDestroyedEvent
   | VehicleRestoredEvent
   | PlayerRespawnedEvent
+  | PoliceArrestStartedEvent
+  | PoliceArrestCancelledEvent
+  | PlayerBustedEvent
   | MissionPhaseChangedEvent
   | MissionPayoutEvent
   | MissionFailedEvent

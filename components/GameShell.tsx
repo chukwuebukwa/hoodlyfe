@@ -49,6 +49,7 @@ const GAME_SHELL_HTML = `
       <div><dt>Pursuits</dt><dd id="debug-pursuits">0</dd></div>
       <div><dt>Cruisers</dt><dd id="debug-cruisers">0</dd></div>
       <div class="debug-wide"><dt>Police response</dt><dd id="debug-police-response">off</dd></div>
+      <div class="debug-wide"><dt>Custody</dt><dd id="debug-police-arrests">0 active</dd></div>
       <div><dt>Stimuli</dt><dd id="debug-stimuli">0</dd></div>
       <div><dt>Signals</dt><dd id="debug-signals">0</dd></div>
       <div class="debug-wide"><dt>Junctions</dt><dd id="debug-junctions">0 active</dd></div>

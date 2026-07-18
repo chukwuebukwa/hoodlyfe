@@ -9,4 +9,5 @@ export interface PedestrianIntent {
   targetX?: number;
   targetY?: number;
   meleeTargetId?: string;
+  arrestTargetId?: string;
 }

@@ -19,6 +19,7 @@ import type {WeaponPickupController} from '../pickups/weapon-pickup-controller.t
 import type {PlayerControlController} from '../players/player-control-controller.ts';
 import type {PlayerLifecycleController} from '../players/player-lifecycle-controller.ts';
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
+import type {PoliceArrestController} from '../police/police-arrest-controller.ts';
 import type {PoliceResponseFleetController} from '../police/police-response-fleet-controller.ts';
 import {populationInterestAnchorsForPlayers} from '../population/population-interest-anchor-policy.ts';
 import type {PopulationStreamingController} from '../population/population-streaming-controller.ts';
@@ -79,6 +80,7 @@ export interface DistrictSimulationOptions {
   playerControl: PlayerControlController;
   vehicleAccess: VehicleAccessController;
   crime: CrimeResponseController;
+  policeArrests: PoliceArrestController;
   pedestrians: PedestrianController;
   worldStimuli: WorldStimulusRegistry;
   worldStimulusAdapter: WorldStimulusAdapter;
@@ -179,6 +181,7 @@ export class DistrictSimulation {
       phase('crime-response', ({nowMs}) => {
         this.options.crime.processReports(nowMs);
         this.options.crime.updateResponse(nowMs);
+        this.options.policeArrests.update(nowMs);
       }),
       phase('pedestrian-motion', ({deltaSeconds, nowMs}) => {
         this.options.worldStimuli.expire(nowMs);

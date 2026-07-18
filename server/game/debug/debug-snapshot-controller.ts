@@ -2,6 +2,7 @@ import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
+  type DebugPoliceArrestEntry,
   type DebugPoliceVehicleEntry,
   type DebugPoliceFleetEntry,
   type DebugPoliceResponseEntry,
@@ -43,6 +44,7 @@ interface DebugSnapshotControllerOptions {
   policeFleet?: () => DebugPoliceFleetEntry;
   policeResponse?: () => DebugPoliceResponseEntry;
   policeTactics?: () => ReadonlyArray<DebugPoliceTacticEntry>;
+  policeArrests?: () => ReadonlyArray<DebugPoliceArrestEntry>;
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
@@ -139,6 +141,7 @@ export class DebugSnapshotController {
       policeFleet: this.options.policeFleet?.(),
       policeResponse: clonePoliceResponse(this.options.policeResponse?.()),
       policeTactics: (this.options.policeTactics?.() ?? []).map((tactic) => ({...tactic})),
+      policeArrests: (this.options.policeArrests?.() ?? []).map((arrest) => ({...arrest})),
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
@@ -185,6 +188,12 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.vehicleId} restored to ${event.health} hp`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
+    case 'police.arrest-started':
+      return `${event.officerId} securing ${event.suspectId} (${event.arrestId})`;
+    case 'police.arrest-cancelled':
+      return `${event.arrestId} cancelled: ${event.reason}`;
+    case 'player.busted':
+      return `${event.playerId} busted by ${event.officerId}; $${event.fine} seized`;
     case 'mission.phase-changed':
       return `${event.missionId} ${event.previousPhase} -> ${event.phase}`;
     case 'mission.payout':

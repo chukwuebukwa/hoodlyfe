@@ -43,6 +43,7 @@ export class ThreeDebugController {
     pursuits: document.querySelector('#debug-pursuits'),
     cruisers: document.querySelector('#debug-cruisers'),
     response: document.querySelector('#debug-police-response'),
+    arrests: document.querySelector('#debug-police-arrests'),
     stimuli: document.querySelector('#debug-stimuli'),
     signals: document.querySelector('#debug-signals'),
     junctions: document.querySelector('#debug-junctions'),
@@ -233,6 +234,12 @@ export class ThreeDebugController {
         point(unit.x, unit.y, this.surfaceHeightAt(unit.x, unit.y) + 35),
         point(tactic.goalX, tactic.goalY, this.surfaceHeightAt(tactic.goalX, tactic.goalY) + 35)
       ], policeTacticColor(tactic.phase)));
+    }
+    for (const arrest of this.snapshot?.policeArrests ?? []) {
+      this.group.add(debugLine([
+        point(arrest.officerX, arrest.officerY, this.surfaceHeightAt(arrest.officerX, arrest.officerY) + 39),
+        point(arrest.suspectX, arrest.suspectY, this.surfaceHeightAt(arrest.suspectX, arrest.suspectY) + 39)
+      ], 0xff3fa4));
     }
     const drawnJunctions = new Set<string>();
     for (const entry of this.snapshot?.trafficAi ?? []) {

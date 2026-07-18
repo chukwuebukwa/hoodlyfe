@@ -39,3 +39,13 @@ export function refillAmmo(player: PlayerState): void {
   player.ammoGrenade = 6;
   player.ammoMolotov = 5;
 }
+
+export function confiscateWeapons(player: PlayerState): void {
+  player.weapon = 'fists';
+  player.ammoPistol = 0;
+  player.ammoSmg = 0;
+  player.ammoShotgun = 0;
+  player.ammoRocket = 0;
+  player.ammoGrenade = 0;
+  player.ammoMolotov = 0;
+}
