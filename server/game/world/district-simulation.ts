@@ -12,7 +12,6 @@ import type {RocketProjectileController} from '../combat/rocket-projectile-contr
 import type {ThrownProjectileController} from '../combat/thrown-projectile-controller.ts';
 import type {DebugSnapshotController} from '../debug/debug-snapshot-controller.ts';
 import type {GameEvent, GameEventStream} from '../events/game-events.ts';
-import type {InteractionSnapshotProjector} from '../network/interaction-snapshot-projector.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
 import type {CashPickupController} from '../pickups/cash-pickup-controller.ts';
 import type {WeaponPickupController} from '../pickups/weapon-pickup-controller.ts';
@@ -100,8 +99,6 @@ export interface DistrictSimulationOptions {
   lifecycle: DeferredCommandQueue;
   events: GameEventStream;
   audio: AudioEventController;
-  interactionSnapshots: InteractionSnapshotProjector;
-  interactionSnapshotsEnabled: () => boolean;
   debug: DebugSnapshotController;
   indexPlayer: (player: PlayerState) => void;
   indexNpc: (npc: NpcState) => void;
@@ -244,9 +241,6 @@ export class DistrictSimulation {
         this.options.audio.publish(context.events);
       }),
       phase('snapshot-observability', ({events}) => {
-        if (this.options.interactionSnapshotsEnabled()) {
-          this.options.interactionSnapshots.capture();
-        }
         this.options.debug.update(events);
       })
     ];

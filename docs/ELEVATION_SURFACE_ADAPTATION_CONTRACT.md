@@ -30,16 +30,13 @@ classification.
 - Server and client load the same manifest collision revision.
 - Players, pedestrians, vehicles, projectiles, props, spawns, and navigation records
   identify their surface explicitly.
-- Entities on different surfaces do not collide or enter the same interaction island,
-  even when their XY coordinates overlap.
+- Entities on different surfaces do not collide, even when their XY coordinates overlap.
 - Combat, perception, spatial queries, and effects are same-surface by default.
   Cross-surface behavior requires an authored rule.
 - Rendering uses `heightAt(surfaceId, x, y)`. The topmost surface at XY is never an
   actor-placement rule.
-- Client prediction may predict an authored transition, but reconciliation remains
-  authoritative and replay produces no server outcomes.
-- Surface changes reset the relevant collision/replay history exactly like a physical
-  space discontinuity.
+- Clients render the replicated authoritative surface transition; they never infer one
+  from XY.
 
 ## Asset ownership
 
@@ -75,7 +72,7 @@ projections of one artifact, not separately authored maps.
    Rapier once at 30 Hz.
 4. Authority writes back XY and `surfaceId`; Z remains derived.
 5. Contacts and gameplay queries consider only compatible surfaces.
-6. Client replay repeats the same transition and physics recipe from snapshot state.
+6. Clients interpolate snapshots only within the replicated authoritative surface.
 
 ## Migration stages
 
@@ -106,11 +103,10 @@ projections of one artifact, not separately authored maps.
   combat, perception, and effects through authoritative surface identity.
 - Remove the global topmost `surfaceHeightAt(x, y)` actor-placement path.
 
-### Stage 4 — layered physics and replay
+### Stage 4 — layered physics
 
 - Partition Rapier statics and bodies by surface behind `PhysicsWorld`.
 - Transfer bodies only through authored transitions at fixed-step boundaries.
-- Mirror transitions in client prediction and interaction-island replay.
 - Delete the temporary `layerId` alias and the flat collision-map path.
 
 ## 2026-07-19 implementation amendment
@@ -127,8 +123,8 @@ projections of one artifact, not separately authored maps.
 - The traffic-flow soak remains fully circulating with no prolonged-block regression.
   Its topology-aware throughput baseline is 2.5 junction traversals per vehicle (the
   deterministic production asset currently records 60 traversals for 23 vehicles).
-- Client fixed-step prediction and replay mirror surface transitions. Removal of the
-  temporary `layerId` alias and the default sheet's flat collision path remain Stage 4
+- Clients render replicated surface transitions. Removal of the temporary `layerId`
+  alias and the default sheet's flat collision path remain Stage 4
   work; elevated-route rollout must not be declared complete until those gates pass.
 
 ### Stage 5 — vertical content
@@ -143,10 +139,10 @@ The permanent fixture contains a ground road, an overlapping bridge deck, and a 
 It must prove:
 
 - ground and bridge return different heights at identical XY;
-- actors on those surfaces never collide, target, or join one replay island;
+- actors on those surfaces never collide or target each other;
 - ramp height is continuous and transitions only across its authored seams;
 - invalid and mismatched manifests fail closed;
-- server and client replay remain bit-stable through a surface transition.
+- replicated clients remain on the server-selected surface through a transition.
 
 ## Rejected shortcuts
 

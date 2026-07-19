@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INTERACTION_PROTOCOL_VERSION} from '../shared/protocol/interaction-contracts.ts';
+import {COMBAT_PROTOCOL_VERSION} from '../shared/protocol/combat-fire.ts';
 import {validateCombatFireCommand} from '../shared/protocol/combat-fire.ts';
 
 test('combat fire commands validate sequence, control root, time, aim, and spawn correlation', () => {
   const result = validateCombatFireCommand({
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 12,
     clientSampleTimeMs: 12_345.5,
     controlledEntityId: 'player-1',
@@ -24,7 +24,7 @@ test('combat fire commands validate sequence, control root, time, aim, and spawn
 
 test('combat fire commands fail closed on stale, forged, nonfinite, or duplicate data', () => {
   const command = {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 12,
     clientSampleTimeMs: 12_345,
     controlledEntityId: 'player-1',

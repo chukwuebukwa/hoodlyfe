@@ -17,10 +17,7 @@ import {
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
 import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
-import {
-  INTERACTION_PROTOCOL_VERSION,
-  type InteractionSnapshot
-} from '../shared/protocol/interaction-contracts.ts';
+import {COMBAT_PROTOCOL_VERSION} from '../shared/protocol/combat-fire.ts';
 import {
   COMBAT_FIRE_MESSAGE,
   COMBAT_FIRE_RECEIPT_MESSAGE,
@@ -50,8 +47,6 @@ import {
   STREAMED_TRAFFIC_RECORDS
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
-import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
-import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -74,24 +69,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     name: 'Driver One',
     appearance: joinedAppearance
   });
-  const firstInteractionSnapshots: InteractionSnapshot[] = [];
-  const firstInteractionInbox = new InteractionSnapshotInbox(first, {
-    currentServerTick: () => first.state.serverTick ?? 0,
-    worldCollisionRevision: WORLD_COLLISION_REVISION
-  });
-  firstInteractionInbox.subscribe((snapshot) => firstInteractionSnapshots.push(snapshot));
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
   const debugSnapshots: DebugSnapshot[] = [];
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
-  const secondInteractionSnapshots: InteractionSnapshot[] = [];
   const fireReceipts: CombatFireReceipt[] = [];
-  const secondInteractionInbox = new InteractionSnapshotInbox(second, {
-    currentServerTick: () => second.state.serverTick ?? 0,
-    worldCollisionRevision: WORLD_COLLISION_REVISION
-  });
-  secondInteractionInbox.subscribe((snapshot) => secondInteractionSnapshots.push(snapshot));
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
@@ -119,22 +102,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   first.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   second.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {
-    firstInteractionInbox.destroy();
-    secondInteractionInbox.destroy();
     await Promise.allSettled([first.leave(), second.leave()]);
   });
 
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
-  await waitUntil(() => firstInteractionSnapshots.length > 0 && secondInteractionSnapshots.length > 0);
-  const firstBaseline = firstInteractionSnapshots.at(-1);
-  const secondBaseline = secondInteractionSnapshots.at(-1);
-  assert.equal(firstBaseline?.entities[0].id, first.sessionId);
-  assert.equal(secondBaseline?.entities[0].id, second.sessionId);
-  assert.ok(firstBaseline && firstBaseline.serverTick > 0);
-  assert.ok(firstBaseline.entities.every((entity) => (
-    entity.spaceId === firstBaseline.entities[0].spaceId &&
-    entity.layerId === firstBaseline.entities[0].layerId
-  )));
   await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => (
@@ -225,7 +196,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const smgAmmo = first.state.players.get(first.sessionId)?.ammoSmg;
   assert.equal(smgAmmo, 240);
   const correlatedCommand = {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 1,
     clientSampleTimeMs: first.state.serverTimeMs,
     controlledEntityId: first.sessionId,

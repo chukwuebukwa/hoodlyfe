@@ -6,8 +6,8 @@ Status: Active
 
 ## Objective
 
-Build an educational, original GTA-like systemic world on top of NOCK0's existing
-server-authoritative interaction-island netcode. Mature reversed sources are read-only
+Build an educational, original GTA-like systemic world on top of NOCK0's
+server-authoritative simulation and snapshot-interpolated client. Mature reversed sources are read-only
 behavioral references. Their code, assets, identifiers, and data tables are not copied.
 
 This plan implements

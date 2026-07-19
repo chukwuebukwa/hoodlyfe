@@ -41,7 +41,6 @@ import {
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
-import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-contracts.ts';
 import {
   COMBAT_FIRE_MESSAGE,
   COMBAT_FIRE_RECEIPT_MESSAGE,
@@ -92,8 +91,6 @@ import {RocketProjectileController} from './game/combat/rocket-projectile-contro
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
-import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
-import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
 import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
 import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {
@@ -220,8 +217,6 @@ export class DistrictRoom extends Room<DistrictState> {
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
-  private interactionCandidates!: InteractionCandidateSource;
-  private interactionSnapshots!: InteractionSnapshotProjector;
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
@@ -824,39 +819,6 @@ export class DistrictRoom extends Room<DistrictState> {
         this.state.rockets.delete(rocketId);
       })
     });
-    this.interactionCandidates = new InteractionCandidateSource(this.state, {
-      queryActors: (x, y, radius, surfaceId) => this.spatialIndex.queryCircle(x, y, radius, {
-        kinds: ['player', 'npc', 'vehicle'],
-        layerId: surfaceId,
-        includeRecordRadius: true
-      })
-    });
-    this.interactionSnapshots = new InteractionSnapshotProjector({
-      state: this.state,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      worldCollisionRevision: WORLD_COLLISION_REVISION,
-      playerIntentFor: (playerId) => {
-        const input = this.playerControl.inputFor(playerId);
-        return input ? {
-          inputX: input.inputX,
-          inputY: input.inputY,
-          sequence: input.lastSequence
-        } : undefined;
-      },
-      vehicleIntentFor: (playerId, vehicleId) => this.vehicleInput.inputFor(
-        playerId,
-        vehicleId
-      ),
-      projectileMotionFor: (projectileId) => (
-        this.rocketProjectileController.motionFor(projectileId) ??
-        this.thrownProjectileController.motionFor(projectileId)
-      ),
-      candidatesFor: (_playerId, anchor) => this.interactionCandidates.forAnchor(anchor),
-      publish: (playerId, snapshot) => {
-        this.clients.find((client) => client.sessionId === playerId)
-          ?.send(INTERACTION_SNAPSHOT_MESSAGE, snapshot);
-      }
-    });
     this.missionController = new FreemodeMissionController({
       state: this.state,
       world: this.world,
@@ -921,8 +883,6 @@ export class DistrictRoom extends Room<DistrictState> {
       lifecycle: this.lifecycle,
       events: this.events,
       audio: this.audioEvents,
-      interactionSnapshots: this.interactionSnapshots,
-      interactionSnapshotsEnabled: () => this.netcodeRollout.stages.interactionSnapshots,
       debug: this.debugProjection,
       indexPlayer: (player) => this.indexPlayer(player),
       indexNpc: (npc) => this.indexNpc(npc),
@@ -1090,7 +1050,6 @@ export class DistrictRoom extends Room<DistrictState> {
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
-    this.interactionSnapshots.clearPlayer(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
   }
 
@@ -1108,9 +1067,6 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   onBeforePatch(): void {
-    if (this.netcodeRollout.stages.interactionSnapshots) {
-      this.interactionSnapshots?.publishCurrent(this.state.players.keys());
-    }
     this.replicationController?.synchronize();
   }
 

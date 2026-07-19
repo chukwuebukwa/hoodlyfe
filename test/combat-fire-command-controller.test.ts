@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {CombatFireCommandController} from '../server/game/combat/combat-fire-command-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
-import {INTERACTION_PROTOCOL_VERSION} from '../shared/protocol/interaction-contracts.ts';
+import {COMBAT_PROTOCOL_VERSION} from '../shared/protocol/combat-fire.ts';
 
 test('combat command adapter accepts each ordered command once and returns correlation receipts', () => {
   const state = new DistrictState();
@@ -76,7 +76,7 @@ test('combat command adapter rejects forged roots and preserves gameplay rejecti
 
 function command(sequence: number, clientSampleTimeMs: number): Record<string, unknown> {
   return {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence,
     clientSampleTimeMs,
     controlledEntityId: 'shooter',

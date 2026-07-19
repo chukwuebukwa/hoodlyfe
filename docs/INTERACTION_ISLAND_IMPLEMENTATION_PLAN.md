@@ -1,7 +1,8 @@
 # Interaction-Island Netcode Implementation Plan
 
-> Historical implementation record. The Rapier cutover supersedes its collision-kernel
-> details; `COLLISION_ARCHITECTURE.md` is the current ownership contract.
+> Superseded on 2026-07-19. The client prediction, reconciliation, interaction-snapshot,
+> and replay implementation described here was removed in favor of pure server authority
+> plus snapshot interpolation. This remains historical design context only.
 
 ## Objective
 

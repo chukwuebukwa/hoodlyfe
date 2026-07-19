@@ -4,7 +4,7 @@ import {FireControlController} from '../server/game/combat/fire-control-controll
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
-import {INTERACTION_PROTOCOL_VERSION} from '../shared/protocol/interaction-contracts.ts';
+import {COMBAT_PROTOCOL_VERSION} from '../shared/protocol/combat-fire.ts';
 
 test('fire control enforces cooldown, ammo, pellet count, driver rules, and passenger origin', () => {
   const state = new DistrictState();
@@ -183,7 +183,7 @@ test('fire control correlates exact predicted bullet counts before consuming aut
     }
   });
   const forged = fire.shoot(player.id, {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 1,
     clientSampleTimeMs: 1_875,
     controlledEntityId: player.id,
@@ -195,7 +195,7 @@ test('fire control correlates exact predicted bullet counts before consuming aut
   assert.equal(state.bullets.size, 0);
 
   const result = fire.shoot(player.id, {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 2,
     clientSampleTimeMs: 1_875,
     controlledEntityId: player.id,

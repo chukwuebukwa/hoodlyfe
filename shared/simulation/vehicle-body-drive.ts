@@ -2,8 +2,8 @@
 // physics world: the handling kernel computes desired motion, the body follows by
 // velocity writeback with kernel-authored heading (zero spin - the engine's angvel
 // integration drifts microradians per tick, which compounds through sustained
-// turns), and the engine owns translation contact. Server simulation and client
-// prediction must stay bit-compatible, so neither may diverge from this module.
+// turns), and the engine owns translation contact. This remains the authoritative
+// vehicle-motion boundary; presentation clients consume its replicated result.
 
 import type {PhysicsBodyState, PhysicsWorld} from '../physics/physics-world.ts';
 import {

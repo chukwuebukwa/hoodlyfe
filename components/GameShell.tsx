@@ -60,13 +60,10 @@ const GAME_SHELL_HTML = `
       <div><dt>Region</dt><dd id="debug-region">unknown</dd></div>
       <div><dt>RTT p50/p95</dt><dd id="debug-latency">0/0ms</dd></div>
       <div><dt>Patch p95</dt><dd id="debug-patch-gap">0ms</dd></div>
-      <div><dt>Prediction</dt><dd id="debug-prediction">0px</dd></div>
       <div><dt>Clock / Buffer</dt><dd id="debug-clock-sync">unsynced</dd></div>
       <div class="debug-wide"><dt>Netcode rollout</dt><dd id="debug-netcode-rollout">pending</dd></div>
-      <div class="debug-wide"><dt>Island budget</dt><dd id="debug-interaction-island">off</dd></div>
-      <div class="debug-wide"><dt>Island replay</dt><dd id="debug-interaction-replay">off</dd></div>
-      <div class="debug-wide"><dt>Island selection</dt><dd id="debug-interaction-selection">off</dd></div>
       <div class="debug-wide"><dt>Player reaction</dt><dd id="debug-player-reaction">off</dd></div>
+      <div class="debug-wide"><dt>Physical surface</dt><dd id="debug-surface">off</dd></div>
       <div class="debug-wide"><dt>Server phases</dt><dd id="debug-simulation-phases">off</dd></div>
     </dl>
     <section id="debug-time-controls" class="hidden" aria-label="Time of day controls">
@@ -86,14 +83,6 @@ const GAME_SHELL_HTML = `
       <span class="signal">Signal</span>
       <span class="traffic-deadlock">Deadlock cycle</span>
       <span class="traffic-recovery">Recovery owner</span>
-      <span class="island-root">Island root</span>
-      <span class="island-contact">Contact</span>
-      <span class="island-retained">Retained</span>
-      <span class="island-imminent">Imminent</span>
-      <span class="island-hysteresis">Hysteresis</span>
-      <span class="island-closure">Closure</span>
-      <span class="island-overflow">Island overflow</span>
-      <span class="island-presented">Presented pose</span>
     </div>
     <ol id="debug-events"><li>No recent events</li></ol>
   </aside>

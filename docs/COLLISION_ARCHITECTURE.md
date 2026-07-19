@@ -11,8 +11,8 @@ Street collision has one owner: Rapier.
 5. Server controllers consume Rapier contact facts and apply damage, crime, and other
    execute-once outcomes.
 
-Client interaction-island replay follows the same flow with the same body-drive
-functions. It updates predicted state only and cannot produce authoritative outcomes.
+Clients do not run collision physics. They render replicated authoritative poses through
+surface-aware snapshot timelines.
 
 ## Shapes and groups
 

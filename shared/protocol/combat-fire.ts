@@ -1,4 +1,3 @@
-import {INTERACTION_PROTOCOL_VERSION, MAX_INPUT_SEQUENCE_ADVANCE, MAX_PREDICTED_SPAWN_IDS} from './interaction-contracts.ts';
 import type {BulletWeaponId} from '../content/weapon-catalog.ts';
 import {
   boundedId,
@@ -8,10 +7,13 @@ import {
   objectRecord,
   safeNonnegativeInteger,
   safePositiveInteger
-} from './interaction-validation.ts';
+} from './protocol-validation.ts';
 
 export const COMBAT_FIRE_MESSAGE = 'combat.fire';
 export const COMBAT_FIRE_RECEIPT_MESSAGE = 'combat.fire.receipt';
+export const COMBAT_PROTOCOL_VERSION = 6;
+const MAX_INPUT_SEQUENCE_ADVANCE = 4_096;
+const MAX_PREDICTED_SPAWN_IDS = 8;
 
 export interface CombatFireCommand {
   readonly protocolVersion: number;
@@ -71,7 +73,7 @@ export function validateCombatFireCommand(
 ): CombatFireValidationResult {
   const record = objectRecord(message);
   if (!record) return rejected('invalid-shape');
-  if (record.protocolVersion !== INTERACTION_PROTOCOL_VERSION) {
+  if (record.protocolVersion !== COMBAT_PROTOCOL_VERSION) {
     return rejected('unsupported-version');
   }
   const sequence = safeNonnegativeInteger(record.sequence);
@@ -97,7 +99,7 @@ export function validateCombatFireCommand(
   return {
     accepted: true,
     value: Object.freeze({
-      protocolVersion: INTERACTION_PROTOCOL_VERSION,
+      protocolVersion: COMBAT_PROTOCOL_VERSION,
       sequence,
       clientSampleTimeMs,
       controlledEntityId,

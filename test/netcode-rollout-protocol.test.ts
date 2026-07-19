@@ -9,14 +9,11 @@ import {
 
 const ALL_ON = Object.freeze({
   remoteTimelines: true,
-  interactionSnapshots: true,
-  interactionReplay: true,
-  combatRewind: true,
-  projectilePrediction: true,
+  combatRewind: true
 });
 
 test('rollout requests and manifests are versioned, validated, and deeply frozen', () => {
-  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 2);
+  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 3);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION}), true);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 1}), false);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 99}), false);
@@ -33,12 +30,7 @@ test('rollout requests and manifests are versioned, validated, and deeply frozen
   });
 });
 
-test('rollout admission fails closed on malformed and dependency-incompatible stages', () => {
-  const invalidDependency = validateNetcodeRolloutManifest({
-    ...createNetcodeRolloutManifest('base', ALL_ON),
-    stages: {...ALL_ON, interactionSnapshots: false}
-  });
-  assert.deepEqual(invalidDependency, {accepted: false, reason: 'invalid-dependencies'});
+test('rollout admission fails closed on malformed stages', () => {
   const missingStage = validateNetcodeRolloutManifest({
     ...createNetcodeRolloutManifest('base', ALL_ON),
     stages: {remoteTimelines: true}

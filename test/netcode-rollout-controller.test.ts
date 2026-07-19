@@ -9,10 +9,7 @@ import {NetcodeRolloutController} from '../src/game/network/netcode-rollout-cont
 
 const ALL_ON = Object.freeze({
   remoteTimelines: true,
-  interactionSnapshots: true,
-  interactionReplay: true,
-  combatRewind: true,
-  projectilePrediction: true,
+  combatRewind: true
 });
 
 test('client installs its listener before request and enables only negotiated stages', () => {
@@ -39,10 +36,10 @@ test('client installs its listener before request and enables only negotiated st
   ]);
   assert.equal(controller.snapshot().source, 'pending');
   assert.equal(controller.enabled('remoteTimelines'), false);
-  receive(createNetcodeRolloutManifest('canary', {...ALL_ON, interactionReplay: false}));
+  receive(createNetcodeRolloutManifest('canary', ALL_ON));
   assert.equal(controller.snapshot().source, 'negotiated');
   assert.equal(controller.enabled('remoteTimelines'), true);
-  assert.equal(controller.enabled('interactionReplay'), false);
+  assert.equal(controller.enabled('combatRewind'), true);
   scheduled?.();
   assert.equal(controller.snapshot().source, 'negotiated');
   controller.destroy();

@@ -1,9 +1,7 @@
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
-import type {InteractionIslandSelection} from '../prediction/interaction-island-selector.ts';
 import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
-import {interactionIslandSelectionSummary} from './interaction-island-debug-policy.ts';
 
 export interface DebugPanelProjection {
   clock: string;
@@ -32,12 +30,8 @@ export interface DebugPanelProjection {
   region: string;
   latency: string;
   patchGap: string;
-  prediction: string;
   clockSync: string;
   rollout: string;
-  interactionIsland: string;
-  interactionReplay: string;
-  interactionSelection: string;
   playerReaction: string;
   surface: string;
   simulationPhases: string;
@@ -48,7 +42,6 @@ export function projectDebugPanel(
   state?: DistrictNetworkState,
   snapshot?: DebugSnapshot,
   network?: NetworkQualitySnapshot,
-  interactionIsland?: InteractionIslandSelection,
   rollout?: NetcodeRolloutSnapshot,
   localPlayerId?: string
 ): DebugPanelProjection {
@@ -82,13 +75,6 @@ export function projectDebugPanel(
       ? `${network.rttMedianMs}/${network.rttP95Ms}ms +/-${network.jitterMs}`
       : '0/0ms',
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
-    prediction: network
-      ? `${network.predictionError}px now / ${network.predictionErrorP95}px p95 / ` +
-        `${network.predictionCorrections} corr / ${network.reconciliations} snap / ` +
-        `V A${network.vehicleAcknowledgedMove} P${network.vehiclePendingMoves} ` +
-        `R${network.vehicleResimulations} / F A${network.onFootAcknowledgedMove} ` +
-        `P${network.onFootPendingMoves} R${network.onFootResimulations}`
-      : '0px',
     clockSync: network
       ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer / ` +
         `${network.remoteSnapshotAgeP95Ms}ms age / ` +
@@ -96,22 +82,6 @@ export function projectDebugPanel(
         `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
     rollout: rolloutSummary(rollout),
-    interactionIsland: network
-      ? `${network.interactionIslandSize} bodies / ` +
-        `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
-        `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
-        `overflow / ${network.interactionIslandHorizonMs}ms horizon`
-      : 'off',
-    interactionReplay: network
-      ? `${network.interactionSnapshotAgeTicks}t snapshot age / ` +
-        `H${network.interactionHistoryFrames} history / ` +
-        `R${network.interactionReplayCount}:${network.interactionReplayTicks}t ` +
-        `${network.interactionReplayDurationP95Ms}ms p95 / ` +
-        `${network.interactionReplayPairSteps} pairs / ` +
-        `${network.interactionReplaySuppressedEffects} suppressed / ` +
-        `${network.interactionReplayHardResets} reset`
-      : 'off',
-    interactionSelection: interactionIslandSelectionSummary(interactionIsland),
     playerReaction: playerReactionSummary(state, localPlayerId),
     surface: playerSurfaceSummary(state, localPlayerId),
     simulationPhases: simulationPhaseSummary(snapshot),
@@ -165,10 +135,7 @@ function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {
 
 const ROLLOUT_STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   remoteTimelines: 'timeline',
-  interactionSnapshots: 'snapshot',
-  interactionReplay: 'island',
-  combatRewind: 'rewind',
-  projectilePrediction: 'projectile'
+  combatRewind: 'rewind'
 });
 
 function populationSummary(snapshot?: DebugSnapshot): string {
