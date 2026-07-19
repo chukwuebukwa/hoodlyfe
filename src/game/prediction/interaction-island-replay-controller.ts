@@ -6,6 +6,7 @@ import type {InteractionIslandSelection} from './interaction-island-selector.ts'
 import {
   replayInteractionIsland,
   type InteractionIslandReplayResult,
+  type InteractionReplayBatchStep,
   type InteractionReplayBodyStep,
   type InteractionReplayCommand,
   type InteractionReplayPairStep
@@ -29,6 +30,7 @@ export interface InteractionIslandReplayControllerOptions {
     targetServerTick: number
   ) => readonly InteractionReplayCommand[];
   readonly stepBody: InteractionReplayBodyStep;
+  readonly stepBatch?: InteractionReplayBatchStep;
   readonly resolvePair?: InteractionReplayPairStep;
   readonly onReplay?: (
     result: InteractionIslandReplayResult,
@@ -66,6 +68,7 @@ export class InteractionIslandReplayController {
       localCommands: prepared?.localCommands ??
         this.options.localCommands?.(baseline, targetServerTick),
       stepBody: this.options.stepBody,
+      stepBatch: this.options.stepBatch,
       resolvePair: this.options.resolvePair
     });
     const durationMs = Math.max(0, (this.options.now ?? defaultNow)() - start);

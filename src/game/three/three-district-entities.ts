@@ -58,6 +58,8 @@ import {
   type VehicleInputMove,
   type VehiclePredictionCorrection
 } from '../prediction/saved-vehicle-prediction.ts';
+import {createVehiclePhysicsPoseStepper} from '../prediction/vehicle-physics-replay.ts';
+import type {PhysicsWorld} from '../../../shared/physics/physics-world.ts';
 import {vehicleMechanicalStepModifiers} from '../../../shared/simulation/vehicle-step.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
@@ -201,7 +203,8 @@ export class ThreeDistrictEntities {
     private readonly onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
-    private readonly remoteTimelinesEnabled: () => boolean = () => true
+    private readonly remoteTimelinesEnabled: () => boolean = () => true,
+    private readonly vehiclePhysicsWorld: () => PhysicsWorld | undefined = () => undefined
   ) {}
 
   static async create(
@@ -211,7 +214,8 @@ export class ThreeDistrictEntities {
     onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
-    remoteTimelinesEnabled: () => boolean = () => true
+    remoteTimelinesEnabled: () => boolean = () => true,
+    vehiclePhysicsWorld: () => PhysicsWorld | undefined = () => undefined
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
@@ -263,7 +267,8 @@ export class ThreeDistrictEntities {
       surfaceHeightAt,
       canOccupy,
       onRemoteTimeline,
-      remoteTimelinesEnabled
+      remoteTimelinesEnabled,
+      vehiclePhysicsWorld
     );
   }
 
@@ -1038,7 +1043,9 @@ export class ThreeDistrictEntities {
       emergencyBlue: definition.presentation.emergencyLights
         ? radialGlow(38, 0x3c73ff, 0, 9)
         : undefined,
-      vehiclePrediction: new SavedVehiclePrediction(),
+      vehiclePrediction: new SavedVehiclePrediction(
+        createVehiclePhysicsPoseStepper(this.vehiclePhysicsWorld, id)
+      ),
       motion: createRemoteMotionTimeline('vehicle'),
       visualOffsetX: 0,
       visualOffsetY: 0,

@@ -23,6 +23,12 @@ import {
   createMixedInteractionBodyStep,
   createMixedInteractionPairStep
 } from '../prediction/mixed-interaction-replay.ts';
+import {createVehiclePhysicsBatchStep} from '../prediction/vehicle-physics-replay.ts';
+import {
+  initializePhysicsEngine,
+  PhysicsWorld,
+  type PhysicsWorldGeometry
+} from '../../../shared/physics/physics-world.ts';
 import {
   atlasUv,
   faceBrightness,
@@ -107,6 +113,8 @@ export class ThreePrototypeViewer {
   private qa?: ThreeQaDriver;
   private payload?: PrototypePayload;
   private centerInitialized = false;
+  private vehiclePhysicsGeometry?: PhysicsWorldGeometry;
+  private vehiclePhysicsWorlds?: {prediction: PhysicsWorld; islands: PhysicsWorld};
 
   constructor(
     private readonly parent: HTMLElement,
@@ -129,6 +137,10 @@ export class ThreePrototypeViewer {
     this.payload = payload;
     const metadata = await loadMapMetadata('/assets/maps/district-map.metadata.json');
     const collision = await ClientCollisionMap.load();
+    if (this.room) {
+      await initializePhysicsEngine();
+      this.vehiclePhysicsGeometry = collision.physicsGeometry();
+    }
     const textureUrl = new URL(payload.atlas.image, `${window.location.origin}/assets/maps/three/`).toString();
     const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -146,7 +158,8 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt,
         (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius),
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
-        () => this.rolloutEnabled('remoteTimelines')
+        () => this.rolloutEnabled('remoteTimelines'),
+        () => this.vehiclePhysicsWorld('prediction')
       );
       this.world = await ThreeDistrictWorld.create(
         this.scene,
@@ -191,6 +204,12 @@ export class ThreePrototypeViewer {
             prepare: (baseline) => this.entities?.prepareInteractionReplay(baseline),
             worldCollisionRevision: () => WORLD_COLLISION_REVISION,
             stepBody: createMixedInteractionBodyStep(canOccupyInteraction),
+            stepBatch: (entities, controls, context) => {
+              const world = this.vehiclePhysicsWorld('islands');
+              return world
+                ? createVehiclePhysicsBatchStep(world)(entities, controls, context)
+                : undefined;
+            },
             resolvePair: createMixedInteractionPairStep(canOccupyInteraction),
             onReplay: (result, durationMs, baseline) => {
               this.entities?.applyInteractionReplay(baseline, result);
@@ -256,6 +275,7 @@ export class ThreePrototypeViewer {
     this.interiors?.destroy();
     this.lighting?.destroy();
     this.qa?.destroy();
+    this.freeVehiclePhysicsWorlds();
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       object.geometry.dispose();
@@ -272,6 +292,28 @@ export class ThreePrototypeViewer {
 
   private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
     return this.netcodeRollout?.enabled(stage) ?? true;
+  }
+
+  // Engine prediction only mirrors a server that negotiated the stage on; without a
+  // manifest the server is simulating with the kernel, so predict with the kernel.
+  private vehiclePhysicsWorld(role: 'prediction' | 'islands'): PhysicsWorld | undefined {
+    const enabled = this.netcodeRollout?.enabled('serverVehiclePhysics') ?? false;
+    if (!enabled || !this.vehiclePhysicsGeometry) {
+      this.freeVehiclePhysicsWorlds();
+      return undefined;
+    }
+    this.vehiclePhysicsWorlds ??= {
+      prediction: PhysicsWorld.create(this.vehiclePhysicsGeometry),
+      islands: PhysicsWorld.create(this.vehiclePhysicsGeometry)
+    };
+    return this.vehiclePhysicsWorlds[role];
+  }
+
+  private freeVehiclePhysicsWorlds(): void {
+    if (!this.vehiclePhysicsWorlds) return;
+    this.vehiclePhysicsWorlds.prediction.free();
+    this.vehiclePhysicsWorlds.islands.free();
+    this.vehiclePhysicsWorlds = undefined;
   }
 
   private createMap(payload: PrototypePayload, texture: THREE.Texture): THREE.Group {

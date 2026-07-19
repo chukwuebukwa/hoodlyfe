@@ -42,6 +42,18 @@ export interface VehiclePredictionReplaySample {
 
 type OccupancyQuery = (x: number, y: number, radius: number) => boolean;
 
+// One committed fixed step of local vehicle motion. The default is the shared
+// handling kernel; when the server simulates vehicles in the physics world, an
+// engine-backed stepper mirrors it so predictions match the authority's model.
+export type VehiclePoseStepper = (
+  pose: PredictedVehiclePose,
+  movement: MovementVector,
+  kind: string,
+  deltaSeconds: number,
+  canOccupy: OccupancyQuery,
+  modifiers: VehicleStepModifiers
+) => PredictedVehiclePose;
+
 const MAX_HISTORY_MOVES = 96;
 const MAX_STEPS_PER_FRAME = 4;
 const HARD_CORRECTION_DISTANCE = 180;
@@ -55,6 +67,10 @@ export class SavedVehiclePrediction {
   private accumulatorSeconds = 0;
   private nextSequence = 0;
   private lastAcknowledgedSequence = 0;
+
+  constructor(
+    private readonly stepper: VehiclePoseStepper = predictVehiclePoseWithWorldCollision
+  ) {}
 
   initialize(pose: PredictedVehiclePose, acknowledgedSequence = 0): void {
     this.physicsPose = {...pose};
@@ -85,7 +101,7 @@ export class SavedVehiclePrediction {
         x: movement.x,
         y: movement.y
       };
-      this.physicsPose = predictVehiclePoseWithWorldCollision(
+      this.physicsPose = this.stepper(
         this.physicsPose,
         move,
         kind,
@@ -154,7 +170,7 @@ export class SavedVehiclePrediction {
     }
     let replayed = {...authoritative};
     for (const move of pending) {
-      replayed = predictVehiclePoseWithWorldCollision(
+      replayed = this.stepper(
         replayed,
         move,
         kind,

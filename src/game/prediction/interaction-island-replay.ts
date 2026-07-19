@@ -40,6 +40,15 @@ export type InteractionReplayPairStep = (
   context: InteractionReplayStepContext
 ) => readonly [InteractionEntityState, InteractionEntityState] | undefined;
 
+// Steps a set of entities together once per replay tick (a shared simulation world
+// needs all bodies driven before it advances). Entities absent from the returned
+// map fall through to the per-entity body step.
+export type InteractionReplayBatchStep = (
+  entities: readonly InteractionEntityState[],
+  controls: ReadonlyMap<string, InteractionReplayControl>,
+  context: InteractionReplayStepContext
+) => ReadonlyMap<string, InteractionEntityState> | undefined;
+
 export interface InteractionIslandReplayRequest {
   readonly baseline: InteractionIslandBaseline;
   readonly targetServerTick: number;
@@ -47,6 +56,7 @@ export interface InteractionIslandReplayRequest {
   readonly currentEntities?: readonly InteractionEntityState[];
   readonly localCommands?: readonly InteractionReplayCommand[];
   readonly stepBody: InteractionReplayBodyStep;
+  readonly stepBatch?: InteractionReplayBatchStep;
   readonly resolvePair?: InteractionReplayPairStep;
   readonly sideEffects?: ReplaySideEffectGate;
   readonly maximumReplayTicks?: number;
@@ -134,12 +144,18 @@ export function replayInteractionIsland(
       });
       states = sideEffects.runReplay(() => {
         const stepped = new Map<string, InteractionEntityState>();
-        for (const entity of stableEntities(states)) {
+        const entities = stableEntities(states);
+        const controls = new Map<string, InteractionReplayControl>();
+        for (const entity of entities) {
           const local = commands.get(commandKey(serverTick, entity.id));
-          const control = local
+          controls.set(entity.id, local
             ? localControl(local)
-            : continueRemoteIntent(remoteIntents.get(entity.id), serverTick);
-          const next = request.stepBody(entity, control, context);
+            : continueRemoteIntent(remoteIntents.get(entity.id), serverTick));
+        }
+        const batched = request.stepBatch?.(entities, controls, context);
+        for (const entity of entities) {
+          const next = batched?.get(entity.id) ??
+            request.stepBody(entity, controls.get(entity.id)!, context);
           if (!validKernelState(entity, next)) throw new Error('invalid replay body state');
           stepped.set(next.id, cloneEntity(next));
           bodySteps++;
