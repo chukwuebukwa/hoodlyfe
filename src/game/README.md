@@ -1,8 +1,8 @@
 # Client Game Modules
 
-The browser client presents replicated server state, collects player intent, and performs cosmetic prediction/interpolation. It never decides gameplay outcomes.
+The browser is a presentation and input client. It sends player intent, renders replicated server state, and never decides movement, collisions, damage, inventory, or mission outcomes.
 
-The Phaser renderer was removed in July 2026; `ThreePrototypeViewer` (`three/`) is the only client. References to `DistrictScene` and Phaser adapters below describe the removed renderer and await a documentation pass.
+`ThreePrototypeViewer` is the client composition root. It owns the Three renderer and coordinates focused modules for input, UI, audio, debug tools, network timing, remote interpolation, interiors, lighting, and entity presentation.
 
 ## Dependency Direction
 
@@ -10,74 +10,17 @@ The Phaser renderer was removed in July 2026; `ThreePrototypeViewer` (`three/`) 
 ThreePrototypeViewer
   -> input and presentation controllers
     -> pure client policies
-  -> network protocol/state views
+  -> replicated protocol/state views
   -> Three and DOM adapters
 ```
 
 Rules:
 
-- `ThreePrototypeViewer` owns renderer lifecycle and coordinates focused client modules.
-- Pure policies do not import Three, Colyseus, browser globals, or DOM elements.
-- Device/DOM adapters install listeners once and remove them on scene shutdown.
-- Server commands carry intent only; the browser never sends position, damage, cash, wanted state, mission outcomes, or vehicle health.
-- Prediction and interpolation are presentation. Replicated authoritative state always corrects them.
-- HUD, minimap, debug, entity rendering, audio, and effects consume state/events through narrow inputs rather than reaching across each other.
+- Server commands carry intent only; the browser never sends positions or gameplay outcomes.
+- Every actor, including the local player and driven vehicle, is rendered from authoritative snapshots.
+- Remote motion timelines smooth snapshot delivery without simulating future local state.
+- Combat rewind is a server-side historical query; the client does not create provisional projectiles.
+- Device and DOM adapters install listeners once and remove them on shutdown.
+- HUD, minimap, debug, entity rendering, audio, and effects consume state through narrow inputs.
 
-## Current Modules
-
-```text
-game/
-  camera/
-    camera-policy.ts
-    camera-presentation-controller.ts
-  debug/
-    debug-panel-policy.ts
-    debug-presentation-controller.ts
-    debug-snapshot-subscription.ts
-  input/
-    client-input-controller.ts
-    client-input-policy.ts
-  missions/
-    mission-presentation-policy.ts
-    mission-presentation-controller.ts
-  rendering/
-    interpolation-policy.ts
-    pedestrian-renderer.ts
-    player-render-policy.ts
-    player-renderer.ts
-    projectile-render-policy.ts
-    projectile-renderer.ts
-    render-types.ts
-    vehicle-render-policy.ts
-    vehicle-renderer.ts
-  ui/
-    hud-policy.ts
-    local-hud-controller.ts
-  minimap-marker-policy.ts
-  minimap-renderer.ts
-  touch-controls.ts
-  district-scene.ts
-```
-
-- `client-input-policy.ts` owns framework-independent movement normalization, gameplay-state gates, and independent command cadence.
-- `camera-policy.ts` owns renderer-independent responsive zoom and player/vehicle follow decisions.
-- `CameraPresentationController` owns Phaser target identity, following, damage feedback, resize binding, and teardown.
-- `DebugSnapshotSubscription` installs the snapshot handler before opting in, and owns unsubscribe/listener teardown.
-- `debug-panel-policy.ts` projects snapshot/state fallback counters and bounded event text without DOM or Phaser.
-- `DebugPresentationController` composes transport, F3/button input, cached panel DOM, sampled world overlays, label lifecycle, and teardown.
-- `ClientInputController` owns Phaser keyboard/pointer/wheel and DOM/touch bindings, command publication, aim presentation callbacks, and listener teardown.
-- `mission-presentation-policy.ts` owns active/joinable selection plus HUD, command, minimap, contact, target, and delivery projection.
-- `MissionPresentationController` owns mission DOM, action dispatch, Phaser world markers, replicated-state reference, and teardown.
-- `TouchControls` owns touch-stick state and now provides deterministic listener/media-query cleanup.
-- `interpolation-policy.ts` owns framework-independent render correction and wrapped-angle interpolation.
-- `PedestrianRenderer` owns NPC render-object creation, synchronization, animation, interpolation, visibility, depth, removal, and teardown.
-- `PlayerRenderer` owns player/weapon/passenger/nameplate render objects, prediction, interpolation, seat composition, recoil, and teardown.
-- `projectile-render-policy.ts` owns weapon/police projectile presentation data.
-- `ProjectileRenderer` owns bullet render-object creation, synchronization, interpolation, muzzle flashes, removal, and teardown.
-- `ThrownProjectileRenderer` owns replicated grenade ground/shadow/height composition, fuse pulse, interpolation, and teardown.
-- `ExplosionRenderer` edge-triggers each replicated explosion ID once and owns blast core/ring/particle/camera feedback lifecycle; it never selects victims.
-- `WeaponPickupRenderer` owns available pickup model/label/pulse lifecycle and pure minimap-point projection.
-- `VehicleRenderer` owns vehicle bodies, police lights, damage stages/effects, interpolation, read-only poses, and teardown.
-- `hud-policy.ts` projects player/vehicle facts and edge-triggered notices without DOM access.
-- `LocalHudController` owns cached HUD elements, meters, mode visibility, bounded notices, connection state, timers, and teardown.
-- `DistrictScene` now owns world/bootstrap wiring, state fan-out, update order, local collision queries, vehicle-action affordance, and crosshair/minimap coordination.
+Client-side prediction and reconciliation were deliberately removed. If responsiveness later requires prediction, introduce it as a separately measured feature rather than keeping a dormant second simulation stack.

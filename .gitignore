@@ -14,3 +14,6 @@ GTA2_GAME/
 GTA2_EXTRACTED/
 GTA2INSTALLER/
 GTA2INSTALLER.ZIP
+
+# Simulation journal recordings (local debugging artifacts)
+journals/

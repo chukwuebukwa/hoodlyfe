@@ -60,7 +60,7 @@ export class VehicleAccessController {
     if (nowMs < player.actionUntil) return;
     const action = player.action;
     const vehicle = this.options.state.vehicles.get(player.actionVehicleId);
-    if (!vehicle || Math.hypot(vehicle.x - player.x, vehicle.y - player.y) > 112) {
+    if (!vehicle || vehicle.destroyed || Math.hypot(vehicle.x - player.x, vehicle.y - player.y) > 112) {
       if (vehicle?.hijackBy === player.id) vehicle.hijackBy = '';
       this.clearAction(player);
       return;
@@ -169,6 +169,7 @@ export class VehicleAccessController {
     player.vehicleSeat = seat;
     player.x = vehicle.x;
     player.y = vehicle.y;
+    player.surfaceId = vehicle.surfaceId;
     player.angle = vehicle.angle;
     if (seat === 0) vehicle.driverId = player.id;
   }
@@ -178,9 +179,19 @@ export class VehicleAccessController {
     for (const side of [1, -1, 1.55, -1.55]) {
       const x = vehicle.x + Math.cos(sideAngle) * 42 * side;
       const y = vehicle.y + Math.sin(sideAngle) * 42 * side;
-      if (!this.options.world.canOccupy(x, y, PLAYER_RADIUS)) continue;
+      const surfaceId = this.options.world.surfaceAfterMove(
+        vehicle.surfaceId,
+        vehicle.x,
+        vehicle.y,
+        x,
+        y,
+        PLAYER_RADIUS,
+        'player'
+      );
+      if (!surfaceId) continue;
       player.x = x;
       player.y = y;
+      player.surfaceId = surfaceId;
       this.removePlayer(player);
       vehicle.speed *= 0.4;
       return;

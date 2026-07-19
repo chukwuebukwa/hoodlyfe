@@ -61,7 +61,10 @@ export class PedestrianMeleeSystem {
     const melee = runtime.melee;
     if (melee.phase === 'idle') return false;
     const target = this.options.state.players.get(melee.targetId);
-    if (!npc.alive || !target?.alive || target.vehicleId || target.spaceId !== 'street') {
+    if (
+      !npc.alive || !target?.alive || target.vehicleId || target.spaceId !== 'street' ||
+      target.surfaceId !== npc.surfaceId
+    ) {
       this.interrupt(npc, runtime, nowMs);
       return false;
     }
@@ -112,7 +115,10 @@ export class PedestrianMeleeSystem {
   }
 
   private canContact(npc: NpcState, target: PlayerState): boolean {
-    if (!npc.alive || !target.alive || target.vehicleId || target.spaceId !== 'street') return false;
+    if (
+      !npc.alive || !target.alive || target.vehicleId || target.spaceId !== 'street' ||
+      target.surfaceId !== npc.surfaceId
+    ) return false;
     const dx = target.x - npc.x;
     const dy = target.y - npc.y;
     if (Math.hypot(dx, dy) > NPC_MELEE.engageDistance) return false;

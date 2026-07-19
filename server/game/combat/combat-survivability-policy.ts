@@ -28,7 +28,7 @@ export interface ReactionInput {
 }
 
 const REACTION_DURATION_MS: Readonly<Record<Exclude<ReactionKind, ''>, number>> = Object.freeze({
-  flinch: 220,
+  flinch: 100,
   stagger: 420,
   knockdown: 950
 });
@@ -78,7 +78,7 @@ export function reactionKindFor(input: ReactionInput): Exclude<ReactionKind, ''>
   ) {
     return 'knockdown';
   }
-  if (input.force === 'medium' || input.acceptedDamage >= 24) return 'stagger';
+  if (input.acceptedDamage >= 40) return 'stagger';
   return 'flinch';
 }
 

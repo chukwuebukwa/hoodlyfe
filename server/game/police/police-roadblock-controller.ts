@@ -228,6 +228,11 @@ export class PoliceRoadblockController {
       vehicle.kind = 'police';
       vehicle.x = pose.x;
       vehicle.y = pose.y;
+      vehicle.surfaceId = this.options.world.surfaces.surfaceIdsAt(
+        pose.x,
+        pose.y,
+        'vehicle'
+      )[0] ?? vehicle.surfaceId;
       vehicle.angle = pose.angle;
       vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
       vehicle.health = vehicle.maxHealth;

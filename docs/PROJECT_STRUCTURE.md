@@ -259,7 +259,9 @@ The first room-facing facades are now live:
   reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle
   detection and one safe recovery owner; `TrafficController` composes those policies with
   lane-offset route targets.
-- `VehicleCollisionSystem` owns catalog-sized oriented-box narrow-phase contact, minimum-axis separation, impulse, and impact-zone facts. The spatial index provides only broad-phase candidates.
+- `PhysicsWorld` owns street static and dynamic collision for vehicles and humanoids;
+  gameplay controllers consume its contact facts to apply server-only outcomes. The
+  spatial index provides broad-phase candidates for non-physics systems.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
 Client appearance remains split as well: `AppearanceCreatorController` owns modal draft/form/preview/storage presentation, `WardrobeClientSession` owns targeted inventory/store-open subscriptions plus in-flight apply acknowledgement, the canvas policy owns palette/style rendering, `PlayerAppearanceTextureFactory` owns bounded Phaser texture/animation caching, and `PlayerRenderer` only selects the current equipped presentation.
@@ -504,61 +506,32 @@ Important boundaries:
 
 ### Implemented Client Boundary
 
-The first client extractions are live under `src/game/input/` and `src/game/rendering/`:
+`ThreePrototypeViewer` is the only client composition root. It coordinates focused Three,
+input, network timing, debug, UI, audio, world, and rendering modules under `src/game/`.
+Clients send intent and render authoritative snapshots through surface-aware motion
+timelines; they do not run gameplay physics or local prediction.
 
-- `client-input-policy.ts` contains framework-independent movement normalization, replicated-state weapon gating, and movement/aim/fire/weapon command cadence.
-- `ClientInputController` binds Phaser keyboard/pointer/wheel plus DOM/touch controls, publishes intent commands, reports aim/movement intent for local presentation, and removes every listener on scene shutdown.
-- `TouchControls` now owns cleanup for media queries, buttons, and pointer listeners.
-- `DebugSnapshotSubscription` owns the explicit developer-snapshot subscribe/unsubscribe lifecycle, including handler-first ordering and teardown.
-- `DebugPresentationController` composes that transport with F3/button input, cached panel DOM, sampled collision/spatial/entity/incident/pursuit overlays, label lifecycle, and teardown behind a pure panel projection.
-- `CameraPresentationController` owns the active Phaser follow target, player/vehicle smoothing, responsive zoom, damage feedback, and resize/shutdown lifecycle behind a pure camera policy.
-- `interpolation-policy.ts` contains framework-independent snap/blend correction and shortest-path angle interpolation.
-- `PedestrianRenderer` owns NPC render-object lifecycle, replicated targets, visibility, animation, interpolation, and depth.
-- `ProjectileRenderer` owns projectile render-object lifecycle, weapon/police visual policy, interpolation, and muzzle flashes while reporting creation through a narrow callback for player recoil presentation.
-- `PlayerRenderer` owns player, weapon, passenger, and nameplate lifecycle; local prediction; remote correction; seat composition; and cosmetic recoil.
-- `VehicleRenderer` owns vehicle bodies, police lights, staged damage effects, interpolation, depth, and read-only poses consumed by player composition.
-- `LocalHudController` owns cached local HUD DOM, meters, mode visibility, bounded notices, connection state, and teardown behind a pure projection/transition policy.
-- `MissionPresentationController` owns mission DOM, action listener/command dispatch, world markers, and teardown behind pure active/joinable, HUD, minimap, target, and delivery projection.
-- `DistrictScene` remains the Phaser lifecycle coordinator and uses focused input and rendering owners instead of owning their device bindings, command timers, and entity caches.
-
-The first client modularity pass is complete. The remaining scene is a lifecycle coordinator; future work should extract world loading, vehicle-action affordance, crosshair, or minimap orchestration only when each boundary gains real independent complexity.
-
-`DistrictScene` should become a Phaser lifecycle shell:
+Current organization:
 
 ```text
 game/
-  district-scene.ts
+  three/
+    three-prototype-viewer.ts
+    three-district-entities.ts
+    three-district-world.ts
   network/
-    room-connection.ts
-    state-adapter.ts
-    event-adapter.ts
+    network-quality-controller.ts
+    netcode-rollout-controller.ts
+    remote-motion-timeline.ts
+    combat-fire-command-sender.ts
   input/
-    input-controller.ts
-    touch-controller.ts
+    client-input-policy.ts
   rendering/
-    player-renderer.ts
-    pedestrian-renderer.ts
-    vehicle-renderer.ts
-    projectile-renderer.ts
-    pickup-renderer.ts
-    render-pools.ts
-  animation/
-    animation-controller.ts
-    pedestrian-animation.ts
-    vehicle-animation.ts
-  effects/
-    muzzle-effects.ts
-    impact-effects.ts
-    damage-effects.ts
-  world/
-    map-renderer.ts
-    overlay-renderer.ts
-    render-culling.ts
+    remote-timeline-config.ts
+    render-types.ts
   ui/
-    hud-controller.ts
-    vehicle-hud.ts
-    weapon-hud.ts
-    mission-hud.ts
+  audio/
+  debug/
 ```
 
 Renderers consume presentation models derived from authoritative state. They must not contain gameplay rules. Object pools own bullets, muzzle flashes, impact effects, labels, and short-lived animations.

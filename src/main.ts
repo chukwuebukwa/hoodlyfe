@@ -2,14 +2,12 @@ import {Client, type Room} from 'colyseus.js';
 import type {PlayerAppearance} from '../shared/content/appearance-catalog.ts';
 import type {ClientAuthPayload} from '../shared/protocol/auth.ts';
 import {PLAYER_SPAWN_MESSAGE} from '../shared/protocol/onboarding.ts';
-import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {
   loadOnboardingIdentity,
   runOnboardingOverlay,
   shouldShowOnboarding
 } from './game/onboarding/onboarding-flow.ts';
 import type {DistrictNetworkState} from './game/types.ts';
-import {InteractionSnapshotInbox} from './game/network/interaction-snapshot-inbox.ts';
 import {NetcodeRolloutController} from './game/network/netcode-rollout-controller.ts';
 import {NockPhoneController} from './game/ui/nock-phone-controller.ts';
 
@@ -32,7 +30,6 @@ class GameRuntimeController implements GameRuntime {
   private activeRoom: Room<DistrictNetworkState> | undefined;
   private activeThree: {start(): Promise<void>; destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
-  private interactionSnapshots: InteractionSnapshotInbox | undefined;
   private netcodeRollout: NetcodeRolloutController | undefined;
   private readonly phone = NockPhoneController.forDocument();
 
@@ -70,8 +67,6 @@ class GameRuntimeController implements GameRuntime {
   destroy(): void {
     this.activeThree?.destroy();
     this.activeThree = undefined;
-    this.interactionSnapshots?.destroy();
-    this.interactionSnapshots = undefined;
     this.netcodeRollout?.destroy();
     this.netcodeRollout = undefined;
     void this.activeRoom?.leave(true);
@@ -107,7 +102,6 @@ class GameRuntimeController implements GameRuntime {
     this.activeThree = new ThreePrototypeViewer(
       game,
       this.activeRoom,
-      this.interactionSnapshots,
       this.netcodeRollout,
       this.phone
     );
@@ -139,12 +133,6 @@ class GameRuntimeController implements GameRuntime {
   private startNetworkControllers(room: Room<DistrictNetworkState>): void {
     this.netcodeRollout?.destroy();
     this.netcodeRollout = new NetcodeRolloutController(room);
-    this.interactionSnapshots?.destroy();
-    this.interactionSnapshots = new InteractionSnapshotInbox(room, {
-      currentServerTick: () => room.state.serverTick ?? 0,
-      worldCollisionRevision: WORLD_COLLISION_REVISION,
-      enabled: () => this.netcodeRollout?.enabled('interactionSnapshots') ?? false
-    });
   }
 }
 

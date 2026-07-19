@@ -6,6 +6,12 @@ import {DeterministicRandom} from '../server/game/world/deterministic-random.ts'
 import {FixedStepClock} from '../server/game/world/fixed-step-clock.ts';
 import {SpatialIndex, type SpatialRecord} from '../server/game/world/spatial-index.ts';
 
+test('authoritative simulation defaults to 60 Hz', () => {
+  const clock = new FixedStepClock();
+  assert.equal(clock.stepMs, 1000 / 60);
+  assert.equal(clock.maxCatchUpSteps, 10);
+});
+
 test('fixed-step clock produces stable simulation frames and bounds catch-up work', () => {
   const clock = new FixedStepClock({stepMs: 20, maxCatchUpSteps: 3, maxElapsedMs: 200});
   const frames: Array<{tick: number; nowMs: number}> = [];

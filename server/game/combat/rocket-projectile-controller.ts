@@ -23,7 +23,7 @@ interface RocketProjectileControllerOptions {
   queryPlayers: (minX: number, minY: number, maxX: number, maxY: number) => PlayerState[];
   queryNpcs: (minX: number, minY: number, maxX: number, maxY: number) => NpcState[];
   queryVehicles: (minX: number, minY: number, maxX: number, maxY: number) => VehicleState[];
-  detonate: (x: number, y: number, ownerId: string, nowMs: number) => void;
+  detonate: (x: number, y: number, ownerId: string, nowMs: number, surfaceId: string) => void;
   remove: (projectileId: string) => void;
 }
 
@@ -59,6 +59,9 @@ export class RocketProjectileController {
     const rocket = new RocketProjectileState();
     rocket.id = `rocket-${this.nextProjectileId++}`;
     rocket.ownerId = input.ownerId;
+    rocket.surfaceId = (
+      this.options.state.players.get(input.ownerId) ?? this.options.state.npcs.get(input.ownerId)
+    )?.surfaceId ?? rocket.surfaceId;
     rocket.angle = input.angle;
     rocket.x = input.x + Math.cos(input.angle) * ROCKET_PROJECTILE.spawnOffset;
     rocket.y = input.y + Math.sin(input.angle) * ROCKET_PROJECTILE.spawnOffset;
@@ -79,6 +82,24 @@ export class RocketProjectileController {
     const distance = definition.projectileSpeed * Math.min(Math.max(0, deltaSeconds), 0.1);
     const endX = rocket.x + Math.cos(rocket.angle) * distance;
     const endY = rocket.y + Math.sin(rocket.angle) * distance;
+    const moveSurface = this.options.world.surfaceAfterMove;
+    const nextSurface = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.options.world,
+        rocket.surfaceId,
+        rocket.x,
+        rocket.y,
+        endX,
+        endY,
+        ROCKET_PROJECTILE.radius,
+        'projectile'
+      )
+      : rocket.surfaceId;
+    if (!nextSurface) {
+      this.detonate(rocket, rocketId, endX, endY, nowMs);
+      return;
+    }
+    rocket.surfaceId = nextSurface;
     const worldImpact = this.worldImpact(rocket.x, rocket.y, endX, endY);
     const actorImpact = this.actorImpact(rocket, endX, endY);
     const impact = earliest(worldImpact, actorImpact);
@@ -98,17 +119,20 @@ export class RocketProjectileController {
     const maxY = Math.max(rocket.y, endY) + 28;
     const impacts: Impact[] = [];
     for (const player of this.options.queryPlayers(minX, minY, maxX, maxY)) {
-      if (!player.alive || player.id === rocket.ownerId || player.vehicleId) continue;
+      if (
+        !player.alive || player.id === rocket.ownerId || player.vehicleId ||
+        player.surfaceId !== rocket.surfaceId
+      ) continue;
       const impact = circleImpact(rocket.x, rocket.y, endX, endY, player.x, player.y, 11 + radius);
       if (impact) impacts.push(impact);
     }
     for (const npc of this.options.queryNpcs(minX, minY, maxX, maxY)) {
-      if (!npc.alive) continue;
+      if (!npc.alive || npc.surfaceId !== rocket.surfaceId) continue;
       const impact = circleImpact(rocket.x, rocket.y, endX, endY, npc.x, npc.y, 10 + radius);
       if (impact) impacts.push(impact);
     }
     for (const vehicle of this.options.queryVehicles(minX, minY, maxX, maxY)) {
-      if (vehicle.destroyed) continue;
+      if (vehicle.destroyed || vehicle.surfaceId !== rocket.surfaceId) continue;
       const impact = circleImpact(rocket.x, rocket.y, endX, endY, vehicle.x, vehicle.y, 22 + radius);
       if (impact) impacts.push(impact);
     }
@@ -140,7 +164,7 @@ export class RocketProjectileController {
       if (!oldest) break;
       this.detonated.delete(oldest);
     }
-    this.options.detonate(x, y, rocket.ownerId, nowMs);
+    this.options.detonate(x, y, rocket.ownerId, nowMs, rocket.surfaceId);
     this.options.remove(rocketId);
   }
 

@@ -18,6 +18,7 @@ import {
   type DebugTrafficLaneGraphEntry,
   type DebugTrafficSignalEntry
 } from '../../../shared/protocol/debug.ts';
+import {SIMULATION_HZ} from '../../../shared/simulation/timing.ts';
 import type {DistrictState} from '../../state.ts';
 import type {GameEvent} from '../events/game-events.ts';
 import type {Incident} from '../incidents/incident-registry.ts';
@@ -64,7 +65,7 @@ export class DebugSnapshotController {
   private lastBroadcastTick = 0;
 
   constructor(private readonly options: DebugSnapshotControllerOptions) {
-    this.intervalTicks = positiveInteger(options.intervalTicks ?? 6, 'Debug interval');
+    this.intervalTicks = positiveInteger(options.intervalTicks ?? SIMULATION_HZ / 5, 'Debug interval');
     this.historyLimit = positiveInteger(options.historyLimit ?? 8, 'Debug history limit');
   }
 
@@ -194,8 +195,6 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.vehicleId} ignited; explosion fuse armed`;
     case 'vehicle.destroyed':
       return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
-    case 'vehicle.restored':
-      return `${event.vehicleId} restored to ${event.health} hp`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
     case 'police.arrest-started':

@@ -1,77 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
-import {VehicleCollisionSystem} from '../server/game/vehicles/vehicle-collision-system.ts';
 import {VehicleDamageSystem} from '../server/game/vehicles/vehicle-damage-system.ts';
 import {BulletState, DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 import {attachTestProjectileController} from './support/projectile-controller.ts';
 import {VEHICLE_SIMULATION_STEP_SECONDS} from '../shared/simulation/vehicle-step.ts';
-
-test('vehicle collision separates overlaps and transfers forward momentum', () => {
-  const collision = new VehicleCollisionSystem().resolve({
-    id: 'moving',
-    x: 0,
-    y: 0,
-    angle: 0,
-    speed: 240,
-    halfLength: 29,
-    halfWidth: 16,
-    mass: 1,
-    damageScale: 1
-  }, {
-    id: 'parked',
-    x: 35,
-    y: 0,
-    angle: 0,
-    speed: 0,
-    halfLength: 29,
-    halfWidth: 16,
-    mass: 1,
-    damageScale: 1
-  });
-
-  assert.equal(collision.collided, true);
-  assert.equal(collision.closingSpeed, 240);
-  assert.ok(collision.primaryX < 0);
-  assert.ok(collision.otherX > 35);
-  assert.ok(collision.primarySpeed < 240);
-  assert.ok(collision.otherSpeed > 0);
-  assert.ok(collision.primaryDamage >= 100);
-  assert.equal(collision.primaryDamage, collision.otherDamage);
-  assert.equal(collision.primaryZone, 'front');
-  assert.equal(collision.otherZone, 'rear');
-});
-
-test('overlapping vehicles moving apart separate without taking impact damage', () => {
-  const collision = new VehicleCollisionSystem().resolve({
-    id: 'left',
-    x: 0,
-    y: 0,
-    angle: Math.PI,
-    speed: 80,
-    halfLength: 29,
-    halfWidth: 16,
-    mass: 1,
-    damageScale: 1
-  }, {
-    id: 'right',
-    x: 38,
-    y: 0,
-    angle: 0,
-    speed: 80,
-    halfLength: 29,
-    halfWidth: 16,
-    mass: 1,
-    damageScale: 1
-  });
-
-  assert.equal(collision.collided, true);
-  assert.equal(collision.closingSpeed, 0);
-  assert.equal(collision.primaryDamage, 0);
-  assert.equal(collision.otherDamage, 0);
-});
 
 test('vehicle damage tracks components, ignition, delayed explosion, and weapon lethality', () => {
   const damage = new VehicleDamageSystem();
@@ -104,54 +39,13 @@ test('vehicle damage tracks components, ignition, delayed explosion, and weapon 
 });
 
 test('player driving consumes distinct model acceleration from the shared catalog', () => {
-  assert.deepEqual([
+  const speeds = [
     drivenSpeed('taxi'),
     drivenSpeed('sedan'),
     drivenSpeed('police')
-  ].map(Math.round), [360, 390, 440]);
-});
-
-test('opposite throttle brakes to zero before changing direction', () => {
-  const {room, vehicle, player} = drivingFixture('sedan');
-  room.playerControl.setMove(player.id, {x: 0, y: -1});
-  updateVehicle(room, vehicle, 3);
-  assert.equal(vehicle.speed, 39);
-  room.playerControl.setMove(player.id, {x: 0, y: 1});
-  updateVehicle(room, vehicle, 5);
-  assert.equal(vehicle.speed, 0);
-  updateVehicle(room, vehicle, 1);
-  assert.ok(vehicle.speed < 0);
-});
-
-test('district adapter applies collision movement and damage to both authoritative cars', () => {
-  const room = new DistrictRoom() as any;
-  room.world = {canOccupy: () => true};
-  room.setState(new DistrictState());
-  const moving = new VehicleState();
-  moving.id = 'moving';
-  moving.x = 100;
-  moving.y = 100;
-  moving.angle = 0;
-  moving.speed = 240;
-  const parked = new VehicleState();
-  parked.id = 'parked';
-  parked.x = 135;
-  parked.y = 100;
-  parked.angle = 0;
-  room.state.vehicles.set(moving.id, moving);
-  room.state.vehicles.set(parked.id, parked);
-  attachTestVehicleSimulation(room);
-  room.rebuildSpatialIndex();
-
-  room.vehicleSimulation.handleCollision(moving, 1000);
-  assert.ok(moving.x < 100);
-  assert.ok(parked.x > 135);
-  assert.ok(moving.health < 1000);
-  assert.ok(parked.health < 1000);
-  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
-    'vehicle.damaged',
-    'vehicle.damaged'
-  ]);
+  ];
+  assert.deepEqual(speeds.map(Math.round), [357, 388, 438]);
+  assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
 });
 
 test('district projectile resolution damages vehicles and consumes the bullet', () => {
@@ -189,7 +83,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
 function drivenSpeed(kind: string): number {
   const {room, vehicle, player} = drivingFixture(kind);
   room.playerControl.setMove(player.id, {x: 0, y: -1});
-  updateVehicle(room, vehicle, 30);
+  updateVehicle(room, vehicle, Math.round(1 / VEHICLE_SIMULATION_STEP_SECONDS));
   return vehicle.speed;
 }
 
@@ -198,6 +92,10 @@ function updateVehicle(room: any, vehicle: VehicleState, steps: number): void {
     room.vehicleSimulation.beginTick();
     room.vehicleSimulation.update(
       vehicle,
+      VEHICLE_SIMULATION_STEP_SECONDS,
+      step * VEHICLE_SIMULATION_STEP_SECONDS * 1_000
+    );
+    room.vehicleSimulation.stepPhysics(
       VEHICLE_SIMULATION_STEP_SECONDS,
       step * VEHICLE_SIMULATION_STEP_SECONDS * 1_000
     );

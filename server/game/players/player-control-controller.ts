@@ -4,8 +4,9 @@ import type {InteriorController} from '../interiors/interior-controller.ts';
 import type {OnFootInputBatchMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {
   ON_FOOT_PLAYER_RADIUS,
+  integrateOnFootPose,
   onFootMovementScale,
-  stepOnFootWithWorldCollision
+  stepInteriorOnFootPose
 } from '../../../shared/simulation/on-foot-step.ts';
 
 export const PLAYER_RADIUS = ON_FOOT_PLAYER_RADIUS;
@@ -113,17 +114,44 @@ export class PlayerControlController {
     const next = runtime.pending.shift();
     if (next) runtime.held = next;
     const control = runtime.held;
-    const movement = stepOnFootWithWorldCollision(
-      {x: player.x, y: player.y, spaceId: player.spaceId},
-      {moveX: control.inputX, moveY: control.inputY},
-      deltaSeconds,
-      (spaceId, x, y, radius) => spaceId === 'street'
-        ? this.options.world.canOccupy(x, y, radius)
-        : this.options.interiors?.canOccupy(spaceId, x, y, radius) ?? false,
-      {movementScale: onFootMovementScale(player.action, player.weapon, player.attackCombo)}
-    );
-    player.x = movement.pose.x;
-    player.y = movement.pose.y;
+    const pose = {x: player.x, y: player.y, spaceId: player.spaceId};
+    const command = {moveX: control.inputX, moveY: control.inputY};
+    const modifiers = {
+      movementScale: onFootMovementScale(player.action, player.weapon, player.attackCombo)
+    };
+    const moved = player.spaceId === 'street'
+      ? integrateOnFootPose(pose, command, deltaSeconds, modifiers)
+      : stepInteriorOnFootPose(
+        pose,
+        command,
+        deltaSeconds,
+        (spaceId, x, y, radius) =>
+          this.options.interiors?.canOccupy(spaceId, x, y, radius) ?? false,
+        modifiers
+      ).pose;
+    if (player.spaceId === 'street') {
+      const moveSurface = this.options.world.surfaceAfterMove;
+      const surfaceId = typeof moveSurface === 'function'
+        ? moveSurface.call(
+          this.options.world,
+          player.surfaceId,
+          player.x,
+          player.y,
+          moved.x,
+          moved.y,
+          PLAYER_RADIUS,
+          'player'
+        )
+        : player.surfaceId;
+      if (surfaceId) {
+        player.x = moved.x;
+        player.y = moved.y;
+        player.surfaceId = surfaceId;
+      }
+    } else {
+      player.x = moved.x;
+      player.y = moved.y;
+    }
     if (player.spaceId !== 'street') this.options.interiors?.afterMove(player);
     if (!player.action) this.options.interiors?.tryEnter(player);
     player.lastInputSequence = control.lastSequence;

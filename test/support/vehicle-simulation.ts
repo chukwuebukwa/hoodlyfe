@@ -1,16 +1,37 @@
 import {VehicleSimulationController} from '../../server/game/vehicles/vehicle-simulation-controller.ts';
+import {
+  initializePhysicsEngine,
+  PhysicsWorld
+} from '../../shared/physics/physics-world.ts';
 import {attachTestPlayerControl} from './player-control.ts';
 import {attachTestTrafficController} from './traffic-controller.ts';
 import {attachTestVehicleAccess} from './vehicle-access.ts';
 import {VEHICLE_COLLISION_BOUNDING_RADIUS} from '../../server/game/vehicles/vehicle-config.ts';
 
-export function attachTestVehicleSimulation(room: any): VehicleSimulationController {
+await initializePhysicsEngine();
+
+export function attachTestVehicleSimulation(
+  room: any,
+  extras: {
+    physics?: PhysicsWorld;
+    acknowledgeInput?: (playerId: string, vehicleId: string, sequence: number) => void;
+  } = {}
+): VehicleSimulationController {
   if (!room.trafficController) attachTestTrafficController(room);
   if (!room.vehicleAccess) attachTestVehicleAccess(room);
   if (!room.playerControl) attachTestPlayerControl(room);
+  room.physicsWorld ??= extras.physics ?? PhysicsWorld.create({
+    width: 128,
+    height: 128,
+    tileWidth: 64,
+    tileHeight: 64,
+    collisions: new Array(128 * 128).fill(0)
+  });
   const controller = new VehicleSimulationController({
     state: room.state,
     world: room.world,
+    physics: room.physicsWorld,
+    acknowledgeInput: extras.acknowledgeInput,
     events: room.events,
     access: room.vehicleAccess,
     traffic: room.trafficController,

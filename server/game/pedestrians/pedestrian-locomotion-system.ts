@@ -1,11 +1,9 @@
 import type {NpcState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
+import {PEDESTRIAN_RADIUS} from './pedestrian-config.ts';
 
 export class PedestrianLocomotionSystem {
-  constructor(
-    private readonly world: CollisionMap,
-    private readonly radius: number
-  ) {}
+  constructor(private readonly world: CollisionMap) {}
 
   move(
     npc: NpcState,
@@ -19,18 +17,39 @@ export class PedestrianLocomotionSystem {
     const nextY = npc.y + Math.sin(angle) * speed * deltaSeconds;
     let moved = false;
     const startedOnRoad = avoidEnteringRoad && this.world.isRoadAt(npc.x, npc.y);
-    if (
-      this.world.canOccupy(nextX, npc.y, this.radius) &&
-      (!avoidEnteringRoad || startedOnRoad || !this.world.isRoadAt(nextX, npc.y))
-    ) {
+    const moveSurface = this.world.surfaceAfterMove;
+    const xSurface = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.world,
+        npc.surfaceId,
+        npc.x,
+        npc.y,
+        nextX,
+        npc.y,
+        PEDESTRIAN_RADIUS,
+        'pedestrian'
+      )
+      : npc.surfaceId;
+    if (xSurface && (!avoidEnteringRoad || startedOnRoad || !this.world.isRoadAt(nextX, npc.y))) {
       npc.x = nextX;
+      npc.surfaceId = xSurface;
       moved = true;
     }
-    if (
-      this.world.canOccupy(npc.x, nextY, this.radius) &&
-      (!avoidEnteringRoad || startedOnRoad || !this.world.isRoadAt(npc.x, nextY))
-    ) {
+    const ySurface = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.world,
+        npc.surfaceId,
+        npc.x,
+        npc.y,
+        npc.x,
+        nextY,
+        PEDESTRIAN_RADIUS,
+        'pedestrian'
+      )
+      : npc.surfaceId;
+    if (ySurface && (!avoidEnteringRoad || startedOnRoad || !this.world.isRoadAt(npc.x, nextY))) {
       npc.y = nextY;
+      npc.surfaceId = ySurface;
       moved = true;
     }
     return moved;

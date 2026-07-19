@@ -1,26 +1,20 @@
-import {INTERACTION_PROTOCOL_VERSION} from './interaction-contracts.ts';
-import {boundedString, objectRecord, safePositiveInteger} from './interaction-validation.ts';
+import {COMBAT_PROTOCOL_VERSION} from './combat-fire.ts';
+import {boundedString, objectRecord, safePositiveInteger} from './protocol-validation.ts';
 
 export const NETCODE_ROLLOUT_REQUEST_MESSAGE = 'netcode.rollout.request';
 export const NETCODE_ROLLOUT_MANIFEST_MESSAGE = 'netcode.rollout.manifest';
-export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 1;
+export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 3;
 
 export const NETCODE_ROLLOUT_STAGE_KEYS = Object.freeze([
   'remoteTimelines',
-  'interactionSnapshots',
-  'interactionReplay',
-  'combatRewind',
-  'projectilePrediction'
+  'combatRewind'
 ] as const);
 
 export type NetcodeRolloutStage = typeof NETCODE_ROLLOUT_STAGE_KEYS[number];
 
 export interface NetcodeRolloutStages {
   readonly remoteTimelines: boolean;
-  readonly interactionSnapshots: boolean;
-  readonly interactionReplay: boolean;
   readonly combatRewind: boolean;
-  readonly projectilePrediction: boolean;
 }
 
 export interface NetcodeRolloutRequest {
@@ -29,7 +23,7 @@ export interface NetcodeRolloutRequest {
 
 export interface NetcodeRolloutManifest {
   readonly protocolVersion: number;
-  readonly interactionProtocolVersion: number;
+  readonly combatProtocolVersion: number;
   readonly revision: string;
   readonly stages: NetcodeRolloutStages;
 }
@@ -37,10 +31,9 @@ export interface NetcodeRolloutManifest {
 export type NetcodeRolloutRejection =
   | 'invalid-shape'
   | 'unsupported-version'
-  | 'invalid-interaction-version'
+  | 'invalid-combat-version'
   | 'invalid-revision'
-  | 'invalid-stages'
-  | 'invalid-dependencies';
+  | 'invalid-stages';
 
 export type NetcodeRolloutValidation =
   | {readonly accepted: true; readonly value: NetcodeRolloutManifest}
@@ -48,14 +41,11 @@ export type NetcodeRolloutValidation =
 
 export const LEGACY_NETCODE_ROLLOUT_MANIFEST: NetcodeRolloutManifest = freezeManifest({
   protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION,
-  interactionProtocolVersion: INTERACTION_PROTOCOL_VERSION,
+  combatProtocolVersion: COMBAT_PROTOCOL_VERSION,
   revision: 'legacy-fallback',
   stages: {
     remoteTimelines: false,
-    interactionSnapshots: false,
-    interactionReplay: false,
-    combatRewind: false,
-    projectilePrediction: false
+    combatRewind: false
   }
 });
 
@@ -65,7 +55,7 @@ export function createNetcodeRolloutManifest(
 ): NetcodeRolloutManifest {
   const validated = validateNetcodeRolloutManifest({
     protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION,
-    interactionProtocolVersion: INTERACTION_PROTOCOL_VERSION,
+    combatProtocolVersion: COMBAT_PROTOCOL_VERSION,
     revision,
     stages
   });
@@ -86,9 +76,9 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
   if (record.protocolVersion !== NETCODE_ROLLOUT_PROTOCOL_VERSION) {
     return rejected('unsupported-version');
   }
-  const interactionProtocolVersion = safePositiveInteger(record.interactionProtocolVersion);
-  if (interactionProtocolVersion !== INTERACTION_PROTOCOL_VERSION) {
-    return rejected('invalid-interaction-version');
+  const combatProtocolVersion = safePositiveInteger(record.combatProtocolVersion);
+  if (combatProtocolVersion !== COMBAT_PROTOCOL_VERSION) {
+    return rejected('invalid-combat-version');
   }
   const revision = boundedString(record.revision, 64);
   if (!revision || !/^[a-zA-Z0-9._-]+$/.test(revision)) return rejected('invalid-revision');
@@ -99,20 +89,13 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
     if (typeof stageRecord[key] !== 'boolean') return rejected('invalid-stages');
     stages[key] = stageRecord[key];
   }
-  if (
-    (stages.interactionReplay && !stages.interactionSnapshots) ||
-    (stages.projectilePrediction && !stages.combatRewind)
-  ) return rejected('invalid-dependencies');
   return {accepted: true, value: freezeManifest({
     protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION,
-    interactionProtocolVersion,
+    combatProtocolVersion,
     revision,
     stages: {
       remoteTimelines: stages.remoteTimelines,
-      interactionSnapshots: stages.interactionSnapshots,
-      interactionReplay: stages.interactionReplay,
-      combatRewind: stages.combatRewind,
-      projectilePrediction: stages.projectilePrediction
+      combatRewind: stages.combatRewind
     }
   })};
 }

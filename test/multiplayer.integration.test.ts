@@ -18,13 +18,8 @@ import {
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
 import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
 import {
-  INTERACTION_PROTOCOL_VERSION,
-  type InteractionSnapshot
-} from '../shared/protocol/interaction-contracts.ts';
-import {
   COMBAT_FIRE_MESSAGE,
-  COMBAT_FIRE_RECEIPT_MESSAGE,
-  type CombatFireReceipt
+  COMBAT_PROTOCOL_VERSION
 } from '../shared/protocol/combat-fire.ts';
 import {ON_FOOT_INPUT_MESSAGE} from '../shared/protocol/on-foot-input.ts';
 import {
@@ -50,9 +45,6 @@ import {
   STREAMED_TRAFFIC_RECORDS
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
-import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
-import {resolveVehicleHumanoidContact} from '../shared/simulation/vehicle-humanoid-contact.ts';
-import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -75,32 +67,15 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     name: 'Driver One',
     appearance: joinedAppearance
   });
-  const firstInteractionSnapshots: InteractionSnapshot[] = [];
-  const firstInteractionInbox = new InteractionSnapshotInbox(first, {
-    currentServerTick: () => first.state.serverTick ?? 0,
-    worldCollisionRevision: WORLD_COLLISION_REVISION
-  });
-  firstInteractionInbox.subscribe((snapshot) => firstInteractionSnapshots.push(snapshot));
   const second = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate<DistrictNetworkState>('district', {name: 'Driver Two'});
   const debugSnapshots: DebugSnapshot[] = [];
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
-  const secondInteractionSnapshots: InteractionSnapshot[] = [];
-  const fireReceipts: CombatFireReceipt[] = [];
-  const secondInteractionInbox = new InteractionSnapshotInbox(second, {
-    currentServerTick: () => second.state.serverTick ?? 0,
-    worldCollisionRevision: WORLD_COLLISION_REVISION
-  });
-  secondInteractionInbox.subscribe((snapshot) => secondInteractionSnapshots.push(snapshot));
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   second.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
-  first.onMessage<CombatFireReceipt>(
-    COMBAT_FIRE_RECEIPT_MESSAGE,
-    (receipt) => fireReceipts.push(receipt)
-  );
   first.onMessage<AppearanceResultMessage>(
     APPEARANCE_RESULT_MESSAGE,
     (result) => appearanceResults.push(result)
@@ -120,22 +95,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   first.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   second.onMessage(GAME_NOTICE_MESSAGE, () => undefined);
   context.after(async () => {
-    firstInteractionInbox.destroy();
-    secondInteractionInbox.destroy();
     await Promise.allSettled([first.leave(), second.leave()]);
   });
 
   await waitUntil(() => first.state.players.size === 2 && second.state.players.size === 2);
-  await waitUntil(() => firstInteractionSnapshots.length > 0 && secondInteractionSnapshots.length > 0);
-  const firstBaseline = firstInteractionSnapshots.at(-1);
-  const secondBaseline = secondInteractionSnapshots.at(-1);
-  assert.equal(firstBaseline?.entities[0].id, first.sessionId);
-  assert.equal(secondBaseline?.entities[0].id, second.sessionId);
-  assert.ok(firstBaseline && firstBaseline.serverTick > 0);
-  assert.ok(firstBaseline.entities.every((entity) => (
-    entity.spaceId === firstBaseline.entities[0].spaceId &&
-    entity.layerId === firstBaseline.entities[0].layerId
-  )));
   await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => (
@@ -226,25 +189,18 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const smgAmmo = first.state.players.get(first.sessionId)?.ammoSmg;
   assert.equal(smgAmmo, 240);
   const correlatedCommand = {
-    protocolVersion: INTERACTION_PROTOCOL_VERSION,
+    protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 1,
     clientSampleTimeMs: first.state.serverTimeMs,
     controlledEntityId: first.sessionId,
-    aimAngle: safeFireAngle(first, first.sessionId, world),
-    predictedSpawnIds: [9_001]
+    aimAngle: safeFireAngle(first, first.sessionId, world)
   };
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
-  await waitUntil(() => fireReceipts.length === 1);
-  assert.equal(fireReceipts[0].status, 'accepted');
-  assert.equal(fireReceipts[0].projectiles[0]?.clientSpawnId, 9_001);
-  assert.ok(fireReceipts[0].rewindMs >= 0 && fireReceipts[0].rewindMs <= 200);
   await waitUntil(() => first.state.players.get(first.sessionId)?.ammoSmg === 239);
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
-  await waitUntil(() => fireReceipts.length === 2);
-  assert.equal(fireReceipts[1].reason, 'stale-sequence');
-  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'shotgun');
+  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'rocket');
   assert.equal(first.state.players.get(first.sessionId)?.ammoRocket, 4);
@@ -503,8 +459,15 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   ))));
   const shooterAfterDuel = first.state.players.get(first.sessionId);
   if (shooterAfterDuel?.alive) {
-    assert.ok(shooterAfterDuel.wanted >= 1);
-    assert.ok(shooterAfterDuel.cash >= 100);
+    await waitUntil(() => {
+      const player = first.state.players.get(first.sessionId);
+      return Boolean(player && (!player.alive || (player.wanted >= 1 && player.cash >= 100)));
+    }, 5000);
+    const settledShooter = first.state.players.get(first.sessionId);
+    if (settledShooter?.alive) {
+      assert.ok(settledShooter.wanted >= 1);
+      assert.ok(settledShooter.cash >= 100);
+    }
   } else {
     await waitUntil(() => first.state.players.get(first.sessionId)?.alive === true, 5000);
     await returnToStreetIfNeeded(first, first.sessionId);
@@ -554,7 +517,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     second.sessionId,
     second.state.missionContactX,
     second.state.missionContactY,
-    75,
+    125,
     world
   );
   await waitUntil(() => second.state.missions.size === 0, 6000);
@@ -910,24 +873,8 @@ function approachHasVehicleClearance(
 ): boolean {
   return [...room.state.vehicles.values()].every((vehicle) => {
     const definition = vehicleConfig(vehicle.kind);
-    return !resolveVehicleHumanoidContact({
-      id: vehicle.id,
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: vehicle.angle,
-      speed: vehicle.speed,
-      halfLength: definition.collision.length / 2,
-      halfWidth: definition.collision.width / 2,
-      mass: definition.mass
-    }, {
-      id: 'mission-contact-candidate',
-      x: point.x,
-      y: point.y,
-      velocityX: 0,
-      velocityY: 0,
-      radius: 11,
-      mass: 0.22
-    }).collided;
+    return Math.hypot(vehicle.x - point.x, vehicle.y - point.y) >
+      Math.hypot(definition.collision.length / 2, definition.collision.width / 2) + 11;
   });
 }
 

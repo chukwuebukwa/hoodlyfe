@@ -39,6 +39,8 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
     edge.kind === 'turnaround' && edge.junctionId === 'terminal:west-avenue:end'
   )));
   assert.ok(graph.nodes().every((node) => graph.outgoing(node.id).length > 0));
+  assert.ok(graph.nodes().every((node) => Boolean(node.surfaceId)));
+  assert.ok(graph.edges().every((edge) => Boolean(edge.fromSurfaceId && edge.toSurfaceId)));
 
   const multiLaneEdge = graph.edge('central-avenue:forward:edge:2');
   assert.ok(multiLaneEdge);
@@ -62,7 +64,7 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
     assert.ok(spawn.laneFromNodeId);
     assert.ok(spawn.laneToNodeId);
     assert.equal(world.isRoadAt(spawn.x, spawn.y), true);
-    assert.equal(world.canOccupy(spawn.x, spawn.y, 20), true);
+    assert.equal(world.canOccupy(spawn.x, spawn.y, 20, spawn.surfaceId, 'vehicle'), true);
   }
 });
 

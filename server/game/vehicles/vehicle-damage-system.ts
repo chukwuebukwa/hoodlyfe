@@ -1,5 +1,4 @@
 import type {VehicleDamageSource} from '../events/game-events.ts';
-import type {VehicleDamageZone} from './vehicle-collision-system.ts';
 import {
   vehicleMechanicalSpeedMultiplier,
   vehicleMechanicalStepModifiers
@@ -11,6 +10,21 @@ const ENGINE_SMOKE = 200;
 const ENGINE_ON_FIRE = 225;
 const MAX_COMPONENT_DAMAGE = 300;
 const FIRE_FUSE_MS = 5000;
+
+export type VehicleDamageZone = 'front' | 'rear' | 'left' | 'right';
+
+export function classifyImpactZone(
+  vehicleAngle: number,
+  impactDirectionX: number,
+  impactDirectionY: number
+): VehicleDamageZone {
+  const forward = impactDirectionX * Math.cos(vehicleAngle) +
+    impactDirectionY * Math.sin(vehicleAngle);
+  const side = impactDirectionX * -Math.sin(vehicleAngle) +
+    impactDirectionY * Math.cos(vehicleAngle);
+  if (Math.abs(forward) >= Math.abs(side)) return forward >= 0 ? 'front' : 'rear';
+  return side >= 0 ? 'right' : 'left';
+}
 
 export interface VehicleMechanicalState {
   health: number;

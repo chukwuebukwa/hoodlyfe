@@ -17,6 +17,7 @@ interface ThreeInputControllerOptions {
   canvas: HTMLCanvasElement;
   camera: THREE.Camera;
   player: () => NetworkPlayer | undefined;
+  aimOrigin?: () => {x: number; y: number} | undefined;
   vehicleAngle?: (vehicleId: string) => number | undefined;
   surfaceZ: () => number;
   onFire?: (angle: number) => void;
@@ -81,7 +82,8 @@ export class ThreeInputController {
       const target = new THREE.Vector3();
       const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.options.surfaceZ());
       if (this.raycaster.ray.intersectPlane(plane, target)) {
-        angle = threePointToServerAimAngle(player.x, player.y, target.x, target.y);
+        const origin = this.options.aimOrigin?.() ?? player;
+        angle = threePointToServerAimAngle(origin.x, origin.y, target.x, target.y);
       }
     }
     if (angle !== undefined) {

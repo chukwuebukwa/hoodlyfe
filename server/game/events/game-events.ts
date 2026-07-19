@@ -141,12 +141,6 @@ export interface VehicleIgnitedEvent extends EventMetadata {
   explodesAt: number;
 }
 
-export interface VehicleRestoredEvent extends EventMetadata {
-  type: 'vehicle.restored';
-  vehicleId: string;
-  health: number;
-}
-
 export interface PlayerRespawnedEvent extends EventMetadata {
   type: 'player.respawned';
   playerId: string;
@@ -270,7 +264,6 @@ export type GameEvent =
   | VehicleDamagedEvent
   | VehicleIgnitedEvent
   | VehicleDestroyedEvent
-  | VehicleRestoredEvent
   | PlayerRespawnedEvent
   | PoliceArrestStartedEvent
   | PoliceArrestCancelledEvent

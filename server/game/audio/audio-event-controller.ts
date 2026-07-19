@@ -176,19 +176,6 @@ export class AudioEventController {
           sourceId: event.sourceId
         };
       }
-      case 'vehicle.restored': {
-        const vehicle = this.options.state.vehicles.get(event.vehicleId);
-        if (!vehicle) return undefined;
-        return {
-          id,
-          tick: event.tick,
-          kind: 'vehicle.repaired',
-          x: vehicle.x,
-          y: vehicle.y,
-          intensity: 0.5,
-          sourceId: event.vehicleId
-        };
-      }
       case 'pickup.collected': {
         const player = this.options.state.players.get(event.playerId);
         if (!player) return undefined;

@@ -9,7 +9,7 @@ NOCK0 is a server-authoritative browser game. Production infrastructure must pre
 1. One active district room has exactly one authoritative process in exactly one region.
 2. Clients send input intent, never trusted position, damage, money, inventory, or mission results.
 3. Regional placement reduces physical latency; prediction and reconciliation hide the latency that remains.
-4. Persistent identity and economy are outside transient room state and outside the 30 Hz simulation.
+4. Persistent identity and economy are outside transient room state and outside the 60 Hz simulation.
 5. Cross-region friendship is supported by choosing one fair host region for the group, not by running competing copies of the same room.
 6. More processes increase the number of rooms. They do not divide one room across CPU cores.
 7. Blockchain settlement is asynchronous and never enters matchmaking, room admission, or the simulation tick.
@@ -186,7 +186,7 @@ lastServerTickAcknowledged
 
 The server rejects stale or impossible inputs, processes only the newest movement state when queued inputs supersede one another, and returns the last accepted input sequence in authoritative patches. Maintain continuous clock offset and RTT estimates using ping/pong samples; never trust the client's wall clock.
 
-The current 30 Hz simulation and 20 Hz patches are valid starting points. Raising rates is allowed only after measuring tick cost and bandwidth. Higher frequency cannot repair geographic RTT.
+The current 60 Hz simulation and 20 Hz patches keep simulation latency and replication bandwidth independently tunable. Higher frequency cannot repair geographic RTT.
 
 ### Local Player Prediction
 
@@ -366,7 +366,7 @@ Exit gate: a regional outage routes new sessions elsewhere, active-session recov
 
 ## 13. Immediate Recommendation
 
-Do not change the current 20 Hz patch rate as the first latency fix. First implement Phase 0 telemetry and Phase 1 local driver prediction. Then deploy explicit California, Virginia, and Singapore services and add party-wide region selection. This addresses both causes of poor feel: physical round-trip time and the current lack of local vehicle prediction.
+Keep the current 20 Hz patch rate until bandwidth and delivery-gap measurements justify raising it. Geographic deployment and party-wide region selection still address physical round-trip time.
 
 ## 14. Implementation Checkpoint - 2026-07-11
 

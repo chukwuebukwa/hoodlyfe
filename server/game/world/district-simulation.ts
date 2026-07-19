@@ -12,7 +12,6 @@ import type {RocketProjectileController} from '../combat/rocket-projectile-contr
 import type {ThrownProjectileController} from '../combat/thrown-projectile-controller.ts';
 import type {DebugSnapshotController} from '../debug/debug-snapshot-controller.ts';
 import type {GameEvent, GameEventStream} from '../events/game-events.ts';
-import type {InteractionSnapshotProjector} from '../network/interaction-snapshot-projector.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
 import type {CashPickupController} from '../pickups/cash-pickup-controller.ts';
 import type {WeaponPickupController} from '../pickups/weapon-pickup-controller.ts';
@@ -68,6 +67,10 @@ interface MissionPort {
   observeEvents(events: readonly GameEvent[]): void;
 }
 
+interface JournalPort {
+  observeTick(tick: number, events: readonly GameEvent[]): void;
+}
+
 export interface DistrictSimulationOptions {
   state: DistrictState;
   clock: FixedStepClock;
@@ -100,9 +103,8 @@ export interface DistrictSimulationOptions {
   lifecycle: DeferredCommandQueue;
   events: GameEventStream;
   audio: AudioEventController;
-  interactionSnapshots: InteractionSnapshotProjector;
-  interactionSnapshotsEnabled: () => boolean;
   debug: DebugSnapshotController;
+  journal?: JournalPort;
   indexPlayer: (player: PlayerState) => void;
   indexNpc: (npc: NpcState) => void;
   indexVehicle: (vehicle: VehicleState) => void;
@@ -155,11 +157,8 @@ export class DistrictSimulation {
         this.options.vehicles.beginTick(nowMs);
         this.options.state.vehicles.forEach((vehicle) => {
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
-          this.options.indexVehicle(vehicle);
+          if (this.options.state.vehicles.has(vehicle.id)) this.options.indexVehicle(vehicle);
         });
-        for (const vehicle of this.options.vehicles.finishTick(nowMs)) {
-          this.options.indexVehicle(vehicle);
-        }
       }),
       phase('player-motion', ({deltaSeconds, nowMs}) => {
         this.options.reactions.update(nowMs);
@@ -197,7 +196,7 @@ export class DistrictSimulation {
         });
       }),
       phase('dynamic-contacts', ({deltaSeconds, nowMs}) => {
-        const contacts = this.options.vehicles.finishHumanoidContacts(deltaSeconds, nowMs);
+        const contacts = this.options.vehicles.stepPhysics(deltaSeconds, nowMs);
         for (const vehicle of contacts.vehicles) this.options.indexVehicle(vehicle);
         for (const player of contacts.players) this.options.indexPlayer(player);
         for (const npc of contacts.npcs) this.options.indexNpc(npc);
@@ -246,11 +245,9 @@ export class DistrictSimulation {
         this.options.cashPickups.observeEvents(context.events);
         this.options.audio.publish(context.events);
       }),
-      phase('snapshot-observability', ({events}) => {
-        if (this.options.interactionSnapshotsEnabled()) {
-          this.options.interactionSnapshots.capture();
-        }
+      phase('snapshot-observability', ({tick, events}) => {
         this.options.debug.update(events);
+        this.options.journal?.observeTick(tick, events);
       })
     ];
   }

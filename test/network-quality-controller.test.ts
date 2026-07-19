@@ -3,7 +3,7 @@ import test from 'node:test';
 import {NetworkQualityController} from '../src/game/network/network-quality-controller.ts';
 import {NETWORK_PING_MESSAGE, NETWORK_PONG_MESSAGE} from '../shared/protocol/network-quality.ts';
 
-test('network quality samples probes, patch gaps, and prediction corrections', () => {
+test('network quality samples probes, patch gaps, and remote interpolation health', () => {
   let now = 0;
   const sent: Array<{type: string; message: unknown}> = [];
   let pong: (message: any) => void = () => {};
@@ -40,9 +40,6 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
   stateChanged({serverTimeMs: 150, serverTick: 92});
   now = 230;
   stateChanged({serverTimeMs: 230, serverTick: 94});
-  controller.observePrediction(7.25, false);
-  controller.observePrediction(182, true, 4, 27, true);
-  controller.observeOnFootPrediction(3, false, 2, 31, true);
   controller.observeRemoteTimeline({
     snapshotAgeMs: 70,
     bufferUnderrun: false,
@@ -53,35 +50,6 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     bufferUnderrun: true,
     mode: 'held'
   });
-  controller.observeInteractionIsland({
-    serverTick: 93,
-    memberIds: ['local', 'car'],
-    weightedPoints: 8,
-    budget: 32,
-    overflowIds: ['pedestrian:ambient'],
-    overflowPoints: 1,
-    horizonMs: 180.25
-  });
-  controller.observeInteractionHistory(12);
-  controller.observeInteractionReplay({
-    replayed: true,
-    baselineTick: 92,
-    targetServerTick: 94,
-    replayedTicks: 2,
-    bodySteps: 4,
-    pairSteps: 2,
-    confirmedEventsThrough: 92,
-    entities: [],
-    rootStates: [],
-    suppressedEffects: {
-      'idempotent-presentation': 0,
-      'one-shot-presentation': 2,
-      'authoritative-gameplay': 1,
-      'durable-transaction': 0
-    }
-  }, 1.25);
-  controller.observeInteractionReplay({replayed: false, reason: 'world-revision-mismatch'}, 0);
-
   assert.deepEqual(controller.snapshot(), {
     region: 'us-east4',
     buildId: 'abcdef123456',
@@ -94,34 +62,9 @@ test('network quality samples probes, patch gaps, and prediction corrections', (
     estimatedServerTimeMs: 235,
     interpolationDelayMs: 120,
     clockSynchronized: true,
-    predictionError: 3,
-    predictionErrorP95: 182,
-    predictionErrorMean: 64.1,
-    predictionCorrections: 3,
-    reconciliations: 1,
-    vehicleResimulations: 1,
-    vehiclePendingMoves: 4,
-    vehicleAcknowledgedMove: 27,
-    onFootResimulations: 1,
-    onFootPendingMoves: 2,
-    onFootAcknowledgedMove: 31,
     remoteSnapshotAgeP95Ms: 130,
     remoteBufferUnderrunPercent: 50,
-    remoteExtrapolationPercent: 0,
-    interactionIslandSize: 2,
-    interactionIslandPoints: 8,
-    interactionIslandBudget: 32,
-    interactionIslandOverflow: 1,
-    interactionIslandOverflowPoints: 1,
-    interactionIslandHorizonMs: 180.3,
-    interactionSnapshotAgeTicks: 1,
-    interactionHistoryFrames: 12,
-    interactionReplayCount: 1,
-    interactionReplayTicks: 2,
-    interactionReplayDurationP95Ms: 1.3,
-    interactionReplayPairSteps: 2,
-    interactionReplaySuppressedEffects: 3,
-    interactionReplayHardResets: 1
+    remoteExtrapolationPercent: 0
   });
   controller.destroy();
 });

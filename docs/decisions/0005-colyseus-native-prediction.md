@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted on 2026-07-12.
+Superseded on 2026-07-19. Colyseus remains the authoritative transport, but the native
+prediction implementation was removed. Clients now use snapshot interpolation only;
+prediction may be reconsidered later from measured latency requirements.
 
 ## Context
 

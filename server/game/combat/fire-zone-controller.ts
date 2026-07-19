@@ -25,11 +25,12 @@ export class FireZoneController {
 
   constructor(private readonly options: FireZoneControllerOptions) {}
 
-  ignite(x: number, y: number, ownerId: string, nowMs: number): string {
+  ignite(x: number, y: number, ownerId: string, nowMs: number, surfaceId: string): string {
     this.enforceCapacity(ownerId);
     const fire = new FireZoneState();
     fire.id = `fire-${this.nextId++}`;
     fire.ownerId = ownerId;
+    fire.surfaceId = surfaceId;
     fire.x = x;
     fire.y = y;
     fire.radius = FIRE_ZONE.radius;
@@ -65,15 +66,21 @@ export class FireZoneController {
 
   private applyDamage(fire: FireZoneState, nowMs: number): void {
     for (const player of this.options.queryPlayers(fire.x, fire.y, fire.radius)) {
-      if (!player.alive || player.vehicleId || distance(player, fire) > fire.radius) continue;
+      if (
+        !player.alive || player.vehicleId || player.surfaceId !== fire.surfaceId ||
+        distance(player, fire) > fire.radius
+      ) continue;
       this.options.burn.ignitePlayer(player, fire.ownerId, nowMs);
     }
     for (const npc of this.options.queryNpcs(fire.x, fire.y, fire.radius)) {
-      if (!npc.alive || distance(npc, fire) > fire.radius) continue;
+      if (!npc.alive || npc.surfaceId !== fire.surfaceId || distance(npc, fire) > fire.radius) continue;
       this.options.burn.igniteNpc(npc, fire.ownerId, nowMs);
     }
     for (const vehicle of this.options.queryVehicles(fire.x, fire.y, fire.radius)) {
-      if (vehicle.destroyed || distance(vehicle, fire) > fire.radius) continue;
+      if (
+        vehicle.destroyed || vehicle.surfaceId !== fire.surfaceId ||
+        distance(vehicle, fire) > fire.radius
+      ) continue;
       this.options.vehicles.damage(vehicle, FIRE_ZONE.vehicleDamage, fire.ownerId, 'weapon', nowMs);
     }
   }
