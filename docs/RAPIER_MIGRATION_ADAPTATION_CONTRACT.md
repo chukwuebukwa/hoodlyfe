@@ -136,6 +136,9 @@ Stage gates use the existing netcode rollout controller and flag machinery.
 ### Stage 4 - General availability and kernel removal
 - Flag defaults on in production for one soak week; then bespoke kernels and the flag
   are removed, tests re-pointed at the adapter, `COLLISION_ARCHITECTURE.md` rewritten.
+- Default flipped on 2026-07-19 (stages 1-3 acceptance evidence in place for
+  vehicles; on-foot remains kernel until stage 3). `GAME_NETCODE_SERVER_VEHICLE_PHYSICS=off`
+  is the no-redeploy rollback lever until kernel removal completes this stage.
 
 ## Rollback
 

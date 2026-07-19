@@ -134,4 +134,15 @@
   deterministic trace; full suite 568/568 in both flag states; netcode suite and
   production build green.
 
-Working tree intentionally left uncommitted for review.
+## Default On
+
+- Flipped `GAME_NETCODE_SERVER_VEHICLE_PHYSICS` to default on: vehicles simulate
+  and predict through the physics world everywhere from now on. The environment
+  flag survives solely as the no-redeploy rollback lever (`=off`) until stage 4
+  removes the kernel path. Gates rerun in both default and rollback states:
+  568/568 full suite each, netcode 128/128, strict soak green in both modes,
+  production build green.
+
+Stages 0-2 committed on `spike/rapier2d-netcode` as three feature commits plus the
+default flip; `tmp/spike/district-map-96.json` intentionally left untracked (it is
+an extract of the `codex/map-expansion-pipeline` asset).

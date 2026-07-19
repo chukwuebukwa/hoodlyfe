@@ -15,7 +15,7 @@ test('rollout configuration preserves the current all-on deployment by default',
     interactionReplay: true,
     combatRewind: true,
     projectilePrediction: true,
-    serverVehiclePhysics: false
+    serverVehiclePhysics: true
   });
 });
 
@@ -50,11 +50,11 @@ test('the vehicle physics stage rides the manifest and older manifests validate 
   assert.equal(legacyShape.accepted && legacyShape.value.stages.serverVehiclePhysics, false);
 });
 
-test('server physics rollout defaults off and parses explicit values', () => {
-  assert.deepEqual(resolveServerPhysicsRollout({}), {vehicles: false});
+test('server physics rollout defaults on with the flag as the rollback lever', () => {
+  assert.deepEqual(resolveServerPhysicsRollout({}), {vehicles: true});
   assert.deepEqual(
-    resolveServerPhysicsRollout({GAME_NETCODE_SERVER_VEHICLE_PHYSICS: 'on'}),
-    {vehicles: true}
+    resolveServerPhysicsRollout({GAME_NETCODE_SERVER_VEHICLE_PHYSICS: 'off'}),
+    {vehicles: false}
   );
   assert.deepEqual(
     resolveServerPhysicsRollout({GAME_NETCODE_SERVER_VEHICLE_PHYSICS: '0'}),

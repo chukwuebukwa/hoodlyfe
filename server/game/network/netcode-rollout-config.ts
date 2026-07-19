@@ -18,14 +18,17 @@ export interface ServerPhysicsRollout {
   readonly vehicles: boolean;
 }
 
-// Server-scoped stage 1 flag (RAPIER_MIGRATION_ADAPTATION_CONTRACT.md). Not part of
-// the negotiated manifest until stage 2 gives clients something to switch on.
+// Default on; the environment flag remains the no-redeploy rollback lever until
+// stage 4 of RAPIER_MIGRATION_ADAPTATION_CONTRACT.md removes the kernel path.
 export function resolveServerPhysicsRollout(
   environment: Readonly<Record<string, string | undefined>> = process.env
 ): ServerPhysicsRollout {
-  const value = environment.GAME_NETCODE_SERVER_VEHICLE_PHYSICS;
-  if (value === undefined || value.trim() === '') return {vehicles: false};
-  return {vehicles: parseBoolean(value, 'GAME_NETCODE_SERVER_VEHICLE_PHYSICS')};
+  return {
+    vehicles: parseBoolean(
+      environment.GAME_NETCODE_SERVER_VEHICLE_PHYSICS,
+      'GAME_NETCODE_SERVER_VEHICLE_PHYSICS'
+    )
+  };
 }
 
 export function resolveNetcodeRolloutManifest(
