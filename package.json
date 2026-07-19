@@ -10,6 +10,7 @@
   },
   "scripts": {
     "assets:export": "bash scripts/export-gta2-assets.sh",
+    "district:export": "tsx scripts/export-local-district.ts",
     "assets:original-map": "python3 scripts/render-original-district.py",
     "map:expand": "tsx scripts/expand-district-map.ts",
     "map:validate": "tsx scripts/validate-district-map.ts",

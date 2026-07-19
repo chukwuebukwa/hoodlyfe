@@ -39,8 +39,18 @@ import {LevelEditorSidebar} from './LevelEditorSidebar';
 import {LevelEditorStatusBar} from './LevelEditorStatusBar';
 import {LevelEditorToolbar} from './LevelEditorToolbar';
 import {LevelEditorValidationPanel} from './LevelEditorValidationPanel';
+import {
+  DISTRICT_CATALOG,
+  districtDefinition,
+  districtMapAsset,
+  type DistrictDefinition
+} from '../../shared/content/district-catalog.ts';
 
 interface LoadedEditor {
+  district: DistrictDefinition;
+  availableDistricts: DistrictDefinition[];
+  previewUrl: string;
+  authoredLanes: boolean;
   source: SourceArtifacts;
   sourceDocument: LevelEditorDocument;
   initialDocument: LevelEditorDocument;
@@ -82,7 +92,9 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
   const [viewport, setViewport] = useState(EMPTY_VIEWPORT);
   const [viewCommand, setViewCommand] = useState<CanvasViewCommand>({id: 0, type: 'fit'});
   const [validationOpen, setValidationOpen] = useState(false);
-  const [status, setStatus] = useState(loaded.restoredAt ? `Restored autosave from ${formatTime(loaded.restoredAt)}.` : 'Repository source loaded.');
+  const [status, setStatus] = useState(loaded.restoredAt
+    ? `Restored autosave from ${formatTime(loaded.restoredAt)}.`
+    : loaded.authoredLanes ? 'Repository source loaded.' : 'District loaded with an empty lane graph.');
   const [autosaveLabel, setAutosaveLabel] = useState(loaded.restoredAt ? `Restored ${formatTime(loaded.restoredAt)}` : 'Autosave ready');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -207,6 +219,10 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
   }
 
   function onExportBundle(): void {
+    if (!loaded.district.activeRuntime) {
+      setStatus('Apply-ready bundle export is disabled for non-runtime districts.');
+      return;
+    }
     const currentReport = validateLevelDocument(document);
     if (currentReport.counts.error > 0 && !window.confirm(`Export with ${currentReport.counts.error} validation error${currentReport.counts.error === 1 ? '' : 's'}?`)) {
       setValidationOpen(true);
@@ -241,6 +257,10 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     <main id="level-editor">
       <LevelEditorToolbar
         title={document.title}
+        districtId={loaded.district.id}
+        districts={loaded.availableDistricts}
+        canExplore={true}
+        canExportBundle={loaded.district.activeRuntime}
         dirty={dirty}
         canUndo={history.past.length > 0}
         canRedo={history.future.length > 0}
@@ -259,6 +279,10 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         onReset={onReset}
         onToggleSidebar={() => setSidebarOpen((value) => !value)}
         onToggleInspector={() => setInspectorOpen((value) => !value)}
+        onDistrictChange={(id) => {
+          if (dirty && !window.confirm('Open another district? Your current edits are preserved in this district draft.')) return;
+          location.assign(`/editor?district=${encodeURIComponent(id)}`);
+        }}
       />
       <input ref={importInputRef} className="le-file-input" type="file" accept="application/json,.json" onChange={(event) => void onImportFile(event.target.files?.[0])} />
       <LevelEditorSidebar
@@ -273,6 +297,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
       />
       <section className="le-stage">
         <LevelEditorCanvas
+          previewUrl={loaded.previewUrl}
           document={document}
           tool={tool}
           selection={selection}
@@ -302,15 +327,26 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
 }
 
 async function loadEditor(): Promise<LoadedEditor> {
-  const [map, metadata, lanes] = await Promise.all([
-    fetchJson<TiledMapDocument>('/assets/maps/district-map.json'),
-    fetchJson<DistrictMapMetadata>('/assets/maps/district-map.metadata.json'),
-    fetchJson<LaneGraphDocument>('/assets/maps/district-lanes.json')
+  const availableDistricts = await discoverAvailableDistricts();
+  const requestedId = new URLSearchParams(location.search).get('district');
+  const requested = districtDefinition(requestedId);
+  const district = availableDistricts.find((candidate) => candidate.id === requested.id) ?? availableDistricts[0];
+  if (!district) throw new Error('No converted district assets are available.');
+  const [map, metadata, authoredLanes] = await Promise.all([
+    fetchJson<TiledMapDocument>(districtMapAsset(district, 'district-map.json')),
+    fetchJson<DistrictMapMetadata>(districtMapAsset(district, 'district-map.metadata.json')),
+    fetchOptionalJson<LaneGraphDocument>(districtMapAsset(district, 'district-lanes.json'))
   ]);
+  const lanes = authoredLanes ?? emptyLaneGraph(district.id);
   const source = {map, metadata};
-  const sourceDocument = assembleLevelDocument(map, metadata, lanes);
+  const assembled = assembleLevelDocument(map, metadata, lanes);
+  const sourceDocument = {...assembled, title: district.label};
   const draft = await loadLevelDraft(sourceDocument).catch(() => undefined);
   return {
+    district,
+    availableDistricts,
+    previewUrl: districtMapAsset(district, 'district-preview.png'),
+    authoredLanes: Boolean(authoredLanes),
     source,
     sourceDocument,
     initialDocument: draft?.document ?? sourceDocument,
@@ -318,8 +354,43 @@ async function loadEditor(): Promise<LoadedEditor> {
   };
 }
 
+async function discoverAvailableDistricts(): Promise<DistrictDefinition[]> {
+  const results = await Promise.all(DISTRICT_CATALOG.map(async (district) => {
+    try {
+      const response = await fetch(districtMapAsset(district, 'district-map.metadata.json'), {
+        cache: 'no-store',
+        method: 'HEAD'
+      });
+      return response.ok ? district : undefined;
+    } catch {
+      return undefined;
+    }
+  }));
+  return results.filter((district): district is DistrictDefinition => Boolean(district));
+}
+
+function emptyLaneGraph(districtId: string): LaneGraphDocument {
+  return {
+    schemaVersion: 2,
+    districtId,
+    driveSide: 'right',
+    laneOffset: 24,
+    laneSpacing: 40,
+    corridors: [],
+    junctions: [],
+    roadblocks: []
+  };
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(path, {cache: 'no-store'});
+  if (!response.ok) throw new Error(`Unable to load ${path}: HTTP ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+async function fetchOptionalJson<T>(path: string): Promise<T | undefined> {
+  const response = await fetch(path, {cache: 'no-store'});
+  if (response.status === 404) return undefined;
   if (!response.ok) throw new Error(`Unable to load ${path}: HTTP ${response.status}`);
   return response.json() as Promise<T>;
 }

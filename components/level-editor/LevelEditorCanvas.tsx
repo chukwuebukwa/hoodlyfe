@@ -34,6 +34,7 @@ export interface CanvasViewCommand {
 }
 
 interface LevelEditorCanvasProps {
+  previewUrl: string;
   document: LevelEditorDocument;
   tool: EditorTool;
   selection: EditorSelection;
@@ -70,9 +71,8 @@ interface DragState {
 const MIN_SCALE = 0.025;
 const MAX_SCALE = 8;
 const ENTITY_HIT_RADIUS_PX = 13;
-const PREVIEW_URL = '/assets/maps/district-preview.png';
-
 export function LevelEditorCanvas({
+  previewUrl,
   document,
   tool,
   selection,
@@ -106,11 +106,11 @@ export function LevelEditorCanvas({
   useEffect(() => {
     const image = new Image();
     image.decoding = 'async';
-    image.src = PREVIEW_URL;
+    image.src = previewUrl;
     image.addEventListener('load', draw);
     previewRef.current = image;
     return () => image.removeEventListener('load', draw);
-  }, []);
+  }, [previewUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

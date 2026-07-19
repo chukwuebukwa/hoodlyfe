@@ -14,3 +14,6 @@ GTA2_GAME/
 GTA2_EXTRACTED/
 GTA2INSTALLER/
 GTA2INSTALLER.ZIP
+
+# Locally converted GTA2 districts. Keep source-derived assets out of Git.
+public/assets/districts/*/

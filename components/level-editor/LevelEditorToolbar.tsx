@@ -22,6 +22,10 @@ import {
 
 interface LevelEditorToolbarProps {
   title: string;
+  districtId: string;
+  districts: Array<{id: string; label: string}>;
+  canExplore: boolean;
+  canExportBundle: boolean;
   dirty: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -40,6 +44,7 @@ interface LevelEditorToolbarProps {
   onReset(): void;
   onToggleSidebar(): void;
   onToggleInspector(): void;
+  onDistrictChange(id: string): void;
 }
 
 export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
@@ -56,6 +61,15 @@ export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
           <strong>NOCK0 LEVEL EDITOR</strong>
           <span>{props.title}</span>
         </div>
+        <select
+          className="le-district-select"
+          value={props.districtId}
+          onChange={(event) => props.onDistrictChange(event.target.value)}
+          aria-label="District"
+          title="Open district"
+        >
+          {props.districts.map((district) => <option key={district.id} value={district.id}>{district.label}</option>)}
+        </select>
         <i className={props.dirty ? 'is-dirty' : ''}>{props.dirty ? 'Modified' : 'Source clean'}</i>
       </div>
 
@@ -92,11 +106,11 @@ export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
         </button>
         <button type="button" onClick={props.onImport}><Upload size={16} /> Import</button>
         <button type="button" onClick={props.onExportProject}><FileJson size={16} /> Project</button>
-        <button type="button" className="is-primary" onClick={props.onExportBundle}><Download size={16} /> Game bundle</button>
+        <button type="button" className="is-primary" onClick={props.onExportBundle} disabled={!props.canExportBundle} title={props.canExportBundle ? 'Export apply-ready game artifacts' : 'Only the active multiplayer district can export an apply-ready bundle'}><Download size={16} /> Game bundle</button>
         <button className="le-icon-button" type="button" onClick={props.onReset} title="Reset to repository source" aria-label="Reset to repository source">
           <RotateCcw size={17} />
         </button>
-        <Link href="/" className="le-icon-button" title="Open game" aria-label="Open game"><Gamepad2 size={17} /></Link>
+        <Link href={props.canExplore ? `/explore?district=${props.districtId}` : '/'} className="le-icon-button" title={props.canExplore ? 'Walk this district' : 'Open game'} aria-label={props.canExplore ? 'Walk this district' : 'Open game'}><Gamepad2 size={17} /></Link>
         <button className="le-icon-button le-mobile-only" type="button" onClick={props.onToggleInspector} title="Toggle inspector" aria-label="Toggle inspector">
           <PanelRight size={17} />
         </button>

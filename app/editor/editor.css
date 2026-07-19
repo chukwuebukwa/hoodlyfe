@@ -134,6 +134,17 @@
   color: var(--le-accent);
 }
 
+.le-district-select {
+  width: 150px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--le-border-strong);
+  border-radius: var(--le-radius);
+  background: var(--le-surface-3);
+  color: var(--le-text);
+  font: 700 10px/1 var(--le-font-mono);
+}
+
 .le-toolbar__group {
   display: flex;
   align-items: center;
@@ -1016,6 +1027,10 @@
 
   .le-toolbar__identity > div {
     max-width: 105px;
+  }
+
+  .le-district-select {
+    width: 112px;
   }
 
   .le-toolbar__commands > a {

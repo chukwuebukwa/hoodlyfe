@@ -187,3 +187,29 @@ next production milestones, in order, are:
 
 Simulation and runtime ownership stay outside the editor. These tools visualize, validate,
 and export authored inputs; they must not become a second implementation of game AI.
+
+## Local District Packages
+
+The editor can open multiple converted GTA2 districts without replacing the active multiplayer map.
+
+```bash
+npm run district:export -- wil 256
+```
+
+This writes a local, Git-ignored package to `public/assets/districts/wil/` containing the full
+map, collision and road grids, preview image, Three.js atlas, surface grid, and streamed geometry
+chunks. Use `ste` in place of `wil` to convert that district.
+
+After export:
+
+1. Open `/editor?district=wil` to inspect or edit the whole map.
+2. Use the gamepad button or open `/explore?district=wil` for a local streamed walk preview.
+3. Move with WASD, arrow keys, or the mobile direction controls.
+
+Optional districts start with an empty lane graph until lanes are authored in the editor. The
+apply-ready **Game bundle** command remains disabled outside BIL because the multiplayer server,
+interiors, services, missions, and population systems are still bound to the active runtime
+district. The editable project export remains available for every district.
+
+Converted source-derived packages are intentionally excluded from Git. Commit the reusable
+catalog, tools, and authored original data rather than the generated GTA2 assets.
