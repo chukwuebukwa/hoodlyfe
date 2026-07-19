@@ -52,19 +52,67 @@ export type LpcHairId =
   | 'twists_fade'
   | 'ponytail'
   | 'long';
-export type LpcFaceId = 'neutral' | 'happy' | 'anger';
+export type LpcFaceId =
+  | 'neutral'
+  | 'happy'
+  | 'anger'
+  | 'sad'
+  | 'shock'
+  | 'blush'
+  | 'closed'
+  | 'look_l'
+  | 'look_r'
+  | 'shame';
 export type LpcHatId =
   | 'none'
   | 'yarmulke'
+  | 'bandana'
+  | 'hood'
   | 'leather_cap'
+  | 'bowler'
+  | 'crown'
+  | 'tiara'
   | 'tophat'
+  | 'santa'
+  | 'elf'
+  | 'wizard'
+  | 'pirate_bandana'
+  | 'tricorne'
   | 'norman_helmet'
   | 'flattop_helmet'
   | 'winter_hat'
   | 'cavalier';
-export type LpcTopId = 'tshirt' | 'longsleeve' | 'sleeveless' | 'formal' | 'smiley' | 'puffer';
-export type LpcLegsId = 'pants' | 'formal_striped' | 'shorts';
-export type LpcShoesId = 'shoes' | 'boots' | 'sandals' | 'timbs';
+export type LpcTopId =
+  | 'tshirt'
+  | 'polo'
+  | 'buttoned'
+  | 'longsleeve'
+  | 'cardigan'
+  | 'sleeveless'
+  | 'formal'
+  | 'overalls'
+  | 'suspenders'
+  | 'leather_armor'
+  | 'chainmail'
+  | 'smiley'
+  | 'puffer';
+export type LpcLegsId =
+  | 'pants'
+  | 'formal'
+  | 'formal_striped'
+  | 'cuffed'
+  | 'leggings'
+  | 'shorts'
+  | 'skirt'
+  | 'plate_legs';
+export type LpcShoesId =
+  | 'shoes'
+  | 'revised_shoes'
+  | 'boots'
+  | 'fold_boots'
+  | 'sandals'
+  | 'slippers'
+  | 'timbs';
 
 export interface LpcCharacterRecipe {
   version: typeof LPC_RECIPE_VERSION;
@@ -115,14 +163,31 @@ export const LPC_HAIR_OPTIONS: readonly LpcOption<LpcHairId>[] = Object.freeze([
 export const LPC_FACE_OPTIONS: readonly LpcOption<LpcFaceId>[] = Object.freeze([
   {id: 'neutral', label: 'Neutral'},
   {id: 'happy', label: 'Happy'},
-  {id: 'anger', label: 'Angry'}
+  {id: 'anger', label: 'Angry'},
+  {id: 'sad', label: 'Sad'},
+  {id: 'shock', label: 'Shocked'},
+  {id: 'blush', label: 'Blush'},
+  {id: 'closed', label: 'Eyes Closed'},
+  {id: 'look_l', label: 'Look Left'},
+  {id: 'look_r', label: 'Look Right'},
+  {id: 'shame', label: 'Shame'}
 ]);
 
 export const LPC_HAT_OPTIONS: readonly LpcOption<LpcHatId>[] = Object.freeze([
   {id: 'none', label: 'No Hat'},
   {id: 'yarmulke', label: 'Yarmulke'},
+  {id: 'bandana', label: 'Bandana'},
+  {id: 'hood', label: 'Hood'},
   {id: 'leather_cap', label: 'Leather Cap'},
+  {id: 'bowler', label: 'Bowler'},
+  {id: 'crown', label: 'Crown'},
+  {id: 'tiara', label: 'Tiara'},
   {id: 'tophat', label: 'Top Hat'},
+  {id: 'santa', label: 'Santa Hat'},
+  {id: 'elf', label: 'Elf Hat'},
+  {id: 'wizard', label: 'Wizard Hat'},
+  {id: 'pirate_bandana', label: 'Pirate Bandana'},
+  {id: 'tricorne', label: 'Tricorne'},
   {id: 'winter_hat', label: 'Winter Hat'},
   {id: 'cavalier', label: 'Cavalier'},
   {id: 'norman_helmet', label: 'Norman Helm'},
@@ -131,23 +196,38 @@ export const LPC_HAT_OPTIONS: readonly LpcOption<LpcHatId>[] = Object.freeze([
 
 export const LPC_TOP_OPTIONS: readonly LpcOption<LpcTopId>[] = Object.freeze([
   {id: 'tshirt', label: 'Vest'},
+  {id: 'polo', label: 'Polo'},
+  {id: 'buttoned', label: 'Buttoned Tee'},
   {id: 'longsleeve', label: 'Laced Sleeve'},
+  {id: 'cardigan', label: 'Cardigan'},
   {id: 'sleeveless', label: 'Sleeveless'},
   {id: 'formal', label: 'Open Vest'},
+  {id: 'overalls', label: 'Overalls'},
+  {id: 'suspenders', label: 'Suspenders'},
+  {id: 'leather_armor', label: 'Leather Armor'},
+  {id: 'chainmail', label: 'Chainmail'},
   {id: 'smiley', label: 'Smiley Tee'},
   {id: 'puffer', label: 'Puffer Jacket'}
 ]);
 
 export const LPC_LEGS_OPTIONS: readonly LpcOption<LpcLegsId>[] = Object.freeze([
   {id: 'pants', label: 'Pants'},
+  {id: 'formal', label: 'Formal Pants'},
   {id: 'formal_striped', label: 'Striped Pants'},
-  {id: 'shorts', label: 'Shorts'}
+  {id: 'cuffed', label: 'Cuffed Pants'},
+  {id: 'leggings', label: 'Leggings'},
+  {id: 'shorts', label: 'Shorts'},
+  {id: 'skirt', label: 'Skirt'},
+  {id: 'plate_legs', label: 'Plate Legs'}
 ]);
 
 export const LPC_SHOE_OPTIONS: readonly LpcOption<LpcShoesId>[] = Object.freeze([
   {id: 'shoes', label: 'Shoes'},
+  {id: 'revised_shoes', label: 'Low Shoes'},
   {id: 'boots', label: 'Boots'},
+  {id: 'fold_boots', label: 'Fold Boots'},
   {id: 'sandals', label: 'Sandals'},
+  {id: 'slippers', label: 'Slippers'},
   {id: 'timbs', label: 'Timbs'}
 ]);
 
@@ -329,11 +409,21 @@ function layerForTop(recipe: LpcCharacterRecipe): LpcLayerDefinition {
 
 function layerForLegs(recipe: LpcCharacterRecipe): LpcLayerDefinition {
   const shape = lpcBodyShape(recipe);
-  const base = recipe.legs === 'formal_striped'
-    ? `spritesheets/legs/formal_striped/${shape}`
-    : recipe.legs === 'shorts'
-      ? `spritesheets/legs/shorts/shorts/${shape}`
-      : `spritesheets/legs/pants/${recipe.body === 'female' ? 'female' : 'male'}`;
+  const base = recipe.legs === 'formal'
+    ? `spritesheets/legs/formal/${shape}`
+    : recipe.legs === 'formal_striped'
+      ? `spritesheets/legs/formal_striped/${shape}`
+      : recipe.legs === 'cuffed'
+        ? `spritesheets/legs/cuffed/${shape}`
+        : recipe.legs === 'leggings'
+          ? `spritesheets/legs/leggings/${shape}`
+          : recipe.legs === 'shorts'
+            ? `spritesheets/legs/shorts/shorts/${shape}`
+            : recipe.legs === 'skirt'
+              ? `spritesheets/legs/skirts/plain/${shape}`
+              : recipe.legs === 'plate_legs'
+                ? `spritesheets/legs/armour/plate/${shape}`
+                : `spritesheets/legs/pants/${recipe.body === 'female' ? 'female' : 'male'}`;
   return {id: 'legs', label: 'Legs', path: base, zPos: 20, variant: recipe.legsColor};
 }
 
@@ -347,11 +437,17 @@ function layerForShoes(recipe: LpcCharacterRecipe): LpcLayerDefinition {
       zPos: 15
     };
   }
-  const base = recipe.shoes === 'boots'
+  const base = recipe.shoes === 'revised_shoes'
+    ? `spritesheets/feet/shoes/revised/${shape}`
+    : recipe.shoes === 'boots'
     ? `spritesheets/feet/boots/basic/${shape}`
+    : recipe.shoes === 'fold_boots'
+      ? `spritesheets/feet/boots/fold/${shape}`
     : recipe.shoes === 'sandals'
       ? `spritesheets/feet/sandals/${shape}`
-      : `spritesheets/feet/shoes/basic/${shape}`;
+      : recipe.shoes === 'slippers'
+        ? `spritesheets/feet/slippers/${shape}`
+        : `spritesheets/feet/shoes/basic/${shape}`;
   return {id: 'shoes', label: 'Shoes', path: base, zPos: 15, variant: recipe.shoesColor};
 }
 
@@ -375,13 +471,23 @@ function hatLayers(recipe: LpcCharacterRecipe): LpcLayerDefinition[] {
   const fixedPaths: Partial<Record<LpcHatId, string>> = {
     yarmulke: 'spritesheets/hat/custom/yarmulke/adult',
     leather_cap: 'spritesheets/hat/cloth/leather_cap/adult',
+    hood: 'spritesheets/hat/cloth/hood/adult',
     tophat: 'spritesheets/hat/formal/tophat/adult',
     norman_helmet: 'spritesheets/hat/helmet/norman/adult',
     flattop_helmet: 'spritesheets/hat/helmet/flattop/male'
   };
   const colorPaths: Partial<Record<LpcHatId, string>> = {
+    bandana: 'spritesheets/hat/cloth/bandana/adult',
+    bowler: 'spritesheets/hat/formal/bowler/adult',
+    crown: 'spritesheets/hat/formal/crown/adult',
+    tiara: 'spritesheets/hat/formal/tiara/adult',
     winter_hat: 'spritesheets/hat/holiday/christmas/adult',
-    cavalier: 'spritesheets/hat/pirate/cavalier/adult'
+    santa: 'spritesheets/hat/holiday/santa/adult',
+    elf: 'spritesheets/hat/holiday/elf/adult',
+    wizard: 'spritesheets/hat/magic/wizard/base/adult',
+    pirate_bandana: 'spritesheets/hat/pirate/bandana/adult',
+    cavalier: 'spritesheets/hat/pirate/cavalier/adult',
+    tricorne: 'spritesheets/hat/pirate/tricorne/basic/adult'
   };
   const fixedPath = fixedPaths[recipe.hat];
   if (fixedPath) return [{id: 'hat', label: 'Hat', path: fixedPath, zPos: 130}];
@@ -395,6 +501,14 @@ function lpcBodyShape(recipe: LpcCharacterRecipe): 'male' | 'thin' {
 }
 
 function topPath(top: LpcTopId, shape: 'male' | 'thin'): string {
+  const torsoShape = shape === 'thin' ? 'female' : 'male';
+  if (top === 'polo') return `spritesheets/torso/clothes/shortsleeve/shortsleeve_polo/${torsoShape}`;
+  if (top === 'buttoned') return `spritesheets/torso/clothes/shortsleeve/tshirt_buttoned/${torsoShape}`;
+  if (top === 'cardigan') return `spritesheets/torso/clothes/longsleeve/longsleeve2_cardigan/${torsoShape}`;
+  if (top === 'overalls') return `spritesheets/torso/aprons/overalls/${torsoShape}`;
+  if (top === 'suspenders') return `spritesheets/torso/aprons/suspenders/${torsoShape}`;
+  if (top === 'leather_armor') return `spritesheets/torso/armour/leather/${torsoShape}`;
+  if (top === 'chainmail') return `spritesheets/torso/chainmail/${torsoShape}`;
   if (shape === 'thin') {
     return top === 'tshirt'
       ? 'spritesheets/torso/clothes/shortsleeve/tshirt/female'

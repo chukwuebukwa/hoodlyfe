@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import {
   APPEARANCE_COLORS,
@@ -11,10 +12,19 @@ import {
 } from '../shared/content/appearance-catalog.ts';
 import {
   DEFAULT_LPC_RECIPE,
+  LPC_ANIMATIONS,
+  LPC_BODY_OPTIONS,
+  LPC_FACE_OPTIONS,
+  LPC_HAIR_OPTIONS,
+  LPC_HAT_OPTIONS,
+  LPC_LEGS_OPTIONS,
+  LPC_SHOE_OPTIONS,
+  LPC_TOP_OPTIONS,
   lpcAssetCandidates,
   lpcLayerDefinitions,
   parseLpcRecipe,
-  serializeLpcRecipe
+  serializeLpcRecipe,
+  type LpcCharacterRecipe
 } from '../shared/content/lpc-character-catalog.ts';
 
 test('appearance catalog validates finite stable IDs and canonicalizes outfit names', () => {
@@ -105,4 +115,36 @@ test('LPC recipes migrate missing hair color and prefer colored fallback assets'
     '/assets/custom/lpc-catalog/spritesheets/hat/custom/yarmulke/adult/idle.png',
     '/assets/custom/lpc-catalog/spritesheets/hat/custom/yarmulke/adult/walk.png'
   ]);
+});
+
+test('LPC creator options are backed by generated catalog assets', () => {
+  const manifest = JSON.parse(
+    readFileSync('public/assets/custom/lpc-catalog/manifest.json', 'utf8')
+  ) as {assets?: unknown};
+  assert.ok(Array.isArray(manifest.assets));
+  const assets = new Set(manifest.assets.filter((value): value is string => typeof value === 'string'));
+  assert.ok(assets.size > 3000);
+
+  const variants: Array<readonly [string, Partial<LpcCharacterRecipe>]> = [
+    ...LPC_BODY_OPTIONS.map((option) => [`body:${option.id}`, {body: option.id}] as const),
+    ...LPC_FACE_OPTIONS.map((option) => [`face:${option.id}`, {face: option.id}] as const),
+    ...LPC_HAIR_OPTIONS.map((option) => [`hair:${option.id}`, {hair: option.id}] as const),
+    ...LPC_HAT_OPTIONS.map((option) => [`hat:${option.id}`, {hat: option.id}] as const),
+    ...LPC_TOP_OPTIONS.map((option) => [`top:${option.id}`, {top: option.id}] as const),
+    ...LPC_LEGS_OPTIONS.map((option) => [`legs:${option.id}`, {legs: option.id}] as const),
+    ...LPC_SHOE_OPTIONS.map((option) => [`shoes:${option.id}`, {shoes: option.id}] as const)
+  ];
+
+  for (const [label, patch] of variants) {
+    const recipe = {...DEFAULT_LPC_RECIPE, ...patch};
+    for (const layer of lpcLayerDefinitions(recipe)) {
+      for (const animation of LPC_ANIMATIONS) {
+        const candidates = lpcAssetCandidates(layer, animation);
+        assert.ok(
+          candidates.some((candidate) => assets.has(candidate)),
+          `${label} missing ${layer.id} ${animation}: ${candidates.join(', ')}`
+        );
+      }
+    }
+  }
 });

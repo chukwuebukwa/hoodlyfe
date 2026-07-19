@@ -39,9 +39,23 @@ BASE_LAYERS = [
     "spritesheets/head/faces/male/neutral",
     "spritesheets/head/faces/male/happy",
     "spritesheets/head/faces/male/anger",
+    "spritesheets/head/faces/male/blush",
+    "spritesheets/head/faces/male/closed",
+    "spritesheets/head/faces/male/look_l",
+    "spritesheets/head/faces/male/look_r",
+    "spritesheets/head/faces/male/sad",
+    "spritesheets/head/faces/male/shame",
+    "spritesheets/head/faces/male/shock",
     "spritesheets/head/faces/female/neutral",
     "spritesheets/head/faces/female/happy",
     "spritesheets/head/faces/female/anger",
+    "spritesheets/head/faces/female/blush",
+    "spritesheets/head/faces/female/closed",
+    "spritesheets/head/faces/female/look_l",
+    "spritesheets/head/faces/female/look_r",
+    "spritesheets/head/faces/female/sad",
+    "spritesheets/head/faces/female/shame",
+    "spritesheets/head/faces/female/shock",
     "spritesheets/hair/pixie/adult",
     "spritesheets/hair/buzzcut/adult",
     "spritesheets/hair/messy1/adult",
@@ -58,6 +72,7 @@ BASE_LAYERS = [
     "spritesheets/hair/ponytail/adult/bg",
     "spritesheets/hair/ponytail/adult/fg",
     "spritesheets/hat/cloth/leather_cap/adult",
+    "spritesheets/hat/cloth/hood/adult",
     "spritesheets/hat/formal/tophat/adult",
     "spritesheets/hat/helmet/norman/adult",
     "spritesheets/hat/helmet/flattop/male",
@@ -68,24 +83,63 @@ COLOR_LAYERS = [
     "spritesheets/torso/clothes/longsleeve/laced/male",
     "spritesheets/torso/clothes/sleeveless/sleeveless/male",
     "spritesheets/torso/clothes/vest_open/male",
+    "spritesheets/torso/clothes/shortsleeve/shortsleeve_polo/male",
+    "spritesheets/torso/clothes/shortsleeve/shortsleeve_polo/female",
+    "spritesheets/torso/clothes/shortsleeve/tshirt_buttoned/male",
+    "spritesheets/torso/clothes/shortsleeve/tshirt_buttoned/female",
+    "spritesheets/torso/clothes/longsleeve/longsleeve2_cardigan/male",
+    "spritesheets/torso/clothes/longsleeve/longsleeve2_cardigan/female",
+    "spritesheets/torso/aprons/overalls/male",
+    "spritesheets/torso/aprons/overalls/female",
+    "spritesheets/torso/aprons/suspenders/male",
+    "spritesheets/torso/aprons/suspenders/female",
+    "spritesheets/torso/armour/leather/male",
+    "spritesheets/torso/armour/leather/female",
+    "spritesheets/torso/chainmail/male",
+    "spritesheets/torso/chainmail/female",
     "spritesheets/torso/clothes/shortsleeve/tshirt/female",
     "spritesheets/torso/clothes/longsleeve/longsleeve/female",
     "spritesheets/torso/clothes/sleeveless/sleeveless/female",
     "spritesheets/torso/clothes/blouse/female",
     "spritesheets/legs/pants/male",
     "spritesheets/legs/pants/female",
+    "spritesheets/legs/formal/male",
+    "spritesheets/legs/formal/thin",
     "spritesheets/legs/formal_striped/male",
     "spritesheets/legs/formal_striped/thin",
+    "spritesheets/legs/cuffed/male",
+    "spritesheets/legs/cuffed/thin",
+    "spritesheets/legs/leggings/male",
+    "spritesheets/legs/leggings/thin",
     "spritesheets/legs/shorts/shorts/male",
     "spritesheets/legs/shorts/shorts/thin",
+    "spritesheets/legs/skirts/plain/male",
+    "spritesheets/legs/skirts/plain/thin",
+    "spritesheets/legs/armour/plate/male",
+    "spritesheets/legs/armour/plate/thin",
     "spritesheets/feet/shoes/basic/male",
     "spritesheets/feet/shoes/basic/thin",
+    "spritesheets/feet/shoes/revised/male",
+    "spritesheets/feet/shoes/revised/thin",
     "spritesheets/feet/boots/basic/male",
     "spritesheets/feet/boots/basic/thin",
+    "spritesheets/feet/boots/fold/male",
+    "spritesheets/feet/boots/fold/thin",
     "spritesheets/feet/sandals/male",
     "spritesheets/feet/sandals/thin",
+    "spritesheets/feet/slippers/male",
+    "spritesheets/feet/slippers/thin",
+    "spritesheets/hat/cloth/bandana/adult",
+    "spritesheets/hat/formal/bowler/adult",
+    "spritesheets/hat/formal/crown/adult",
+    "spritesheets/hat/formal/tiara/adult",
     "spritesheets/hat/holiday/christmas/adult",
+    "spritesheets/hat/holiday/santa/adult",
+    "spritesheets/hat/holiday/elf/adult",
+    "spritesheets/hat/magic/wizard/base/adult",
+    "spritesheets/hat/pirate/bandana/adult",
     "spritesheets/hat/pirate/cavalier/adult",
+    "spritesheets/hat/pirate/tricorne/basic/adult",
 ]
 
 
@@ -115,7 +169,13 @@ def main() -> int:
         for animation in ANIMATIONS:
             copied.extend(copy_candidates(lpc_root, out_dir, layer, animation, None))
             for color in COLORS:
-                copied.extend(copy_candidates(lpc_root, out_dir, layer, animation, color))
+                color_copies = copy_candidates(lpc_root, out_dir, layer, animation, color)
+                if color_copies:
+                    copied.extend(color_copies)
+                else:
+                    generated = create_color_variant(lpc_root, out_dir, layer, animation, color)
+                    if generated:
+                        copied.append(generated)
     copied.extend(create_smiley_tee(lpc_root, out_dir))
     copied.extend(create_puffer_jacket(lpc_root, out_dir))
     copied.extend(create_timbs(lpc_root, out_dir))
@@ -145,7 +205,8 @@ def copy_candidates(
     candidates = []
     if color:
         candidates.append(Path(layer) / animation / f"{color}.png")
-    candidates.append(Path(layer) / f"{animation}.png")
+    else:
+        candidates.append(Path(layer) / f"{animation}.png")
     copied = []
     for relative in candidates:
         source = lpc_root / relative
@@ -156,6 +217,43 @@ def copy_candidates(
         shutil.copy2(source, target)
         copied.append(f"{PUBLIC_ROOT}/{relative.as_posix()}")
     return copied
+
+
+def create_color_variant(
+    lpc_root: Path,
+    out_dir: Path,
+    layer: str,
+    animation: str,
+    color: str,
+) -> str | None:
+    source = lpc_root / layer / f"{animation}.png"
+    if not source.exists():
+        return None
+    sheet = Image.open(source).convert("RGBA")
+    tint_sheet(sheet, COLOR_RGB[color])
+    relative = Path(layer) / animation / f"{color}.png"
+    target = out_dir / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(target)
+    return f"{PUBLIC_ROOT}/{relative.as_posix()}"
+
+
+def tint_sheet(sheet: Image.Image, target_rgb: tuple[int, int, int]) -> None:
+    pixels = sheet.load()
+    width, height = sheet.size
+    for y in range(height):
+        for x in range(width):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha == 0:
+                continue
+            luminance = (red * 0.299 + green * 0.587 + blue * 0.114) / 255
+            shade = 0.44 + luminance * 0.9
+            pixels[x, y] = (
+                min(255, round(target_rgb[0] * shade)),
+                min(255, round(target_rgb[1] * shade)),
+                min(255, round(target_rgb[2] * shade)),
+                alpha,
+            )
 
 
 def create_smiley_tee(lpc_root: Path, out_dir: Path) -> list[str]:
