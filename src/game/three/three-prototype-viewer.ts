@@ -29,6 +29,11 @@ import {
 } from './three-prototype-policy.ts';
 import {ThreeMapChunkStreamer} from './three-map-chunk-streamer.ts';
 import type {ThreeMapManifest, ThreeMapOccluderDefinition} from './three-map-format.ts';
+import {
+  explorerCameraPose,
+  type CameraFollowMode,
+  type CameraPresentationMode
+} from '../camera/camera-policy.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -37,6 +42,12 @@ interface MapMetadataPayload {
 const FIELD_OF_VIEW = 45;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 2.8;
+const CAMERA_MODE_STORAGE_KEY = 'nock0.camera-mode';
+const EXPLORER_STREAMING_HALF_EXTENT = 2_048;
+const EXPLORER_MOUSE_YAW_SPEED = 0.0025;
+const EXPLORER_MOUSE_PITCH_SPEED = 0.002;
+const EXPLORER_MIN_PITCH = -0.72;
+const EXPLORER_MAX_PITCH = 0.52;
 export class ThreePrototypeViewer {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 1, 1, 20_000);
@@ -66,6 +77,14 @@ export class ThreePrototypeViewer {
   private qa?: ThreeQaDriver;
   private payload?: ThreeMapManifest;
   private centerInitialized = false;
+  private cameraMode: CameraPresentationMode = readCameraMode();
+  private settingsOpen = false;
+  private explorerYaw?: number;
+  private explorerPitch = -0.08;
+  private readonly settingsToggle = document.querySelector<HTMLButtonElement>('#settings-toggle');
+  private readonly settingsOverlay = document.querySelector<HTMLElement>('#settings-overlay');
+  private readonly settingsClose = document.querySelector<HTMLButtonElement>('#settings-close');
+  private readonly cameraModeToggle = document.querySelector<HTMLInputElement>('#settings-camera-explorer');
 
   constructor(
     private readonly parent: HTMLElement,
@@ -81,6 +100,7 @@ export class ThreePrototypeViewer {
     this.parent.replaceChildren(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x090b0c);
     this.camera.up.set(0, 1, 0);
+    this.updateCameraModeToggle();
   }
 
   async start(): Promise<void> {
@@ -196,7 +216,8 @@ export class ThreePrototypeViewer {
         ),
         surfaceZ: () => this.center.z,
         onFire: (angle) => this.combatFirePrediction?.requestFire(angle),
-        isBlocked: () => this.ui?.isInputBlocked() ?? false
+        isBlocked: () => this.settingsOpen || (this.ui?.isInputBlocked() ?? false),
+        directAimAngle: () => this.cameraMode === 'explorer' ? this.explorerYaw : undefined
       });
       this.followLocalPlayer();
     }
@@ -240,6 +261,23 @@ export class ThreePrototypeViewer {
   }
 
   private applyCamera(): void {
+    const focus = this.localCameraFocus();
+    if (this.cameraMode === 'explorer' && focus) {
+      this.camera.up.set(0, 0, 1);
+      this.explorerYaw ??= focus.angle;
+      const pose = explorerCameraPose(
+        focus.x,
+        serverYToThree(focus.y),
+        this.surfaceHeightAt(focus.x, focus.y),
+        this.explorerYaw,
+        focus.mode,
+        this.explorerPitch
+      );
+      this.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+      this.camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+      return;
+    }
+    this.camera.up.set(0, 1, 0);
     this.camera.position.set(
       this.center.x,
       this.center.y,
@@ -378,7 +416,18 @@ export class ThreePrototypeViewer {
   };
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (this.room) return;
+    if (this.room) {
+      if (
+        this.cameraMode === 'explorer' &&
+        !this.settingsOpen &&
+        document.pointerLockElement !== this.renderer.domElement
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void this.renderer.domElement.requestPointerLock();
+      }
+      return;
+    }
     this.dragging = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
@@ -386,7 +435,21 @@ export class ThreePrototypeViewer {
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (this.room) return;
+    if (this.room) {
+      if (
+        this.cameraMode === 'explorer' &&
+        !this.settingsOpen &&
+        document.pointerLockElement === this.renderer.domElement
+      ) {
+        this.explorerYaw = normalizeAngle((this.explorerYaw ?? 0) + event.movementX * EXPLORER_MOUSE_YAW_SPEED);
+        this.explorerPitch = clamp(
+          this.explorerPitch - event.movementY * EXPLORER_MOUSE_PITCH_SPEED,
+          EXPLORER_MIN_PITCH,
+          EXPLORER_MAX_PITCH
+        );
+      }
+      return;
+    }
     if (!this.dragging) return;
     const scale = this.baseHeight / this.zoom / Math.max(1, this.parent.clientHeight);
     this.center.x -= (event.clientX - this.pointerX) * scale;
@@ -412,6 +475,12 @@ export class ThreePrototypeViewer {
   };
 
   private mapStreamingView(): {halfWidth: number; halfHeight: number} {
+    if (this.cameraMode === 'explorer') {
+      return {
+        halfWidth: EXPLORER_STREAMING_HALF_EXTENT,
+        halfHeight: EXPLORER_STREAMING_HALF_EXTENT
+      };
+    }
     const cameraDistance = this.baseHeight / this.zoom;
     const halfHeight = cameraDistance * Math.tan(FIELD_OF_VIEW * Math.PI / 360);
     return {
@@ -431,18 +500,12 @@ export class ThreePrototypeViewer {
   }
 
   private followLocalPlayer(): void {
-    const room = this.room;
-    if (!room) return;
-    const player = room.state.players.get(room.sessionId);
-    if (!player) return;
-    const vehicle = player.vehicleId ? room.state.vehicles.get(player.vehicleId) : undefined;
-    const vehiclePose = player.vehicleId ? this.entities?.vehiclePose(player.vehicleId) : undefined;
-    const playerPose = this.entities?.playerPose(room.sessionId);
-    const x = vehiclePose?.x ?? vehicle?.x ?? playerPose?.x ?? player.x;
-    const y = vehiclePose?.y ?? vehicle?.y ?? playerPose?.y ?? player.y;
+    const focus = this.localCameraFocus();
+    if (!focus) return;
+    const {x, y} = focus;
     this.renderer.domElement.dataset.localX = x.toFixed(2);
     this.renderer.domElement.dataset.localY = y.toFixed(2);
-    this.renderer.domElement.dataset.localMode = vehicle ? 'vehicle' : 'foot';
+    this.renderer.domElement.dataset.localMode = focus.mode === 'vehicle' ? 'vehicle' : 'foot';
     const target = new THREE.Vector3(x, serverYToThree(y), this.surfaceHeightAt(x, y));
     if (!this.centerInitialized || this.center.distanceTo(target) > 700) {
       this.center.copy(target);
@@ -452,6 +515,22 @@ export class ThreePrototypeViewer {
     }
   }
 
+  private localCameraFocus(): {x: number; y: number; angle: number; mode: CameraFollowMode} | undefined {
+    const room = this.room;
+    if (!room) return undefined;
+    const player = room.state.players.get(room.sessionId);
+    if (!player) return undefined;
+    const vehicle = player.vehicleId ? room.state.vehicles.get(player.vehicleId) : undefined;
+    const vehiclePose = player.vehicleId ? this.entities?.vehiclePose(player.vehicleId) : undefined;
+    const playerPose = this.entities?.playerPose(room.sessionId);
+    return {
+      x: vehiclePose?.x ?? vehicle?.x ?? playerPose?.x ?? player.x,
+      y: vehiclePose?.y ?? vehicle?.y ?? playerPose?.y ?? player.y,
+      angle: vehiclePose?.angle ?? vehicle?.angle ?? playerPose?.angle ?? player.angle,
+      mode: player.vehicleId ? 'vehicle' : 'player'
+    };
+  }
+
   private frameSpectatorSpawn(x: number, y: number): void {
     if (this.centerInitialized || this.room?.state.players.get(this.room.sessionId)) return;
     this.center.set(x, serverYToThree(y), this.surfaceHeightAt(x, y));
@@ -459,6 +538,11 @@ export class ThreePrototypeViewer {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === 'Escape' && this.settingsOpen) {
+      this.setSettingsOpen(false);
+      return;
+    }
+    if (this.settingsOpen) return;
     this.keys.add(event.code);
   };
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
@@ -470,10 +554,14 @@ export class ThreePrototypeViewer {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     this.renderer.domElement.addEventListener('wheel', this.handleWheel, {passive: false});
-    this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown, true);
     this.renderer.domElement.addEventListener('pointermove', this.handlePointerMove);
     this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
     this.renderer.domElement.addEventListener('pointercancel', this.handlePointerUp);
+    this.settingsToggle?.addEventListener('click', this.handleSettingsToggle);
+    this.settingsClose?.addEventListener('click', this.handleSettingsClose);
+    this.settingsOverlay?.addEventListener('click', this.handleSettingsBackdrop);
+    this.cameraModeToggle?.addEventListener('change', this.handleCameraModeChange);
   }
 
   private unbind(): void {
@@ -481,11 +569,67 @@ export class ThreePrototypeViewer {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     this.renderer.domElement.removeEventListener('wheel', this.handleWheel);
-    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown, true);
     this.renderer.domElement.removeEventListener('pointermove', this.handlePointerMove);
     this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
     this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerUp);
+    this.settingsToggle?.removeEventListener('click', this.handleSettingsToggle);
+    this.settingsClose?.removeEventListener('click', this.handleSettingsClose);
+    this.settingsOverlay?.removeEventListener('click', this.handleSettingsBackdrop);
+    this.cameraModeToggle?.removeEventListener('change', this.handleCameraModeChange);
   }
+
+  private readonly handleSettingsToggle = (): void => this.setSettingsOpen(!this.settingsOpen);
+  private readonly handleSettingsClose = (): void => this.setSettingsOpen(false);
+  private readonly handleSettingsBackdrop = (event: MouseEvent): void => {
+    if (event.target === this.settingsOverlay) this.setSettingsOpen(false);
+  };
+
+  private setSettingsOpen(open: boolean): void {
+    this.settingsOpen = open;
+    this.keys.clear();
+    this.settingsOverlay?.classList.toggle('hidden', !open);
+    this.settingsToggle?.setAttribute('aria-expanded', String(open));
+    if (open) this.cameraModeToggle?.focus();
+    else this.settingsToggle?.focus();
+  }
+
+  private readonly handleCameraModeChange = (): void => {
+    this.cameraMode = this.cameraModeToggle?.checked ? 'explorer' : 'overhead';
+    this.explorerYaw = this.cameraMode === 'explorer' ? this.localCameraFocus()?.angle : undefined;
+    this.explorerPitch = -0.08;
+    if (this.cameraMode === 'overhead' && document.pointerLockElement === this.renderer.domElement) {
+      document.exitPointerLock();
+    }
+    writeCameraMode(this.cameraMode);
+    this.updateCameraModeToggle();
+  };
+
+  private updateCameraModeToggle(): void {
+    if (!this.cameraModeToggle) return;
+    this.cameraModeToggle.checked = this.cameraMode === 'explorer';
+    this.cameraModeToggle.setAttribute('aria-checked', String(this.cameraModeToggle.checked));
+  }
+}
+
+function readCameraMode(): CameraPresentationMode {
+  try {
+    return window.localStorage.getItem(CAMERA_MODE_STORAGE_KEY) === 'explorer' ? 'explorer' : 'overhead';
+  } catch {
+    return 'overhead';
+  }
+}
+
+function writeCameraMode(mode: CameraPresentationMode): void {
+  try {
+    window.localStorage.setItem(CAMERA_MODE_STORAGE_KEY, mode);
+  } catch {
+    // The camera remains usable when storage is unavailable.
+  }
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
 function isDevelopment(): boolean {

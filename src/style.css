@@ -1062,6 +1062,96 @@ canvas {
   outline: none;
 }
 
+#settings-toggle {
+  top: 52px;
+  left: 66px;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 3px;
+  background: rgba(0, 10, 14, 0.82);
+  color: #fff;
+  font: 700 17px/1 sans-serif;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#settings-toggle:hover,
+#settings-toggle:focus-visible,
+#settings-toggle[aria-expanded="true"] {
+  border-color: #f2c94c;
+  color: #05090b;
+  background: #f2c94c;
+  outline: none;
+}
+
+#settings-overlay {
+  position: absolute;
+  z-index: 120;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.58);
+  pointer-events: auto;
+}
+
+#settings-panel {
+  width: min(320px, calc(100vw - 32px));
+  border: 1px solid rgba(242, 201, 76, 0.72);
+  border-radius: 4px;
+  background: rgba(7, 11, 13, 0.97);
+  color: #fff;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
+}
+
+#settings-panel > header {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 14px;
+  border-bottom: 1px solid rgba(242, 201, 76, 0.28);
+}
+
+#settings-panel > header strong {
+  color: #f2c94c;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+#settings-close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-toggle-row {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  color: #dce7eb;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#settings-camera-explorer {
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  accent-color: #63df8a;
+  cursor: pointer;
+}
+
 #phone-button {
   right: 18px;
   bottom: -54px;
@@ -2827,6 +2917,11 @@ canvas {
   #debug-toggle {
     top: 46px;
     left: 12px;
+  }
+
+  #settings-toggle {
+    top: 46px;
+    left: 60px;
   }
 
   #debug-panel {
