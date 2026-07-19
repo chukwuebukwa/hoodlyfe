@@ -3,21 +3,15 @@ import {boundedString, objectRecord, safePositiveInteger} from './interaction-va
 
 export const NETCODE_ROLLOUT_REQUEST_MESSAGE = 'netcode.rollout.request';
 export const NETCODE_ROLLOUT_MANIFEST_MESSAGE = 'netcode.rollout.manifest';
-export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 1;
+export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 2;
 
 export const NETCODE_ROLLOUT_STAGE_KEYS = Object.freeze([
   'remoteTimelines',
   'interactionSnapshots',
   'interactionReplay',
   'combatRewind',
-  'projectilePrediction',
-  'serverVehiclePhysics'
+  'projectilePrediction'
 ] as const);
-
-// Stages appended after initial deployment: absent in manifests from older peers,
-// validated as off rather than rejected so rolling deployments stay compatible.
-const APPENDED_STAGE_KEYS: ReadonlySet<NetcodeRolloutStage> =
-  new Set(['serverVehiclePhysics']);
 
 export type NetcodeRolloutStage = typeof NETCODE_ROLLOUT_STAGE_KEYS[number];
 
@@ -27,7 +21,6 @@ export interface NetcodeRolloutStages {
   readonly interactionReplay: boolean;
   readonly combatRewind: boolean;
   readonly projectilePrediction: boolean;
-  readonly serverVehiclePhysics: boolean;
 }
 
 export interface NetcodeRolloutRequest {
@@ -62,8 +55,7 @@ export const LEGACY_NETCODE_ROLLOUT_MANIFEST: NetcodeRolloutManifest = freezeMan
     interactionSnapshots: false,
     interactionReplay: false,
     combatRewind: false,
-    projectilePrediction: false,
-    serverVehiclePhysics: false
+    projectilePrediction: false
   }
 });
 
@@ -104,10 +96,6 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
   if (!stageRecord) return rejected('invalid-stages');
   const stages = {} as Record<NetcodeRolloutStage, boolean>;
   for (const key of NETCODE_ROLLOUT_STAGE_KEYS) {
-    if (stageRecord[key] === undefined && APPENDED_STAGE_KEYS.has(key)) {
-      stages[key] = false;
-      continue;
-    }
     if (typeof stageRecord[key] !== 'boolean') return rejected('invalid-stages');
     stages[key] = stageRecord[key];
   }
@@ -124,8 +112,7 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
       interactionSnapshots: stages.interactionSnapshots,
       interactionReplay: stages.interactionReplay,
       combatRewind: stages.combatRewind,
-      projectilePrediction: stages.projectilePrediction,
-      serverVehiclePhysics: stages.serverVehiclePhysics
+      projectilePrediction: stages.projectilePrediction
     }
   })};
 }

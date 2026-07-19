@@ -11,13 +11,11 @@ import {
   INTERACTION_PROTOCOL_VERSION,
   validateInteractionSnapshot
 } from '../../shared/protocol/interaction-simulation.ts';
-import {stableInteractionPairs} from '../../src/game/prediction/stable-interaction-pairs.ts';
 import {
   replayInteractionIsland,
   type InteractionReplayBatchStep,
   type InteractionReplayBodyStep,
   type InteractionReplayCommand,
-  type InteractionReplayPairStep,
   type InteractionReplayStepContext
 } from '../../src/game/prediction/interaction-island-replay.ts';
 import {createVehiclePhysicsBatchStep} from '../../src/game/prediction/vehicle-physics-replay.ts';
@@ -25,10 +23,7 @@ import {PhysicsWorld} from '../../shared/physics/physics-world.ts';
 import type {InteractionReplayControl} from '../../src/game/prediction/remote-intent-continuation.ts';
 import {InteractionIslandSelector} from '../../src/game/prediction/interaction-island-selector.ts';
 import {IslandStateHistory} from '../../src/game/prediction/island-state-history.ts';
-import {
-  createMixedInteractionBodyStep,
-  createMixedInteractionPairStep
-} from '../../src/game/prediction/mixed-interaction-replay.ts';
+import {createMixedInteractionBodyStep} from '../../src/game/prediction/mixed-interaction-replay.ts';
 import {ReplaySideEffectGate} from '../../src/game/prediction/replay-side-effect-gate.ts';
 import {
   DESKTOP_INTERACTION_ISLAND_BUDGET,
@@ -88,7 +83,7 @@ interface SoakClient {
   readonly link: DeterministicReliableNetworkLink<InteractionSnapshot>;
   readonly selector: InteractionIslandSelector;
   readonly history: IslandStateHistory;
-  readonly stepBatch?: InteractionReplayBatchStep;
+  readonly stepBatch: InteractionReplayBatchStep;
   lastRootId?: string;
   finalError: number;
 }
@@ -124,7 +119,6 @@ const WORLD_COLLISION_REVISION = 1;
 const CLIENT_IDS = Object.freeze(Array.from({length: 8}, (_, index) => `client-${index}`));
 const STREAMED_IDS = Object.freeze(['vehicle-10', 'vehicle-11', 'pedestrian-14', 'pedestrian-15']);
 const bodyStep = createMixedInteractionBodyStep(() => true);
-const pairStep = createMixedInteractionPairStep(() => true);
 
 // Open geometry covering the soak coordinate range; used when the soak runs the
 // server-vehicle-physics stage on both sides of the simulated wire.
@@ -139,22 +133,17 @@ const SOAK_PHYSICS_GEOMETRY = Object.freeze({
 export function runInteractionIslandSoak(
   profile: NetworkImpairmentProfile,
   ticks = 450,
-  seed = 0x51a7,
-  vehiclePhysics = false
+  seed = 0x51a7
 ): InteractionIslandSoakResult {
-  const engine = vehiclePhysics
-    ? {
-      authority: PhysicsWorld.create(SOAK_PHYSICS_GEOMETRY),
-      clients: new Map(CLIENT_IDS.map((id) => [id, PhysicsWorld.create(SOAK_PHYSICS_GEOMETRY)]))
-    }
-    : undefined;
+  const engine = {
+    authority: PhysicsWorld.create(SOAK_PHYSICS_GEOMETRY),
+    clients: new Map(CLIENT_IDS.map((id) => [id, PhysicsWorld.create(SOAK_PHYSICS_GEOMETRY)]))
+  };
   try {
     return runSoak(profile, ticks, seed, engine);
   } finally {
-    if (engine) {
-      engine.authority.free();
-      for (const world of engine.clients.values()) world.free();
-    }
+    engine.authority.free();
+    for (const world of engine.clients.values()) world.free();
   }
 }
 
@@ -167,17 +156,17 @@ function runSoak(
   profile: NetworkImpairmentProfile,
   ticks: number,
   seed: number,
-  engine: SoakPhysics | undefined
+  engine: SoakPhysics
 ): InteractionIslandSoakResult {
   const world = createWorld();
-  const authorityBatch = engine ? createVehiclePhysicsBatchStep(engine.authority) : undefined;
+  const authorityBatch = createVehiclePhysicsBatchStep(engine.authority);
   const clients = CLIENT_IDS.map((id, index): SoakClient => ({
     id,
     link: new DeterministicReliableNetworkLink(profile, seed + index * 0x101),
     selector: new InteractionIslandSelector(),
     history: new IslandStateHistory(),
     finalError: Number.POSITIVE_INFINITY,
-    stepBatch: engine ? createVehiclePhysicsBatchStep(engine.clients.get(id)!) : undefined
+    stepBatch: createVehiclePhysicsBatchStep(engine.clients.get(id)!)
   }));
   const metrics = initialMetrics();
   const replayDurations: number[] = [];
@@ -315,7 +304,6 @@ function processSnapshot(
     localCommands: localCommands(baseline.rootId, baseline.serverTick, targetTick),
     stepBody: instrumentedBodyStep,
     stepBatch: client.stepBatch,
-    resolvePair: pairStep,
     sideEffects
   });
   replayDurations.push(performance.now() - startedAt);
@@ -348,7 +336,7 @@ function processSnapshot(
 function stepAuthority(
   world: MutableWorld,
   serverTick: number,
-  batch?: InteractionReplayBatchStep
+  batch: InteractionReplayBatchStep
 ): void {
   const sideEffects = new ReplaySideEffectGate();
   const context: InteractionReplayStepContext = Object.freeze({
@@ -361,20 +349,11 @@ function stepAuthority(
     entity.id,
     controlFor(entity.id, serverTick)
   ]));
-  const batched = batch?.(entities, controls, context);
+  const batched = batch(entities, controls, context);
   const stepped = new Map<string, InteractionEntityState>();
   for (const entity of entities) {
     const next = batched?.get(entity.id) ?? bodyStep(entity, controls.get(entity.id)!, context);
     stepped.set(next.id, next);
-  }
-  for (const pair of stableInteractionPairs([...stepped.values()])) {
-    const left = stepped.get(pair.leftId);
-    const right = stepped.get(pair.rightId);
-    if (!left || !right) continue;
-    const resolved = pairStep(left, right, context);
-    if (!resolved) continue;
-    stepped.set(left.id, resolved[0]);
-    stepped.set(right.id, resolved[1]);
   }
   world.entities.clear();
   for (const [id, entity] of stepped) world.entities.set(id, entity);

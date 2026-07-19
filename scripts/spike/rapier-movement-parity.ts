@@ -16,7 +16,7 @@ import {
   type VehicleControlCommand
 } from '../../shared/simulation/vehicle-step.ts';
 import {VEHICLE_KINDS, vehicleDefinition} from '../../shared/content/vehicle-catalog.ts';
-import type {VehicleWorldPose} from '../../shared/physics/vehicle-world-collision.ts';
+import type {VehicleWorldPose} from '../../shared/simulation/vehicle-step.ts';
 
 const DT = VEHICLE_SIMULATION_STEP_SECONDS;
 const TOTAL_SECONDS = 12;

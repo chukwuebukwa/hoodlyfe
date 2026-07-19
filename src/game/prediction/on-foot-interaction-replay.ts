@@ -4,7 +4,8 @@ import type {
 } from '../../../shared/protocol/interaction-contracts.ts';
 import {
   ON_FOOT_PLAYER_SPEED,
-  stepOnFootWithWorldCollision
+  integrateOnFootPose,
+  stepInteriorOnFootPose
 } from '../../../shared/simulation/on-foot-step.ts';
 import type {
   InteractionIslandReplayResult,
@@ -91,27 +92,28 @@ export function createHumanoidInteractionBodyStep(
   return (entity, control, context) => {
     if (entity.kind !== 'player' && entity.kind !== 'pedestrian') return entity;
     if (!entity.alive) return stationaryHumanoid(entity);
-    const movementScale = allowsMovement(entity.actionPhase)
+    const movementScale = allowsHumanoidMovement(entity.actionPhase)
       ? control.movementScale
       : 0;
-    const movement = stepOnFootWithWorldCollision(
-      {x: entity.x, y: entity.y, spaceId: entity.spaceId},
-      {moveX: control.moveX, moveY: control.moveY},
-      context.deltaSeconds,
-      (spaceId, x, y, radius) => canOccupy(spaceId, x, y, radius),
-      {
-        movementScale,
-        radius: entity.radius,
-        speed: ON_FOOT_PLAYER_SPEED
-      }
-    );
+    const pose = {x: entity.x, y: entity.y, spaceId: entity.spaceId};
+    const command = {moveX: control.moveX, moveY: control.moveY};
+    const modifiers = {movementScale, radius: entity.radius, speed: ON_FOOT_PLAYER_SPEED};
+    const movement = entity.spaceId === 'street'
+      ? integrateOnFootPose(pose, command, context.deltaSeconds, modifiers)
+      : stepInteriorOnFootPose(
+        pose,
+        command,
+        context.deltaSeconds,
+        (spaceId, x, y, radius) => canOccupy(spaceId, x, y, radius),
+        modifiers
+      ).pose;
     const delta = Math.max(0.001, context.deltaSeconds);
     return humanoidState(
       entity,
-      movement.pose.x,
-      movement.pose.y,
-      (movement.pose.x - entity.x) / delta,
-      (movement.pose.y - entity.y) / delta
+      movement.x,
+      movement.y,
+      (movement.x - entity.x) / delta,
+      (movement.y - entity.y) / delta
     );
   };
 }
@@ -137,6 +139,6 @@ function stationaryHumanoid(entity: HumanoidInteractionState): InteractionEntity
   return humanoidState(entity, entity.x, entity.y, 0, 0);
 }
 
-function allowsMovement(phase: HumanoidInteractionState['actionPhase']): boolean {
+export function allowsHumanoidMovement(phase: HumanoidInteractionState['actionPhase']): boolean {
   return phase === 'free' || phase === 'melee';
 }

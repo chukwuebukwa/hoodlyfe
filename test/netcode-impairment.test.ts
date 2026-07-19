@@ -8,10 +8,10 @@ import {
   type PlayerInputCommand
 } from '../shared/protocol/interaction-simulation.ts';
 import {
+  integrateVehiclePose,
   VEHICLE_SIMULATION_STEP_SECONDS,
-  stepVehicleWithWorldCollision,
   type VehicleControlCommand,
-  type VehicleStepResult
+  type VehicleWorldPose
 } from '../shared/simulation/vehicle-step.ts';
 import {
   SavedVehiclePrediction,
@@ -84,16 +84,18 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): Impairment
     profile,
     0xdef000 + seed
   );
-  const prediction = new SavedVehiclePrediction();
+  const prediction = new SavedVehiclePrediction(
+    (pose, movement, kind, deltaSeconds, _canOccupy, modifiers) => integrateVehiclePose(
+      pose,
+      {steering: movement.x, throttle: -movement.y},
+      kind,
+      deltaSeconds,
+      modifiers
+    )
+  );
   const initial = {x: 2_000, y: 2_000, angle: -Math.PI / 2, speed: 0};
   prediction.initialize(initial);
-  let authoritative: VehicleStepResult = {
-    pose: initial,
-    attemptedPose: initial,
-    impactSpeed: 0,
-    collidedWithWorld: false,
-    sweepSteps: 1
-  };
+  let authoritative: VehicleWorldPose = initial;
   let serverSequence = 0;
   let held: VehicleControlCommand = {steering: 0, throttle: 0};
   let clientPose = {...initial};
@@ -153,19 +155,18 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): Impairment
       serverSequence = admitted.value.sequence;
       held = {steering: admitted.value.moveX, throttle: -admitted.value.moveY};
     }
-    authoritative = stepVehicleWithWorldCollision(
-      authoritative.pose,
+    authoritative = integrateVehiclePose(
+      authoritative,
       held,
       'sedan',
       VEHICLE_SIMULATION_STEP_SECONDS,
-      () => true
     );
     if (tick % SNAPSHOT_INTERVAL_TICKS === 0) {
       const validated = validateInteractionSnapshot(snapshotFor(
         tick,
         nowMs,
         serverSequence,
-        authoritative.pose,
+        authoritative,
         held
       ), {
         currentServerTick: tick,

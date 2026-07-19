@@ -13,7 +13,7 @@ import {
   PhysicsWorld,
   type PhysicsWorldGeometry
 } from '../shared/physics/physics-world.ts';
-import type {VehicleWorldPose} from '../shared/physics/vehicle-world-collision.ts';
+import type {VehicleWorldPose} from '../shared/simulation/vehicle-step.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
 const DT = VEHICLE_SIMULATION_STEP_SECONDS;
@@ -79,7 +79,7 @@ test('world contact stops the vehicle at the wall and applies impact damage', ()
   assert.ok(Math.abs(car.speed) < 120, `vehicle kept speed ${car.speed.toFixed(0)} against the wall`);
 });
 
-test('physics path acknowledges input sequences and retires undriven bodies', () => {
+test('physics path acknowledges input sequences and keeps undriven vehicles physical', () => {
   const physics = PhysicsWorld.create(geometry());
   const acknowledged: Array<{vehicleId: string; sequence: number}> = [];
   const {room, car, driver} = fixture('sedan', physics, {x: 2048, y: 2048}, {
@@ -92,16 +92,49 @@ test('physics path acknowledges input sequences and retires undriven bodies', ()
   };
 
   driveTick(room, car, {throttle: 1, steering: 0}, 0);
-  assert.ok(physics.has(car.id));
+  assert.ok(physics.has(`vehicle:${car.id}`));
   assert.deepEqual(acknowledged, [{vehicleId: car.id, sequence: 7}]);
 
   car.driverId = '';
   driver.vehicleId = '';
   room.vehicleSimulation.beginTick();
   room.vehicleSimulation.update(car, DT, 100);
-  room.vehicleSimulation.stepPhysics(100);
-  assert.equal(physics.has(car.id), false);
+  room.vehicleSimulation.stepPhysics(DT, 100);
+  assert.equal(physics.has(`vehicle:${car.id}`), true);
   physics.free();
+});
+
+test('restored vehicles spawn without sweeping through actors', () => {
+  const physics = PhysicsWorld.create(geometry());
+  const room = new DistrictRoom() as any;
+  room.world = {
+    canOccupy: () => true,
+    isBlockedAt: () => false,
+    openPointNear: () => ({x: 300, y: 1000})
+  };
+  room.setState(new DistrictState());
+  const car = new VehicleState();
+  car.id = 'wreck';
+  car.x = 100;
+  car.y = 1000;
+  car.destroyed = true;
+  car.respawnAt = 1000;
+  const bystander = new PlayerState();
+  bystander.id = 'bystander';
+  bystander.x = 200;
+  bystander.y = 1000;
+  room.state.vehicles.set(car.id, car);
+  room.state.players.set(bystander.id, bystander);
+  attachTestVehicleSimulation(room, {physics});
+
+  room.vehicleSimulation.beginTick(1000);
+  room.vehicleSimulation.update(car, DT, 1000);
+  const result = room.vehicleSimulation.stepPhysics(DT, 1000);
+
+  physics.free();
+  assert.equal(car.x, 300);
+  assert.equal(bystander.health, 100);
+  assert.equal(result.contacts, 0);
 });
 
 // Stage-1 acceptance: physics step below 1 ms p95 under a full driven-vehicle load.
@@ -142,7 +175,7 @@ test('physics step cost stays under the stage-1 budget with 40 driven vehicles',
     });
     controller.beginTick();
     for (const car of cars) controller.update(car, DT, tick * 33);
-    controller.stepPhysics(tick * 33);
+    controller.stepPhysics(DT, tick * 33);
   }
 
   const costs = [...controller.physicsStepCosts()].sort((left, right) => left - right);
@@ -201,7 +234,7 @@ function driveTick(room: any, car: VehicleState, command: VehicleControlCommand,
   room.playerControl.setMove(car.driverId, {x: command.steering, y: -command.throttle});
   room.vehicleSimulation.beginTick();
   room.vehicleSimulation.update(car, DT, tick * 33);
-  room.vehicleSimulation.stepPhysics(tick * 33);
+  room.vehicleSimulation.stepPhysics(DT, tick * 33);
 }
 
 function normalizeAngle(angle: number): number {

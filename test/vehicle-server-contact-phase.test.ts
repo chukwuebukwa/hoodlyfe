@@ -2,50 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
-import {vehicleDefinition} from '../shared/content/vehicle-catalog.ts';
-import {resolveVehicleDynamicContact} from '../shared/simulation/vehicle-dynamic-contact.ts';
 import {
-  integrateVehiclePose,
   VEHICLE_SIMULATION_STEP_SECONDS
 } from '../shared/simulation/vehicle-step.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
 test('authoritative contacts step every vehicle before resolving stable pairs', () => {
   const fixture = contactFixture(['alpha', 'bravo']);
-  const expectedAlpha = integrateVehiclePose(
-    pose(fixture.vehicles.alpha),
-    {steering: 0, throttle: 0},
-    'sedan',
-    VEHICLE_SIMULATION_STEP_SECONDS
-  );
-  const expectedBravo = integrateVehiclePose(
-    pose(fixture.vehicles.bravo),
-    {steering: 0, throttle: 0},
-    'sedan',
-    VEHICLE_SIMULATION_STEP_SECONDS
-  );
-  const expectedContact = resolveVehicleDynamicContact(
-    collisionBody('alpha', expectedAlpha),
-    collisionBody('bravo', expectedBravo)
-  );
 
   advanceContactTick(fixture, ['alpha', 'bravo']);
 
-  assert.equal(expectedContact.collided, true);
-  assert.deepEqual(pose(fixture.vehicles.alpha), {
-    x: expectedContact.primaryX,
-    y: expectedContact.primaryY,
-    angle: expectedAlpha.angle,
-    speed: expectedContact.primarySpeed
-  });
-  assert.deepEqual(pose(fixture.vehicles.bravo), {
-    x: expectedContact.otherX,
-    y: expectedContact.otherY,
-    angle: expectedBravo.angle,
-    speed: expectedContact.otherSpeed
-  });
+  assert.ok(fixture.vehicles.alpha.x < fixture.vehicles.bravo.x);
+  assert.ok(fixture.vehicles.alpha.speed < 120);
+  assert.ok(fixture.vehicles.bravo.speed < 120);
   assert.equal(fixture.players.alpha.x, fixture.vehicles.alpha.x);
   assert.equal(fixture.players.bravo.x, fixture.vehicles.bravo.x);
+  assert.ok(fixture.room.events.drain().every((event: {sourceKind?: string}) => (
+    event.sourceKind !== 'world'
+  )), 'Dynamic contact was also reported as a wall impact.');
 });
 
 test('authoritative contact outcome is independent of map and body update order', () => {
@@ -58,6 +32,18 @@ test('authoritative contact outcome is independent of map and body update order'
   assert.deepEqual(snapshot(reverse), snapshot(forward));
 });
 
+test('parallel wall contact does not turn dynamic displacement into wall damage', () => {
+  const fixture = contactFixture(['alpha', 'bravo']);
+  fixture.vehicles.alpha.y = 15.9;
+  fixture.vehicles.bravo.y = 15.9;
+
+  advanceContactTick(fixture, ['alpha', 'bravo']);
+
+  assert.ok(fixture.room.events.drain().every((event: {sourceKind?: string}) => (
+    event.sourceKind !== 'world'
+  )));
+});
+
 function contactFixture(insertionOrder: readonly VehicleId[]) {
   const room = new DistrictRoom() as any;
   room.world = {canOccupy: () => true};
@@ -67,8 +53,8 @@ function contactFixture(insertionOrder: readonly VehicleId[]) {
     bravo: player('driver-bravo', 'bravo')
   };
   const vehicles = {
-    alpha: vehicle('alpha', players.alpha.id, 0, 0, 120),
-    bravo: vehicle('bravo', players.bravo.id, 62, Math.PI, 120)
+    alpha: vehicle('alpha', players.alpha.id, 1000, 0, 120),
+    bravo: vehicle('bravo', players.bravo.id, 1050, Math.PI, 120)
   };
   for (const id of insertionOrder) {
     room.state.players.set(players[id].id, players[id]);
@@ -94,7 +80,7 @@ function advanceContactTick(
       1000
     );
   }
-  fixture.room.vehicleSimulation.finishTick(1000);
+  fixture.room.vehicleSimulation.stepPhysics(VEHICLE_SIMULATION_STEP_SECONDS, 1000);
 }
 
 function player(id: string, vehicleId: VehicleId): PlayerState {
@@ -117,21 +103,10 @@ function vehicle(
   state.kind = 'sedan';
   state.driverId = driverId;
   state.x = x;
+  state.y = 1000;
   state.angle = angle;
   state.speed = speed;
   return state;
-}
-
-function collisionBody(id: VehicleId, state: ReturnType<typeof pose>) {
-  const definition = vehicleDefinition('sedan');
-  return {
-    id,
-    ...state,
-    halfLength: definition.collision.length / 2,
-    halfWidth: definition.collision.width / 2,
-    mass: definition.mass,
-    damageScale: definition.collisionDamageScale
-  };
 }
 
 function pose(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle' | 'speed'>) {

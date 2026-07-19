@@ -119,7 +119,7 @@ export class PedestrianController {
       world: options.world,
       radius: PEDESTRIAN_RADIUS
     });
-    this.locomotion = new PedestrianLocomotionSystem(options.world, PEDESTRIAN_RADIUS);
+    this.locomotion = new PedestrianLocomotionSystem(options.world);
   }
 
   spawn(

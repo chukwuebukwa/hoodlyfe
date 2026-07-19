@@ -7,7 +7,7 @@ import {
 import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {GameEventStream} from '../events/game-events.ts';
-import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
+import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import {selectMeleeTargets, type MeleeTargetCandidate} from './melee-hit-policy.ts';
 import type {DamageImpact} from './combat-survivability-policy.ts';
 

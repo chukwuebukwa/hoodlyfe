@@ -12,6 +12,7 @@ import {
   captureVehicleBody,
   driveVehicleBody
 } from '../shared/simulation/vehicle-body-drive.ts';
+import {physicsBodyKey} from '../shared/simulation/humanoid-body-drive.ts';
 import {
   VEHICLE_SIMULATION_STEP_SECONDS,
   vehicleMechanicalStepModifiers
@@ -48,8 +49,7 @@ function commandAt(tick: number): {steering: number; throttle: number} {
   return {steering: Math.sin(tick * 0.11), throttle: 1};
 }
 
-// The stage-2 premise: the client's engine stepper must retrace the server's
-// flagged simulation path exactly, including through wall contact.
+// The client engine stepper must retrace the server path exactly through wall contact.
 test('client engine prediction retraces the server physics path bit-for-bit', () => {
   const serverWorld = PhysicsWorld.create(geometry(44));
   const clientWorld = PhysicsWorld.create(geometry(44));
@@ -91,7 +91,7 @@ test('client engine prediction retraces the server physics path bit-for-bit', ()
     room.playerControl.setMove(driver.id, {x: command.steering, y: -command.throttle});
     room.vehicleSimulation.beginTick();
     room.vehicleSimulation.update(car, DT, tick * 33);
-    room.vehicleSimulation.stepPhysics(tick * 33);
+    room.vehicleSimulation.stepPhysics(DT, tick * 33);
 
     const advanced = prediction.advance(
       {x: command.steering, y: -command.throttle},
@@ -135,15 +135,26 @@ test('island batch replay matches the shared drive recipe per vehicle and skips 
     confirmedEventsThrough: baselineTick,
     rootId: rootBase.id,
     entities: [rootBase, remoteBase, destroyedBase],
-    remoteIntents: [{
-      entityId: remoteBase.id,
-      appliedAtServerTick: baselineTick,
-      moveX: 0,
-      moveY: 0,
-      steering: 0.4,
-      throttle: 0.6,
-      movementScale: 1
-    }]
+    remoteIntents: [
+      {
+        entityId: remoteBase.id,
+        appliedAtServerTick: baselineTick,
+        moveX: 0,
+        moveY: 0,
+        steering: 0.4,
+        throttle: 0.6,
+        movementScale: 1
+      },
+      {
+        entityId: destroyedBase.id,
+        appliedAtServerTick: baselineTick,
+        moveX: 0,
+        moveY: 0,
+        steering: 1,
+        throttle: 1,
+        movementScale: 1
+      }
+    ]
   };
 
   const result = replayInteractionIsland({
@@ -214,7 +225,7 @@ test('island batch replay matches the shared drive recipe per vehicle and skips 
   assert.ok(untouched);
   assert.equal(untouched.x, destroyedBase.x);
   assert.equal(untouched.y, destroyedBase.y);
-  assert.equal(islandWorld.has(destroyedBase.id), false);
+  assert.equal(islandWorld.has(physicsBodyKey('vehicle', destroyedBase.id)), true);
   referenceWorld.free();
   islandWorld.free();
 });

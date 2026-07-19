@@ -38,6 +38,7 @@ export interface DebugPanelProjection {
   interactionIsland: string;
   interactionReplay: string;
   interactionSelection: string;
+  playerReaction: string;
   simulationPhases: string;
   events: string[];
 }
@@ -47,7 +48,8 @@ export function projectDebugPanel(
   snapshot?: DebugSnapshot,
   network?: NetworkQualitySnapshot,
   interactionIsland?: InteractionIslandSelection,
-  rollout?: NetcodeRolloutSnapshot
+  rollout?: NetcodeRolloutSnapshot,
+  localPlayerId?: string
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -109,11 +111,24 @@ export function projectDebugPanel(
         `${network.interactionReplayHardResets} reset`
       : 'off',
     interactionSelection: interactionIslandSelectionSummary(interactionIsland),
+    playerReaction: playerReactionSummary(state, localPlayerId),
     simulationPhases: simulationPhaseSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function playerReactionSummary(state?: DistrictNetworkState, playerId?: string): string {
+  if (!playerId) return 'off';
+  const player = state?.players.get(playerId);
+  if (!player) return 'waiting';
+  const action = player.action || 'free';
+  const reaction = player.reactionKind
+    ? `${player.reactionKind} ${player.reactionDirection ?? 'front'} ` +
+      `${Math.round((player.reactionProgress ?? 0) * 100)}%`
+    : 'none';
+  return `${action} / ${reaction} / HP ${player.health} / armor ${player.armor ?? 0}`;
 }
 
 function simulationPhaseSummary(snapshot?: DebugSnapshot): string {

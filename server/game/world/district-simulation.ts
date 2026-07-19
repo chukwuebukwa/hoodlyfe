@@ -157,12 +157,6 @@ export class DistrictSimulation {
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
           this.options.indexVehicle(vehicle);
         });
-        for (const vehicle of this.options.vehicles.stepPhysics(nowMs)) {
-          this.options.indexVehicle(vehicle);
-        }
-        for (const vehicle of this.options.vehicles.finishTick(nowMs)) {
-          this.options.indexVehicle(vehicle);
-        }
       }),
       phase('player-motion', ({deltaSeconds, nowMs}) => {
         this.options.reactions.update(nowMs);
@@ -200,7 +194,7 @@ export class DistrictSimulation {
         });
       }),
       phase('dynamic-contacts', ({deltaSeconds, nowMs}) => {
-        const contacts = this.options.vehicles.finishHumanoidContacts(deltaSeconds, nowMs);
+        const contacts = this.options.vehicles.stepPhysics(deltaSeconds, nowMs);
         for (const vehicle of contacts.vehicles) this.options.indexVehicle(vehicle);
         for (const player of contacts.players) this.options.indexPlayer(player);
         for (const npc of contacts.npcs) this.options.indexNpc(npc);

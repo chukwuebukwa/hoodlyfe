@@ -1,14 +1,16 @@
 import {vehicleDefinition} from '../content/vehicle-catalog.ts';
-import {
-  resolveSweptVehicleWorldCollision,
-  type VehicleWorldOccupancy,
-  type VehicleWorldPose
-} from '../physics/vehicle-world-collision.ts';
 import {vehicleTyreHandlingModifiers} from './vehicle-tyre-state.ts';
 
 export const VEHICLE_SIMULATION_HZ = 30;
 export const VEHICLE_SIMULATION_STEP_SECONDS = 1 / VEHICLE_SIMULATION_HZ;
 export const MAX_VEHICLE_STEP_SECONDS = 0.05;
+
+export interface VehicleWorldPose {
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+}
 
 export interface VehicleControlCommand {
   steering: number;
@@ -22,14 +24,6 @@ export interface VehicleStepModifiers {
   coastDecelerationMultiplier?: number;
   steeringRateMultiplier?: number;
   steeringBias?: number;
-}
-
-export interface VehicleStepResult {
-  pose: VehicleWorldPose;
-  attemptedPose: VehicleWorldPose;
-  impactSpeed: number;
-  collidedWithWorld: boolean;
-  sweepSteps: number;
 }
 
 export function integrateVehiclePose(
@@ -94,25 +88,6 @@ export function integrateVehiclePose(
     y: y + Math.sin(angle) * speed * delta,
     angle,
     speed
-  };
-}
-
-export function stepVehicleWithWorldCollision(
-  pose: VehicleWorldPose,
-  command: VehicleControlCommand,
-  kind: string,
-  deltaSeconds: number,
-  canOccupy: VehicleWorldOccupancy,
-  modifiers: VehicleStepModifiers = {}
-): VehicleStepResult {
-  const attemptedPose = integrateVehiclePose(pose, command, kind, deltaSeconds, modifiers);
-  const collision = resolveSweptVehicleWorldCollision(pose, attemptedPose, kind, canOccupy);
-  return {
-    pose: collision.pose,
-    attemptedPose,
-    impactSpeed: collision.collided ? attemptedPose.speed : 0,
-    collidedWithWorld: collision.collided,
-    sweepSteps: collision.sweepSteps
   };
 }
 

@@ -2,10 +2,19 @@ import type {MovementVector} from '../input/client-input-policy.ts';
 import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {
   ON_FOOT_SIMULATION_STEP_SECONDS,
-  stepOnFootWithWorldCollision,
+  type OnFootControlCommand,
   type OnFootPose,
+  type OnFootStepModifiers,
   type OnFootWorldOccupancy
 } from '../../../shared/simulation/on-foot-step.ts';
+
+export type OnFootPoseStepper = (
+  pose: OnFootPose,
+  command: OnFootControlCommand,
+  deltaSeconds: number,
+  canOccupy: OnFootWorldOccupancy,
+  modifiers: OnFootStepModifiers
+) => OnFootPose;
 
 export interface OnFootPredictionPendingMove extends OnFootInputMoveMessage {
   readonly movementScale: number;
@@ -46,6 +55,8 @@ export class SavedOnFootPrediction {
   private nextSequence = 0;
   private lastAcknowledgedSequence = 0;
 
+  constructor(private readonly stepper: OnFootPoseStepper) {}
+
   initialize(pose: OnFootPose, acknowledgedSequence = 0): void {
     this.physicsPose = sanitizePose(pose);
     this.history = [];
@@ -78,13 +89,13 @@ export class SavedOnFootPrediction {
         x: finiteClamp(movement.x, -1, 1),
         y: finiteClamp(movement.y, -1, 1)
       };
-      this.physicsPose = stepOnFootWithWorldCollision(
+      this.physicsPose = this.stepper(
         this.physicsPose,
         {moveX: move.x, moveY: move.y},
         ON_FOOT_SIMULATION_STEP_SECONDS,
         canOccupy,
         {movementScale}
-      ).pose;
+      );
       this.history.push({
         ...move,
         movementScale: safeMovementScale(movementScale),
@@ -96,16 +107,7 @@ export class SavedOnFootPrediction {
     if (this.history.length > MAX_HISTORY_MOVES) {
       this.history.splice(0, this.history.length - MAX_HISTORY_MOVES);
     }
-    const pose = this.accumulatorSeconds > 0
-      ? stepOnFootWithWorldCollision(
-        this.physicsPose,
-        {moveX: movement.x, moveY: movement.y},
-        this.accumulatorSeconds,
-        canOccupy,
-        {movementScale}
-      ).pose
-      : this.physicsPose;
-    return {pose: {...pose}, outboundMoves};
+    return {pose: {...this.physicsPose}, outboundMoves};
   }
 
   reconcile(
@@ -146,13 +148,13 @@ export class SavedOnFootPrediction {
     }
     let replayed = {...baseline};
     for (const move of pending) {
-      replayed = stepOnFootWithWorldCollision(
+      replayed = this.stepper(
         replayed,
         {moveX: move.x, moveY: move.y},
         ON_FOOT_SIMULATION_STEP_SECONDS,
         canOccupy,
         {movementScale: move.movementScale}
-      ).pose;
+      );
       move.predicted = {...replayed};
     }
     this.physicsPose = replayed;

@@ -32,6 +32,27 @@ export interface OnFootStepResult {
   distance: number;
 }
 
+export function integrateOnFootPose(
+  pose: OnFootPose,
+  command: OnFootControlCommand,
+  deltaSeconds: number,
+  modifiers: OnFootStepModifiers = {}
+): OnFootPose {
+  const delta = finiteClamp(deltaSeconds, 0, ON_FOOT_MAX_STEP_SECONDS);
+  const movementScale = finiteClamp(modifiers.movementScale ?? 1, 0, 2);
+  const speed = finiteClamp(modifiers.speed ?? ON_FOOT_PLAYER_SPEED, 0, 1_000);
+  const inputX = finiteClamp(command.moveX, -1, 1);
+  const inputY = finiteClamp(command.moveY, -1, 1);
+  const magnitude = Math.hypot(inputX, inputY);
+  const normalization = magnitude > 1 ? 1 / magnitude : 1;
+  const distance = speed * movementScale * delta;
+  return {
+    x: finite(pose.x) + inputX * normalization * distance,
+    y: finite(pose.y) + inputY * normalization * distance,
+    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street'
+  };
+}
+
 export type OnFootWorldOccupancy = (
   spaceId: string,
   x: number,
@@ -39,29 +60,22 @@ export type OnFootWorldOccupancy = (
   radius: number
 ) => boolean;
 
-export function stepOnFootWithWorldCollision(
+export function stepInteriorOnFootPose(
   pose: OnFootPose,
   command: OnFootControlCommand,
   deltaSeconds: number,
   canOccupy: OnFootWorldOccupancy,
   modifiers: OnFootStepModifiers = {}
 ): OnFootStepResult {
-  const delta = finiteClamp(deltaSeconds, 0, ON_FOOT_MAX_STEP_SECONDS);
-  const movementScale = finiteClamp(modifiers.movementScale ?? 1, 0, 2);
   const radius = finiteClamp(modifiers.radius ?? ON_FOOT_PLAYER_RADIUS, 1, 256);
-  const speed = finiteClamp(modifiers.speed ?? ON_FOOT_PLAYER_SPEED, 0, 1_000);
-  const inputX = finiteClamp(command.moveX, -1, 1);
-  const inputY = finiteClamp(command.moveY, -1, 1);
-  const magnitude = Math.hypot(inputX, inputY);
-  const normalization = magnitude > 1 ? 1 / magnitude : 1;
-  const distance = speed * movementScale * delta;
-  const moveX = inputX * normalization * distance;
-  const moveY = inputY * normalization * distance;
   const startX = finite(pose.x);
   const startY = finite(pose.y);
   const spaceId = typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street';
-  const attemptedX = startX + moveX;
-  const attemptedY = startY + moveY;
+  const attempted = integrateOnFootPose(pose, command, deltaSeconds, modifiers);
+  const attemptedX = attempted.x;
+  const attemptedY = attempted.y;
+  const moveX = attemptedX - startX;
+  const moveY = attemptedY - startY;
   let x = startX;
   let y = startY;
   const collidedX = moveX !== 0 && !canOccupy(spaceId, attemptedX, y, radius);

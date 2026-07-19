@@ -58,7 +58,10 @@ import {
   type VehicleInputMove,
   type VehiclePredictionCorrection
 } from '../prediction/saved-vehicle-prediction.ts';
-import {createVehiclePhysicsPoseStepper} from '../prediction/vehicle-physics-replay.ts';
+import {
+  createHumanoidPhysicsPoseStepper,
+  createVehiclePhysicsPoseStepper
+} from '../prediction/vehicle-physics-replay.ts';
 import type {PhysicsWorld} from '../../../shared/physics/physics-world.ts';
 import {vehicleMechanicalStepModifiers} from '../../../shared/simulation/vehicle-step.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
@@ -643,7 +646,10 @@ export class ThreeDistrictEntities {
         fire: createFireSmokeEffect({radius: 11, seed: id.length, smokeWeight: 0.36}),
         appearanceKey: appearance.textureKey,
         motion: createRemoteMotionTimeline('player'),
-        onFootPrediction: initializedOnFootPrediction(player),
+        onFootPrediction: initializedOnFootPrediction(
+          player,
+          createHumanoidPhysicsPoseStepper(this.vehiclePhysicsWorld, id)
+        ),
         predictedSpaceId: player.spaceId || 'street',
         acknowledgedInputSequence: player.lastInputSequence ?? 0,
         visualOffsetX: 0,
@@ -1641,8 +1647,11 @@ function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
-function initializedOnFootPrediction(player: NetworkPlayer): SavedOnFootPrediction {
-  const prediction = new SavedOnFootPrediction();
+function initializedOnFootPrediction(
+  player: NetworkPlayer,
+  stepper: ConstructorParameters<typeof SavedOnFootPrediction>[0]
+): SavedOnFootPrediction {
+  const prediction = new SavedOnFootPrediction(stepper);
   prediction.initialize(
     {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
     player.lastInputSequence ?? 0

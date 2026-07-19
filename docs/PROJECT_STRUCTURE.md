@@ -259,7 +259,9 @@ The first room-facing facades are now live:
   reverse/pass/merge recovery; `TrafficDeadlockSystem` owns persistent blocker-graph cycle
   detection and one safe recovery owner; `TrafficController` composes those policies with
   lane-offset route targets.
-- `VehicleCollisionSystem` owns catalog-sized oriented-box narrow-phase contact, minimum-axis separation, impulse, and impact-zone facts. The spatial index provides only broad-phase candidates.
+- `PhysicsWorld` owns street static and dynamic collision for vehicles and humanoids;
+  gameplay controllers consume its contact facts to apply server-only outcomes. The
+  spatial index provides broad-phase candidates for non-physics systems.
 - `DistrictRoom` invokes these owners from the fixed schedule and maps validated network commands to their public APIs.
 
 Client appearance remains split as well: `AppearanceCreatorController` owns modal draft/form/preview/storage presentation, `WardrobeClientSession` owns targeted inventory/store-open subscriptions plus in-flight apply acknowledgement, the canvas policy owns palette/style rendering, `PlayerAppearanceTextureFactory` owns bounded Phaser texture/animation caching, and `PlayerRenderer` only selects the current equipped presentation.

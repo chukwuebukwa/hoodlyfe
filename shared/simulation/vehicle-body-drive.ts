@@ -5,12 +5,12 @@
 // turns), and the engine owns translation contact. Server simulation and client
 // prediction must stay bit-compatible, so neither may diverge from this module.
 
-import type {PhysicsWorld} from '../physics/physics-world.ts';
-import type {VehicleWorldPose} from '../physics/vehicle-world-collision.ts';
+import type {PhysicsBodyState, PhysicsWorld} from '../physics/physics-world.ts';
 import {
   integrateVehiclePose,
   type VehicleControlCommand,
-  type VehicleStepModifiers
+  type VehicleStepModifiers,
+  type VehicleWorldPose
 } from './vehicle-step.ts';
 
 // Attempted-vs-achieved gaps under this are unobstructed motion; above it, a world
@@ -23,6 +23,32 @@ export interface VehicleBodyCapture {
   impactSpeed: number;
 }
 
+export interface VehicleBodyDrive {
+  readonly desired: VehicleWorldPose;
+  readonly state: PhysicsBodyState;
+}
+
+export function planVehicleBodyDrive(
+  pose: VehicleWorldPose,
+  command: VehicleControlCommand,
+  kind: string,
+  deltaSeconds: number,
+  modifiers: VehicleStepModifiers = {}
+): VehicleBodyDrive {
+  const desired = integrateVehiclePose(pose, command, kind, deltaSeconds, modifiers);
+  return {
+    desired,
+    state: {
+      x: pose.x,
+      y: pose.y,
+      rotation: desired.angle,
+      linvelX: (desired.x - pose.x) / deltaSeconds,
+      linvelY: (desired.y - pose.y) / deltaSeconds,
+      angvel: 0
+    }
+  };
+}
+
 export function driveVehicleBody(
   world: PhysicsWorld,
   key: string,
@@ -32,17 +58,15 @@ export function driveVehicleBody(
   deltaSeconds: number,
   modifiers: VehicleStepModifiers = {}
 ): VehicleWorldPose {
-  const desired = integrateVehiclePose(pose, command, kind, deltaSeconds, modifiers);
-  const state = {
-    x: pose.x,
-    y: pose.y,
-    rotation: desired.angle,
-    linvelX: (desired.x - pose.x) / deltaSeconds,
-    linvelY: (desired.y - pose.y) / deltaSeconds,
-    angvel: 0
-  };
+  const {desired, state} = planVehicleBodyDrive(
+    pose,
+    command,
+    kind,
+    deltaSeconds,
+    modifiers
+  );
   if (world.has(key)) world.writeback(key, state);
-  else world.registerVehicle(key, kind, state, 'statics-only');
+  else world.registerVehicle(key, kind, state);
   return desired;
 }
 
@@ -54,7 +78,11 @@ export function captureVehicleBody(
   const state = world.capture(key);
   if (!state) return undefined;
   const angle = normalizeAngle(state.rotation);
-  const collidedWithWorld =
+  const collidedWithWorld = world.hasStaticImpact(
+    key,
+    desired.speed * Math.cos(desired.angle),
+    desired.speed * Math.sin(desired.angle)
+  ) &&
     Math.hypot(desired.x - state.x, desired.y - state.y) > WORLD_CONTACT_SHORTFALL;
   return {
     pose: {

@@ -8,12 +8,13 @@ import {VEHICLE_SIMULATION_STEP_SECONDS} from '../shared/simulation/vehicle-step
 test('authoritative vehicle-humanoid phase runs after body motion and uses OBB contact', () => {
   const fixture = contactFixture();
   fixture.vehicle.speed = 120;
-  fixture.player.x = 35;
-  fixture.player.y = 0;
+  fixture.player.x = fixture.vehicle.x + 35;
+  fixture.player.y = fixture.vehicle.y;
 
   fixture.room.vehicleSimulation.beginTick();
   fixture.player.x += 1;
-  const result = fixture.room.vehicleSimulation.finishHumanoidContacts(
+  fixture.vehicle.x += fixture.vehicle.speed * VEHICLE_SIMULATION_STEP_SECONDS;
+  const result = fixture.room.vehicleSimulation.stepPhysics(
     VEHICLE_SIMULATION_STEP_SECONDS,
     1_000
   );
@@ -21,9 +22,9 @@ test('authoritative vehicle-humanoid phase runs after body motion and uses OBB c
   assert.equal(result.contacts, 1);
   assert.equal(result.damagingContacts, 1);
   assert.equal(fixture.player.health, 55);
-  assert.ok(fixture.player.x > 36);
-  assert.ok(fixture.vehicle.x < 0);
-  assert.ok(fixture.vehicle.speed < 120);
+  assert.ok(fixture.player.x >= 1036);
+  assert.equal(fixture.vehicle.x, 1004);
+  assert.equal(fixture.vehicle.speed, 120);
   assert.deepEqual(result.players.map((player: PlayerState) => player.id), ['target']);
   assert.deepEqual(result.vehicles.map((vehicle: VehicleState) => vehicle.id), ['car']);
 });
@@ -31,11 +32,12 @@ test('authoritative vehicle-humanoid phase runs after body motion and uses OBB c
 test('low-speed overlaps separate without damage and OBB corner misses do not collide', () => {
   const fixture = contactFixture();
   fixture.vehicle.speed = 20;
-  fixture.player.x = 35;
-  fixture.player.y = 0;
+  fixture.player.x = fixture.vehicle.x + 35;
+  fixture.player.y = fixture.vehicle.y;
   fixture.room.vehicleSimulation.beginTick();
+  fixture.vehicle.x += fixture.vehicle.speed * VEHICLE_SIMULATION_STEP_SECONDS;
 
-  const separated = fixture.room.vehicleSimulation.finishHumanoidContacts(
+  const separated = fixture.room.vehicleSimulation.stepPhysics(
     VEHICLE_SIMULATION_STEP_SECONDS,
     1_000
   );
@@ -43,30 +45,49 @@ test('low-speed overlaps separate without damage and OBB corner misses do not co
   assert.equal(separated.damagingContacts, 0);
   assert.equal(fixture.player.health, 100);
 
-  fixture.player.x = 38;
-  fixture.player.y = 27;
+  fixture.player.x = fixture.vehicle.x + 50;
+  fixture.player.y = fixture.vehicle.y + 35;
   fixture.room.vehicleSimulation.beginTick();
-  const missed = fixture.room.vehicleSimulation.finishHumanoidContacts(
+  const missed = fixture.room.vehicleSimulation.stepPhysics(
     VEHICLE_SIMULATION_STEP_SECONDS,
     1_100
   );
   assert.equal(missed.contacts, 0);
 });
 
+test('walking into a parked vehicle separates without damage', () => {
+  const fixture = contactFixture();
+  fixture.player.x = fixture.vehicle.x + 41;
+  fixture.player.y = fixture.vehicle.y;
+  fixture.room.vehicleSimulation.beginTick();
+  fixture.player.x -= 190 * VEHICLE_SIMULATION_STEP_SECONDS;
+
+  const result = fixture.room.vehicleSimulation.stepPhysics(
+    VEHICLE_SIMULATION_STEP_SECONDS,
+    1_000
+  );
+
+  assert.equal(result.contacts, 1);
+  assert.equal(result.damagingContacts, 0);
+  assert.equal(fixture.player.health, 100);
+  assert.equal(fixture.vehicle.x, 1000);
+});
+
 test('per-pair impact records damage distinct pedestrians and debounce only repeats', () => {
   const fixture = contactFixture();
   const npc = new NpcState();
   npc.id = 'npc-target';
-  npc.x = 35;
-  npc.y = 8;
+  npc.x = fixture.vehicle.x + 35;
+  npc.y = fixture.vehicle.y + 8;
   npc.health = 100;
   fixture.room.state.npcs.set(npc.id, npc);
   fixture.vehicle.speed = 150;
-  fixture.player.x = 35;
-  fixture.player.y = -8;
+  fixture.player.x = fixture.vehicle.x + 35;
+  fixture.player.y = fixture.vehicle.y - 8;
 
   fixture.room.vehicleSimulation.beginTick();
-  const first = fixture.room.vehicleSimulation.finishHumanoidContacts(
+  fixture.vehicle.x += fixture.vehicle.speed * VEHICLE_SIMULATION_STEP_SECONDS;
+  const first = fixture.room.vehicleSimulation.stepPhysics(
     VEHICLE_SIMULATION_STEP_SECONDS,
     1_000
   );
@@ -75,10 +96,12 @@ test('per-pair impact records damage distinct pedestrians and debounce only repe
   assert.ok(npc.health < 100);
 
   fixture.vehicle.speed = 150;
+  npc.x = fixture.vehicle.x + 200;
   fixture.player.x = fixture.vehicle.x + 35;
   fixture.player.y = fixture.vehicle.y;
   fixture.room.vehicleSimulation.beginTick();
-  const repeated = fixture.room.vehicleSimulation.finishHumanoidContacts(
+  fixture.vehicle.x += fixture.vehicle.speed * VEHICLE_SIMULATION_STEP_SECONDS;
+  const repeated = fixture.room.vehicleSimulation.stepPhysics(
     VEHICLE_SIMULATION_STEP_SECONDS,
     1_100
   );
@@ -104,6 +127,8 @@ function contactFixture() {
   const vehicle = new VehicleState();
   vehicle.id = 'car';
   vehicle.kind = 'sedan';
+  vehicle.x = 1000;
+  vehicle.y = 1000;
   const player = new PlayerState();
   player.id = 'target';
   player.spaceId = 'street';
@@ -120,8 +145,8 @@ function multiContactFixture(order: readonly string[]) {
   for (const id of order) {
     const player = new PlayerState();
     player.id = id;
-    player.x = 35;
-    player.y = id === 'alpha' ? -8 : 8;
+    player.x = fixture.vehicle.x + 35;
+    player.y = fixture.vehicle.y + (id === 'alpha' ? -8 : 8);
     players.set(id, player);
     fixture.room.state.players.set(id, player);
   }
@@ -131,7 +156,8 @@ function multiContactFixture(order: readonly string[]) {
 
 function advance(fixture: ReturnType<typeof multiContactFixture>): void {
   fixture.room.vehicleSimulation.beginTick();
-  fixture.room.vehicleSimulation.finishHumanoidContacts(VEHICLE_SIMULATION_STEP_SECONDS, 1_000);
+  fixture.vehicle.x += fixture.vehicle.speed * VEHICLE_SIMULATION_STEP_SECONDS;
+  fixture.room.vehicleSimulation.stepPhysics(VEHICLE_SIMULATION_STEP_SECONDS, 1_000);
 }
 
 function snapshot(fixture: ReturnType<typeof multiContactFixture>) {

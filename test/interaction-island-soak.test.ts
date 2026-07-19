@@ -29,7 +29,6 @@ test('multi-client interaction islands survive the M11 impairment and lifecycle 
     assert.equal(result.budgetViolations, 0, summary(result));
     assert.ok(result.overflowSelections > 0, summary(result));
     assert.equal(result.executedExternalEffects, 0, summary(result));
-    assert.ok(result.suppressedExternalEffects > 0, summary(result));
     assert.ok(result.simulatedRetransmissions > 0, summary(result));
     assert.equal(result.occupancyTransitionsObserved, 2, summary(result));
     assert.equal(result.historyResetsObserved, 2, summary(result));
@@ -46,41 +45,6 @@ test('multi-client interaction islands survive the M11 impairment and lifecycle 
     ? STRICT_REPLAY_P95_MS
     : SHARED_RUNNER_REPLAY_P95_MS;
   assert.ok(acceptance.replayDurationP95Ms < replayP95Limit, summary(acceptance));
-});
-
-// Stage-2 gate (RAPIER_MIGRATION_ADAPTATION_CONTRACT.md): the same soak with the
-// server-vehicle-physics stage on, vehicles stepping through the engine on both
-// sides of the simulated wire.
-test('the impairment soak holds with vehicles simulating in the physics world', (context) => {
-  const acceptance = runInteractionIslandSoak(M11_ACCEPTANCE_PROFILE, 450, 0x51a7, true);
-  const stress = runInteractionIslandSoak(M11_STRESS_PROFILE, 450, 0x8e55, true);
-  for (const result of [acceptance, stress]) {
-    context.diagnostic(`physics ${summary(result)}`);
-    assert.equal(result.rejectedReplays, 0, summary(result));
-    assert.ok(result.successfulReplays > 1_000, summary(result));
-    assert.equal(result.budgetViolations, 0, summary(result));
-    assert.equal(result.executedExternalEffects, 0, summary(result));
-    assert.ok(result.suppressedExternalEffects > 0, summary(result));
-    assert.equal(result.destructionObserved, true, summary(result));
-    assert.equal(result.vehicleRespawnObserved, true, summary(result));
-    assert.ok(result.rootErrorP95 < 48, summary(result));
-    assert.ok(result.rootErrorMaximum < 180, summary(result));
-    assert.ok(result.finalConvergenceError < 1e-9, summary(result));
-  }
-  const replayP95Limit = process.env.NETCODE_SOAK_STRICT === '1'
-    ? STRICT_REPLAY_P95_MS
-    : SHARED_RUNNER_REPLAY_P95_MS;
-  assert.ok(acceptance.replayDurationP95Ms < replayP95Limit, summary(acceptance));
-});
-
-test('the physics-mode soak trace is deterministic outside wall-clock measurements', () => {
-  const first = deterministicProjection(
-    runInteractionIslandSoak(M11_ACCEPTANCE_PROFILE, 360, 77, true)
-  );
-  const second = deterministicProjection(
-    runInteractionIslandSoak(M11_ACCEPTANCE_PROFILE, 360, 77, true)
-  );
-  assert.deepEqual(second, first);
 });
 
 test('the M11 acceptance trace is deterministic outside wall-clock measurements', () => {

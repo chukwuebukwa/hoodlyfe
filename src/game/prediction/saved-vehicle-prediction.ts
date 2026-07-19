@@ -1,9 +1,5 @@
 import type {MovementVector} from '../input/client-input-policy.ts';
 import {
-  predictVehiclePoseWithWorldCollision,
-  type PredictedVehiclePose
-} from './vehicle-prediction-policy.ts';
-import {
   VEHICLE_SIMULATION_HZ,
   VEHICLE_SIMULATION_STEP_SECONDS,
   type VehicleStepModifiers
@@ -11,6 +7,13 @@ import {
 
 export const VEHICLE_PREDICTION_HZ = VEHICLE_SIMULATION_HZ;
 export const VEHICLE_PREDICTION_STEP_SECONDS = VEHICLE_SIMULATION_STEP_SECONDS;
+
+export interface PredictedVehiclePose {
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+}
 
 export interface VehicleInputMove extends MovementVector {
   sequence: number;
@@ -42,9 +45,6 @@ export interface VehiclePredictionReplaySample {
 
 type OccupancyQuery = (x: number, y: number, radius: number) => boolean;
 
-// One committed fixed step of local vehicle motion. The default is the shared
-// handling kernel; when the server simulates vehicles in the physics world, an
-// engine-backed stepper mirrors it so predictions match the authority's model.
 export type VehiclePoseStepper = (
   pose: PredictedVehiclePose,
   movement: MovementVector,
@@ -68,9 +68,7 @@ export class SavedVehiclePrediction {
   private nextSequence = 0;
   private lastAcknowledgedSequence = 0;
 
-  constructor(
-    private readonly stepper: VehiclePoseStepper = predictVehiclePoseWithWorldCollision
-  ) {}
+  constructor(private readonly stepper: VehiclePoseStepper) {}
 
   initialize(pose: PredictedVehiclePose, acknowledgedSequence = 0): void {
     this.physicsPose = {...pose};
@@ -116,17 +114,7 @@ export class SavedVehiclePrediction {
     if (this.history.length > MAX_HISTORY_MOVES) {
       this.history.splice(0, this.history.length - MAX_HISTORY_MOVES);
     }
-    const pose = this.accumulatorSeconds > 0
-      ? predictVehiclePoseWithWorldCollision(
-        this.physicsPose,
-        movement,
-        kind,
-        this.accumulatorSeconds,
-        canOccupy,
-        modifiers
-      )
-      : this.physicsPose;
-    return {pose: {...pose}, outboundMoves};
+    return {pose: {...this.physicsPose}, outboundMoves};
   }
 
   reconcile(

@@ -60,6 +60,7 @@ export class ThreeDebugController {
     interactionIsland: document.querySelector('#debug-interaction-island'),
     interactionReplay: document.querySelector('#debug-interaction-replay'),
     interactionSelection: document.querySelector('#debug-interaction-selection'),
+    playerReaction: document.querySelector('#debug-player-reaction'),
     simulationPhases: document.querySelector('#debug-simulation-phases'),
     rollout: document.querySelector('#debug-netcode-rollout')
   };
@@ -127,7 +128,8 @@ export class ThreeDebugController {
       this.snapshot,
       this.networkQuality(),
       this.interactionIsland(),
-      this.netcodeRollout()
+      this.netcodeRollout(),
+      this.room.sessionId
     );
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);

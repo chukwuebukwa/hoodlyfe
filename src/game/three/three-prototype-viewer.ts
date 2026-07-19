@@ -20,8 +20,7 @@ import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {STREET_SPACE_ID, interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
 import {
-  createMixedInteractionBodyStep,
-  createMixedInteractionPairStep
+  createMixedInteractionBodyStep
 } from '../prediction/mixed-interaction-replay.ts';
 import {createVehiclePhysicsBatchStep} from '../prediction/vehicle-physics-replay.ts';
 import {
@@ -210,7 +209,6 @@ export class ThreePrototypeViewer {
                 ? createVehiclePhysicsBatchStep(world)(entities, controls, context)
                 : undefined;
             },
-            resolvePair: createMixedInteractionPairStep(canOccupyInteraction),
             onReplay: (result, durationMs, baseline) => {
               this.entities?.applyInteractionReplay(baseline, result);
               this.networkQuality?.observeInteractionReplay(result, durationMs);
@@ -297,11 +295,7 @@ export class ThreePrototypeViewer {
   // Engine prediction only mirrors a server that negotiated the stage on; without a
   // manifest the server is simulating with the kernel, so predict with the kernel.
   private vehiclePhysicsWorld(role: 'prediction' | 'islands'): PhysicsWorld | undefined {
-    const enabled = this.netcodeRollout?.enabled('serverVehiclePhysics') ?? false;
-    if (!enabled || !this.vehiclePhysicsGeometry) {
-      this.freeVehiclePhysicsWorlds();
-      return undefined;
-    }
+    if (!this.vehiclePhysicsGeometry) return undefined;
     this.vehiclePhysicsWorlds ??= {
       prediction: PhysicsWorld.create(this.vehiclePhysicsGeometry),
       islands: PhysicsWorld.create(this.vehiclePhysicsGeometry)

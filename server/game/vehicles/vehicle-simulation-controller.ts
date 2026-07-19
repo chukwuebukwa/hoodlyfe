@@ -6,28 +6,35 @@ import type {TrafficController} from '../traffic/traffic-controller.ts';
 import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
 import type {PoliceVehicleController} from '../police/police-vehicle-controller.ts';
 import type {TrafficSignalController} from '../traffic/traffic-signal-controller.ts';
-import {classifyImpactZone, VehicleCollisionSystem, type VehicleDamageZone} from './vehicle-collision-system.ts';
-import {VEHICLE_COLLISION_BOUNDING_RADIUS, vehicleConfig} from './vehicle-config.ts';
-import {VehicleDamageSystem} from './vehicle-damage-system.ts';
+import {vehicleConfig} from './vehicle-config.ts';
+import {
+  classifyImpactZone,
+  VehicleDamageSystem,
+  type VehicleDamageZone
+} from './vehicle-damage-system.ts';
 import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
-import {stepVehicleWithWorldCollision} from '../../../shared/simulation/vehicle-step.ts';
 import {
   captureVehicleBody,
-  driveVehicleBody
+  planVehicleBodyDrive
 } from '../../../shared/simulation/vehicle-body-drive.ts';
-import type {VehicleWorldPose} from '../../../shared/physics/vehicle-world-collision.ts';
-import type {PhysicsWorld} from '../../../shared/physics/physics-world.ts';
+import type {VehicleWorldPose} from '../../../shared/simulation/vehicle-step.ts';
+import type {PhysicsBodyState, PhysicsContact, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
 import {
-  VehicleHumanoidContactSystem,
-  type VehicleHumanoidContactPhaseResult
-} from './vehicle-humanoid-contact-system.ts';
+  driveHumanoidBody,
+  physicsBodyKey
+} from '../../../shared/simulation/humanoid-body-drive.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const RESPAWN_DELAY_MS = 8000;
 const PHYSICS_COST_SAMPLE_LIMIT = 600;
+const TRAFFIC_IMPACT_COOLDOWN_MS = 600;
+const DRIVER_IMPACT_COOLDOWN_MS = 450;
+const IMPACT_RECORD_RETENTION_MS = 5_000;
+const TRAFFIC_HUMANOID_IMPACT_THRESHOLD = 70;
+const DRIVER_HUMANOID_IMPACT_THRESHOLD = 90;
 
 function vehicleObstacleDimensions(kind: string): Pick<TrafficObstacle, 'halfLength' | 'halfWidth'> {
   const collision = vehicleConfig(kind).collision;
@@ -51,6 +58,20 @@ interface PendingPhysicsDrive {
   desired: VehicleWorldPose;
 }
 
+interface PhysicsAttempt extends PhysicsBodyState {
+  readonly key: string;
+  readonly kind: 'vehicle' | 'player' | 'pedestrian';
+  readonly id: string;
+}
+
+export interface VehicleHumanoidContactPhaseResult {
+  readonly vehicles: readonly VehicleState[];
+  readonly players: readonly PlayerState[];
+  readonly npcs: readonly NpcState[];
+  readonly contacts: number;
+  readonly damagingContacts: number;
+}
+
 interface VehicleSimulationControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -59,7 +80,7 @@ interface VehicleSimulationControllerOptions {
   traffic: TrafficController;
   signals?: Pick<TrafficSignalController, 'obstaclesFor'>;
   policeVehicles?: Pick<PoliceVehicleController, 'has' | 'update'>;
-  physics?: PhysicsWorld;
+  physics: PhysicsWorld;
   clock: () => SimulationClock;
   inputFor: (playerId: string) => DriverInput | undefined;
   acknowledgeInput?: (playerId: string, vehicleId: string, sequence: number) => void;
@@ -85,47 +106,43 @@ interface VehicleSimulationControllerOptions {
 }
 
 export class VehicleSimulationController {
-  private readonly collisions = new VehicleCollisionSystem();
-  private readonly humanoidContacts: VehicleHumanoidContactSystem;
   private readonly damageSystem = new VehicleDamageSystem();
-  private readonly collisionPairsThisTick = new Set<string>();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly pendingPhysicsDrives: PendingPhysicsDrive[] = [];
   private readonly physicsStepCostSamples: number[] = [];
+  private readonly previousBodies = new Map<string, {x: number; y: number; angle: number}>();
+  private readonly impactAt = new Map<string, number>();
 
-  constructor(private readonly options: VehicleSimulationControllerOptions) {
-    this.humanoidContacts = new VehicleHumanoidContactSystem(options);
-  }
+  constructor(private readonly options: VehicleSimulationControllerOptions) {}
 
   beginTick(nowMs = this.options.state.serverTimeMs): void {
-    this.collisionPairsThisTick.clear();
-    this.humanoidContacts.beginTick();
-    this.options.traffic.beginTick(nowMs);
-  }
-
-  finishTick(nowMs: number): readonly VehicleState[] {
-    const moved = new Map<string, VehicleState>();
-    const vehicles = [...this.options.state.vehicles.values()]
-      .sort((left, right) => left.id.localeCompare(right.id));
-    for (const vehicle of vehicles) {
-      for (const other of this.stableCollisionCandidates(vehicle)) {
-        if (this.resolveCollisionPair(vehicle, other, nowMs)) {
-          moved.set(vehicle.id, vehicle);
-          moved.set(other.id, other);
-        }
+    this.previousBodies.clear();
+    for (const vehicle of this.options.state.vehicles.values()) {
+      this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle
+      });
+    }
+    for (const player of this.options.state.players.values()) {
+      if (player.alive && !player.vehicleId && player.spaceId === 'street') {
+        this.previousBodies.set(physicsBodyKey('player', player.id), {
+          x: player.x,
+          y: player.y,
+          angle: player.angle
+        });
       }
     }
-    for (const vehicle of vehicles) this.syncOccupants(vehicle);
-    return Object.freeze([...moved.values()]);
-  }
-
-  finishHumanoidContacts(
-    deltaSeconds: number,
-    nowMs: number
-  ): VehicleHumanoidContactPhaseResult {
-    const result = this.humanoidContacts.resolve(deltaSeconds, nowMs);
-    for (const vehicle of result.vehicles) this.syncOccupants(vehicle);
-    return result;
+    for (const npc of this.options.state.npcs.values()) {
+      if (npc.alive) {
+        this.previousBodies.set(physicsBodyKey('pedestrian', npc.id), {
+          x: npc.x,
+          y: npc.y,
+          angle: npc.angle
+        });
+      }
+    }
+    this.options.traffic.beginTick(nowMs);
   }
 
   update(vehicle: VehicleState, deltaSeconds: number, nowMs: number): void {
@@ -167,45 +184,7 @@ export class VehicleSimulationController {
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
-      if (this.options.physics) {
-        this.queuePhysicsDrive(vehicle, driver.id, input, deltaSeconds);
-        return;
-      }
-      const movement = stepVehicleWithWorldCollision(
-        {
-          x: vehicle.x,
-          y: vehicle.y,
-          angle: vehicle.angle,
-          speed: vehicle.speed
-        },
-        {steering: input.inputX, throttle: -input.inputY},
-        vehicle.kind,
-        deltaSeconds,
-        (x, y, radius) => this.options.world.canOccupy(x, y, radius),
-        this.damageSystem.stepModifiers(
-          vehicle.engineDamage,
-          vehicle.onFire,
-          vehicle.tyreDamageMask
-        )
-      );
-      vehicle.siren = false;
-      vehicle.x = movement.pose.x;
-      vehicle.y = movement.pose.y;
-      vehicle.angle = movement.pose.angle;
-      if (movement.collidedWithWorld) {
-        this.damage(
-          vehicle,
-          this.damageSystem.wallImpactDamage(movement.impactSpeed),
-          '',
-          'world',
-          nowMs,
-          movement.impactSpeed >= 0 ? 'front' : 'rear'
-        );
-      }
-      vehicle.speed = movement.pose.speed;
-      if (input.sequence !== undefined) {
-        this.options.acknowledgeInput?.(driver.id, vehicle.id, input.sequence);
-      }
+      this.queuePhysicsDrive(vehicle, driver.id, input, deltaSeconds);
     } else {
       if (vehicle.driverId) {
         vehicle.driverId = '';
@@ -215,14 +194,101 @@ export class VehicleSimulationController {
     }
   }
 
-  stepPhysics(nowMs: number): readonly VehicleState[] {
+  stepPhysics(deltaSeconds: number, nowMs: number): VehicleHumanoidContactPhaseResult {
     const physics = this.options.physics;
-    if (!physics) return [];
-    const driven = new Set(this.pendingPhysicsDrives.map((drive) => drive.vehicle.id));
-    for (const key of [...physics.keys()]) {
-      if (!driven.has(key)) physics.remove(key);
+    const attempts = new Map<string, PhysicsAttempt>();
+    const pending = new Map(this.pendingPhysicsDrives.map((drive) => [drive.vehicle.id, drive]));
+    const memberIds = new Set<string>();
+    const delta = Math.max(0.001, deltaSeconds);
+    // ponytail: rebuild dynamic bodies each tick; preserve them only if profiling shows
+    // registration cost matters more than deterministic replay from plain body state.
+    for (const key of [...physics.keys()]) physics.remove(key);
+
+    const vehicles = [...this.options.state.vehicles.values()]
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const vehicle of vehicles) {
+      const key = physicsBodyKey('vehicle', vehicle.id);
+      const previous = this.previousBodies.get(key) ?? vehicle;
+      const desired = pending.get(vehicle.id)?.desired ?? {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.destroyed ? 0 : vehicle.speed
+      };
+      const state = {
+        x: previous.x,
+        y: previous.y,
+        rotation: desired.angle,
+        linvelX: (desired.x - previous.x) / delta,
+        linvelY: (desired.y - previous.y) / delta,
+        angvel: 0
+      };
+      physics.registerVehicle(key, vehicle.kind, state);
+      attempts.set(key, {key, kind: 'vehicle', id: vehicle.id, ...state});
+      memberIds.add(key);
     }
-    if (this.pendingPhysicsDrives.length === 0) return [];
+
+    const players = [...this.options.state.players.values()]
+      .filter((player) => player.alive && !player.vehicleId && player.spaceId === 'street')
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const player of players) {
+      const key = physicsBodyKey('player', player.id);
+      const previous = this.previousBodies.get(key) ?? player;
+      const desired = {x: player.x, y: player.y, spaceId: player.spaceId};
+      driveHumanoidBody(
+        physics,
+        key,
+        PLAYER_RADIUS,
+        {x: previous.x, y: previous.y, spaceId: player.spaceId},
+        desired,
+        delta
+      );
+      attempts.set(key, {
+        key,
+        kind: 'player',
+        id: player.id,
+        x: previous.x,
+        y: previous.y,
+        rotation: 0,
+        linvelX: (desired.x - previous.x) / delta,
+        linvelY: (desired.y - previous.y) / delta,
+        angvel: 0
+      });
+      memberIds.add(key);
+    }
+
+    const npcs = [...this.options.state.npcs.values()]
+      .filter((npc) => npc.alive)
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const npc of npcs) {
+      const key = physicsBodyKey('pedestrian', npc.id);
+      const previous = this.previousBodies.get(key) ?? npc;
+      const desired = {x: npc.x, y: npc.y, spaceId: 'street'};
+      driveHumanoidBody(
+        physics,
+        key,
+        NPC_RADIUS,
+        {x: previous.x, y: previous.y, spaceId: 'street'},
+        desired,
+        delta
+      );
+      attempts.set(key, {
+        key,
+        kind: 'pedestrian',
+        id: npc.id,
+        x: previous.x,
+        y: previous.y,
+        rotation: 0,
+        linvelX: (desired.x - previous.x) / delta,
+        linvelY: (desired.y - previous.y) / delta,
+        angvel: 0
+      });
+      memberIds.add(key);
+    }
+
+    for (const key of [...physics.keys()]) {
+      if (!memberIds.has(key)) physics.remove(key);
+    }
 
     const startedAt = performance.now();
     physics.step();
@@ -231,15 +297,26 @@ export class VehicleSimulationController {
       this.physicsStepCostSamples.shift();
     }
 
-    const moved: VehicleState[] = [];
-    for (const {vehicle, driverId, sequence, desired} of this.pendingPhysicsDrives) {
-      const captured = captureVehicleBody(physics, vehicle.id, desired);
+    const movedVehicles: VehicleState[] = [];
+    for (const vehicle of vehicles) {
+      const drive = pending.get(vehicle.id);
+      const desired = drive?.desired ?? {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.destroyed ? 0 : vehicle.speed
+      };
+      const captured = captureVehicleBody(
+        physics,
+        physicsBodyKey('vehicle', vehicle.id),
+        desired
+      );
       if (!captured) continue;
       vehicle.x = captured.pose.x;
       vehicle.y = captured.pose.y;
       vehicle.angle = captured.pose.angle;
       vehicle.speed = captured.pose.speed;
-      if (captured.collidedWithWorld) {
+      if (drive && captured.collidedWithWorld) {
         this.damage(
           vehicle,
           this.damageSystem.wallImpactDamage(captured.impactSpeed),
@@ -249,17 +326,151 @@ export class VehicleSimulationController {
           captured.impactSpeed >= 0 ? 'front' : 'rear'
         );
       }
-      if (sequence !== undefined) {
-        this.options.acknowledgeInput?.(driverId, vehicle.id, sequence);
+      if (drive?.sequence !== undefined) {
+        this.options.acknowledgeInput?.(drive.driverId, vehicle.id, drive.sequence);
       }
-      moved.push(vehicle);
+      this.syncOccupants(vehicle);
+      movedVehicles.push(vehicle);
+    }
+
+    for (const player of players) {
+      const state = physics.capture(physicsBodyKey('player', player.id));
+      if (state) {
+        player.x = state.x;
+        player.y = state.y;
+      }
+    }
+    for (const npc of npcs) {
+      const state = physics.capture(physicsBodyKey('pedestrian', npc.id));
+      if (state) {
+        npc.x = state.x;
+        npc.y = state.y;
+      }
+    }
+
+    let contacts = 0;
+    let damagingContacts = 0;
+    this.pruneImpactRecords(nowMs);
+    for (const contact of physics.contacts()) {
+      const first = attempts.get(contact.first);
+      const second = attempts.get(contact.second);
+      if (!first || !second) continue;
+      if (first.kind === 'vehicle' && second.kind === 'vehicle') {
+        this.applyVehicleContact(first, second, contact, nowMs);
+      } else if (first.kind === 'vehicle' || second.kind === 'vehicle') {
+        contacts++;
+        if (this.applyHumanoidImpact(first, second, contact, nowMs)) damagingContacts++;
+      }
     }
     this.pendingPhysicsDrives.length = 0;
-    return moved;
+    return Object.freeze({
+      vehicles: Object.freeze(movedVehicles),
+      players: Object.freeze(players),
+      npcs: Object.freeze(npcs),
+      contacts,
+      damagingContacts
+    });
   }
 
   physicsStepCosts(): readonly number[] {
     return this.physicsStepCostSamples;
+  }
+
+  private applyVehicleContact(
+    first: PhysicsAttempt,
+    second: PhysicsAttempt,
+    contact: PhysicsContact,
+    nowMs: number
+  ): void {
+    const primary = this.options.state.vehicles.get(first.id);
+    const other = this.options.state.vehicles.get(second.id);
+    if (!primary || !other) return;
+    const closingSpeed = contactSpeed(first, second, contact);
+    const baseDamage = Math.max(0, (closingSpeed - 55) * 0.65);
+    const primaryConfig = vehicleConfig(primary.kind);
+    const otherConfig = vehicleConfig(other.kind);
+    const directionX = other.x - primary.x;
+    const directionY = other.y - primary.y;
+    this.damage(
+      primary,
+      Math.round(baseDamage * otherConfig.mass * primaryConfig.collisionDamageScale),
+      other.driverId,
+      'vehicle',
+      nowMs,
+      classifyImpactZone(primary.angle, directionX, directionY)
+    );
+    this.damage(
+      other,
+      Math.round(baseDamage * primaryConfig.mass * otherConfig.collisionDamageScale),
+      primary.driverId,
+      'vehicle',
+      nowMs,
+      classifyImpactZone(other.angle, -directionX, -directionY)
+    );
+  }
+
+  private applyHumanoidImpact(
+    first: PhysicsAttempt,
+    second: PhysicsAttempt,
+    contact: PhysicsContact,
+    nowMs: number
+  ): boolean {
+    const vehicleAttempt = first.kind === 'vehicle' ? first : second;
+    const humanoidAttempt = first.kind === 'vehicle' ? second : first;
+    const vehicle = this.options.state.vehicles.get(vehicleAttempt.id);
+    if (!vehicle || vehicle.destroyed) return false;
+    const driver = vehicle.driverId
+      ? this.options.state.players.get(vehicle.driverId)
+      : undefined;
+    const normalDirection = vehicleAttempt === first ? -1 : 1;
+    const impactSpeed = Math.max(0, normalDirection * (
+      vehicleAttempt.linvelX * contact.normalX +
+      vehicleAttempt.linvelY * contact.normalY
+    ));
+    const threshold = driver?.alive
+      ? DRIVER_HUMANOID_IMPACT_THRESHOLD
+      : TRAFFIC_HUMANOID_IMPACT_THRESHOLD;
+    const cooldown = driver?.alive ? DRIVER_IMPACT_COOLDOWN_MS : TRAFFIC_IMPACT_COOLDOWN_MS;
+    const pairKey = `${vehicle.id}|${humanoidAttempt.key}`;
+    if (
+      impactSpeed < threshold ||
+      nowMs - (this.impactAt.get(pairKey) ?? Number.NEGATIVE_INFINITY) < cooldown
+    ) return false;
+
+    const attackerId = driver?.id ?? '';
+    if (humanoidAttempt.kind === 'player') {
+      const player = this.options.state.players.get(humanoidAttempt.id);
+      if (!player || player.id === attackerId) return false;
+      this.options.damagePlayer(
+        player,
+        driver?.alive ? 50 : 45,
+        attackerId,
+        nowMs,
+        driver?.alive ? 'hit-and-run' : undefined,
+        vehicleImpact(vehicle)
+      );
+    } else {
+      const npc = this.options.state.npcs.get(humanoidAttempt.id);
+      if (!npc) return false;
+      this.options.damageNpc(
+        npc,
+        driver?.alive ? Math.min(100, Math.round(impactSpeed * 0.45)) : 100,
+        attackerId,
+        nowMs,
+        driver?.alive
+          ? npc.kind === 'police' ? 'hit-and-run-police' : 'hit-and-run'
+          : undefined,
+        vehicleImpact(vehicle)
+      );
+    }
+    this.impactAt.set(pairKey, nowMs);
+    return true;
+  }
+
+  private pruneImpactRecords(nowMs: number): void {
+    for (const [key, timestamp] of this.impactAt) {
+      if (nowMs - timestamp > IMPACT_RECORD_RETENTION_MS) this.impactAt.delete(key);
+    }
   }
 
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
@@ -327,16 +538,6 @@ export class VehicleSimulationController {
     if (result.destroyed) this.destroy(vehicle, sourceId, sourceKind, nowMs);
   }
 
-  handleCollision(vehicle: VehicleState, nowMs: number): void {
-    for (const other of this.collisionCandidates(vehicle)) {
-      if (other.id === vehicle.id) continue;
-      if (this.resolveCollisionPair(vehicle, other, nowMs)) {
-        this.syncOccupants(vehicle);
-        this.syncOccupants(other);
-      }
-    }
-  }
-
   weaponDamage(baseDamage: number): number {
     return this.damageSystem.weaponDamage(baseDamage);
   }
@@ -352,14 +553,11 @@ export class VehicleSimulationController {
     input: DriverInput,
     deltaSeconds: number
   ): void {
-    const physics = this.options.physics;
-    if (!physics || deltaSeconds <= 0) return;
-    const desired = driveVehicleBody(
-      physics,
-      vehicle.id,
-      vehicle.kind,
+    if (deltaSeconds <= 0) return;
+    const {desired} = planVehicleBodyDrive(
       {x: vehicle.x, y: vehicle.y, angle: vehicle.angle, speed: vehicle.speed},
       {steering: input.inputX, throttle: -input.inputY},
+      vehicle.kind,
       deltaSeconds,
       this.damageSystem.stepModifiers(
         vehicle.engineDamage,
@@ -480,6 +678,11 @@ export class VehicleSimulationController {
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
     vehicle.traffic = this.options.traffic.has(vehicle.id);
+    this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle
+    });
     this.options.events.publish({
       type: 'vehicle.restored',
       tick: this.options.clock().tick,
@@ -497,65 +700,26 @@ export class VehicleSimulationController {
     }
   }
 
-  private stableCollisionCandidates(vehicle: VehicleState): VehicleState[] {
-    return this.collisionCandidates(vehicle)
-      .filter((other) => other.id.localeCompare(vehicle.id) > 0);
-  }
+}
 
-  private collisionCandidates(vehicle: VehicleState): VehicleState[] {
-    return this.options.nearbyVehicles(
-      vehicle.x,
-      vehicle.y,
-      VEHICLE_COLLISION_BOUNDING_RADIUS
-    ).sort((left, right) => left.id.localeCompare(right.id));
-  }
+function contactSpeed(
+  first: PhysicsAttempt,
+  second: PhysicsAttempt,
+  contact: PhysicsContact
+): number {
+  return Math.abs(
+    (first.linvelX - second.linvelX) * contact.normalX +
+    (first.linvelY - second.linvelY) * contact.normalY
+  );
+}
 
-  private resolveCollisionPair(
-    vehicle: VehicleState,
-    other: VehicleState,
-    nowMs: number
-  ): boolean {
-    const pairKey = [vehicle.id, other.id].sort().join(':');
-    if (this.collisionPairsThisTick.has(pairKey)) return false;
-    const vehicleSettings = vehicleConfig(vehicle.kind);
-    const otherSettings = vehicleConfig(other.kind);
-    const result = this.collisions.resolve({
-      id: vehicle.id,
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: vehicle.angle,
-      speed: vehicle.destroyed ? 0 : vehicle.speed,
-      halfLength: vehicleSettings.collision.length / 2,
-      halfWidth: vehicleSettings.collision.width / 2,
-      mass: vehicleSettings.mass * (vehicle.destroyed ? 2.5 : 1),
-      damageScale: vehicleSettings.collisionDamageScale
-    }, {
-      id: other.id,
-      x: other.x,
-      y: other.y,
-      angle: other.angle,
-      speed: other.destroyed ? 0 : other.speed,
-      halfLength: otherSettings.collision.length / 2,
-      halfWidth: otherSettings.collision.width / 2,
-      mass: otherSettings.mass * (other.destroyed ? 2.5 : 1),
-      damageScale: otherSettings.collisionDamageScale
-    });
-    if (!result.collided) return false;
-    this.collisionPairsThisTick.add(pairKey);
-    if (this.options.world.canOccupy(result.primaryX, result.primaryY, VEHICLE_RADIUS)) {
-      vehicle.x = result.primaryX;
-      vehicle.y = result.primaryY;
-    }
-    if (this.options.world.canOccupy(result.otherX, result.otherY, VEHICLE_RADIUS)) {
-      other.x = result.otherX;
-      other.y = result.otherY;
-    }
-    if (!vehicle.destroyed) vehicle.speed = clamp(result.primarySpeed, -150, 430);
-    if (!other.destroyed) other.speed = clamp(result.otherSpeed, -150, 430);
-    this.damage(vehicle, result.primaryDamage, other.driverId, 'vehicle', nowMs, result.primaryZone);
-    this.damage(other, result.otherDamage, vehicle.driverId, 'vehicle', nowMs, result.otherZone);
-    return true;
-  }
+function vehicleImpact(vehicle: VehicleState): DamageImpact {
+  return {
+    family: 'vehicle',
+    force: 'heavy',
+    sourceX: vehicle.x,
+    sourceY: vehicle.y
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -12,7 +12,7 @@ import {
   type VehicleState
 } from '../../state.ts';
 import type {GameEvent, GameEventStream} from '../events/game-events.ts';
-import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
+import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
 import type {DamageController} from './damage-controller.ts';
 

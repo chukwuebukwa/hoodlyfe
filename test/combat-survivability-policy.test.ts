@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   impactDirection,
+  reactionDurationMs,
   reactionKindFor,
   reactionPriority,
   resolveDamage
@@ -41,9 +42,12 @@ test('impact direction quantizes the source relative to target heading', () => {
 
 test('reaction strength upgrades heavy and critical-health impacts deterministically', () => {
   assert.equal(reactionKindFor(input('bullet', 'light', 12, 100, 100)), 'flinch');
-  assert.equal(reactionKindFor(input('melee', 'medium', 18, 100, 82)), 'stagger');
+  assert.equal(reactionKindFor(input('melee', 'medium', 18, 100, 82)), 'flinch');
+  assert.equal(reactionKindFor(input('bullet', 'light', 39, 100, 61)), 'flinch');
+  assert.equal(reactionKindFor(input('bullet', 'light', 40, 100, 60)), 'stagger');
   assert.equal(reactionKindFor(input('bullet', 'light', 25, 35, 10)), 'knockdown');
   assert.equal(reactionKindFor(input('explosion', 'heavy', 5, 100, 100)), 'knockdown');
+  assert.equal(reactionDurationMs('flinch'), 100);
   assert.ok(reactionPriority('knockdown') > reactionPriority('stagger'));
   assert.ok(reactionPriority('stagger') > reactionPriority('flinch'));
 });

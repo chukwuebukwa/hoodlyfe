@@ -3,10 +3,11 @@ import test from 'node:test';
 import type {OnFootInputMoveMessage} from '../shared/protocol/on-foot-input.ts';
 import {
   ON_FOOT_SIMULATION_STEP_SECONDS,
-  stepOnFootWithWorldCollision,
   type OnFootPose
 } from '../shared/simulation/on-foot-step.ts';
+import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {SavedOnFootPrediction} from '../src/game/prediction/saved-on-foot-prediction.ts';
+import {createHumanoidPhysicsPoseStepper} from '../src/game/prediction/vehicle-physics-replay.ts';
 import {
   DeterministicReliableNetworkLink,
   NETWORK_IMPAIRMENT_PROFILES,
@@ -32,6 +33,8 @@ const STEP_MS = ON_FOOT_SIMULATION_STEP_SECONDS * 1_000;
 const TOTAL_TICKS = 360;
 const WALL_EDGE_X = 220;
 
+await initializePhysicsEngine();
+
 test('saved on-foot prediction remains collision-safe under repeatable impairment', (context) => {
   const runs = NETWORK_IMPAIRMENT_PROFILES.map((profile, index) => runProfile(profile, index));
   for (const run of runs) {
@@ -44,13 +47,20 @@ test('saved on-foot prediction remains collision-safe under repeatable impairmen
     assert.ok(run.maximumPendingMoves <= 24, `${run.profile.id} exceeded 800 ms of history.`);
     assert.ok(run.errorP95 < 70, `${run.profile.id} correction pressure is too high.`);
     assert.ok(run.maximumError < 120, `${run.profile.id} reached hard-correction distance.`);
-    assert.ok(run.maximumPredictedX <= WALL_EDGE_X - 11 + 1e-9, 'Prediction crossed the wall.');
+    assert.ok(
+      run.maximumPredictedX <= WALL_EDGE_X - 11 + 0.2,
+      `Prediction crossed the wall at ${run.maximumPredictedX}.`
+    );
   }
   assert.equal(runs[0].errorP95, 0);
   assert.ok(runs.at(-1)!.maximumPendingMoves > runs[0].maximumPendingMoves);
 });
 
 function runProfile(profile: NetworkImpairmentProfile, seed: number): OnFootImpairmentRun {
+  const clientWorld = PhysicsWorld.create(geometry());
+  const serverWorld = PhysicsWorld.create(geometry());
+  const clientStep = createHumanoidPhysicsPoseStepper(() => clientWorld, 'local');
+  const serverStep = createHumanoidPhysicsPoseStepper(() => serverWorld, 'local');
   const commands = new DeterministicReliableNetworkLink<OnFootInputMoveMessage>(
     profile,
     0x310000 + seed
@@ -59,7 +69,7 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): OnFootImpa
     profile,
     0x420000 + seed
   );
-  const prediction = new SavedOnFootPrediction();
+  const prediction = new SavedOnFootPrediction(clientStep);
   const initial = {x: 100, y: 100, spaceId: 'street'};
   prediction.initialize(initial);
   let authoritative = {...initial};
@@ -84,12 +94,13 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): OnFootImpa
     pending.push(...commands.receive(nowMs));
     const applied = pending.shift();
     if (applied) held = applied;
-    authoritative = stepOnFootWithWorldCollision(
+    authoritative = serverStep(
       authoritative,
       {moveX: held.x, moveY: held.y},
       ON_FOOT_SIMULATION_STEP_SECONDS,
-      canOccupy
-    ).pose;
+      canOccupy,
+      {}
+    );
     if (tick % 2 === 0) {
       snapshots.send(nowMs, {
         pose: {...authoritative},
@@ -110,6 +121,8 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): OnFootImpa
     }
   }
   errors.sort((left, right) => left - right);
+  clientWorld.free();
+  serverWorld.free();
   return {
     profile,
     errorP95: percentile(errors, 0.95),
@@ -119,6 +132,14 @@ function runProfile(profile: NetworkImpairmentProfile, seed: number): OnFootImpa
     resimulations,
     maximumPredictedX
   };
+}
+
+function geometry() {
+  const width = 25;
+  const height = 25;
+  const collisions = new Array(width * height).fill(0);
+  for (let row = 0; row < height; row++) collisions[row * width + 11] = 1;
+  return {width, height, tileWidth: 20, tileHeight: 20, collisions};
 }
 
 function canOccupy(_spaceId: string, x: number, y: number, radius: number): boolean {

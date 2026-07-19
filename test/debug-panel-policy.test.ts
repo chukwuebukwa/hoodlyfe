@@ -51,9 +51,27 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     interactionIsland: 'off',
     interactionReplay: 'off',
     interactionSelection: 'off',
+    playerReaction: 'off',
     simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel exposes the local player reaction state', () => {
+  const state = createState();
+  state.players.set('driver', {
+    action: 'hit',
+    reactionKind: 'stagger',
+    reactionDirection: 'left',
+    reactionProgress: 0.35,
+    health: 72,
+    armor: 8
+  } as never);
+
+  assert.equal(
+    projectDebugPanel(state, undefined, undefined, undefined, undefined, 'driver').playerReaction,
+    'hit / stagger left 35% / HP 72 / armor 8'
+  );
 });
 
 test('debug panel summarizes server-owned police tactical roles', () => {
@@ -437,8 +455,7 @@ test('debug panel projects negotiated netcode stages and fail-closed state', () 
           interactionSnapshots: true,
           interactionReplay: false,
           combatRewind: true,
-          projectilePrediction: false,
-          serverVehiclePhysics: false
+          projectilePrediction: false
         }
       }
     }

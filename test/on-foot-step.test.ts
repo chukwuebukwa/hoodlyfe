@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  integrateOnFootPose,
   ON_FOOT_SIMULATION_STEP_SECONDS,
   onFootMovementScale,
-  stepOnFootWithWorldCollision
+  stepInteriorOnFootPose
 } from '../shared/simulation/on-foot-step.ts';
 import {PlayerControlController} from '../server/game/players/player-control-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
@@ -11,13 +12,13 @@ import type {CollisionMap} from '../server/world-map.ts';
 
 test('shared on-foot step preserves analog input and caps diagonal speed', () => {
   const canOccupy = () => true;
-  const half = stepOnFootWithWorldCollision(
+  const half = stepInteriorOnFootPose(
     {x: 10, y: 20, spaceId: 'street'},
     {moveX: 0.5, moveY: 0},
     ON_FOOT_SIMULATION_STEP_SECONDS,
     canOccupy
   );
-  const diagonal = stepOnFootWithWorldCollision(
+  const diagonal = stepInteriorOnFootPose(
     {x: 10, y: 20, spaceId: 'street'},
     {moveX: 1, moveY: 1},
     ON_FOOT_SIMULATION_STEP_SECONDS,
@@ -28,7 +29,7 @@ test('shared on-foot step preserves analog input and caps diagonal speed', () =>
 });
 
 test('shared on-foot step resolves each world collision axis independently', () => {
-  const result = stepOnFootWithWorldCollision(
+  const result = stepInteriorOnFootPose(
     {x: 100, y: 100, spaceId: 'street'},
     {moveX: 1, moveY: 1},
     ON_FOOT_SIMULATION_STEP_SECONDS,
@@ -65,12 +66,11 @@ test('authoritative controller and shared step remain identical over 10,000 tick
     const y = Math.cos(tick * 0.047) * 1.2;
     controller.setMove(player.id, {x, y, sequence: tick});
     controller.updateOnFoot(player, ON_FOOT_SIMULATION_STEP_SECONDS);
-    expected = stepOnFootWithWorldCollision(
+    expected = integrateOnFootPose(
       expected,
       {moveX: x, moveY: y},
-      ON_FOOT_SIMULATION_STEP_SECONDS,
-      (_spaceId, nextX, nextY) => world.canOccupy(nextX, nextY, 11)
-    ).pose;
+      ON_FOOT_SIMULATION_STEP_SECONDS
+    );
     assert.deepEqual(
       {x: player.x, y: player.y, spaceId: player.spaceId},
       expected,

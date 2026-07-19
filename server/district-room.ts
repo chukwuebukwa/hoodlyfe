@@ -94,10 +94,7 @@ import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
 import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
-import {
-  resolveNetcodeRolloutManifest,
-  resolveServerPhysicsRollout
-} from './game/network/netcode-rollout-config.ts';
+import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
 import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {
   PlayerControlController,
@@ -175,8 +172,7 @@ export class DistrictRoom extends Room<DistrictState> {
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
   private readonly netcodeRollout = resolveNetcodeRolloutManifest();
-  private readonly serverPhysicsRollout = resolveServerPhysicsRollout();
-  private physicsWorld?: PhysicsWorld;
+  private physicsWorld!: PhysicsWorld;
   private simulation!: DistrictSimulation;
   private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
@@ -242,11 +238,8 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.world = CollisionMap.load();
     this.physicsWorld?.free();
-    this.physicsWorld = undefined;
-    if (this.serverPhysicsRollout.vehicles) {
-      await initializePhysicsEngine();
-      this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
-    }
+    await initializePhysicsEngine();
+    this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
     this.laneGraph = LaneGraph.load(this.world);
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
@@ -1094,7 +1087,6 @@ export class DistrictRoom extends Room<DistrictState> {
 
   onDispose(): void {
     this.physicsWorld?.free();
-    this.physicsWorld = undefined;
   }
 
   private noticePlayer(

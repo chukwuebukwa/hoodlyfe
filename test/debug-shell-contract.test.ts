@@ -14,6 +14,7 @@ const REQUIRED_MARKUP = [
   'id="debug-interaction-island"',
   'id="debug-interaction-replay"',
   'id="debug-interaction-selection"',
+  'id="debug-player-reaction"',
   'id="debug-simulation-phases"',
   'id="debug-netcode-rollout"',
   'class="traffic-deadlock"',
@@ -37,6 +38,7 @@ const REQUIRED_WIDE_ROWS = [
   'Island budget',
   'Island replay',
   'Island selection',
+  'Player reaction',
   'Server phases'
 ] as const;
 

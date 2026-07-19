@@ -51,7 +51,6 @@ import {
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
-import {resolveVehicleHumanoidContact} from '../shared/simulation/vehicle-humanoid-contact.ts';
 import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
@@ -871,24 +870,8 @@ function approachHasVehicleClearance(
 ): boolean {
   return [...room.state.vehicles.values()].every((vehicle) => {
     const definition = vehicleConfig(vehicle.kind);
-    return !resolveVehicleHumanoidContact({
-      id: vehicle.id,
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: vehicle.angle,
-      speed: vehicle.speed,
-      halfLength: definition.collision.length / 2,
-      halfWidth: definition.collision.width / 2,
-      mass: definition.mass
-    }, {
-      id: 'mission-contact-candidate',
-      x: point.x,
-      y: point.y,
-      velocityX: 0,
-      velocityY: 0,
-      radius: 11,
-      mass: 0.22
-    }).collided;
+    return Math.hypot(vehicle.x - point.x, vehicle.y - point.y) >
+      Math.hypot(definition.collision.length / 2, definition.collision.width / 2) + 11;
   });
 }
 

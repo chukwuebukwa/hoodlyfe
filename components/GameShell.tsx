@@ -66,6 +66,7 @@ const GAME_SHELL_HTML = `
       <div class="debug-wide"><dt>Island budget</dt><dd id="debug-interaction-island">off</dd></div>
       <div class="debug-wide"><dt>Island replay</dt><dd id="debug-interaction-replay">off</dd></div>
       <div class="debug-wide"><dt>Island selection</dt><dd id="debug-interaction-selection">off</dd></div>
+      <div class="debug-wide"><dt>Player reaction</dt><dd id="debug-player-reaction">off</dd></div>
       <div class="debug-wide"><dt>Server phases</dt><dd id="debug-simulation-phases">off</dd></div>
     </dl>
     <section id="debug-time-controls" class="hidden" aria-label="Time of day controls">
