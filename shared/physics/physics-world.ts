@@ -52,14 +52,20 @@ export class PhysicsWorld {
   private readonly colliders = new Map<string, RAPIER.Collider>();
   private readonly colliderKeys = new Map<number, string>();
   private readonly staticColliders: RAPIER.Collider[] = [];
+  private readonly children = new Set<PhysicsWorld>();
   private freed = false;
 
-  private constructor(geometry: PhysicsWorldGeometry) {
+  private constructor(
+    private readonly geometry: PhysicsWorldGeometry,
+    includeStatics = true
+  ) {
     this.world = new RAPIER.World({x: 0, y: 0});
     this.world.timestep = PHYSICS_TIMESTEP_SECONDS;
     this.world.numSolverIterations = 8;
     this.world.maxCcdSubsteps = 4;
-    this.staticColliderCount = this.meshStatics(geometry) + this.buildBorderWalls(geometry);
+    this.staticColliderCount = includeStatics
+      ? this.meshStatics(geometry) + this.buildBorderWalls(geometry)
+      : 0;
   }
 
   static create(geometry: PhysicsWorldGeometry): PhysicsWorld {
@@ -67,6 +73,13 @@ export class PhysicsWorld {
       throw new Error('initializePhysicsEngine() must resolve before creating a world.');
     }
     return new PhysicsWorld(geometry);
+  }
+
+  fork(includeStatics = false): PhysicsWorld {
+    if (this.freed) throw new Error('Cannot fork a freed physics world.');
+    const child = new PhysicsWorld(this.geometry, includeStatics);
+    this.children.add(child);
+    return child;
   }
 
   registerVehicle(
@@ -229,6 +242,8 @@ export class PhysicsWorld {
   free(): void {
     if (this.freed) return;
     this.freed = true;
+    for (const child of this.children) child.free();
+    this.children.clear();
     this.world.free();
   }
 

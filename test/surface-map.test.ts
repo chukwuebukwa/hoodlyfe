@@ -42,6 +42,27 @@ test('surface map samples slopes and exposes explicit actor-gated transitions', 
   assert.equal(surfaces.transitionFor('street-ground', -10, 50, 10, 50, 'projectile'), undefined);
 });
 
+test('bucket lookup and fused footprint checks preserve transitioned surface identity', () => {
+  const surfaces = new SurfaceMap(fixture());
+  assert.deepEqual(
+    surfaces.surfaceIdsAt(64, 50, 'vehicle'),
+    ['bridge-ramp', 'street-ground']
+  );
+  const sampledSurfaceIds = new Set<string>();
+  assert.equal(surfaces.canOccupyConnected(
+    'street-ground',
+    -5,
+    50,
+    10,
+    'player',
+    (surfaceId) => {
+      sampledSurfaceIds.add(surfaceId);
+      return true;
+    }
+  ), true);
+  assert.deepEqual([...sampledSurfaceIds].sort(), ['bridge-ramp', 'street-ground']);
+});
+
 test('surface map rejects invalid topology at the asset seam', () => {
   const manifest = fixture();
   assert.throws(() => new SurfaceMap({...manifest, version: 2}), /Unsupported surface manifest/);

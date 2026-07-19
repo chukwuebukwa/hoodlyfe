@@ -49,12 +49,6 @@ export interface SurfaceCrossing {
   readonly surfaceId: string;
 }
 
-export interface SurfaceFootprintSample {
-  readonly x: number;
-  readonly y: number;
-  readonly surfaceId: string;
-}
-
 interface SurfaceRuntime {
   readonly definition: SurfaceDefinition;
   readonly buckets: ReadonlyMap<string, readonly SurfaceTriangle[]>;
@@ -64,10 +58,16 @@ const ACTOR_KINDS: readonly SurfaceActorKind[] = [
   'player', 'pedestrian', 'vehicle', 'projectile', 'prop'
 ];
 const EPSILON = 1e-6;
+const FOOTPRINT_DIRECTIONS = Object.freeze([
+  [0, 0], [-1, 0], [1, 0], [0, -1], [0, 1],
+  [-Math.SQRT1_2, -Math.SQRT1_2], [Math.SQRT1_2, -Math.SQRT1_2],
+  [-Math.SQRT1_2, Math.SQRT1_2], [Math.SQRT1_2, Math.SQRT1_2]
+] as const);
 
 export class SurfaceMap {
   readonly manifest: SurfaceManifest;
   private readonly surfaces: ReadonlyMap<string, SurfaceRuntime>;
+  private readonly surfaceIdsByBucket: ReadonlyMap<string, readonly string[]>;
   private readonly transitions: ReadonlyMap<string, readonly SurfaceTransitionDefinition[]>;
 
   constructor(input: unknown) {
@@ -81,6 +81,17 @@ export class SurfaceMap {
       surface.id,
       {definition: surface, buckets: indexTriangles(surface.triangles, this.manifest.blockSize)}
     ]));
+    const surfaceIdsByBucket = new Map<string, string[]>();
+    for (const [surfaceId, surface] of this.surfaces) {
+      for (const key of surface.buckets.keys()) {
+        const surfaceIds = surfaceIdsByBucket.get(key) ?? [];
+        surfaceIds.push(surfaceId);
+        surfaceIdsByBucket.set(key, surfaceIds);
+      }
+    }
+    this.surfaceIdsByBucket = new Map([...surfaceIdsByBucket].map(([key, surfaceIds]) => (
+      [key, Object.freeze(surfaceIds.sort())]
+    )));
     const transitions = new Map<string, SurfaceTransitionDefinition[]>();
     for (const transition of this.manifest.transitions) {
       append(transitions, transition.fromSurfaceId, transition);
@@ -96,12 +107,14 @@ export class SurfaceMap {
 
   surfaceIdsAt(x: number, y: number, actorKind: SurfaceActorKind): readonly string[] {
     if (![x, y].every(Number.isFinite)) return Object.freeze([]);
-    return Object.freeze(this.manifest.surfaces
-      .filter((surface) => (
-        surface.actorKinds.includes(actorKind) && this.heightAt(surface.id, x, y) !== undefined
+    return Object.freeze((this.surfaceIdsByBucket.get(
+      bucketKey(x, y, this.manifest.blockSize)
+    ) ?? [])
+      .filter((surfaceId) => (
+        this.surface(surfaceId)?.actorKinds.includes(actorKind) &&
+        this.heightAt(surfaceId, x, y) !== undefined
       ))
-      .map((surface) => surface.id)
-      .sort());
+    );
   }
 
   heightAt(surfaceId: string, x: number, y: number): number | undefined {
@@ -130,13 +143,12 @@ export class SurfaceMap {
     if (!surface?.actorKinds.includes(actorKind) || !Number.isFinite(radius) || radius < 0) {
       return false;
     }
-    const diagonal = radius * Math.SQRT1_2;
-    return [
-      [x, y],
-      [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
-      [x - diagonal, y - diagonal], [x + diagonal, y - diagonal],
-      [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
-    ].every(([sampleX, sampleY]) => this.heightAt(surfaceId, sampleX, sampleY) !== undefined);
+    for (const [directionX, directionY] of FOOTPRINT_DIRECTIONS) {
+      if (this.heightAt(surfaceId, x + directionX * radius, y + directionY * radius) === undefined) {
+        return false;
+      }
+    }
+    return true;
   }
 
   canOccupyConnected(
@@ -144,40 +156,28 @@ export class SurfaceMap {
     x: number,
     y: number,
     radius: number,
-    actorKind: SurfaceActorKind
+    actorKind: SurfaceActorKind,
+    sampleAllowed?: (surfaceId: string, x: number, y: number) => boolean
   ): boolean {
     if (!Number.isFinite(radius) || radius < 0 || !this.surface(surfaceId)) return false;
-    return this.footprintSamples(surfaceId, x, y, radius, actorKind).every((sample) => (
-      this.surface(sample.surfaceId)?.actorKinds.includes(actorKind) &&
-      this.heightAt(sample.surfaceId, sample.x, sample.y) !== undefined
-    ));
-  }
-
-  footprintSamples(
-    surfaceId: string,
-    x: number,
-    y: number,
-    radius: number,
-    actorKind: SurfaceActorKind
-  ): readonly SurfaceFootprintSample[] {
-    const diagonal = radius * Math.SQRT1_2;
-    return [
-      [x, y],
-      [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
-      [x - diagonal, y - diagonal], [x + diagonal, y - diagonal],
-      [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
-    ].map(([sampleX, sampleY]) => Object.freeze({
-      x: sampleX,
-      y: sampleY,
-      surfaceId: this.transitionFor(
+    for (const [directionX, directionY] of FOOTPRINT_DIRECTIONS) {
+      const sampleX = x + directionX * radius;
+      const sampleY = y + directionY * radius;
+      const sampleSurfaceId = this.transitionFor(
         surfaceId,
         x,
         y,
         sampleX,
         sampleY,
         actorKind
-      )?.surfaceId ?? surfaceId
-    }));
+      )?.surfaceId ?? surfaceId;
+      if (
+        !this.surface(sampleSurfaceId)?.actorKinds.includes(actorKind) ||
+        this.heightAt(sampleSurfaceId, sampleX, sampleY) === undefined ||
+        (sampleAllowed && !sampleAllowed(sampleSurfaceId, sampleX, sampleY))
+      ) return false;
+    }
+    return true;
   }
 
   transitionFor(

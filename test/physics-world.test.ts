@@ -154,3 +154,17 @@ test('bodies can be removed and re-registered without corrupting the world', () 
   assert.throws(() => world.registerVehicle('vehicle:b', 'taxi', spawnState(0, 0)));
   world.free();
 });
+
+test('forked worlds keep elevation partitions physically isolated', () => {
+  const root = PhysicsWorld.create(districtGeometry());
+  const elevated = root.fork();
+  root.registerHumanoid('player:ground', 10, spawnState(600, 600));
+  elevated.registerHumanoid('player:elevated', 10, spawnState(600, 600));
+  root.step();
+  elevated.step();
+  assert.deepEqual(root.contacts(), []);
+  assert.deepEqual(elevated.contacts(), []);
+  assert.equal(root.has('player:elevated'), false);
+  assert.equal(elevated.has('player:ground'), false);
+  root.free();
+});

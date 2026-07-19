@@ -205,22 +205,15 @@ export class CollisionMap {
       actorKind
     );
     const nextSurfaceId = crossing?.surfaceId ?? surfaceId;
-    const collisionClear = this.surfaces.footprintSamples(
+    return this.surfaces.canOccupyConnected(
       nextSurfaceId,
       toX,
       toY,
       radius,
-      actorKind
-    ).every((sample) => (
-      sample.surfaceId !== this.surfaces.manifest.defaultSurfaceId ||
-      !this.isBlockedAt(sample.x, sample.y)
-    ));
-    return collisionClear && this.surfaces.canOccupyConnected(
-      nextSurfaceId,
-      toX,
-      toY,
-      radius,
-      actorKind
+      actorKind,
+      (surfaceId, x, y) => (
+        surfaceId !== this.surfaces.manifest.defaultSurfaceId || !this.isBlockedAt(x, y)
+      )
     ) ? nextSurfaceId : undefined;
   }
 

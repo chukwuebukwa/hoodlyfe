@@ -575,22 +575,15 @@ export class ThreePrototypeViewer {
     const nextSurfaceId = surfaces.transitionFor(
       surfaceId, fromX, fromY, toX, toY, actorKind
     )?.surfaceId ?? surfaceId;
-    const collisionClear = surfaces.footprintSamples(
+    return surfaces.canOccupyConnected(
       nextSurfaceId,
       toX,
       toY,
       radius,
-      actorKind
-    ).every((sample) => (
-      sample.surfaceId !== surfaces.manifest.defaultSurfaceId ||
-      !collision.isBlockedAt(sample.x, sample.y)
-    ));
-    return collisionClear && surfaces.canOccupyConnected(
-      nextSurfaceId,
-      toX,
-      toY,
-      radius,
-      actorKind
+      actorKind,
+      (surfaceId, x, y) => (
+        surfaceId !== surfaces.manifest.defaultSurfaceId || !collision.isBlockedAt(x, y)
+      )
     ) ? nextSurfaceId : undefined;
   }
 
