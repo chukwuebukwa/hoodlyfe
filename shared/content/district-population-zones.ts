@@ -1,4 +1,5 @@
 import type {VehicleKind} from './vehicle-catalog.ts';
+import {districtBounds} from './district-map-frame.ts';
 
 export type AmbientVehicleKind = Exclude<VehicleKind, 'police'>;
 
@@ -105,7 +106,7 @@ function zone(
   return Object.freeze({
     id,
     label,
-    bounds: Object.freeze({minX, minY, maxX, maxY}),
+    bounds: Object.freeze(districtBounds({minX, minY, maxX, maxY})),
     day: freezeMix(day),
     night: freezeMix(night)
   });

@@ -30,11 +30,21 @@ These files replace the GTA2-derived pedestrian and vehicle sheets at runtime. T
 Useful export options:
 
 ```bash
-GTA2_CROP_SIZE=96 npm run assets:export
-GTA2_CROP_SIZE=128 npm run assets:export
 GTA2_LEVEL=wil npm run assets:export
 OPENGTA2_PATH=/path/to/GTA2/App_Executables npm run assets:export
 ```
+
+Raw export is intended for converter development. To resize the active district, use the
+transactional map pipeline so gameplay coordinates move with the source crop:
+
+```bash
+npm run map:expand -- 96
+npm run map:validate
+```
+
+See `docs/MAP_EXPANSION_GUIDE.md` before changing crop size. A direct
+`GTA2_CROP_SIZE=... npm run assets:export` does not rebase authored lanes, interiors,
+signals, lights, or population zones.
 
 The generated files are suitable for private development and compatibility testing only unless the operator has separate rights to distribute them.
 
