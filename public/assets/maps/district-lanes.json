@@ -12,12 +12,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 1248,
-          "y": 1376
+          "x": 6368,
+          "y": 6560
         },
         {
-          "x": 1248,
-          "y": 2720
+          "x": 6368,
+          "y": 7904
         }
       ]
     },
@@ -26,12 +26,12 @@
       "speedLimit": 112,
       "points": [
         {
-          "x": 2272,
-          "y": 2400
+          "x": 7392,
+          "y": 7584
         },
         {
-          "x": 2272,
-          "y": 5088
+          "x": 7392,
+          "y": 10272
         }
       ]
     },
@@ -41,12 +41,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 3360,
-          "y": 1056
+          "x": 8480,
+          "y": 6240
         },
         {
-          "x": 3360,
-          "y": 4832
+          "x": 8480,
+          "y": 10016
         }
       ]
     },
@@ -56,12 +56,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 1184,
-          "y": 1440
+          "x": 6304,
+          "y": 6624
         },
         {
-          "x": 3488,
-          "y": 1440
+          "x": 8608,
+          "y": 6624
         }
       ]
     },
@@ -70,12 +70,12 @@
       "speedLimit": 118,
       "points": [
         {
-          "x": 1696,
-          "y": 1952
+          "x": 6816,
+          "y": 7136
         },
         {
-          "x": 5088,
-          "y": 1952
+          "x": 10208,
+          "y": 7136
         }
       ]
     },
@@ -85,12 +85,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 1056,
-          "y": 2464
+          "x": 6176,
+          "y": 7648
         },
         {
-          "x": 2528,
-          "y": 2464
+          "x": 7648,
+          "y": 7648
         }
       ]
     },
@@ -100,12 +100,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 3296,
-          "y": 3104
+          "x": 8416,
+          "y": 8288
         },
         {
-          "x": 5088,
-          "y": 3104
+          "x": 10208,
+          "y": 8288
         }
       ]
     },
@@ -114,12 +114,12 @@
       "speedLimit": 118,
       "points": [
         {
-          "x": 2208,
-          "y": 3680
+          "x": 7328,
+          "y": 8864
         },
         {
-          "x": 5088,
-          "y": 3680
+          "x": 10208,
+          "y": 8864
         }
       ]
     },
@@ -129,12 +129,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 1056,
-          "y": 4512
+          "x": 6176,
+          "y": 9696
         },
         {
-          "x": 5088,
-          "y": 4512
+          "x": 10208,
+          "y": 9696
         }
       ]
     },
@@ -144,12 +144,12 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 1056,
-          "y": 4768
+          "x": 6176,
+          "y": 9952
         },
         {
-          "x": 5088,
-          "y": 4768
+          "x": 10208,
+          "y": 9952
         }
       ]
     }
@@ -157,8 +157,8 @@
   "junctions": [
     {
       "id": "west-north-service",
-      "x": 1248,
-      "y": 1440,
+      "x": 6368,
+      "y": 6624,
       "corridors": [
         "west-avenue",
         "north-service-road"
@@ -166,8 +166,8 @@
     },
     {
       "id": "central-north-service",
-      "x": 3360,
-      "y": 1440,
+      "x": 8480,
+      "y": 6624,
       "corridors": [
         "central-avenue",
         "north-service-road"
@@ -175,8 +175,8 @@
     },
     {
       "id": "central-north",
-      "x": 3360,
-      "y": 1952,
+      "x": 8480,
+      "y": 7136,
       "corridors": [
         "central-avenue",
         "north-boulevard"
@@ -184,8 +184,8 @@
     },
     {
       "id": "west-market",
-      "x": 1248,
-      "y": 2464,
+      "x": 6368,
+      "y": 7648,
       "corridors": [
         "west-avenue",
         "west-market-road"
@@ -193,8 +193,8 @@
     },
     {
       "id": "inner-market",
-      "x": 2272,
-      "y": 2464,
+      "x": 7392,
+      "y": 7648,
       "corridors": [
         "inner-avenue",
         "west-market-road"
@@ -202,8 +202,8 @@
     },
     {
       "id": "central-east-market",
-      "x": 3360,
-      "y": 3104,
+      "x": 8480,
+      "y": 8288,
       "corridors": [
         "central-avenue",
         "east-market-road"
@@ -211,8 +211,8 @@
     },
     {
       "id": "inner-center",
-      "x": 2272,
-      "y": 3680,
+      "x": 7392,
+      "y": 8864,
       "corridors": [
         "inner-avenue",
         "center-boulevard"
@@ -220,8 +220,8 @@
     },
     {
       "id": "central-center",
-      "x": 3360,
-      "y": 3680,
+      "x": 8480,
+      "y": 8864,
       "corridors": [
         "central-avenue",
         "center-boulevard"
@@ -229,8 +229,8 @@
     },
     {
       "id": "inner-south-north",
-      "x": 2272,
-      "y": 4512,
+      "x": 7392,
+      "y": 9696,
       "corridors": [
         "inner-avenue",
         "south-boulevard-north"
@@ -238,8 +238,8 @@
     },
     {
       "id": "central-south-north",
-      "x": 3360,
-      "y": 4512,
+      "x": 8480,
+      "y": 9696,
       "corridors": [
         "central-avenue",
         "south-boulevard-north"
@@ -247,8 +247,8 @@
     },
     {
       "id": "inner-south-south",
-      "x": 2272,
-      "y": 4768,
+      "x": 7392,
+      "y": 9952,
       "corridors": [
         "inner-avenue",
         "south-boulevard-south"
@@ -256,8 +256,8 @@
     },
     {
       "id": "central-south-south",
-      "x": 3360,
-      "y": 4768,
+      "x": 8480,
+      "y": 9952,
       "corridors": [
         "central-avenue",
         "south-boulevard-south"
@@ -267,8 +267,8 @@
   "roadblocks": [
     {
       "id": "north-boulevard-east",
-      "x": 4324,
-      "y": 1952,
+      "x": 9444,
+      "y": 7136,
       "angle": 0,
       "blockedEdgeIds": [
         "north-boulevard:forward:edge:1",
@@ -276,26 +276,26 @@
       ],
       "vehiclePoses": [
         {
-          "x": 4324,
-          "y": 1952,
+          "x": 9444,
+          "y": 7136,
           "angle": 1.5707963267948966
         }
       ],
       "stinger": {
-        "x": 4264,
-        "y": 1952,
+        "x": 9384,
+        "y": 7136,
         "angle": 1.5707963267948966,
         "officerPose": {
-          "x": 4264,
-          "y": 1888,
+          "x": 9384,
+          "y": 7072,
           "angle": 1.5707963267948966
         }
       }
     },
     {
       "id": "central-avenue-mid",
-      "x": 3360,
-      "y": 2724,
+      "x": 8480,
+      "y": 7908,
       "angle": 1.5707963267948966,
       "blockedEdgeIds": [
         "central-avenue:forward:edge:2",
@@ -305,31 +305,31 @@
       ],
       "vehiclePoses": [
         {
-          "x": 3324,
-          "y": 2724,
+          "x": 8444,
+          "y": 7908,
           "angle": 0
         },
         {
-          "x": 3396,
-          "y": 2724,
+          "x": 8516,
+          "y": 7908,
           "angle": 0
         }
       ],
       "stinger": {
-        "x": 3360,
-        "y": 2652,
+        "x": 8480,
+        "y": 7836,
         "angle": 0,
         "officerPose": {
-          "x": 3240,
-          "y": 2652,
+          "x": 8360,
+          "y": 7836,
           "angle": 0
         }
       }
     },
     {
       "id": "south-boulevard-east",
-      "x": 4024,
-      "y": 4512,
+      "x": 9144,
+      "y": 9696,
       "angle": 0,
       "blockedEdgeIds": [
         "south-boulevard-north:forward:edge:2",
@@ -339,23 +339,23 @@
       ],
       "vehiclePoses": [
         {
-          "x": 4024,
-          "y": 4476,
+          "x": 9144,
+          "y": 9660,
           "angle": 1.5707963267948966
         },
         {
-          "x": 4024,
-          "y": 4548,
+          "x": 9144,
+          "y": 9732,
           "angle": 1.5707963267948966
         }
       ],
       "stinger": {
-        "x": 3952,
-        "y": 4512,
+        "x": 9072,
+        "y": 9696,
         "angle": 1.5707963267948966,
         "officerPose": {
-          "x": 3952,
-          "y": 4392,
+          "x": 9072,
+          "y": 9576,
           "angle": 1.5707963267948966
         }
       }

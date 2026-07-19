@@ -16,7 +16,7 @@ test('district population zones resolve authored landmarks and a safe fallback',
   assert.equal(zoneAt(2_632, 1_944), 'civic-east');
   assert.equal(zoneAt(1_100, 1_440), 'west-market');
   assert.equal(zoneAt(2_336, 3_488), 'south-freight');
-  assert.equal(districtPopulationZoneAt(8_000, 8_000).id, 'district-default');
+  assert.equal(districtPopulationZoneAt(14_000, 14_000).id, 'district-default');
 });
 
 test('time policy smoothly blends day and night profiles', () => {

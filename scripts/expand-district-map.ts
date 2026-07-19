@@ -1,5 +1,6 @@
 import {spawnSync} from 'node:child_process';
 import {
+  cpSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -35,13 +36,15 @@ const mapFiles = [
   'district-preview.png',
   'district-overlay.png',
   'district-tiles.png',
-  'three/prototype.json',
+  'three/world.json',
   'three/tiles.png'
 ] as const;
+const optionalMapFiles = ['three/prototype.json'] as const;
+const mapDirectories = ['three/chunks'] as const;
 
 const size = Number.parseInt(process.argv[2] ?? '', 10);
-if (!Number.isInteger(size) || size < 16 || size > 128) {
-  throw new Error('Usage: npm run map:expand -- <crop-size>, where crop-size is 16 through 128.');
+if (!Number.isInteger(size) || size < 16 || size > 256 || size % 8 !== 0) {
+  throw new Error('Usage: npm run map:expand -- <crop-size>, using a multiple of 8 from 16 through 256.');
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), 'nock0-map-expansion-'));
@@ -72,15 +75,31 @@ try {
 
   backupFile(liveLanesPath, resolve(backupRoot, 'district-lanes.json'));
   backupFile(generatedFramePath, resolve(backupRoot, 'district-map-frame.generated.ts'));
-  for (const relativePath of mapFiles) {
+  for (const relativePath of [...mapFiles, ...optionalMapFiles]) {
+    const stagedPath = resolve(stagedMaps, relativePath);
+    if (mapFiles.includes(relativePath as typeof mapFiles[number]) && !existsSync(stagedPath)) {
+      throw new Error(`Staged export is missing ${relativePath}.`);
+    }
+    backupIfPresent(resolve(liveMaps, relativePath), resolve(backupRoot, relativePath));
+  }
+  for (const relativePath of mapDirectories) {
     const stagedPath = resolve(stagedMaps, relativePath);
     if (!existsSync(stagedPath)) throw new Error(`Staged export is missing ${relativePath}.`);
-    backupFile(resolve(liveMaps, relativePath), resolve(backupRoot, relativePath));
+    backupDirectoryIfPresent(resolve(liveMaps, relativePath), resolve(backupRoot, relativePath));
   }
 
   installed = true;
   for (const relativePath of mapFiles) {
     copyFile(resolve(stagedMaps, relativePath), resolve(liveMaps, relativePath));
+  }
+  for (const relativePath of optionalMapFiles) {
+    const stagedPath = resolve(stagedMaps, relativePath);
+    const livePath = resolve(liveMaps, relativePath);
+    if (existsSync(stagedPath)) copyFile(stagedPath, livePath);
+    else rmSync(livePath, {force: true});
+  }
+  for (const relativePath of mapDirectories) {
+    installDirectory(resolve(stagedMaps, relativePath), resolve(liveMaps, relativePath));
   }
   writeFileSync(liveLanesPath, `${JSON.stringify(rebasedLanes, null, 2)}\n`);
   writeFileSync(generatedFramePath, generatedFrameSource(newMetadata));
@@ -101,8 +120,11 @@ try {
   if (installed) {
     restoreFile(resolve(backupRoot, 'district-lanes.json'), liveLanesPath);
     restoreFile(resolve(backupRoot, 'district-map-frame.generated.ts'), generatedFramePath);
-    for (const relativePath of mapFiles) {
-      restoreFile(resolve(backupRoot, relativePath), resolve(liveMaps, relativePath));
+    for (const relativePath of [...mapFiles, ...optionalMapFiles]) {
+      restorePath(resolve(backupRoot, relativePath), resolve(liveMaps, relativePath));
+    }
+    for (const relativePath of mapDirectories) {
+      restoreDirectory(resolve(backupRoot, relativePath), resolve(liveMaps, relativePath));
     }
     console.error('Expansion failed; restored the previous district assets.');
   }
@@ -116,8 +138,35 @@ function backupFile(source: string, destination: string): void {
   copyFile(source, destination);
 }
 
+function backupIfPresent(source: string, destination: string): void {
+  if (!existsSync(source)) return;
+  copyFile(source, destination);
+}
+
+function backupDirectoryIfPresent(source: string, destination: string): void {
+  if (!existsSync(source)) return;
+  mkdirSync(dirname(destination), {recursive: true});
+  cpSync(source, destination, {recursive: true});
+}
+
 function restoreFile(source: string, destination: string): void {
   copyFile(source, destination);
+}
+
+function restorePath(source: string, destination: string): void {
+  if (existsSync(source)) copyFile(source, destination);
+  else rmSync(destination, {force: true});
+}
+
+function restoreDirectory(source: string, destination: string): void {
+  rmSync(destination, {recursive: true, force: true});
+  if (existsSync(source)) cpSync(source, destination, {recursive: true});
+}
+
+function installDirectory(source: string, destination: string): void {
+  rmSync(destination, {recursive: true, force: true});
+  mkdirSync(dirname(destination), {recursive: true});
+  cpSync(source, destination, {recursive: true});
 }
 
 function copyFile(source: string, destination: string): void {

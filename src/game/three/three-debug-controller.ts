@@ -18,6 +18,7 @@ import {
   projectInteractionIslandDebug
 } from '../debug/interaction-island-debug-policy.ts';
 import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
+import type {ThreeMapStreamingSnapshot} from './three-map-chunk-streamer.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -28,6 +29,7 @@ export class ThreeDebugController {
   private readonly toggle = document.querySelector<HTMLButtonElement>('#debug-toggle');
   private readonly shell = document.querySelector<HTMLElement>('#game-shell');
   private readonly eventList = document.querySelector<HTMLOListElement>('#debug-events');
+  private readonly mapStreamingField = document.querySelector('#debug-map-streaming');
   private readonly fields: Record<string, Element | null> = {
     clock: document.querySelector('#debug-clock'),
     players: document.querySelector('#debug-players'),
@@ -76,7 +78,8 @@ export class ThreeDebugController {
     private readonly predictedVehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
     private readonly predictedPlayerPose: (playerId: string) => ActorRenderPose | undefined = () => undefined,
     private readonly interactionIsland: () => InteractionIslandSelection | undefined = () => undefined,
-    private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined
+    private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
+    private readonly mapStreaming: () => ThreeMapStreamingSnapshot | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -131,6 +134,15 @@ export class ThreeDebugController {
     );
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);
+    }
+    const mapStreaming = this.mapStreaming();
+    if (this.mapStreamingField) {
+      this.mapStreamingField.textContent = mapStreaming
+        ? `${mapStreaming.loaded}/${mapStreaming.totalChunks} loaded / ` +
+          `${mapStreaming.loading} loading / ${mapStreaming.queued} queued / ` +
+          `${mapStreaming.retained} retained / ${mapStreaming.failed} failed / ` +
+          `${mapStreaming.loadedTriangles.toLocaleString()} triangles`
+        : 'off';
     }
     if (!this.eventList) return;
     this.eventList.replaceChildren(...projection.events.map((event) => {

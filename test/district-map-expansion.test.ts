@@ -12,6 +12,7 @@ import {
   type DistrictMapMetadata,
   type LaneDocument
 } from '../scripts/lib/district-map-expansion.ts';
+import {INTERIORS} from '../shared/content/interior-catalog.ts';
 
 const frame64: DistrictMapFrame = {
   origin: {x: 96, y: 97},
@@ -21,6 +22,11 @@ const frame64: DistrictMapFrame = {
 const frame96: DistrictMapFrame = {
   origin: {x: 80, y: 81},
   size: {width: 96, height: 96},
+  tileSize: 64
+};
+const frame256: DistrictMapFrame = {
+  origin: {x: 0, y: 0},
+  size: {width: 256, height: 256},
   tileSize: 64
 };
 
@@ -59,6 +65,35 @@ test('lane rebasing expands and contracts without cumulative drift', () => {
   const contraction = expansionDelta(metadata96, metadata64);
   const restored = rebaseLaneDocument(expanded, contraction.x, contraction.y);
   assert.deepEqual(restored, laneDocument);
+});
+
+test('full-world expansion preserves every authored interior door offset from spawn', () => {
+  const spawn96 = districtPoint(2080, 2080, frame96);
+  const spawn256 = districtPoint(2080, 2080, frame256);
+  const delta = expansionDelta(metadata(frame96), metadata(frame256));
+  const authoredDoors = [
+    {id: 'mercy-hospital', x: 2632, y: 1944},
+    {id: 'ammunation-store', x: 624, y: 856},
+    {id: 'threads-store', x: 1952, y: 856},
+    {id: 'southside-clinic', x: 3392, y: 1368}
+  ];
+
+  assert.deepEqual(delta, {x: 5120, y: 5184});
+  assert.deepEqual(spawn256, {x: spawn96.x + delta.x, y: spawn96.y + delta.y});
+  for (const authored of authoredDoors) {
+    const door96 = districtPoint(authored.x, authored.y, frame96);
+    const door256 = districtPoint(authored.x, authored.y, frame256);
+    const active = INTERIORS.find(({id}) => id === authored.id)?.exteriorDoor;
+
+    assert.ok(active, `Missing authored interior ${authored.id}.`);
+    assert.deepEqual({x: active.x, y: active.y}, door256);
+    assert.deepEqual(door256, {x: door96.x + delta.x, y: door96.y + delta.y});
+    assert.deepEqual(
+      {x: door256.x - spawn256.x, y: door256.y - spawn256.y},
+      {x: door96.x - spawn96.x, y: door96.y - spawn96.y},
+      `${authored.id} changed its relationship to spawn.`
+    );
+  }
 });
 
 test('expansion refuses to transplant authored gameplay onto another source level', () => {

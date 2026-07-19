@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {
   DISTRICT_ACTIVE_FRAME,
@@ -18,15 +18,28 @@ interface MapMetadata {
   spawn: {x: number; y: number};
 }
 
-interface PrototypePayload {
-  chunk: {x: number; y: number; size: number};
+interface WorldManifest {
+  origin: {x: number; y: number};
+  size: {width: number; height: number};
+  chunkSize: number;
   surfaces: {width: number; height: number; values: number[]};
   occluders: Array<{id: string}>;
+  chunks: Array<{
+    id: string;
+    column: number;
+    row: number;
+    x: number;
+    y: number;
+    size: number;
+    file: string;
+    triangleCount: number;
+  }>;
+  triangleCount: number;
 }
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const metadata = readJson<MapMetadata>('public/assets/maps/district-map.metadata.json');
-const prototype = readJson<PrototypePayload>('public/assets/maps/three/prototype.json');
+const manifest = readJson<WorldManifest>('public/assets/maps/three/world.json');
 const world = CollisionMap.load(projectRoot);
 const issues: string[] = [];
 
@@ -37,16 +50,33 @@ compare('generated height', DISTRICT_ACTIVE_FRAME.size.height, metadata.size.hei
 compare('generated tile size', DISTRICT_ACTIVE_FRAME.tileSize, metadata.tileSize);
 compare('world width', world.width * world.tileWidth, DISTRICT_WORLD_SIZE.width);
 compare('world height', world.height * world.tileHeight, DISTRICT_WORLD_SIZE.height);
-compare('prototype origin x', prototype.chunk.x, metadata.origin.x);
-compare('prototype origin y', prototype.chunk.y, metadata.origin.y);
-compare('prototype size', prototype.chunk.size, metadata.size.width);
-compare('surface width', prototype.surfaces.width, metadata.size.width);
-compare('surface height', prototype.surfaces.height, metadata.size.height);
+compare('streamed origin x', manifest.origin.x, metadata.origin.x);
+compare('streamed origin y', manifest.origin.y, metadata.origin.y);
+compare('streamed width', manifest.size.width, metadata.size.width);
+compare('streamed height', manifest.size.height, metadata.size.height);
+compare('surface width', manifest.surfaces.width, metadata.size.width);
+compare('surface height', manifest.surfaces.height, metadata.size.height);
 compare(
   'surface value count',
-  prototype.surfaces.values.length,
+  manifest.surfaces.values.length,
   metadata.size.width * metadata.size.height
 );
+const expectedChunkCount = metadata.size.width / manifest.chunkSize *
+  (metadata.size.height / manifest.chunkSize);
+compare('streamed chunk count', manifest.chunks.length, expectedChunkCount);
+const chunkIds = new Set<string>();
+let streamedTriangles = 0;
+for (const chunk of manifest.chunks) {
+  if (chunkIds.has(chunk.id)) issues.push(`duplicate streamed chunk ${chunk.id}`);
+  chunkIds.add(chunk.id);
+  compare(`${chunk.id} x`, chunk.x, chunk.column * manifest.chunkSize);
+  compare(`${chunk.id} y`, chunk.y, chunk.row * manifest.chunkSize);
+  compare(`${chunk.id} size`, chunk.size, manifest.chunkSize);
+  const chunkPath = resolve(projectRoot, 'public', 'assets', 'maps', 'three', chunk.file);
+  if (!existsSync(chunkPath)) issues.push(`${chunk.id} is missing ${chunk.file}`);
+  streamedTriangles += chunk.triangleCount;
+}
+compare('streamed triangle total', streamedTriangles, manifest.triangleCount);
 
 if (!world.canOccupy(metadata.spawn.x, metadata.spawn.y, 11)) {
   issues.push(`spawn ${metadata.spawn.x},${metadata.spawn.y} is blocked`);
@@ -58,7 +88,7 @@ try {
   issues.push(error instanceof Error ? error.message : String(error));
 }
 
-const occluderIds = new Set(prototype.occluders.map(({id}) => id));
+const occluderIds = new Set(manifest.occluders.map(({id}) => id));
 for (const interior of INTERIORS) {
   inside(`${interior.id} bounds min`, interior.bounds.minX, interior.bounds.minY);
   inside(`${interior.id} bounds max`, interior.bounds.maxX, interior.bounds.maxY);

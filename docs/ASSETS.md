@@ -38,7 +38,7 @@ Raw export is intended for converter development. To resize the active district,
 transactional map pipeline so gameplay coordinates move with the source crop:
 
 ```bash
-npm run map:expand -- 96
+npm run map:expand -- 256
 npm run map:validate
 ```
 

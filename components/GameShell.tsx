@@ -41,6 +41,7 @@ const GAME_SHELL_HTML = `
       <div><dt>Bullets</dt><dd id="debug-bullets">0</dd></div>
       <div><dt>Spatial</dt><dd id="debug-spatial">0</dd></div>
       <div><dt>Streaming</dt><dd id="debug-streaming">off</dd></div>
+      <div className="debug-wide"><dt>Map chunks</dt><dd id="debug-map-streaming">off</dd></div>
       <div><dt>Population</dt><dd id="debug-population">off</dd></div>
       <div><dt>Dropped</dt><dd id="debug-dropped">0ms</dd></div>
       <div><dt>Deferred</dt><dd id="debug-deferred">0</dd></div>

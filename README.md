@@ -110,19 +110,22 @@ public/assets/maps/district-map.metadata.json
 public/assets/maps/district-preview.png
 public/assets/maps/district-overlay.png
 public/assets/maps/district-tiles.png
-public/assets/maps/three/prototype.json
+public/assets/maps/three/world.json
+public/assets/maps/three/chunks/*.json
 public/assets/maps/three/tiles.png
 ```
 
 Increase the active district crop with the transactional expansion command:
 
 ```bash
-npm run map:expand -- 96
-npm run map:expand -- 128
+npm run map:expand -- 256
 npm run map:validate
 ```
 
-The crop size is in GTA2 tiles. Each tile is `64` world pixels, so `96` produces a `6144 x 6144` world and `128` produces an `8192 x 8192` world. The converter currently accepts crop sizes from `16` through `128`.
+The crop size is in GTA2 tiles. Each tile is `64` world pixels, so `256` exports the
+complete `16384 x 16384` source world. The converter accepts multiples of eight from `16`
+through `256`. The Three renderer streams nearby `8 x 8`-tile geometry chunks instead of
+downloading the complete world mesh at startup.
 
 `map:expand` exports into a staging directory, rebases authored lane and gameplay content,
 installs the result, and runs structural validation. If export or validation fails, it

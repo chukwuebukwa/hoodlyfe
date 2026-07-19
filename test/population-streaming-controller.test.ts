@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   PopulationStreamingController,
+  streamedPopulationTargets,
   STREAMED_CIVILIAN_RECORDS,
   STREAMED_POLICE_RECORDS,
   STREAMED_TRAFFIC_RECORDS
@@ -11,6 +12,19 @@ import type {CollisionMap, RoadNode, TrafficSpawn} from '../server/world-map.ts'
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import type {TrafficDiagnostic} from '../server/game/traffic/traffic-controller.ts';
 import {POPULATION_INTEREST} from '../server/game/population/population-activation-policy.ts';
+
+test('potential population preserves density as the streamed world grows', () => {
+  assert.deepEqual(streamedPopulationTargets({width: 96, height: 96}), {
+    civilians: STREAMED_CIVILIAN_RECORDS,
+    police: STREAMED_POLICE_RECORDS,
+    traffic: STREAMED_TRAFFIC_RECORDS
+  });
+  assert.deepEqual(streamedPopulationTargets({width: 256, height: 256}), {
+    civilians: 512,
+    police: 57,
+    traffic: 455
+  });
+});
 
 test('population streaming materializes a bounded nearby subset and virtualizes it when far', () => {
   const fixture = createFixture();

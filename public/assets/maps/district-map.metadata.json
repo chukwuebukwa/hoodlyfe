@@ -2,18 +2,18 @@
   "source": "bil",
   "tileSize": 64,
   "origin": {
-    "x": 80,
-    "y": 81
+    "x": 0,
+    "y": 0
   },
   "size": {
-    "width": 96,
-    "height": 96
+    "width": 256,
+    "height": 256
   },
   "spawn": {
-    "x": 3104,
-    "y": 3104
+    "x": 8224,
+    "y": 8288
   },
-  "walkableCells": 7546,
-  "roadCells": 4253,
-  "elevatedPassageCells": 1613
+  "walkableCells": 55889,
+  "roadCells": 15793,
+  "elevatedPassageCells": 11858
 }

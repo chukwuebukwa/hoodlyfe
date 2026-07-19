@@ -20,15 +20,17 @@ This is the shortest safe path for adding another seamless, single-floor interio
 ## Coordinate Systems
 
 1. OpenGTA2 source map coordinates use GTA block units.
-2. The exported Three payload stores crop-local block coordinates.
+2. The exported Three manifest stores source-level block coordinates and each geometry
+   chunk stores chunk-local vertices.
 3. Server and browser gameplay use pixels, with `64 px` per block.
 
-For the current `bil` crop, the origin is `(96, 97)` blocks. Mercy Hospital demonstrates the conversion:
+The complete active `bil` world has origin `(0, 0)`. The stable authoring reference remains
+the former `(96, 97)` crop, so content helpers perform the translation. Mercy Hospital's
+source-level conversion is:
 
 ```text
 source door:       (137.125, 127.375)
-crop-local door:   (41.125, 30.375)
-runtime door:      (2632, 1944) px
+runtime door:      (8776, 8152) px
 runtime floor Z:   2.0625 * 64 = 132 px
 ```
 
@@ -50,7 +52,9 @@ dotnet run --project src/OpenGta2.WebExporter -- \
   bil 64
 ```
 
-6. Confirm `prototype.json` contains a version-2 occluder whose ID, door, floor height, and triangle count match the catalog. `test/three-prototype-interior-contract.test.ts` enforces this locally.
+6. Confirm `three/world.json` contains the occluder definition and that its triangle total is
+   distributed across the relevant chunk payloads. The ID, door, floor height, and triangle
+   count must match the catalog. `test/three-map-interior-contract.test.ts` enforces this locally.
 7. Add a renderer fixture function for the interior `kind`. Geometry dimensions must match catalog obstacles exactly enough that visible furniture and server collision agree.
 8. Register domain content through `serviceAnchors` or `recoveryAnchor`. A service's `spaceId` must equal the interior ID. A medical respawn plan must return both coordinates and `spaceId`.
 9. Project a permanent exterior-door minimap blip with a recognizable kind-specific icon. The blip belongs to the storefront catalog, not indoor service replication, so it remains visible from the street even though its service is inside.
@@ -69,7 +73,7 @@ npx tsx --test \
   test/interior-controller.test.ts \
   test/medical-care-controller.test.ts \
   test/district-replication-controller.test.ts \
-  test/three-prototype-interior-contract.test.ts \
+  test/three-map-interior-contract.test.ts \
   test/multiplayer.integration.test.ts
 npm test
 npm run build

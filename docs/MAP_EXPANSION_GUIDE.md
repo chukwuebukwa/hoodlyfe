@@ -1,124 +1,145 @@
-# District Map Expansion Guide
+# Full-World Map Streaming Guide
 
-## Current District
+## Active World
 
-The active Industrial District crop is `96 x 96` GTA2 tiles. Each tile is `64` world
-pixels, producing a `6144 x 6144` world. The source crop begins at GTA2 map tile
-`80,81`; the former `64 x 64` crop began at `96,97`.
+The active Industrial District is the complete `256 x 256` GTA2 source level. Each tile is
+`64` world pixels, producing a `16384 x 16384` world at source origin `0,0`.
 
-Use `96` as the normal development size for now. The exporter accepts up to `128`, but the
-current Three.js payload is still one large JSON document. At `96`, `prototype.json` is
-already about 13 MB, so a production `128` map should follow chunked presentation streaming
-rather than becoming a larger monolithic payload.
+The world is not one Three.js mesh. Export divides it into `8 x 8`-tile (`512 x 512` pixel)
+chunks:
 
-## Expand Safely
+```text
+32 columns x 32 rows = 1,024 chunks
+```
+
+`public/assets/maps/three/world.json` is the geometry manifest. Chunk payloads live under
+`public/assets/maps/three/chunks/`. The old `three/prototype.json` monolith is deliberately
+absent for full-world exports.
+
+## Runtime Contract
+
+The Three renderer keeps these small or simulation-critical datasets resident:
+
+- the world manifest, chunk descriptors, surface grid, and authored roof definitions;
+- the shared texture atlas;
+- the collision and road-classification grid used by prediction and world queries;
+- authored gameplay catalogs such as interiors, services, signals, lights, and lanes.
+
+It streams expensive presentation geometry by camera interest:
+
+1. Chunks intersecting the viewport are visible priority and are loaded before the first frame.
+2. One surrounding ring is preloaded.
+3. Two surrounding rings are retained to prevent boundary thrash.
+4. Velocity lookahead requests up to two chunks in the travel direction.
+5. No more than four chunk requests run concurrently.
+6. Chunks outside the retention region are removed and their GPU geometry is disposed.
+
+This is static-world streaming. Server population and replication have separate AOI systems:
+pedestrians and traffic outside player interest remain lightweight virtual records, while only
+bounded nearby actors become authoritative replicated entities. Static collision remains
+resident because a `256 x 256` byte-scale occupancy grid is cheap and client prediction needs
+immediate deterministic queries.
+
+## Export Or Resize
 
 Keep a local GTA2 installation under `GTA2_GAME/App_Executables/`, then run:
 
 ```bash
-npm run map:expand -- 96
+npm run map:expand -- 256
 npm run map:validate
 npm test
 npm run build
 ```
 
-`map:expand` performs these steps as one transaction:
+The size must be a multiple of eight from `16` through `256`. `map:expand` performs one
+transaction:
 
-1. Export the requested crop into a temporary staging directory.
-2. Read the old and new source origins and calculate the world-coordinate delta.
-3. Rebase `district-lanes.json`, including corridors, junctions, roadblocks, vehicle poses,
-   stingers, and officer poses.
-4. Install the staged map, previews, tiles, metadata, and Three.js prototype.
-5. Regenerate `district-map-frame.generated.ts`.
-6. Validate the frame, dimensions, spawn, surfaces, lane graph, occluders, interiors,
-   traffic signals, street lights, and population zones.
-7. Restore the previous files automatically if installation or validation fails.
+1. Export into a temporary staging directory.
+2. Calculate the coordinate delta from old and new source origins.
+3. Rebase lanes, junctions, roadblocks, vehicle poses, stingers, and officers.
+4. Export a shared atlas, world manifest, and independent geometry chunks.
+5. Install maps, previews, textures, metadata, manifest, and chunk directory.
+6. Regenerate `shared/content/district-map-frame.generated.ts`.
+7. Validate dimensions, chunk coverage and totals, spawn, surfaces, lane graph, roofs,
+   interiors, signals, lights, and population zones.
+8. Restore the prior map automatically if export, installation, or validation fails.
 
-Expansion only resizes the current source level. It refuses to transplant authored gameplay
-content onto a different GTA2 level because matching the new roads, buildings, and services
-requires a separate content-authoring project.
-
-Running the same size again is supported. It produces a zero coordinate delta and should
-not create `bin/` or `obj/` churn under the OpenGTA converter.
+The exporter writes a legacy monolith only for crops up to `128` tiles. Full-world builds
+must use the chunk manifest.
 
 ## Coordinate Contract
 
-The original `64 x 64` crop is the stable authoring reference frame:
+The former `64 x 64` crop remains the stable authoring reference:
 
 ```text
-source origin: 96,97
-tile size:     64 pixels
+reference source origin: 96,97
+active source origin:     0,0
+tile size:                64 pixels
+active authoring offset:  +6144,+6208 pixels
 ```
 
-Content authored against that frame must use the helpers in
-`shared/content/district-map-frame.ts`:
+TypeScript content authored in the reference frame must use:
 
 ```ts
 districtPoint(x, y)
 districtBounds({minX, minY, maxX, maxY})
 ```
 
-The active generated frame translates those reference coordinates at runtime. Do not add a
-manual `+1024` offset for the `96 x 96` map. That would break the next expansion or crop
-change.
+Do not write the current offset manually. `district-lanes.json` is generated content and is
+rebased transactionally. The frame helpers currently own interiors, doors, exits, services,
+obstacles, signals, street lights, and population-zone bounds.
 
-`district-lanes.json` is generated content and is rebased by `map:expand`. TypeScript-owned
-content currently using the frame helpers includes:
+## What The Full Export Provides
 
-- interiors, exterior doors, exits, service anchors, and obstacles;
-- traffic signal centers and approach stop lines;
-- street-light fixtures;
-- population-zone bounds.
+All 65,536 source tiles now have exported visuals, collision, roads, pedestrian surfaces,
+height data, and streamable Three geometry. Players can travel and collide throughout the
+complete source level.
 
-When adding another map-relative content owner, include it in the generated frame contract
-and in `scripts/validate-district-map.ts` before relying on it.
+The authored lane graph and handcrafted systemic content still describe the translated
+central reference district. Geometry streaming does not invent safe lane direction,
+intersection priority, signals, parking, services, interiors, missions, or named population
+zones for the rest of the source world. Generic road-cell traffic can support fallback areas,
+but production-quality traffic needs connected authored corridors and junction metadata.
 
-## What Expansion Provides
+Treat world expansion and world content as separate workstreams:
 
-The additional ring has exported visuals, collision, road classification, pedestrian
-surfaces, and Three.js geometry. Player movement, collision, generic pedestrian placement,
-and world queries can use it immediately.
+- **World availability:** complete; geometry and collision can stream across all 256 tiles.
+- **Authored systemic coverage:** expand lanes, services, interiors, lighting, and activities
+  district by district without changing the streaming architecture.
 
-The authored lane graph still describes the former central `64 x 64` source area, translated
-into the larger crop. Ambient traffic therefore remains concentrated in that authored road
-network. Expanding the crop does not invent safe lane direction, intersection priority,
-traffic-light approaches, parking, roadblocks, services, or interiors for the new perimeter.
+## Debug And QA
 
-The next map-content pass should author additional connected corridors and junctions in
-`district-lanes.json`, validate strong connectivity, and add traffic signals only where the
-new graph requires them. Do not fall back to treating every road-classified tile as an
-equally valid traffic route.
+Run the game and open:
 
-## Visual QA
-
-Start the game and open the Three.js renderer:
-
-```bash
-npm run dev
+```text
+http://127.0.0.1:5173/?renderer=three&qa=1
 ```
 
-Then verify `http://127.0.0.1:5173/?renderer=three&qa=1` at desktop and mobile sizes:
+Enable `DBG`. The map row reports:
 
-- the canvas is nonblank and fills the viewport;
-- the player spawns near the center source geography;
-- collision agrees with buildings and elevated structures;
-- interiors hide only their authored roof groups;
-- the minimap and camera remain centered near the expanded boundaries;
-- existing traffic stays on the authored central graph;
-- no map, texture, or prototype requests fail in the browser console.
-
-The current narrow-screen shell has pre-existing horizontal canvas and HUD overflow. The
-expanded map renders on a mobile viewport, but responsive shell cleanup remains separate
-from map generation.
-
-## Reverting Size
-
-The same command can return to another supported crop:
-
-```bash
-npm run map:expand -- 64
+```text
+loaded / 1024 | loading | queued | retained | failures | loaded triangles
 ```
 
-The lane graph is translated back using source-origin metadata. Run the complete validation
-and QA sequence after any size change. Git remains the final recovery path for reviewed map
-assets; the command's temporary backup exists only for the duration of one expansion run.
+At ordinary zoom, `loaded` must remain a small local subset rather than approaching `1024`.
+Driving across an 8-tile boundary should load chunks ahead and retire distant chunks without
+a black frame or geometry pop inside the viewport.
+
+Required checks:
+
+- `world.json` loads once and nearby chunk requests return `200`;
+- `prototype.json` returns `404` for the full world;
+- the canvas is nonblank and centered at the rebased spawn;
+- the player and collision agree with buildings and elevated structures;
+- authored interiors hide only their roof fragments, including roofs spanning chunk edges;
+- minimap, camera, lighting, population AOI, and replication remain centered on players;
+- chunk failures remain zero while crossing boundaries;
+- desktop and mobile canvases stay full viewport without text or HUD overlap.
+
+## Transport Follow-Ups
+
+The first full-world implementation uses compact JSON chunks for inspectability. Before a
+large public release, move vertices and indices to versioned binary payloads, serve immutable
+hashed chunks through a CDN with Brotli, and add worker-side decode if profiling shows main
+thread spikes. Those are transport optimizations; they do not change manifest interest,
+retention, unloading, or gameplay coordinate ownership.
