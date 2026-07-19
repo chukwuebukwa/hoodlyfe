@@ -21,6 +21,7 @@ interface ThreeInputControllerOptions {
   surfaceZ: () => number;
   onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
+  directAimAngle?: () => number | undefined;
 }
 
 export class ThreeInputController {
@@ -70,8 +71,10 @@ export class ThreeInputController {
         (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0)
     );
     if (!player.alive) return movement;
-    let angle: number | undefined;
-    if (this.touch.active || this.touch.firing) {
+    let angle = this.options.directAimAngle?.();
+    if (angle !== undefined) {
+      // Explorer cameras own yaw directly instead of raycasting an overhead ground plane.
+    } else if (this.touch.active || this.touch.firing) {
       angle = Math.atan2(this.touch.aim.y, this.touch.aim.x);
     } else {
       this.raycaster.setFromCamera(this.pointer, this.options.camera);
