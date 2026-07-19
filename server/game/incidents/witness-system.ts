@@ -33,6 +33,10 @@ export class WitnessSystem {
       if (!candidate.alive || candidate.id === incident.suspectId) {
         continue;
       }
+      const requiresPoliceSight = incident.kind === 'vehicle-theft';
+      if (requiresPoliceSight && candidate.kind !== 'police') {
+        continue;
+      }
       const distance = Math.hypot(candidate.x - incident.x, candidate.y - incident.y);
       const lineOfSight = distance <= 720 && hasLineOfSight(
         candidate.x,
@@ -40,10 +44,15 @@ export class WitnessSystem {
         incident.x,
         incident.y
       );
+      if (requiresPoliceSight && !lineOfSight) {
+        continue;
+      }
       const hearingRange = candidate.kind === 'police' ? 760 : 460;
       if (!lineOfSight && distance > hearingRange) continue;
 
-      const delayMs = candidate.kind === 'police'
+      const delayMs = requiresPoliceSight
+        ? 0
+        : candidate.kind === 'police'
         ? (lineOfSight ? 120 : 520)
         : (lineOfSight ? 850 : 1450);
       reports.push({

@@ -61,13 +61,42 @@ test('unwitnessed incidents expire without creating wanted heat', () => {
   assert.deepEqual(wanted.get('driver'), {heat: 0, level: 0});
 });
 
+test('vehicle theft requires an immediate direct police witness', () => {
+  const incidents = new IncidentRegistry();
+  const {incident} = incidents.register({
+    kind: 'vehicle-theft',
+    suspectId: 'driver',
+    x: 100,
+    y: 100,
+    nowMs: 1000
+  });
+  const witnesses = new WitnessSystem();
+
+  assert.equal(witnesses.selectReporter(incident, [
+    {id: 'civilian-1', kind: 'civilian', x: 110, y: 100, alive: true}
+  ], () => true), undefined);
+  assert.equal(witnesses.selectReporter(incident, [
+    {id: 'police-1', kind: 'police', x: 110, y: 100, alive: true}
+  ], () => false), undefined);
+  assert.deepEqual(witnesses.selectReporter(incident, [
+    {id: 'civilian-1', kind: 'civilian', x: 105, y: 100, alive: true},
+    {id: 'police-1', kind: 'police', x: 120, y: 100, alive: true}
+  ], () => true), {
+    witnessId: 'police-1',
+    witnessKind: 'police',
+    delayMs: 0,
+    lineOfSight: true,
+    distance: 20
+  });
+});
+
 test('wanted heat escalates by severity and decays only while police are absent', () => {
   const wanted = new WantedSystem(1000, 500, 12);
   wanted.noteCrime('driver', 100);
-  assert.deepEqual(wanted.report('driver', 28, 200), {heat: 28, level: 2});
-  assert.deepEqual(wanted.tryDecay('driver', 1400, true), {heat: 28, level: 2});
-  assert.deepEqual(wanted.tryDecay('driver', 1400, false), {heat: 16, level: 1});
-  assert.deepEqual(wanted.tryDecay('driver', 1900, false), {heat: 4, level: 0});
+  assert.deepEqual(wanted.report('driver', 28, 200), {heat: 28, level: 1});
+  assert.deepEqual(wanted.tryDecay('driver', 1400, true), {heat: 28, level: 1});
+  assert.deepEqual(wanted.tryDecay('driver', 1400, false), {heat: 16, level: 0});
+  assert.deepEqual(wanted.tryDecay('driver', 1900, false), {heat: 16, level: 0});
   wanted.reset('driver');
   assert.deepEqual(wanted.get('driver'), {heat: 0, level: 0});
 });

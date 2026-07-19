@@ -11,6 +11,8 @@
   "scripts": {
     "assets:export": "bash scripts/export-gta2-assets.sh",
     "assets:original-map": "python3 scripts/render-original-district.py",
+    "map:expand": "tsx scripts/expand-district-map.ts",
+    "map:validate": "tsx scripts/validate-district-map.ts",
     "build": "tsc --noEmit && next build",
     "deploy:railway": "railway up --service nock0 --environment production --no-gitignore",
     "dev": "concurrently -k -n server,web -c yellow,cyan \"npm:dev:server\" \"npm:dev:web\"",

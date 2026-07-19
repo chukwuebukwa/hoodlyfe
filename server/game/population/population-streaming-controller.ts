@@ -30,6 +30,8 @@ import {PopulationZoneProfileController} from './population-zone-profile-control
 export const STREAMED_CIVILIAN_RECORDS = 72;
 export const STREAMED_POLICE_RECORDS = 8;
 export const STREAMED_TRAFFIC_RECORDS = 64;
+const STREAMING_DENSITY_REFERENCE_TILES = 96 * 96;
+const MAXIMUM_STREAMING_DENSITY_SCALE = 8;
 const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = [
   'sedan',
   'taxi',
@@ -116,6 +118,30 @@ export interface PopulationStreamingDiagnostic {
   profileRebalances: number;
 }
 
+export interface StreamedPopulationTargets {
+  civilians: number;
+  police: number;
+  traffic: number;
+}
+
+export function streamedPopulationTargets(
+  world: Pick<CollisionMap, 'width' | 'height'>
+): StreamedPopulationTargets {
+  const rawArea = world.width * world.height;
+  const area = Number.isFinite(rawArea) && rawArea > 0
+    ? rawArea
+    : STREAMING_DENSITY_REFERENCE_TILES;
+  const scale = Math.min(
+    MAXIMUM_STREAMING_DENSITY_SCALE,
+    Math.max(1, area / STREAMING_DENSITY_REFERENCE_TILES)
+  );
+  return {
+    civilians: Math.round(STREAMED_CIVILIAN_RECORDS * scale),
+    police: Math.round(STREAMED_POLICE_RECORDS * scale),
+    traffic: Math.round(STREAMED_TRAFFIC_RECORDS * scale)
+  };
+}
+
 export class PopulationStreamingController {
   private readonly pedestrians = new Map<string, VirtualPedestrianRecord>();
   private readonly traffic = new Map<string, VirtualTrafficRecord>();
@@ -140,14 +166,15 @@ export class PopulationStreamingController {
 
   initialize(nowMs = 0): void {
     if (this.initialized) return;
-    for (let index = 0; index < STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS; index++) {
-      const id = index < STREAMED_CIVILIAN_RECORDS
+    const targets = streamedPopulationTargets(this.options.world);
+    for (let index = 0; index < targets.civilians + targets.police; index++) {
+      const id = index < targets.civilians
         ? `stream-civilian-${index + 1}`
-        : `stream-police-${index - STREAMED_CIVILIAN_RECORDS + 1}`;
+        : `stream-police-${index - targets.civilians + 1}`;
       const position = this.options.world.pedestrianSpawn(5_000 + index * 47, PEDESTRIAN_RADIUS);
       this.pedestrians.set(id, {
         id,
-        kind: index < STREAMED_CIVILIAN_RECORDS ? 'civilian' : 'police',
+        kind: index < targets.civilians ? 'civilian' : 'police',
         x: position.x,
         y: position.y,
         angle: this.options.random.unit('stream-ped-angle', id) * Math.PI * 2,
@@ -156,7 +183,7 @@ export class PopulationStreamingController {
         nextStepAt: nowMs + this.stepOffset(id)
       });
     }
-    for (let index = 0; index < STREAMED_TRAFFIC_RECORDS; index++) {
+    for (let index = 0; index < targets.traffic; index++) {
       const id = `stream-traffic-${index + 1}`;
       this.traffic.set(id, {
         id,

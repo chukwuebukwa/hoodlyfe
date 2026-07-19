@@ -1,3 +1,5 @@
+import {districtBounds, districtPoint} from './district-map-frame.ts';
+
 export const STREET_SPACE_ID = 'street';
 
 export interface InteriorObstacle {
@@ -45,7 +47,7 @@ export interface InteriorDraftPayload {
 
 export const INTERIOR_GAME_DRAFT_STORAGE_KEY = 'nock0-interiors-game-draft-v1';
 
-export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
+const AUTHORED_INTERIORS: readonly InteriorDefinition[] = Object.freeze([
   Object.freeze({
     id: 'mercy-hospital',
     label: 'Mercy Hospital',
@@ -156,6 +158,40 @@ export const INTERIORS: readonly InteriorDefinition[] = Object.freeze([
     ])
   })
 ]);
+
+export const INTERIORS: readonly InteriorDefinition[] = Object.freeze(
+  AUTHORED_INTERIORS.map(rebaseInterior)
+);
+
+function rebaseInterior(interior: InteriorDefinition): InteriorDefinition {
+  const exteriorDoor = districtPoint(interior.exteriorDoor.x, interior.exteriorDoor.y);
+  const exteriorExit = districtPoint(interior.exteriorDoor.exitX, interior.exteriorDoor.exitY);
+  const entry = districtPoint(interior.entry.x, interior.entry.y);
+  const recoveryAnchor = interior.recoveryAnchor
+    ? districtPoint(interior.recoveryAnchor.x, interior.recoveryAnchor.y)
+    : undefined;
+  return Object.freeze({
+    ...interior,
+    exteriorDoor: Object.freeze({
+      ...interior.exteriorDoor,
+      ...exteriorDoor,
+      exitX: exteriorExit.x,
+      exitY: exteriorExit.y
+    }),
+    bounds: Object.freeze(districtBounds(interior.bounds)),
+    entry: Object.freeze({...interior.entry, ...entry}),
+    recoveryAnchor: recoveryAnchor
+      ? Object.freeze({...interior.recoveryAnchor!, ...recoveryAnchor})
+      : undefined,
+    exitDoor: Object.freeze(districtBounds(interior.exitDoor)),
+    obstacles: Object.freeze(interior.obstacles.map((obstacle) => (
+      Object.freeze(districtBounds(obstacle))
+    ))),
+    serviceAnchors: Object.freeze(interior.serviceAnchors.map((anchor) => (
+      Object.freeze({...anchor, ...districtPoint(anchor.x, anchor.y)})
+    )))
+  });
+}
 
 export function interiorDefinition(spaceId: string): InteriorDefinition | undefined {
   return INTERIORS.find((interior) => interior.id === spaceId);

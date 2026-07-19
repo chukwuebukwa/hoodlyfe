@@ -339,6 +339,20 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     (first.state.players.get(first.sessionId)?.y ?? startY)
   ) < 3);
 
+  const duelTarget = second.state.players.get(second.sessionId);
+  assert.ok(duelTarget);
+  const duelWitness = [...second.state.npcs.values()]
+    .filter((npc) => npc.alive && npc.kind === 'civilian')
+    .sort((left, right) => (
+      Math.hypot(left.x - duelTarget.x, left.y - duelTarget.y) -
+      Math.hypot(right.x - duelTarget.x, right.y - duelTarget.y)
+    ))[0];
+  assert.ok(duelWitness, 'The witnessed-crime integration fixture requires a living civilian.');
+  await movePlayerNearNpc(second, second.sessionId, duelWitness.id, 140);
+  const stagedTarget = second.state.players.get(second.sessionId);
+  assert.ok(stagedTarget);
+  await movePlayerTo(first, first.sessionId, stagedTarget.x, stagedTarget.y, 56, world);
+
   let attackDistance = await moveNear(
     first,
     first.sessionId,
@@ -450,12 +464,37 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     false,
     'Authoritative pistol fire did not kill the target before the bounded duel deadline.'
   );
-  await waitUntil(() => debugSnapshots.some((snapshot) => (
-    snapshot.pursuits.length > 0 ||
-    snapshot.policeResponse?.assignments.some((assignment) => (
-      assignment.suspectId === first.sessionId
-    ))
-  )));
+  try {
+    await waitUntil(() => debugSnapshots.some((snapshot) => (
+      snapshot.pursuits.length > 0 ||
+      snapshot.policeResponse?.assignments.some((assignment) => (
+        assignment.suspectId === first.sessionId
+      ))
+    )));
+  } catch (error) {
+    const shooter = first.state.players.get(first.sessionId);
+    const recentSnapshots = debugSnapshots.slice(-8).map((snapshot) => ({
+      tick: snapshot.tick,
+      incidents: snapshot.incidents,
+      pursuits: snapshot.pursuits,
+      assignments: snapshot.policeResponse?.assignments,
+      events: snapshot.events
+    }));
+    const nearbyNpcs = shooter
+      ? [...first.state.npcs.values()].map((npc) => ({
+          id: npc.id,
+          kind: npc.kind,
+          alive: npc.alive,
+          distance: Math.round(Math.hypot(npc.x - shooter.x, npc.y - shooter.y)),
+          lineOfSight: world.hasLineOfSight(npc.x, npc.y, shooter.x, shooter.y)
+        })).sort((left, right) => left.distance - right.distance).slice(0, 8)
+      : [];
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)} ` +
+      `shooter=${JSON.stringify(shooter)} nearbyNpcs=${JSON.stringify(nearbyNpcs)} ` +
+      `snapshots=${JSON.stringify(recentSnapshots)} server=${serverOutput.slice(-2000)}`
+    );
+  }
   assert.ok(debugSnapshots.some((snapshot) => (
     snapshot.events.some((event) => event.type === 'incident.reported')
   )));

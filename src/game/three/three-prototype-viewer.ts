@@ -24,56 +24,14 @@ import {
   createMixedInteractionPairStep
 } from '../prediction/mixed-interaction-replay.ts';
 import {
-  atlasUv,
-  faceBrightness,
   perspectiveHeightForSpan,
   serverYToThree
 } from './three-prototype-policy.ts';
-
-interface PrototypeVertex {
-  x: number;
-  y: number;
-  z: number;
-  u: number;
-  v: number;
-  tile: number;
-  shade: number;
-}
-
-interface PrototypePayload {
-  version: number;
-  source: string;
-  blockSize: number;
-  chunk: {x: number; y: number; size: number};
-  atlas: {
-    image: string;
-    columns: number;
-    rows: number;
-    tileSize: number;
-    tileCount: number;
-  };
-  vertices: PrototypeVertex[];
-  opaqueIndices: number[];
-  alphaTestedIndices: number[];
-  baseOpaqueIndices?: number[];
-  baseAlphaTestedIndices?: number[];
-  occluders?: PrototypeOccluder[];
-  triangleCount: number;
-  surfaces: {width: number; height: number; values: number[]};
-}
+import {ThreeMapChunkStreamer} from './three-map-chunk-streamer.ts';
+import type {ThreeMapManifest, ThreeMapOccluderDefinition} from './three-map-format.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
-}
-
-interface PrototypeOccluder {
-  id: string;
-  bounds: {minX: number; minY: number; maxX: number; maxY: number; minZ: number; maxZ: number};
-  exteriorDoor: {x: number; y: number};
-  floorZ: number;
-  opaqueIndices: number[];
-  alphaTestedIndices: number[];
-  triangleCount: number;
 }
 
 const FIELD_OF_VIEW = 45;
@@ -104,8 +62,9 @@ export class ThreePrototypeViewer {
   private interiors?: ThreeInteriorRenderer;
   private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
+  private mapStreamer?: ThreeMapChunkStreamer;
   private qa?: ThreeQaDriver;
-  private payload?: PrototypePayload;
+  private payload?: ThreeMapManifest;
   private centerInitialized = false;
 
   constructor(
@@ -125,22 +84,28 @@ export class ThreePrototypeViewer {
   }
 
   async start(): Promise<void> {
-    const payload = await loadPayload('/assets/maps/three/prototype.json');
+    const [mapStreamer, metadata, collision] = await Promise.all([
+      ThreeMapChunkStreamer.create(this.scene, this.mapOccluders),
+      loadMapMetadata('/assets/maps/district-map.metadata.json'),
+      ClientCollisionMap.load()
+    ]);
+    this.mapStreamer = mapStreamer;
+    const payload = mapStreamer.manifest;
     this.payload = payload;
-    const metadata = await loadMapMetadata('/assets/maps/district-map.metadata.json');
-    const collision = await ClientCollisionMap.load();
-    const textureUrl = new URL(payload.atlas.image, `${window.location.origin}/assets/maps/three/`).toString();
-    const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestMipmapNearestFilter;
-    texture.flipY = false;
-    const map = this.createMap(payload, texture);
-    this.scene.add(map);
+    for (const occluder of payload.occluders) validateOccluder(occluder, payload.blockSize);
+    this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
+    this.resize();
+    this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
+    const initialView = this.mapStreamingView();
+    await mapStreamer.prime(
+      metadata.spawn.x,
+      metadata.spawn.y,
+      initialView.halfWidth,
+      initialView.halfHeight
+    );
     this.lighting = await ThreeDayNightController.create(this.scene, this.surfaceHeightAt);
     if (this.room) {
       this.interiors = new ThreeInteriorRenderer(this.scene);
-      this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
       this.entities = await ThreeDistrictEntities.create(
         this.scene,
         this.surfaceHeightAt,
@@ -208,7 +173,8 @@ export class ThreePrototypeViewer {
         (vehicleId) => this.entities?.vehiclePose(vehicleId),
         (playerId) => this.entities?.playerPose(playerId),
         () => this.interactionIslands?.latest(),
-        () => this.netcodeRollout?.snapshot()
+        () => this.netcodeRollout?.snapshot(),
+        () => this.mapStreamer?.snapshot()
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
@@ -232,10 +198,7 @@ export class ThreePrototypeViewer {
         onFire: (angle) => this.combatFirePrediction?.requestFire(angle),
         isBlocked: () => this.ui?.isInputBlocked() ?? false
       });
-      this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
       this.followLocalPlayer();
-    } else {
-      this.frameGeometry(map);
     }
     this.createStatus(payload);
     this.bind();
@@ -257,6 +220,7 @@ export class ThreePrototypeViewer {
     this.interiors?.destroy();
     this.lighting?.destroy();
     this.qa?.destroy();
+    this.mapStreamer?.destroy();
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       object.geometry.dispose();
@@ -275,62 +239,6 @@ export class ThreePrototypeViewer {
     return this.netcodeRollout?.enabled(stage) ?? true;
   }
 
-  private createMap(payload: PrototypePayload, texture: THREE.Texture): THREE.Group {
-    const positions = new Float32Array(payload.vertices.length * 3);
-    const uvs = new Float32Array(payload.vertices.length * 2);
-    const colors = new Float32Array(payload.vertices.length * 3);
-    payload.vertices.forEach((vertex, index) => {
-      const positionOffset = index * 3;
-      positions[positionOffset] = vertex.x * payload.blockSize;
-      positions[positionOffset + 1] = serverYToThree(vertex.y * payload.blockSize);
-      positions[positionOffset + 2] = vertex.z * payload.blockSize;
-      const [u, v] = atlasUv(vertex, payload.atlas);
-      const uvOffset = index * 2;
-      uvs[uvOffset] = u;
-      uvs[uvOffset + 1] = v;
-      const brightness = faceBrightness(vertex.shade);
-      colors[positionOffset] = brightness;
-      colors[positionOffset + 1] = brightness;
-      colors[positionOffset + 2] = brightness;
-    });
-
-    const group = new THREE.Group();
-    group.add(createMapMesh(
-      positions,
-      uvs,
-      colors,
-      payload.baseOpaqueIndices ?? payload.opaqueIndices,
-      payload.baseAlphaTestedIndices ?? payload.alphaTestedIndices,
-      texture
-    ));
-    for (const authored of payload.occluders ?? []) {
-      validateOccluder(authored, payload.blockSize);
-      const occluder = new THREE.Group();
-      occluder.name = `roof:${authored.id}`;
-      occluder.add(createMapMesh(
-        positions,
-        uvs,
-        colors,
-        authored.opaqueIndices,
-        authored.alphaTestedIndices,
-        texture
-      ));
-      occluder.userData.triangleCount = authored.triangleCount;
-      this.mapOccluders.set(authored.id, occluder);
-      group.add(occluder);
-    }
-    return group;
-  }
-
-  private frameGeometry(mesh: THREE.Object3D): void {
-    const bounds = new THREE.Box3().setFromObject(mesh);
-    bounds.getCenter(this.center);
-    const size = bounds.getSize(new THREE.Vector3());
-    const span = Math.max(size.y, size.x / Math.max(0.5, window.innerWidth / window.innerHeight)) * 1.12;
-    this.baseHeight = perspectiveHeightForSpan(span, FIELD_OF_VIEW) + size.z;
-    this.applyCamera();
-  }
-
   private applyCamera(): void {
     this.camera.position.set(
       this.center.x,
@@ -340,13 +248,14 @@ export class ThreePrototypeViewer {
     this.camera.lookAt(this.center.x, this.center.y, this.center.z);
   }
 
-  private createStatus(payload: PrototypePayload): void {
+  private createStatus(payload: ThreeMapManifest): void {
     const status = document.createElement('aside');
     status.id = 'three-prototype-status';
     const roofTriangles = [...this.mapOccluders.values()]
       .reduce((sum, occluder) => sum + Number(occluder.userData.triangleCount ?? 0), 0);
-    status.innerHTML = `<strong>3D GEOMETRY</strong><span>REGION ${payload.chunk.x}:${payload.chunk.y}</span>` +
-      `<i>${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>` +
+    status.innerHTML = `<strong>3D STREAMING</strong><span>WORLD ${payload.size.width}x${payload.size.height}</span>` +
+      `<i id="three-map-stream-status">0/${payload.chunks.length} CHUNKS / ` +
+      `${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>` +
       `<b id="world-clock-status">08:00 DAY</b>`;
     document.querySelector('#game-shell')?.append(status);
     this.status = status;
@@ -426,6 +335,8 @@ export class ThreePrototypeViewer {
       const playerPose = local ? this.entities?.playerPose(this.room.sessionId) : undefined;
       const focusX = vehiclePose?.x ?? localVehicle?.x ?? playerPose?.x ?? local?.x ?? this.center.x;
       const focusY = vehiclePose?.y ?? localVehicle?.y ?? playerPose?.y ?? local?.y ?? serverYToThree(this.center.y);
+      const mapView = this.mapStreamingView();
+      this.mapStreamer?.update(focusX, focusY, mapView.halfWidth, mapView.halfHeight, now);
       const nightIntensity = this.lighting?.update({
         worldTimeStartedAt: this.room.state.worldTimeStartedAt ?? Date.now(),
         worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
@@ -438,7 +349,15 @@ export class ThreePrototypeViewer {
       if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) this.center.x += pan;
       if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) this.center.y -= pan;
       if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) this.center.y += pan;
+      const mapView = this.mapStreamingView();
+      this.mapStreamer?.update(
+        this.center.x,
+        serverYToThree(this.center.y),
+        mapView.halfWidth,
+        mapView.halfHeight
+      );
     }
+    this.updateMapStreamingStatus();
     this.applyCamera();
     this.renderer.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.render);
@@ -491,6 +410,25 @@ export class ThreePrototypeViewer {
     const row = Math.max(0, Math.min(payload.surfaces.height - 1, Math.floor(y / payload.blockSize)));
     return payload.surfaces.values[row * payload.surfaces.width + column] * payload.blockSize;
   };
+
+  private mapStreamingView(): {halfWidth: number; halfHeight: number} {
+    const cameraDistance = this.baseHeight / this.zoom;
+    const halfHeight = cameraDistance * Math.tan(FIELD_OF_VIEW * Math.PI / 360);
+    return {
+      halfWidth: halfHeight * Math.max(0.5, this.camera.aspect),
+      halfHeight
+    };
+  }
+
+  private updateMapStreamingStatus(): void {
+    const snapshot = this.mapStreamer?.snapshot();
+    const element = this.status?.querySelector('#three-map-stream-status');
+    if (!snapshot || !element) return;
+    const value = `${snapshot.loaded}/${snapshot.totalChunks} CHUNKS / ` +
+      `${snapshot.loading} LOADING / ${snapshot.queued} QUEUED / ` +
+      `${snapshot.loadedTriangles.toLocaleString()} TRIANGLES`;
+    if (element.textContent !== value) element.textContent = value;
+  }
 
   private followLocalPlayer(): void {
     const room = this.room;
@@ -555,7 +493,7 @@ function isDevelopment(): boolean {
   return metaEnv?.DEV ?? process.env.NODE_ENV !== 'production';
 }
 
-function validateOccluder(occluder: PrototypeOccluder, blockSize: number): void {
+function validateOccluder(occluder: ThreeMapOccluderDefinition, blockSize: number): void {
   const expected = interiorDefinition(occluder.id);
   if (!expected) return;
   const doorX = occluder.exteriorDoor.x * blockSize;
@@ -568,47 +506,9 @@ function validateOccluder(occluder: PrototypeOccluder, blockSize: number): void 
   ) {
     throw new Error(`Authored occluder metadata does not match interior: ${occluder.id}`);
   }
-  const actualTriangles = (occluder.opaqueIndices.length + occluder.alphaTestedIndices.length) / 3;
-  if (actualTriangles !== occluder.triangleCount) {
+  if (!Number.isInteger(occluder.triangleCount) || occluder.triangleCount <= 0) {
     throw new Error(`Authored occluder triangle count is invalid: ${occluder.id}`);
   }
-}
-
-function createMapMesh(
-  positions: Float32Array,
-  uvs: Float32Array,
-  colors: Float32Array,
-  opaqueIndices: number[],
-  alphaIndices: number[],
-  texture: THREE.Texture
-): THREE.Mesh {
-    const indices = [...opaqueIndices, ...alphaIndices];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
-    geometry.addGroup(0, opaqueIndices.length, 0);
-    geometry.addGroup(opaqueIndices.length, alphaIndices.length, 1);
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    geometry.computeVertexNormals();
-
-    const common = {map: texture, vertexColors: true, side: THREE.DoubleSide} as const;
-    const opaque = new THREE.MeshLambertMaterial(common);
-    const alphaTested = new THREE.MeshLambertMaterial({
-      ...common,
-      alphaTest: 0.05,
-      transparent: true,
-      depthWrite: true
-    });
-    return new THREE.Mesh(geometry, [opaque, alphaTested]);
-}
-
-async function loadPayload(url: string): Promise<PrototypePayload> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Three prototype geometry failed to load (${response.status}).`);
-  return response.json() as Promise<PrototypePayload>;
 }
 
 async function loadMapMetadata(url: string): Promise<MapMetadataPayload> {

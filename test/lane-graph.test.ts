@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {districtPoint} from '../shared/content/district-map-frame.ts';
 import {
   LaneGraph,
   LaneGraphValidationError,
@@ -13,8 +14,9 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   const graph = LaneGraph.load(world);
 
   const central = graph.junction('central-center');
+  const centralPoint = districtPoint(2336, 2656);
   assert.deepEqual(central && {id: central.id, x: central.x, y: central.y}, {
-    id: 'central-center', x: 2336, y: 2656
+    id: 'central-center', ...centralPoint
   });
   assert.ok((graph.junction('west-north-service')?.conflictRadius ?? 0) > 90);
   assert.equal(graph.junctions().length, 32);
@@ -75,9 +77,10 @@ test('right-hand lane compilation offsets opposing directions to opposite sides'
   assert.ok(northbound);
   assert.ok(outerNorthbound);
   assert.equal(southbound.y, northbound.y);
-  assert.ok(southbound.x < 2336);
+  const centerX = districtPoint(2336, 0).x;
+  assert.ok(southbound.x < centerX);
   assert.ok(outerSouthbound.x < southbound.x);
-  assert.ok(northbound.x > 2336);
+  assert.ok(northbound.x > centerX);
   assert.ok(outerNorthbound.x > northbound.x);
 });
 

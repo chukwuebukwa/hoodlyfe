@@ -5,8 +5,10 @@ import type {PedestrianRuntime} from './pedestrian-runtime.ts';
 import type {PedestrianIntent} from './pedestrian-intent.ts';
 import {PedestrianReactionSystem} from './pedestrian-reaction-system.ts';
 import {decidePoliceForce} from '../police/police-force-policy.ts';
-
-const POLICE_FIRE_COOLDOWN_MS = 680;
+import {
+  applyPoliceAimError,
+  policeFireDiscipline
+} from '../police/police-marksmanship-policy.ts';
 
 interface PedestrianBehaviorOptions {
   random: DeterministicRandom;
@@ -112,7 +114,7 @@ export class PedestrianBehaviorSystem {
       tactic
     } = observation.response;
     const moveAngle = Math.atan2(tactic.goalY - npc.y, tactic.goalX - npc.x);
-    const aimAngle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
+    const idealAimAngle = Math.atan2(pursuit.lastKnownY - npc.y, pursuit.lastKnownX - npc.x);
     const distance = Math.hypot(tactic.goalX - npc.x, tactic.goalY - npc.y);
     const objective = tactic.phase === 'contain'
       ? 'contain'
@@ -129,8 +131,20 @@ export class PedestrianBehaviorSystem {
       targetDistance
     });
     const canMelee = force.response === 'melee' && nowMs >= runtime.melee.cooldownUntil;
+    const fireDiscipline = policeFireDiscipline(wantedLevel, targetDistance);
     const canFire = force.response === 'fire' &&
-      nowMs - runtime.lastShotAt >= POLICE_FIRE_COOLDOWN_MS;
+      fireDiscipline.authorized &&
+      nowMs - runtime.lastShotAt >= fireDiscipline.cooldownMs;
+    const aimAngle = canFire
+      ? applyPoliceAimError(
+        idealAimAngle,
+        fireDiscipline.maximumAngularError,
+        this.options.random.unit(
+          'police-aim-error',
+          `${npc.id}:${this.options.clock().tick}:${Math.floor(nowMs)}`
+        )
+      )
+      : idealAimAngle;
     if (canFire) runtime.lastShotAt = nowMs;
     return {
       objective,

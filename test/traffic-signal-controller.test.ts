@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {districtPoint} from '../shared/content/district-map-frame.ts';
 import {trafficSignalPhasesAt} from '../shared/content/traffic-signals.ts';
 import {TrafficSignalController} from '../server/game/traffic/traffic-signal-controller.ts';
 import {DistrictState, VehicleState} from '../server/state.ts';
@@ -26,7 +27,8 @@ test('signals stop an approaching civilian, release green, and explicitly bypass
     nearbyVehicles: () => nearby
   });
   controller.initialize(0);
-  const eastbound = vehicle('eastbound', 2_080, 960, 0);
+  const eastboundPoint = districtPoint(2_080, 960);
+  const eastbound = vehicle('eastbound', eastboundPoint.x, eastboundPoint.y, 0);
 
   assert.equal(controller.obstaclesFor(eastbound, 1_000).length, 1);
   assert.equal(controller.obstaclesFor(eastbound, 7_000).length, 0);
@@ -37,14 +39,16 @@ test('signals stop an approaching civilian, release green, and explicitly bypass
 test('green traffic waits until cross-axis occupancy clears', () => {
   const state = new DistrictState();
   const world = CollisionMap.load();
-  const crossing = vehicle('crossing', 2_400, 960, 0);
+  const crossingPoint = districtPoint(2_400, 960);
+  const crossing = vehicle('crossing', crossingPoint.x, crossingPoint.y, 0);
   const controller = new TrafficSignalController({
     state,
     world,
     nearbyVehicles: () => [crossing]
   });
   controller.initialize(0);
-  const northbound = vehicle('northbound', 2_400, 1_180, -Math.PI / 2);
+  const northboundPoint = districtPoint(2_400, 1_180);
+  const northbound = vehicle('northbound', northboundPoint.x, northboundPoint.y, -Math.PI / 2);
   assert.equal(controller.obstaclesFor(northbound, 1_000).length, 1);
 });
 

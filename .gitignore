@@ -5,6 +5,7 @@ coverage/
 dist/
 .next/
 tsconfig.tsbuildinfo
+.dotnet-artifacts/
 .DS_Store
 npm-debug.log*
 

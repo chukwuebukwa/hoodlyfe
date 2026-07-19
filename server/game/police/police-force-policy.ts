@@ -54,7 +54,12 @@ export function decidePoliceForce(context: PoliceForceContext): PoliceForceDecis
   if (contact) {
     return {response: 'melee', reason: 'resisting-contact', stopForContact: true};
   }
-  if (validTarget && context.canSeeTarget && context.targetDistance < 430) {
+  if (
+    validTarget &&
+    context.targetWantedLevel >= 2 &&
+    context.canSeeTarget &&
+    context.targetDistance < 430
+  ) {
     return {response: 'fire', reason: 'visible-threat', stopForContact: false};
   }
   return {response: 'hold', reason: 'no-authorized-force', stopForContact: false};

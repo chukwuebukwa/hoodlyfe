@@ -17,6 +17,8 @@ OPENGTA2_REPO="${OPENGTA2_REPO:-$DEFAULT_OPENGTA2_REPO}"
 OPENGTA2_PATH="${OPENGTA2_PATH:-$DEFAULT_OPENGTA2_PATH}"
 GTA2_LEVEL="${GTA2_LEVEL:-bil}"
 GTA2_CROP_SIZE="${GTA2_CROP_SIZE:-64}"
+OUTPUT_ASSETS_DIR="${OUTPUT_ASSETS_DIR:-$PROJECT_ROOT/public/assets}"
+DOTNET_ARTIFACTS_DIR="${DOTNET_ARTIFACTS_DIR:-$PROJECT_ROOT/.dotnet-artifacts}"
 DOTNET="${DOTNET:-$HOME/.dotnet/dotnet}"
 if [ ! -x "$DOTNET" ] && command -v dotnet >/dev/null 2>&1; then
   DOTNET="$(command -v dotnet)"
@@ -40,10 +42,11 @@ fi
 "$DOTNET" run \
   --project "$OPENGTA2_REPO/src/OpenGta2.WebExporter/OpenGta2.WebExporter.csproj" \
   --configuration Release \
+  --artifacts-path "$DOTNET_ARTIFACTS_DIR" \
   -- \
   "$OPENGTA2_PATH" \
-  "$PROJECT_ROOT/public/assets" \
+  "$OUTPUT_ASSETS_DIR" \
   "$GTA2_LEVEL" \
   "$GTA2_CROP_SIZE"
 
-echo "Generated local GTA2 browser assets in public/assets from $GTA2_LEVEL at ${GTA2_CROP_SIZE}x${GTA2_CROP_SIZE} tiles."
+echo "Generated local GTA2 browser assets in $OUTPUT_ASSETS_DIR from $GTA2_LEVEL at ${GTA2_CROP_SIZE}x${GTA2_CROP_SIZE} tiles."
