@@ -58,6 +58,11 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. The WebSocket game server listens on port `2567`.
 
+Open `http://127.0.0.1:5173/editor` for the full-world level editor. It visualizes and edits
+collision, road cells, lane corridors, junctions, roadblocks, and the default spawn. See
+[`docs/LEVEL_EDITOR_GUIDE.md`](docs/LEVEL_EDITOR_GUIDE.md) for controls and the safe bundle
+apply workflow.
+
 ## Controls
 
 | Action | Desktop | Touch |
