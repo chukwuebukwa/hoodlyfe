@@ -10,10 +10,10 @@ import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 
 test('response policy bounds units and increases reinforcement cadence with heat', () => {
-  assert.deepEqual([-1, 0, 1, 2, 3, 5].map(responseVehicleLimit), [0, 0, 1, 2, 2, 3]);
+  assert.deepEqual([-1, 0, 1, 2, 3, 5].map(responseVehicleLimit), [0, 0, 0, 1, 2, 3]);
   assert.equal(responseSpawnInterval(1), 5_000);
-  assert.equal(responseSpawnInterval(2), 3_000);
-  assert.equal(responseSpawnInterval(3), 1_800);
+  assert.equal(responseSpawnInterval(2), 4_000);
+  assert.equal(responseSpawnInterval(3), 2_600);
 });
 
 test('fleet scales to heat through delayed, clear, road-reachable reinforcements', () => {
@@ -46,7 +46,7 @@ test('fleet scales to heat through delayed, clear, road-reachable reinforcements
 });
 
 test('available authored cruiser satisfies low heat without duplicating response cars', () => {
-  const fixture = createFixture(1);
+  const fixture = createFixture(2);
   const authored = createPoliceVehicle('vehicle-2', fixture.world.spawn.x + 640, fixture.world.spawn.y);
   fixture.state.vehicles.set(authored.id, authored);
   fixture.police.register(authored.id);
@@ -63,14 +63,14 @@ test('hijacked response car leaves fleet ownership and can be replaced', () => {
   const hijacked = fixture.state.vehicles.get(hijackedId)!;
   hijacked.hijackBy = fixture.player.id;
 
-  fixture.controller.update(3_000);
+  fixture.controller.update(4_000);
   assert.equal(fixture.state.vehicles.has(hijackedId), true);
   assert.equal(fixture.police.has(hijackedId), false);
   assert.deepEqual(fixture.controller.managedVehicleIds(), ['police-response-2']);
 });
 
 test('stand-down removes only managed, clear response cars after a grace period', () => {
-  const fixture = createFixture(1);
+  const fixture = createFixture(2);
   fixture.controller.update(0);
   const responseId = fixture.controller.managedVehicleIds()[0];
   fixture.player.wanted = 0;

@@ -14,27 +14,27 @@ test('witness reports feed one bounded response pool for simultaneous suspects',
   fixture.controller.updateResponse(120);
 
   const response = fixture.controller.responseAllocationSnapshot();
-  assert.equal(fixture.state.players.get('alpha')?.wanted, 3);
-  assert.equal(fixture.state.players.get('bravo')?.wanted, 3);
-  assert.equal(response.assignedFootUnits, 5);
-  assert.equal(response.assignedVehicleUnits, 3);
-  assert.equal(response.usedResponsePoints, 11);
+  assert.equal(fixture.state.players.get('alpha')?.wanted, 2);
+  assert.equal(fixture.state.players.get('bravo')?.wanted, 2);
+  assert.equal(response.assignedFootUnits, 4);
+  assert.equal(response.assignedVehicleUnits, 2);
+  assert.equal(response.usedResponsePoints, 8);
   assert.deepEqual(response.demands.map((demand) => ({
     suspectId: demand.suspectId,
     foot: demand.assignedFoot,
     vehicles: demand.assignedVehicles
-  })), [{suspectId: 'alpha', foot: 3, vehicles: 1}, {
-    suspectId: 'bravo', foot: 2, vehicles: 2
+  })), [{suspectId: 'alpha', foot: 2, vehicles: 1}, {
+    suspectId: 'bravo', foot: 2, vehicles: 1
   }]);
   assert.equal(new Set(response.assignments.map((entry) => (
     `${entry.unitKind}:${entry.unitId}`
-  ))).size, 8);
-  assert.equal(fixture.controller.responseFleetPlan().desiredUnits, 3);
+  ))).size, 6);
+  assert.equal(fixture.controller.responseFleetPlan().desiredUnits, 2);
   assert.equal(fixture.controller.responseFleetPlan().targets.length, 2);
 
   const events = fixture.events.drain();
   assert.equal(events.filter((event) => event.type === 'incident.reported').length, 2);
-  assert.equal(events.filter((event) => event.type === 'pursuit.changed').length, 8);
+  assert.equal(events.filter((event) => event.type === 'pursuit.changed').length, 6);
 });
 
 test('foot search expiry releases only the expired report and a newer report reassigns', () => {

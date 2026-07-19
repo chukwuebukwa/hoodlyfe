@@ -43,7 +43,7 @@ test('police cruiser searches a reported location without tracking an unseen liv
   target = createTarget({
     reportedX: 288,
     currentX: vehicle.x + 160,
-    wantedLevel: 3,
+    wantedLevel: 2,
     targetVehicleId: 'getaway-car',
     currentSpeed: 180
   });
@@ -60,7 +60,7 @@ test('police cruiser searches a reported location without tracking an unseen liv
   assert.equal(diagnostic.strategy, 'ram');
   assert.equal(diagnostic.canSeeTarget, true);
   assert.equal(diagnostic.lastKnownX, target.currentX);
-  assert.ok(diagnostic.desiredSpeed >= 250);
+  assert.ok(diagnostic.desiredSpeed >= 200);
 });
 
 test('police cruiser forgets an expired report and yields immediately to hijacking', () => {

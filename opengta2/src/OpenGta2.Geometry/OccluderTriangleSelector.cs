@@ -13,6 +13,7 @@ public readonly record struct GeometryOccluderBounds(
 public static class OccluderTriangleSelector
 {
     private const float NormalEpsilon = 0.0001f;
+    private const float BoundsEpsilon = 0.0001f;
 
     public static int[] SelectTriangleOrdinals(
         IReadOnlyList<GeometryVertex> vertices,
@@ -85,8 +86,8 @@ public static class OccluderTriangleSelector
 
     private static bool Contains(GeometryOccluderBounds bounds, Vector3 point)
     {
-        return point.X >= bounds.MinX && point.X <= bounds.MaxX &&
-               point.Y >= bounds.MinY && point.Y <= bounds.MaxY &&
-               point.Z >= bounds.MinZ && point.Z <= bounds.MaxZ;
+        return point.X >= bounds.MinX - BoundsEpsilon && point.X <= bounds.MaxX + BoundsEpsilon &&
+               point.Y >= bounds.MinY - BoundsEpsilon && point.Y <= bounds.MaxY + BoundsEpsilon &&
+               point.Z >= bounds.MinZ - BoundsEpsilon && point.Z <= bounds.MaxZ + BoundsEpsilon;
     }
 }

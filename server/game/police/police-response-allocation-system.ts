@@ -591,8 +591,8 @@ export class PoliceResponseAllocationSystem {
 export function responseLimitsForWanted(wantedLevel: number): ResponseLimits {
   const level = Math.max(0, Math.floor(wantedLevel));
   if (level <= 0) return {foot: 0, vehicle: 0};
-  if (level === 1) return {foot: 1, vehicle: 1};
-  if (level === 2) return {foot: 3, vehicle: 2};
+  if (level === 1) return {foot: 1, vehicle: 0};
+  if (level === 2) return {foot: 2, vehicle: 1};
   if (level === 3) return {foot: 4, vehicle: 2};
   if (level === 4) return {foot: 5, vehicle: 2};
   return {foot: 5, vehicle: 3};

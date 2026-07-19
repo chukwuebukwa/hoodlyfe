@@ -34,6 +34,7 @@ interface AuthorInterior {
 
 interface PrototypePayload {
   blockSize: number;
+  size: {width: number; height: number};
   occluders: Array<{
     id: string;
     bounds: {minX: number; minY: number; maxX: number; maxY: number};
@@ -44,7 +45,7 @@ interface PrototypePayload {
 }
 
 const STORAGE_KEY = 'nock0-interior-author-draft-v1';
-const MAP_SIZE = 4096;
+let mapSize = 4096;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
 const PAN_THRESHOLD_PX = 5;
@@ -112,7 +113,7 @@ const controls = {
 const mapImage = new Image();
 mapImage.src = '/assets/maps/district-preview.png';
 
-let prototype: PrototypePayload = {blockSize: 64, occluders: []};
+let prototype: PrototypePayload = {blockSize: 64, size: {width: 64, height: 64}, occluders: []};
 let interiors = loadDraft();
 let selectedId = interiors[0]?.id ?? '';
 let history = [snapshot()];
@@ -126,10 +127,11 @@ let pointerDrag:
   | undefined;
 let pointerWorld = {x: 0, y: 0};
 
-void fetch('/assets/maps/three/prototype.json')
+void fetch('/assets/maps/three/world.json')
   .then((response) => response.json())
   .then((payload: PrototypePayload) => {
     prototype = payload;
+    mapSize = payload.size.width * payload.blockSize;
     draw();
   })
   .catch(() => draw());
@@ -574,8 +576,8 @@ function pointerForEvent(event: MouseEvent): {x: number; y: number} {
   const y = (event.clientY - rect.top - offsetY) / zoom;
   const snapped = controls.snapGrid.checked ? 8 : 1;
   return {
-    x: clamp(Math.round(x / snapped) * snapped, 0, MAP_SIZE),
-    y: clamp(Math.round(y / snapped) * snapped, 0, MAP_SIZE)
+    x: clamp(Math.round(x / snapped) * snapped, 0, mapSize),
+    y: clamp(Math.round(y / snapped) * snapped, 0, mapSize)
   };
 }
 
@@ -615,8 +617,8 @@ function draw(): void {
   context.translate(offsetX, offsetY);
   context.scale(zoom, zoom);
   context.fillStyle = '#070909';
-  context.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
-  if (mapImage.complete) context.drawImage(mapImage, 0, 0, MAP_SIZE, MAP_SIZE);
+  context.fillRect(0, 0, mapSize, mapSize);
+  if (mapImage.complete) context.drawImage(mapImage, 0, 0, mapSize, mapSize);
   drawGrid();
   if (controls.showRoofs.checked) drawRoofs();
   if (controls.showExisting.checked) {
@@ -633,14 +635,14 @@ function draw(): void {
 function drawGrid(): void {
   context.strokeStyle = 'rgba(255,255,255,0.055)';
   context.lineWidth = 1 / zoom;
-  for (let line = 0; line <= MAP_SIZE; line += 64) {
+  for (let line = 0; line <= mapSize; line += 64) {
     context.beginPath();
     context.moveTo(line, 0);
-    context.lineTo(line, MAP_SIZE);
+    context.lineTo(line, mapSize);
     context.stroke();
     context.beginPath();
     context.moveTo(0, line);
-    context.lineTo(MAP_SIZE, line);
+    context.lineTo(mapSize, line);
     context.stroke();
   }
 }

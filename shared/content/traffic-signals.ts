@@ -1,3 +1,5 @@
+import {districtPoint} from './district-map-frame.ts';
+
 export type TrafficAxis = 'north-south' | 'east-west';
 export type TrafficSignalPhase = 'green' | 'yellow' | 'red';
 
@@ -34,8 +36,7 @@ export const TRAFFIC_SIGNALS: readonly TrafficSignalDefinition[] = Object.freeze
   Object.freeze({
     id: 'foundry-crossing',
     label: 'Foundry Crossing',
-    x: 2400,
-    y: 960,
+    ...districtPoint(2400, 960),
     intersectionHalfWidth: 120,
     intersectionHalfHeight: 72,
     approaches: Object.freeze([
@@ -48,8 +49,7 @@ export const TRAFFIC_SIGNALS: readonly TrafficSignalDefinition[] = Object.freeze
   Object.freeze({
     id: 'threads-junction',
     label: 'Threads Junction',
-    x: 2400,
-    y: 2112,
+    ...districtPoint(2400, 2112),
     intersectionHalfWidth: 120,
     intersectionHalfHeight: 120,
     approaches: Object.freeze([
@@ -99,11 +99,12 @@ function approach(
   directionY: number,
   corridorHalfWidth: number
 ): Readonly<TrafficSignalApproachDefinition> {
+  const stop = districtPoint(stopX, stopY);
   return Object.freeze({
     id,
     axis,
-    stopX,
-    stopY,
+    stopX: stop.x,
+    stopY: stop.y,
     directionX,
     directionY,
     corridorHalfWidth

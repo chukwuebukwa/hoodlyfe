@@ -1,3 +1,5 @@
+import {districtPoint} from './district-map-frame.ts';
+
 export interface StreetLightFixture {
   id: string;
   x: number;
@@ -30,5 +32,5 @@ function fixture(
   y: number,
   source: StreetLightFixture['source']
 ): Readonly<StreetLightFixture> {
-  return Object.freeze({id, x, y, source});
+  return Object.freeze({id, ...districtPoint(x, y), source});
 }

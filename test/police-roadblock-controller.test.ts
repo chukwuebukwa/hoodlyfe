@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {districtPoint} from '../shared/content/district-map-frame.ts';
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {PoliceRoadblockController} from '../server/game/police/police-roadblock-controller.ts';
 import {RoadClosureRegistry} from '../server/game/traffic/road-closure-registry.ts';
@@ -78,10 +79,11 @@ test('cleared wanted pressure retires an unseen roadblock and emits lifecycle ev
 function createFixture() {
   const state = new DistrictState();
   const player = new PlayerState();
+  const suspectStart = districtPoint(2_336, 700);
   player.id = 'suspect';
   player.name = 'Suspect';
-  player.x = 2_336;
-  player.y = 700;
+  player.x = suspectStart.x;
+  player.y = suspectStart.y;
   player.wanted = 3;
   player.vehicleId = 'suspect-car';
   state.players.set(player.id, player);

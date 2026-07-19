@@ -22,10 +22,12 @@ public sealed record ExportResult(
 public sealed class WebAssetExporter
 {
     private const int TileSize = 64;
+    private const int PreviewTileSize = 16;
     private const int PlayerFrameSize = 72;
     private const int PlayerSheetColumns = 3;
     private const int PlayerSheetRows = 3;
     private const int VehicleFrameSize = 96;
+    private const int ThreeChunkSize = MapChunkGeometryBuilder.DefaultChunkSize;
     private static readonly ThreeOccluderDefinition[] ThreeOccluders =
     [
         new(
@@ -62,9 +64,11 @@ public sealed class WebAssetExporter
 
     public WebAssetExporter(ExportOptions options)
     {
-        if (options.CropSize is < 16 or > 128)
+        if (options.CropSize is < 16 or > 256 || options.CropSize % ThreeChunkSize != 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), "Crop size must be between 16 and 128 tiles.");
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "Crop size must be a multiple of 8 between 16 and 256 tiles.");
         }
 
         _options = options;
@@ -464,10 +468,6 @@ public sealed class WebAssetExporter
         int height)
     {
         if (width != height) throw new InvalidOperationException("The 3D district prototype requires a square crop.");
-        var selected = MapChunkGeometryBuilder.Build(map, originX, originY, width);
-        var occluders = BuildThreeOccluders(selected, originX, originY);
-        var excludedOpaque = occluders.SelectMany(group => group.OpaqueTriangleOrdinals).ToHashSet();
-        var excludedAlpha = occluders.SelectMany(group => group.AlphaTestedTriangleOrdinals).ToHashSet();
         var surfaceHeights = new float[width * height];
         for (var y = 0; y < height; y++)
         {
@@ -482,12 +482,239 @@ public sealed class WebAssetExporter
         Directory.CreateDirectory(outputDirectory);
         using var atlas = CreateCompleteTileAtlas(style, out var atlasColumns, out var atlasRows);
         SavePng(atlas, Path.Combine(outputDirectory, "tiles.png"));
-        var payload = new
+        var legacyPath = Path.Combine(outputDirectory, "prototype.json");
+        if (width <= 128)
         {
-            version = 2,
+            var selected = MapChunkGeometryBuilder.Build(map, originX, originY, width);
+            var occluders = BuildThreeOccluders(selected, originX, originY);
+            var excludedOpaque = occluders.SelectMany(group => group.OpaqueTriangleOrdinals).ToHashSet();
+            var excludedAlpha = occluders.SelectMany(group => group.AlphaTestedTriangleOrdinals).ToHashSet();
+            var payload = new
+            {
+                version = 2,
+                source = "gta2-private-compatibility",
+                blockSize = TileSize,
+                chunk = new {x = selected.X, y = selected.Y, size = selected.Size},
+                atlas = new
+                {
+                    image = "tiles.png",
+                    columns = atlasColumns,
+                    rows = atlasRows,
+                    tileSize = TileSize,
+                    tileCount = style.Tiles.TileCount
+                },
+                vertices = selected.Vertices.Select(vertex => new
+                {
+                    x = vertex.Position.X,
+                    y = vertex.Position.Y,
+                    z = vertex.Position.Z,
+                    u = vertex.TextureCoordinate.X,
+                    v = vertex.TextureCoordinate.Y,
+                    tile = (int)vertex.TextureCoordinate.Z,
+                    shade = vertex.Shading
+                }),
+                opaqueIndices = selected.OpaqueIndices,
+                alphaTestedIndices = selected.AlphaTestedIndices,
+                baseOpaqueIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
+                    selected.OpaqueIndices,
+                    excludedOpaque),
+                baseAlphaTestedIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
+                    selected.AlphaTestedIndices,
+                    excludedAlpha),
+                occluders = occluders.Select(group => new
+                {
+                    id = group.Definition.Id,
+                    bounds = new
+                    {
+                        minX = group.LocalBounds.MinX,
+                        minY = group.LocalBounds.MinY,
+                        maxX = group.LocalBounds.MaxX,
+                        maxY = group.LocalBounds.MaxY,
+                        minZ = group.LocalBounds.MinZ,
+                        maxZ = group.LocalBounds.MaxZ
+                    },
+                    exteriorDoor = new
+                    {
+                        x = group.Definition.DoorX - originX,
+                        y = group.Definition.DoorY - originY
+                    },
+                    floorZ = group.Definition.FloorZ,
+                    opaqueIndices = OccluderTriangleSelector.IndicesAtOrdinals(
+                        selected.OpaqueIndices,
+                        group.OpaqueTriangleOrdinals),
+                    alphaTestedIndices = OccluderTriangleSelector.IndicesAtOrdinals(
+                        selected.AlphaTestedIndices,
+                        group.AlphaTestedTriangleOrdinals),
+                    triangleCount = group.OpaqueTriangleOrdinals.Length +
+                        group.AlphaTestedTriangleOrdinals.Length
+                }),
+                surfaces = new {width, height, values = surfaceHeights},
+                triangleCount = selected.TriangleCount
+            };
+            WriteJson(legacyPath, payload);
+        }
+        else if (File.Exists(legacyPath))
+        {
+            File.Delete(legacyPath);
+        }
+        ExportThreeChunks(
+            map,
+            style,
+            surfaces,
+            outputDirectory,
+            originX,
+            originY,
+            width,
+            height,
+            atlasColumns,
+            atlasRows);
+    }
+
+    private void ExportThreeChunks(
+        Map map,
+        Style style,
+        SurfaceCell[,] surfaces,
+        string outputDirectory,
+        int originX,
+        int originY,
+        int width,
+        int height,
+        int atlasColumns,
+        int atlasRows)
+    {
+        if (width % ThreeChunkSize != 0 || height % ThreeChunkSize != 0)
+        {
+            throw new InvalidOperationException(
+                $"Chunked Three.js export requires crop dimensions divisible by {ThreeChunkSize}.");
+        }
+
+        var chunksDirectory = Path.Combine(outputDirectory, "chunks");
+        if (Directory.Exists(chunksDirectory)) Directory.Delete(chunksDirectory, recursive: true);
+        Directory.CreateDirectory(chunksDirectory);
+        var chunkEntries = new List<object>();
+        var streamedTriangleCount = 0;
+        var occluderTriangleCounts = new Dictionary<string, int>();
+        for (var localY = 0; localY < height; localY += ThreeChunkSize)
+        {
+            for (var localX = 0; localX < width; localX += ThreeChunkSize)
+            {
+                var column = localX / ThreeChunkSize;
+                var row = localY / ThreeChunkSize;
+                var geometry = MapChunkGeometryBuilder.Build(
+                    map,
+                    originX + localX,
+                    originY + localY,
+                    ThreeChunkSize);
+                var chunkOccluders = BuildThreeChunkOccluders(
+                    geometry,
+                    originX + localX,
+                    originY + localY,
+                    originX,
+                    originY,
+                    width,
+                    height);
+                var excludedOpaque = chunkOccluders
+                    .SelectMany(group => group.OpaqueTriangleOrdinals)
+                    .ToHashSet();
+                var excludedAlpha = chunkOccluders
+                    .SelectMany(group => group.AlphaTestedTriangleOrdinals)
+                    .ToHashSet();
+                var fileName = $"{column}-{row}.json";
+                var chunkPayload = new
+                {
+                    version = 1,
+                    column,
+                    row,
+                    x = localX,
+                    y = localY,
+                    size = ThreeChunkSize,
+                    vertices = geometry.Vertices.Select(vertex => new
+                    {
+                        x = vertex.Position.X,
+                        y = vertex.Position.Y,
+                        z = vertex.Position.Z,
+                        u = vertex.TextureCoordinate.X,
+                        v = vertex.TextureCoordinate.Y,
+                        tile = (int)vertex.TextureCoordinate.Z,
+                        shade = vertex.Shading
+                    }),
+                    opaqueIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
+                        geometry.OpaqueIndices,
+                        excludedOpaque),
+                    alphaTestedIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
+                        geometry.AlphaTestedIndices,
+                        excludedAlpha),
+                    occluders = chunkOccluders.Select(group => new
+                    {
+                        id = group.Definition.Id,
+                        opaqueIndices = OccluderTriangleSelector.IndicesAtOrdinals(
+                            geometry.OpaqueIndices,
+                            group.OpaqueTriangleOrdinals),
+                        alphaTestedIndices = OccluderTriangleSelector.IndicesAtOrdinals(
+                            geometry.AlphaTestedIndices,
+                            group.AlphaTestedTriangleOrdinals),
+                        triangleCount = group.OpaqueTriangleOrdinals.Length +
+                            group.AlphaTestedTriangleOrdinals.Length
+                    }),
+                    triangleCount = geometry.TriangleCount
+                };
+                WriteCompactJson(Path.Combine(chunksDirectory, fileName), chunkPayload);
+                chunkEntries.Add(new
+                {
+                    id = $"{column}:{row}",
+                    column,
+                    row,
+                    x = localX,
+                    y = localY,
+                    size = ThreeChunkSize,
+                    file = $"chunks/{fileName}",
+                    triangleCount = geometry.TriangleCount
+                });
+                streamedTriangleCount += geometry.TriangleCount;
+                foreach (var group in chunkOccluders)
+                {
+                    var triangleCount = group.OpaqueTriangleOrdinals.Length +
+                        group.AlphaTestedTriangleOrdinals.Length;
+                    occluderTriangleCounts[group.Definition.Id] =
+                        occluderTriangleCounts.GetValueOrDefault(group.Definition.Id) + triangleCount;
+                }
+            }
+        }
+
+        var surfaceHeights = new float[width * height];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var surface = surfaces[originY + y, originX + x];
+                surfaceHeights[y * width + x] = surface.PedestrianFace?.Height ??
+                    surface.LowestGroundFace?.Height ?? 0;
+            }
+        }
+
+        var worldOccluders = ThreeOccluders
+            .Where(candidate => candidate.LevelName == _options.LevelName)
+            .Where(candidate =>
+                candidate.SourceBounds.MinX >= originX && candidate.SourceBounds.MinY >= originY &&
+                candidate.SourceBounds.MaxX <= originX + width && candidate.SourceBounds.MaxY <= originY + height)
+            .ToArray();
+        foreach (var definition in worldOccluders)
+        {
+            if (occluderTriangleCounts.GetValueOrDefault(definition.Id) == 0)
+            {
+                throw new InvalidDataException($"Chunked occluder '{definition.Id}' selected no lid triangles.");
+            }
+        }
+
+        var manifest = new
+        {
+            version = 1,
+            revision = $"{_options.LevelName}:{originX}:{originY}:{width}:{height}",
             source = "gta2-private-compatibility",
             blockSize = TileSize,
-            chunk = new {x = selected.X, y = selected.Y, size = selected.Size},
+            origin = new {x = originX, y = originY},
+            size = new {width, height},
+            chunkSize = ThreeChunkSize,
             atlas = new
             {
                 image = "tiles.png",
@@ -496,55 +723,73 @@ public sealed class WebAssetExporter
                 tileSize = TileSize,
                 tileCount = style.Tiles.TileCount
             },
-            vertices = selected.Vertices.Select(vertex => new
+            surfaces = new {width, height, values = surfaceHeights},
+            occluders = worldOccluders.Select(definition => new
             {
-                x = vertex.Position.X,
-                y = vertex.Position.Y,
-                z = vertex.Position.Z,
-                u = vertex.TextureCoordinate.X,
-                v = vertex.TextureCoordinate.Y,
-                tile = (int)vertex.TextureCoordinate.Z,
-                shade = vertex.Shading
-            }),
-            opaqueIndices = selected.OpaqueIndices,
-            alphaTestedIndices = selected.AlphaTestedIndices,
-            baseOpaqueIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
-                selected.OpaqueIndices,
-                excludedOpaque),
-            baseAlphaTestedIndices = OccluderTriangleSelector.ExcludeTriangleOrdinals(
-                selected.AlphaTestedIndices,
-                excludedAlpha),
-            occluders = occluders.Select(group => new
-            {
-                id = group.Definition.Id,
+                id = definition.Id,
                 bounds = new
                 {
-                    minX = group.LocalBounds.MinX,
-                    minY = group.LocalBounds.MinY,
-                    maxX = group.LocalBounds.MaxX,
-                    maxY = group.LocalBounds.MaxY,
-                    minZ = group.LocalBounds.MinZ,
-                    maxZ = group.LocalBounds.MaxZ
+                    minX = definition.SourceBounds.MinX - originX,
+                    minY = definition.SourceBounds.MinY - originY,
+                    maxX = definition.SourceBounds.MaxX - originX,
+                    maxY = definition.SourceBounds.MaxY - originY,
+                    minZ = definition.SourceBounds.MinZ,
+                    maxZ = definition.SourceBounds.MaxZ
                 },
                 exteriorDoor = new
                 {
-                    x = group.Definition.DoorX - originX,
-                    y = group.Definition.DoorY - originY
+                    x = definition.DoorX - originX,
+                    y = definition.DoorY - originY
                 },
-                floorZ = group.Definition.FloorZ,
-                opaqueIndices = OccluderTriangleSelector.IndicesAtOrdinals(
-                    selected.OpaqueIndices,
-                    group.OpaqueTriangleOrdinals),
-                alphaTestedIndices = OccluderTriangleSelector.IndicesAtOrdinals(
-                    selected.AlphaTestedIndices,
-                    group.AlphaTestedTriangleOrdinals),
-                triangleCount = group.OpaqueTriangleOrdinals.Length +
-                    group.AlphaTestedTriangleOrdinals.Length
+                floorZ = definition.FloorZ,
+                triangleCount = occluderTriangleCounts[definition.Id]
             }),
-            surfaces = new {width, height, values = surfaceHeights},
-            triangleCount = selected.TriangleCount
+            chunks = chunkEntries,
+            triangleCount = streamedTriangleCount
         };
-        WriteJson(Path.Combine(outputDirectory, "prototype.json"), payload);
+        WriteJson(Path.Combine(outputDirectory, "world.json"), manifest);
+    }
+
+    private ThreeOccluderGroup[] BuildThreeChunkOccluders(
+        MapChunkGeometry geometry,
+        int chunkSourceX,
+        int chunkSourceY,
+        int cropOriginX,
+        int cropOriginY,
+        int cropWidth,
+        int cropHeight)
+    {
+        var result = new List<ThreeOccluderGroup>();
+        foreach (var definition in ThreeOccluders.Where(candidate => candidate.LevelName == _options.LevelName))
+        {
+            var source = definition.SourceBounds;
+            if (
+                source.MinX < cropOriginX || source.MinY < cropOriginY ||
+                source.MaxX > cropOriginX + cropWidth || source.MaxY > cropOriginY + cropHeight)
+            {
+                continue;
+            }
+
+            var localBounds = source with
+            {
+                MinX = Math.Clamp(source.MinX - chunkSourceX, 0, geometry.Size),
+                MaxX = Math.Clamp(source.MaxX - chunkSourceX, 0, geometry.Size),
+                MinY = Math.Clamp(source.MinY - chunkSourceY, 0, geometry.Size),
+                MaxY = Math.Clamp(source.MaxY - chunkSourceY, 0, geometry.Size)
+            };
+            if (localBounds.MinX >= localBounds.MaxX || localBounds.MinY >= localBounds.MaxY) continue;
+            var opaque = OccluderTriangleSelector.SelectTriangleOrdinals(
+                geometry.Vertices,
+                geometry.OpaqueIndices,
+                localBounds);
+            var alphaTested = OccluderTriangleSelector.SelectTriangleOrdinals(
+                geometry.Vertices,
+                geometry.AlphaTestedIndices,
+                localBounds);
+            if (opaque.Length + alphaTested.Length == 0) continue;
+            result.Add(new ThreeOccluderGroup(definition, localBounds, opaque, alphaTested));
+        }
+        return result.ToArray();
     }
 
     private ThreeOccluderGroup[] BuildThreeOccluders(
@@ -784,7 +1029,7 @@ public sealed class WebAssetExporter
         int height,
         bool transparent)
     {
-        var preview = NewBitmap(width * TileSize, height * TileSize);
+        var preview = NewBitmap(width * PreviewTileSize, height * PreviewTileSize);
         using var canvas = new SKCanvas(preview);
         canvas.Clear(transparent ? SKColors.Transparent : new SKColor(12, 14, 16));
 
@@ -805,10 +1050,10 @@ public sealed class WebAssetExporter
                     tileIndex % atlasColumns * TileSize + TileSize,
                     tileIndex / atlasColumns * TileSize + TileSize);
                 var destination = new SKRectI(
-                    x * TileSize,
-                    y * TileSize,
-                    x * TileSize + TileSize,
-                    y * TileSize + TileSize);
+                    x * PreviewTileSize,
+                    y * PreviewTileSize,
+                    x * PreviewTileSize + PreviewTileSize,
+                    y * PreviewTileSize + PreviewTileSize);
                 canvas.DrawBitmap(atlas, source, destination);
             }
         }
@@ -980,6 +1225,11 @@ public sealed class WebAssetExporter
     {
         var options = new JsonSerializerOptions { WriteIndented = true };
         File.WriteAllText(path, JsonSerializer.Serialize(value, options));
+    }
+
+    private static void WriteCompactJson(string path, object value)
+    {
+        File.WriteAllText(path, JsonSerializer.Serialize(value));
     }
 
     private static long DistanceSquared(GridPoint point, int x, int y)
