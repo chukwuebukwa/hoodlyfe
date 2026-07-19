@@ -15,6 +15,13 @@ import {
 
 const DOWN_ROW = 2;
 const LPC_IMAGE_LOAD_BATCH_SIZE = 32;
+const LPC_BASE_SKIN_PALETTE = [
+  [250, 236, 231],
+  [249, 213, 186],
+  [228, 164, 124],
+  [204, 134, 101],
+  [153, 66, 60]
+] as const;
 
 export interface LpcSpriteSources {
   images: ReadonlyMap<string, HTMLImageElement>;
@@ -105,11 +112,11 @@ function composeFrame(
     if (!image) continue;
     const sourceRow = image.height >= LPC_FRAME_SIZE * 4 ? row : 0;
     if (layer.id.startsWith('hair')) {
-      context.drawImage(tintedFrame(image, LPC_COLOR_VALUES[recipe.hairColor], column, sourceRow), 0, 0);
+      context.drawImage(tintedFrame(image, LPC_COLOR_VALUES[recipe.hairColor], column, sourceRow, 'all'), 0, 0);
       continue;
     }
-    if (layer.id === 'body' || layer.id === 'head') {
-      context.drawImage(tintedFrame(image, LPC_SKIN_COLOR_VALUES[recipe.skinColor], column, sourceRow), 0, 0);
+    if (layer.id === 'body' || layer.id === 'head' || layer.id === 'face') {
+      context.drawImage(tintedFrame(image, LPC_SKIN_COLOR_VALUES[recipe.skinColor], column, sourceRow, 'skin'), 0, 0);
       continue;
     }
     context.drawImage(
@@ -141,7 +148,8 @@ function tintedFrame(
   image: HTMLImageElement,
   color: string,
   column: number,
-  row: number
+  row: number,
+  mode: 'all' | 'skin'
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = LPC_FRAME_SIZE;
@@ -164,6 +172,13 @@ function tintedFrame(
   const pixels = context.getImageData(0, 0, LPC_FRAME_SIZE, LPC_FRAME_SIZE);
   for (let index = 0; index < pixels.data.length; index += 4) {
     if (pixels.data[index + 3] === 0) continue;
+    if (mode === 'skin' && !isLpcBaseSkinPixel(
+      pixels.data[index],
+      pixels.data[index + 1],
+      pixels.data[index + 2]
+    )) {
+      continue;
+    }
     const luminance = (pixels.data[index] * 0.299 + pixels.data[index + 1] * 0.587 + pixels.data[index + 2] * 0.114) / 255;
     const shade = 0.45 + luminance * 0.95;
     pixels.data[index] = Math.min(255, Math.round(target.r * shade));
@@ -172,6 +187,14 @@ function tintedFrame(
   }
   context.putImageData(pixels, 0, 0);
   return canvas;
+}
+
+function isLpcBaseSkinPixel(red: number, green: number, blue: number): boolean {
+  return LPC_BASE_SKIN_PALETTE.some(([skinRed, skinGreen, skinBlue]) =>
+    Math.abs(red - skinRed) <= 4 &&
+    Math.abs(green - skinGreen) <= 4 &&
+    Math.abs(blue - skinBlue) <= 4
+  );
 }
 
 function hexToRgb(hex: string): {r: number; g: number; b: number} {
