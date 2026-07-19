@@ -24,6 +24,24 @@ test('disabled debug projection stores and publishes nothing', () => {
   assert.equal(fixture.published.length, 0);
 });
 
+test('debug projection follows its runtime subscriber gate', () => {
+  let enabled = false;
+  const fixture = createFixture(() => enabled);
+
+  fixture.clock.tick = 12;
+  fixture.controller.update([respawnEvent(12)]);
+  assert.equal(fixture.published.length, 0);
+
+  enabled = true;
+  fixture.controller.update([respawnEvent(12)]);
+  assert.equal(fixture.published.length, 1);
+
+  enabled = false;
+  fixture.clock.tick = 24;
+  fixture.controller.update([respawnEvent(24)]);
+  assert.equal(fixture.published.length, 1);
+});
+
 test('debug projection bounds history, samples cadence, and copies domain records', () => {
   const fixture = createFixture(true);
   addEntities(fixture.state);
@@ -173,7 +191,7 @@ test('event summaries preserve compact gameplay context', () => {
   }), 'driver busted by police-1; $800 seized');
 });
 
-function createFixture(enabled: boolean) {
+function createFixture(enabled: boolean | (() => boolean)) {
   const state = new DistrictState();
   const clock = {tick: 0, nowMs: 0, droppedMs: 0};
   const incident: Incident = {

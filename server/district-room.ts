@@ -403,7 +403,7 @@ export class DistrictRoom extends Room<DistrictState> {
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     this.debugProjection = new DebugSnapshotController({
-      enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
+      enabled: () => this.debugSubscribers.size > 0,
       state: this.state,
       clock: () => ({
         tick: this.simulationClock.tick,
@@ -1095,7 +1095,10 @@ export class DistrictRoom extends Room<DistrictState> {
     });
   }
 
-  onLeave(client: Client): void {
+  onLeave(client: Client, consented = false): void {
+    if (!consented) {
+      console.warn(`[district] unexpected client disconnect: ${client.sessionId}`);
+    }
     if (this.state.players.has(client.sessionId)) {
       this.journal?.recordLeave(this.simulationClock.tick, client.sessionId);
     }
@@ -1150,7 +1153,7 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   applyJournaledLeave(sessionId: string): void {
-    this.onLeave(replayClient(sessionId) as unknown as Client);
+    this.onLeave(replayClient(sessionId) as unknown as Client, true);
   }
 
   get simulationTick(): number {

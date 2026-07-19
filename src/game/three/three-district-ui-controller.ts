@@ -239,7 +239,10 @@ export class ThreeDistrictUiController {
     this.lastUpdateAt = Number.NEGATIVE_INFINITY;
   };
 
-  private readonly handleDisconnected = (): void => {
+  private readonly handleDisconnected = (code?: number): void => {
+    if (code !== 4000) {
+      console.warn(`District connection closed unexpectedly (code ${code ?? 'unknown'}).`);
+    }
     this.hud.setConnection(false);
   };
 }

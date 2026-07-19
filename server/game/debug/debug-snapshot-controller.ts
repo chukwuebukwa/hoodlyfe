@@ -31,7 +31,7 @@ interface DebugClock {
 }
 
 interface DebugSnapshotControllerOptions {
-  enabled: boolean;
+  enabled: boolean | (() => boolean);
   state: DistrictState;
   clock: () => DebugClock;
   spatialSize: () => number;
@@ -70,12 +70,18 @@ export class DebugSnapshotController {
   }
 
   update(events: readonly GameEvent[]): void {
-    if (!this.options.enabled) return;
+    if (!this.enabled()) return;
     this.capture(events);
     const clock = this.options.clock();
     if (clock.tick - this.lastBroadcastTick < this.intervalTicks) return;
     this.lastBroadcastTick = clock.tick;
     this.options.publish(DEBUG_SNAPSHOT_MESSAGE, this.snapshot(events.length, clock));
+  }
+
+  private enabled(): boolean {
+    return typeof this.options.enabled === 'function'
+      ? this.options.enabled()
+      : this.options.enabled;
   }
 
   private capture(events: readonly GameEvent[]): void {

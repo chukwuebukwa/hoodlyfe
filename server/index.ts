@@ -64,7 +64,13 @@ if (nextApp) {
 const httpServer = createServer(app);
 const gameServer = new Server({
   greet: false,
-  transport: new WebSocketTransport({server: httpServer})
+  transport: new WebSocketTransport({
+    server: httpServer,
+    // Allow transient edge, mobile, and background-tab stalls without retaining
+    // genuinely dead sockets indefinitely.
+    pingInterval: 5_000,
+    pingMaxRetries: 6
+  })
 });
 gameServer.define('district', DistrictRoom);
 

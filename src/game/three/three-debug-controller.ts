@@ -78,7 +78,6 @@ export class ThreeDebugController {
         this.updatePanel();
       }
     });
-    this.subscription.start();
   }
 
   update(state: DistrictNetworkState, nowMs: number): void {
@@ -99,6 +98,12 @@ export class ThreeDebugController {
 
   private setVisible(visible: boolean): void {
     this.visible = visible;
+    if (visible) {
+      this.subscription.start();
+    } else {
+      this.subscription.destroy();
+      this.snapshot = undefined;
+    }
     this.group.visible = visible;
     this.panel?.classList.toggle('hidden', !visible);
     this.toggle?.setAttribute('aria-pressed', String(visible));
