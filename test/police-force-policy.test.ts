@@ -24,6 +24,8 @@ test('primary police select custody only for visible arrestable contact', () => 
     stopForContact: true
   });
   assert.equal(decidePoliceForce({...BASE, role: 'contain-left'}).response, 'fire');
+  assert.equal(decidePoliceForce({...BASE, targetWantedLevel: 1, role: 'contain-left'}).response, 'hold');
+  assert.equal(decidePoliceForce({...BASE, targetWantedLevel: 1, targetDistance: 200}).response, 'hold');
   assert.equal(decidePoliceForce({...BASE, targetAction: 'melee'}).response, 'melee');
   assert.equal(decidePoliceForce({...BASE, targetAction: 'arrested'}).response, 'hold');
   assert.equal(decidePoliceForce({...BASE, targetOnFootInStreet: false}).response, 'fire');

@@ -116,8 +116,8 @@ These are NOCK0 tuning values, not copied reference tables:
 | Wanted | Foot cap | Cruiser cap |
 |---:|---:|---:|
 | 0 | 0 | 0 |
-| 1 | 1 | 1 |
-| 2 | 3 | 2 |
+| 1 | 1 | 0 |
+| 2 | 2 | 1 |
 | 3 | 4 | 2 |
 | 4 | 5 | 2 |
 | 5+ | 5 | 3 |
@@ -126,6 +126,13 @@ The first district supports at most five assigned foot officers and three assign
 cruisers. Foot officers cost one response point, cruisers cost two, and the district has
 an eleven-point ceiling. Policy constants live with the allocator, not in the room or AI
 controllers.
+
+The July 18 playtest pass intentionally reserves the first cruiser and firearm response
+for level two. Level one is one arrest/melee-capable foot officer. Level two introduces a
+bounded pair of foot officers and one cruiser; level three is the first coordinated swarm
+tier. Heat bands are `20 / 55 / 120 / 200 / 300`, with original per-crime pressure values,
+so one serious police casualty reaches level two rather than immediately entering the
+roadblock/swarm tier.
 
 ### Deterministic fairness
 

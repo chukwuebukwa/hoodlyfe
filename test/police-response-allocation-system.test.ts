@@ -12,8 +12,8 @@ test('response policy publishes bounded original foot and cruiser limits', () =>
     [0, 1, 2, 3, 4, 5, 8].map(responseLimitsForWanted),
     [
       {foot: 0, vehicle: 0},
-      {foot: 1, vehicle: 1},
-      {foot: 3, vehicle: 2},
+      {foot: 1, vehicle: 0},
+      {foot: 2, vehicle: 1},
       {foot: 4, vehicle: 2},
       {foot: 5, vehicle: 2},
       {foot: 5, vehicle: 3},
@@ -64,22 +64,22 @@ test('wanted escalation and contraction resize leases without oscillation', () =
   const units = responseUnits();
 
   allocation.update([suspect('driver', 1, 0)], units, 0);
-  assert.equal(allocation.entries().length, 2);
+  assert.equal(allocation.entries().length, 1);
 
   const escalation = allocation.update([suspect('driver', 5, 0)], units, 100);
-  assert.equal(escalation.length, 6);
+  assert.equal(escalation.length, 7);
   assert.equal(allocation.entries().length, 8);
   assert.equal(allocation.diagnostics().usedResponsePoints, 11);
 
   const contraction = allocation.update([suspect('driver', 1, 0)], units, 200);
-  assert.equal(contraction.length, 6);
+  assert.equal(contraction.length, 7);
   assert.ok(contraction.every((change) => change.reason === 'budget'));
   assert.equal(allocation.entries().filter((entry) => entry.unitKind === 'foot').length, 1);
-  assert.equal(allocation.entries().filter((entry) => entry.unitKind === 'vehicle').length, 1);
-  assert.equal(allocation.diagnostics().usedResponsePoints, 3);
+  assert.equal(allocation.entries().filter((entry) => entry.unitKind === 'vehicle').length, 0);
+  assert.equal(allocation.diagnostics().usedResponsePoints, 1);
 
   assert.deepEqual(allocation.update([suspect('driver', 1, 0)], units, 2_000), []);
-  assert.equal(allocation.entries().length, 2);
+  assert.equal(allocation.entries().length, 1);
 });
 
 test('a materially closer unit replaces a distant lease only after hysteresis', () => {

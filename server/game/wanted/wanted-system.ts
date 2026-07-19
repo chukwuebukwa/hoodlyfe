@@ -1,4 +1,5 @@
-const WANTED_THRESHOLDS = [0, 10, 25, 45, 70, 100] as const;
+export const WANTED_THRESHOLDS = [0, 20, 55, 120, 200, 300] as const;
+const MAX_WANTED_HEAT = 360;
 
 interface WantedRecord {
   heat: number;
@@ -28,7 +29,7 @@ export class WantedSystem {
 
   report(suspectId: string, severity: number, nowMs: number): WantedState {
     const record = this.getOrCreate(suspectId);
-    record.heat = Math.min(120, record.heat + Math.max(0, severity));
+    record.heat = Math.min(MAX_WANTED_HEAT, record.heat + Math.max(0, severity));
     record.level = levelForHeat(record.heat);
     record.lastCrimeAt = Math.max(record.lastCrimeAt, nowMs);
     record.lastReportAt = nowMs;

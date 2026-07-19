@@ -52,7 +52,7 @@ test('navigation detours police locomotion without altering target aim or fire c
   const npc = createNpc('police');
   const runtime = createPedestrianRuntime(0);
   runtime.avoidAngle = Math.PI / 2;
-  runtime.avoidUntil = 2000;
+  runtime.avoidUntil = 4000;
   const behavior = new PedestrianBehaviorSystem({
     random: new DeterministicRandom('police-layer'),
     clock: () => ({tick: 1})
@@ -72,6 +72,7 @@ test('navigation detours police locomotion without altering target aim or fire c
       canSeeTarget: true,
       targetDistance: 200,
       targetOnFootInStreet: true,
+      wantedLevel: 2,
       tactic: {
         unitId: npc.id,
         unitKind: 'foot' as const,
@@ -83,18 +84,18 @@ test('navigation detours police locomotion without altering target aim or fire c
       }
     }
   };
-  const first = behavior.decide(npc, runtime, observation, 1000);
+  const first = behavior.decide(npc, runtime, observation, 2000);
   const navigation = new PedestrianNavigationSystem({
     random: new DeterministicRandom('police-layer-navigation'),
     clock: () => ({tick: 1})
   });
   assert.equal(first.objective, 'pursue');
   assert.equal(first.angle, 0);
-  assert.equal(navigation.resolveAngle(npc, runtime, first, 1000), Math.PI / 2);
-  assert.equal(first.aimAngle, 0);
+  assert.equal(navigation.resolveAngle(npc, runtime, first, 2000), Math.PI / 2);
+  assert.ok(Math.abs(first.aimAngle) <= 0.28);
   assert.equal(first.fire, true);
-  assert.equal(behavior.decide(npc, runtime, observation, 1200).fire, false);
-  assert.equal(behavior.decide(npc, runtime, observation, 1680).fire, true);
+  assert.equal(behavior.decide(npc, runtime, observation, 2500).fire, false);
+  assert.equal(behavior.decide(npc, runtime, observation, 3250).fire, true);
 });
 
 test('navigation recovery is deterministic and locomotion resolves axes independently', () => {

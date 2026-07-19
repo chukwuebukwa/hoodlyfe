@@ -77,9 +77,11 @@ response allocator
 
 Only the primary foot officer may start custody. The target must be alive, wanted,
 visible, on foot in street space, within contact range, and in an arrestable action. A
-close resisting target receives the existing melee response. Visible threats outside
-contact use the existing rate-limited weapon path. Officers without control cannot apply
-force, and an already-arrested target suppresses additional force.
+close resisting target receives the existing melee response. At one star, visible threats
+outside contact are pursued but do not authorize firearms. Firearms begin at two stars and
+use a separate wanted-tier marksmanship policy for range, cadence, and deterministic aim
+error. Officers without control cannot apply force, and an already-arrested target
+suppresses additional force.
 
 The policy is pure and has no timers, state collections, damage calls, navigation, or
 network authority. Distances and fees are original NOCK0 tuning, not reference constants.

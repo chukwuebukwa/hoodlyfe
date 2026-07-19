@@ -3,7 +3,7 @@ import test from 'node:test';
 import {DistrictRoom} from '../server/district-room.ts';
 import {CrimeResponseController} from '../server/game/police/crime-response-controller.ts';
 import {VehicleAccessController} from '../server/game/vehicles/vehicle-access-controller.ts';
-import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
+import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestPedestrianController} from './support/pedestrian-controller.ts';
@@ -60,6 +60,13 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   player.y = spawn.y;
   room.state.players.set(player.id, player);
 
+  const policeWitness = new NpcState();
+  policeWitness.id = 'police-witness';
+  policeWitness.kind = 'police';
+  policeWitness.x = spawn.x + 100;
+  policeWitness.y = spawn.y;
+  room.state.npcs.set(policeWitness.id, policeWitness);
+
   const vehicle = new VehicleState();
   vehicle.id = 'traffic-test';
   vehicle.x = spawn.x;
@@ -80,7 +87,7 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   assert.equal(player.vehicleSeat, 0);
   assert.equal(vehicle.driverId, player.id);
   assert.equal(vehicle.traffic, false);
-  assert.equal(room.state.npcs.size, 1);
+  assert.equal(room.state.npcs.size, 2);
   assert.equal(player.wanted, 0);
   room.crimeController.processReports(Date.now() + 3000);
   assert.equal(player.wanted, 1);

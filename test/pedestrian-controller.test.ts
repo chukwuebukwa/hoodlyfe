@@ -89,6 +89,7 @@ test('police pursue assigned targets and request rate-limited fire', () => {
     },
     canSeeTarget: true,
     targetDistance: 200,
+    wantedLevel: 2,
     tactic: {
       unitId: police.id,
       unitKind: 'foot',
@@ -101,12 +102,12 @@ test('police pursue assigned targets and request rate-limited fire', () => {
   };
 
   const initialX = police.x;
-  controller.update(police, 1 / 30, 1000);
-  controller.update(police, 1 / 30, 1200);
-  controller.update(police, 1 / 30, 1680);
+  controller.update(police, 1 / 30, 2000);
+  controller.update(police, 1 / 30, 2500);
+  controller.update(police, 1 / 30, 3250);
 
   assert.ok(police.x >= initialX);
-  assert.deepEqual(firedAt, [1000, 1680]);
+  assert.deepEqual(firedAt, [2000, 3250]);
 });
 
 test('dead pedestrians wait for their deadline and restore archetype health', () => {

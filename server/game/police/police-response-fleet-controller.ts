@@ -198,7 +198,8 @@ export function responseVehicleLimit(wantedLevel: number): number {
 }
 
 export function responseSpawnInterval(wantedLevel: number): number {
-  if (wantedLevel >= 3) return 1_800;
-  if (wantedLevel >= 2) return 3_000;
+  if (wantedLevel >= 4) return 1_800;
+  if (wantedLevel >= 3) return 2_600;
+  if (wantedLevel >= 2) return 4_000;
   return 5_000;
 }

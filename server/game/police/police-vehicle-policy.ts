@@ -22,7 +22,7 @@ export function policeVehicleStrategy(
   if (target.tacticalRole !== 'primary') {
     return target.targetVehicleId ? 'intercept' : 'contain';
   }
-  if (target.wantedLevel >= 3 && target.targetVehicleId) return 'ram';
+  if (target.wantedLevel >= 2 && target.targetVehicleId) return 'ram';
   if (distance <= DIRECT_PURSUIT_DISTANCE) return 'intercept';
   return 'pursuit';
 }
