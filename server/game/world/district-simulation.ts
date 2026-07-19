@@ -67,6 +67,10 @@ interface MissionPort {
   observeEvents(events: readonly GameEvent[]): void;
 }
 
+interface JournalPort {
+  observeTick(tick: number, events: readonly GameEvent[]): void;
+}
+
 export interface DistrictSimulationOptions {
   state: DistrictState;
   clock: FixedStepClock;
@@ -100,6 +104,7 @@ export interface DistrictSimulationOptions {
   events: GameEventStream;
   audio: AudioEventController;
   debug: DebugSnapshotController;
+  journal?: JournalPort;
   indexPlayer: (player: PlayerState) => void;
   indexNpc: (npc: NpcState) => void;
   indexVehicle: (vehicle: VehicleState) => void;
@@ -240,8 +245,9 @@ export class DistrictSimulation {
         this.options.cashPickups.observeEvents(context.events);
         this.options.audio.publish(context.events);
       }),
-      phase('snapshot-observability', ({events}) => {
+      phase('snapshot-observability', ({tick, events}) => {
         this.options.debug.update(events);
+        this.options.journal?.observeTick(tick, events);
       })
     ];
   }

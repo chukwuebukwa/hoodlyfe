@@ -22,6 +22,9 @@ Rules:
 - Collection additions and removals during iteration go through the deferred lifecycle queue.
 - Random gameplay decisions use a named deterministic stream and a stable key.
 - Spatial gameplay queries go through the shared index and retain exact final geometry checks.
+- Simulation-affecting client messages register through `registerJournaledCommand` so the
+  simulation journal can capture and replay them; wall-clock reads route through the room
+  epoch plus the fixed-step clock, never `Date.now()` directly.
 
 ## Current Modules
 
@@ -49,6 +52,13 @@ game/
     medical-care-controller.ts
   events/
     game-events.ts
+  journal/
+    journal-types.ts
+    journal-sink.ts
+    simulation-journal.ts
+    state-hash.ts
+    journal-replay.ts
+    replay-cli.ts
   incidents/
     crime-policy.ts
     incident-registry.ts
