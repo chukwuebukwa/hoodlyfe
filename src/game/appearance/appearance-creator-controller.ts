@@ -56,6 +56,28 @@ const PART_CATEGORIES: Readonly<Record<LpcPartCategory, PartCategoryDefinition<s
 };
 
 const MATERIAL_FIELDS: readonly LpcMaterialField[] = ['skinColor', 'hairColor', 'hatColor', 'topColor', 'legsColor', 'shoesColor'];
+const COLORABLE_HATS = new Set<string>([
+  'bandana',
+  'bowler',
+  'crown',
+  'tiara',
+  'winter_hat',
+  'santa',
+  'elf',
+  'wizard',
+  'pirate_bandana',
+  'cavalier',
+  'tricorne'
+]);
+const CATEGORY_MATERIAL: Readonly<Record<LpcPartCategory, LpcMaterialField>> = {
+  body: 'skinColor',
+  face: 'skinColor',
+  hair: 'hairColor',
+  hat: 'hatColor',
+  top: 'topColor',
+  legs: 'legsColor',
+  shoes: 'shoesColor'
+};
 const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
 
 export class AppearanceCreatorController {
@@ -74,6 +96,8 @@ export class AppearanceCreatorController {
   private readonly preview: HTMLCanvasElement;
   private readonly status: HTMLElement;
   private readonly layerCount: HTMLElement;
+  private readonly summary: HTMLElement;
+  private readonly selectedFit: HTMLElement;
   private state?: DistrictNetworkState;
   private draftAppearance?: PlayerAppearance;
   private draftRecipe: LpcCharacterRecipe = cloneLpcRecipe();
@@ -106,6 +130,8 @@ export class AppearanceCreatorController {
     this.preview = elements.preview;
     this.status = elements.status;
     this.layerCount = elements.layerCount;
+    this.summary = elements.summary;
+    this.selectedFit = elements.selectedFit;
     this.bindEvents();
     this.renderStaticControls();
     this.wardrobeSession = new WardrobeClientSession({
@@ -211,11 +237,15 @@ export class AppearanceCreatorController {
   };
 
   private readonly selectCategory = (event: Event): void => {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement) || !isPartCategory(target.dataset.category)) return;
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('button[data-category]')
+      : null;
+    if (!target || !isPartCategory(target.dataset.category)) return;
     this.activeCategory = target.dataset.category;
+    this.activeMaterial = CATEGORY_MATERIAL[this.activeCategory];
     this.renderPartTabs();
     this.renderPartOptions();
+    this.renderMaterialControls();
   };
 
   private readonly selectPart = (event: Event): void => {
@@ -228,8 +258,10 @@ export class AppearanceCreatorController {
   };
 
   private readonly selectMaterial = (event: Event): void => {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement) || !isMaterialField(target.dataset.material)) return;
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('button[data-material]')
+      : null;
+    if (!target || !isMaterialField(target.dataset.material)) return;
     this.activeMaterial = target.dataset.material;
     this.renderMaterialControls();
   };
@@ -310,14 +342,20 @@ export class AppearanceCreatorController {
       const button = this.root.createElement('button');
       button.type = 'button';
       button.dataset.category = id;
-      button.textContent = definition.label.toUpperCase();
+      const label = this.root.createElement('b');
+      const count = this.root.createElement('small');
+      label.textContent = definition.label.toUpperCase();
+      count.textContent = String(definition.options.length).padStart(2, '0');
+      button.append(label, count);
       return button;
     }));
     this.materialTabs.replaceChildren(...MATERIAL_FIELDS.map((field) => {
       const button = this.root.createElement('button');
       button.type = 'button';
       button.dataset.material = field;
-      button.textContent = materialLabel(field);
+      const label = this.root.createElement('b');
+      label.textContent = materialLabel(field);
+      button.append(label);
       return button;
     }));
     this.renderMaterialSwatches();
@@ -353,9 +391,24 @@ export class AppearanceCreatorController {
     this.partOptions.replaceChildren(...definition.options.map((option) => {
       const button = this.root.createElement('button');
       button.type = 'button';
+      button.className = 'lpc-game-option-card';
       button.dataset.value = option.id;
       button.setAttribute('aria-pressed', String(this.draftRecipe[definition.field] === option.id));
-      button.textContent = option.label;
+      const label = this.root.createElement('span');
+      label.textContent = option.label;
+      const meta = this.root.createElement('small');
+      meta.textContent = definition.label;
+      if (this.sources) {
+        const candidate = validateLpcCharacterRecipe({...this.draftRecipe, [definition.field]: option.id});
+        if (candidate) {
+          const canvas = this.root.createElement('canvas');
+          canvas.width = 72;
+          canvas.height = 72;
+          drawOptionPreview(canvas, compileLpcCharacterSpriteSet(this.sources, candidate));
+          button.append(canvas);
+        }
+      }
+      button.append(label, meta);
       return button;
     }));
   }
@@ -374,11 +427,18 @@ export class AppearanceCreatorController {
 
   private renderRecipeMeta(): void {
     this.layerCount.textContent = this.fixedMaterialLabel() ?? `${serializeLpcRecipe(this.draftRecipe).length} B`;
+    this.summary.replaceChildren(
+      summaryChip('Body', labelFor(LPC_BODY_OPTIONS, this.draftRecipe.body), this.root),
+      summaryChip('Hair', labelFor(LPC_HAIR_OPTIONS, this.draftRecipe.hair), this.root),
+      summaryChip('Fit', labelFor(LPC_TOP_OPTIONS, this.draftRecipe.top), this.root),
+      summaryChip('Shoes', labelFor(LPC_SHOE_OPTIONS, this.draftRecipe.shoes), this.root)
+    );
+    this.selectedFit.textContent = `${labelFor(LPC_HAT_OPTIONS, this.draftRecipe.hat)} / ${labelFor(LPC_LEGS_OPTIONS, this.draftRecipe.legs)}`;
   }
 
   private fixedMaterialLabel(): string | undefined {
     if (this.activeMaterial === 'topColor' && this.draftRecipe.top === 'smiley') return 'TOP FIXED';
-    if (this.activeMaterial === 'hatColor' && !['winter_hat', 'cavalier'].includes(this.draftRecipe.hat)) return 'HAT FIXED';
+    if (this.activeMaterial === 'hatColor' && !COLORABLE_HATS.has(this.draftRecipe.hat)) return 'HAT FIXED';
     if (this.activeMaterial === 'shoesColor' && this.draftRecipe.shoes === 'timbs') return 'SHOES FIXED';
     return undefined;
   }
@@ -427,6 +487,8 @@ function createModal(root: Document): {
   preview: HTMLCanvasElement;
   status: HTMLElement;
   layerCount: HTMLElement;
+  summary: HTMLElement;
+  selectedFit: HTMLElement;
 } {
   const existing = root.querySelector<HTMLElement>('#appearance-modal');
   if (existing) existing.remove();
@@ -436,20 +498,30 @@ function createModal(root: Document): {
   wrapper.innerHTML = `
     <section class="lpc-game-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
       <header>
-        <div><strong id="appearance-title">THREADS CHARACTER CREATOR</strong><span id="lpc-game-status">READY</span></div>
+        <div class="lpc-game-title-block">
+          <span class="lpc-game-kicker">Threads Wardrobe</span>
+          <strong id="appearance-title">CHARACTER CREATOR</strong>
+          <span id="lpc-game-status">READY</span>
+        </div>
         <button id="appearance-close" type="button" aria-label="Close">x</button>
       </header>
       <div class="lpc-game-body">
         <section class="lpc-game-left">
-          <label>NAME<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
+          <label>Driver Name<input id="appearance-outfit-name" maxlength="24" autocomplete="off"></label>
           <div id="lpc-game-categories" class="lpc-game-tabs"></div>
           <div id="lpc-game-options" class="lpc-game-options"></div>
         </section>
         <section class="lpc-game-preview">
-          <canvas id="appearance-preview" width="224" height="184"></canvas>
+          <div class="lpc-game-stage-card">
+            <div class="lpc-game-stage-glow"></div>
+            <canvas id="appearance-preview" width="224" height="184"></canvas>
+            <span id="lpc-game-selected-fit">No hat / Pants</span>
+          </div>
+          <div id="lpc-game-summary" class="lpc-game-summary"></div>
           <span id="lpc-game-meta">0 B</span>
         </section>
         <section class="lpc-game-right">
+          <div class="lpc-game-material-head"><strong>Palette</strong><span>Pick a channel</span></div>
           <div id="lpc-game-material-tabs" class="lpc-game-tabs"></div>
           <div id="lpc-game-swatches" class="lpc-game-swatches"></div>
         </section>
@@ -476,8 +548,28 @@ function createModal(root: Document): {
     swatches: required(wrapper, '#lpc-game-swatches'),
     preview: required(wrapper, '#appearance-preview'),
     status: required(wrapper, '#lpc-game-status'),
-    layerCount: required(wrapper, '#lpc-game-meta')
+    layerCount: required(wrapper, '#lpc-game-meta'),
+    summary: required(wrapper, '#lpc-game-summary'),
+    selectedFit: required(wrapper, '#lpc-game-selected-fit')
   };
+}
+
+function drawOptionPreview(canvas: HTMLCanvasElement, compiled: CompiledLpcCharacterSpriteSet): void {
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  context.imageSmoothingEnabled = false;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(compiled.walk, 18 % 9 * 72, Math.floor(18 / 9) * 72, 72, 72, 0, 0, 72, 72);
+}
+
+function summaryChip(label: string, value: string, root: Document): HTMLElement {
+  const chip = root.createElement('span');
+  const key = root.createElement('small');
+  const text = root.createElement('b');
+  key.textContent = label;
+  text.textContent = value;
+  chip.append(key, text);
+  return chip;
 }
 
 function recipeFromAppearance(appearance: PlayerAppearance): LpcCharacterRecipe {
@@ -508,6 +600,10 @@ function materialLabel(field: LpcMaterialField): string {
         : field === 'legsColor'
           ? 'LEGS'
           : 'SHOES';
+}
+
+function labelFor<T extends string>(options: readonly LpcOption<T>[], id: T): string {
+  return options.find((option) => option.id === id)?.label ?? id;
 }
 
 function isPartCategory(value: unknown): value is LpcPartCategory {

@@ -60,6 +60,19 @@ const CLIPS: Readonly<Record<PreviewClip, {label: string; atlas: 'walk' | 'actio
 };
 
 const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
+const COLORABLE_HATS = new Set<string>([
+  'bandana',
+  'bowler',
+  'crown',
+  'tiara',
+  'winter_hat',
+  'santa',
+  'elf',
+  'wizard',
+  'pirate_bandana',
+  'cavalier',
+  'tricorne'
+]);
 
 const stage = requiredCanvas('#character-stage');
 const partCategories = required<HTMLElement>('#part-categories');
@@ -262,7 +275,7 @@ function renderMaterialSwatches(): void {
 
 function renderMaterialSelection(): void {
   const fixedTop = activeMaterial === 'topColor' && recipe.top === 'smiley';
-  const fixedHat = activeMaterial === 'hatColor' && !['winter_hat', 'cavalier'].includes(recipe.hat);
+  const fixedHat = activeMaterial === 'hatColor' && !COLORABLE_HATS.has(recipe.hat);
   const fixedShoes = activeMaterial === 'shoesColor' && recipe.shoes === 'timbs';
   renderMaterialSwatches();
   materialName.textContent = fixedTop
