@@ -3,7 +3,6 @@ import {
   Room as LiveKitRoom,
   RoomEvent,
   Track,
-  type Participant,
   type RemoteParticipant,
   type RemoteTrack,
   type RemoteTrackPublication
@@ -35,7 +34,6 @@ export class ProximityVoiceSystem {
   private readonly bus = new AudioBus();
   private readonly remoteNodes = new Map<string, RemoteVoiceNode>();
   private readonly peerIds = new Set<string>();
-  private readonly speakingPlayerIds = new Set<string>();
   private readonly cleanup: Array<() => void> = [];
   private readonly button = document.querySelector<HTMLButtonElement>('#voice-button');
   private readonly touchButton = document.querySelector<HTMLButtonElement>('#voice-touch-button');
@@ -48,6 +46,7 @@ export class ProximityVoiceSystem {
     timeout: number;
   };
   private talkingRequested = false;
+  private autoJoinAttempted = false;
   private destroyed = false;
   private latestState?: DistrictNetworkState;
 
@@ -79,6 +78,10 @@ export class ProximityVoiceSystem {
   synchronize(state: DistrictNetworkState): void {
     this.latestState = state;
     const local = state.players.get(this.room.sessionId);
+    if (local && !this.autoJoinAttempted) {
+      this.autoJoinAttempted = true;
+      void this.enable().catch(() => undefined);
+    }
     const listener = local && effectivePosition(local, state);
     const now = this.bus.now();
     for (const [playerId, node] of this.remoteNodes) {
@@ -103,10 +106,11 @@ export class ProximityVoiceSystem {
   }
 
   playerVoiceActivity(playerId: string): number {
-    if (!this.speakingPlayerIds.has(playerId)) return 0;
+    if (playerId !== this.room.sessionId && !this.peerIds.has(playerId)) return 0;
     const participant = playerId === this.room.sessionId
       ? this.liveKit?.localParticipant
       : this.liveKit?.remoteParticipants.get(playerId);
+    if (!participant?.isSpeaking) return 0;
     return Math.max(0.08, Math.min(1, participant?.audioLevel ?? 0));
   }
 
@@ -121,7 +125,6 @@ export class ProximityVoiceSystem {
     }
     for (const node of this.remoteNodes.values()) disconnectNode(node);
     this.remoteNodes.clear();
-    this.speakingPlayerIds.clear();
     void this.liveKit?.disconnect();
     this.liveKit = undefined;
     this.bus.destroy();
@@ -172,21 +175,13 @@ export class ProximityVoiceSystem {
       .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
       .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
       .on(RoomEvent.TrackPublished, this.handleTrackPublished)
-      .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged)
       .on(RoomEvent.ParticipantDisconnected, this.handleParticipantDisconnected)
       .on(RoomEvent.Disconnected, this.handleVoiceDisconnected);
     await liveKit.connect(url, token, {autoSubscribe: false});
     this.liveKit = liveKit;
     this.applyPeerPermissions();
     this.synchronizeSubscriptions();
-    await liveKit.localParticipant.setMicrophoneEnabled(true, {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
-    });
-    this.applyPeerPermissions();
-    await this.applyTalkingState();
-    this.renderState(this.talkingRequested ? 'talking' : 'ready');
+    this.renderState('ready');
   }
 
   private setPeers(peerIds: readonly string[]): void {
@@ -194,11 +189,6 @@ export class ProximityVoiceSystem {
     for (const playerId of peerIds) {
       if (typeof playerId === 'string' && playerId !== this.room.sessionId) {
         this.peerIds.add(playerId);
-      }
-    }
-    for (const playerId of this.speakingPlayerIds) {
-      if (playerId !== this.room.sessionId && !this.peerIds.has(playerId)) {
-        this.speakingPlayerIds.delete(playerId);
       }
     }
     this.applyPeerPermissions();
@@ -244,6 +234,23 @@ export class ProximityVoiceSystem {
     this.renderState(this.talkingRequested ? 'talking' : 'ready');
   }
 
+  private async prepareMicrophone(): Promise<void> {
+    try {
+      await this.enable();
+      if (!this.liveKit) return;
+      await this.liveKit.localParticipant.setMicrophoneEnabled(true, {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      });
+      await this.liveKit.localParticipant.setMicrophoneEnabled(false);
+      this.talkingRequested = false;
+      this.renderState('ready');
+    } catch {
+      if (!this.destroyed) this.renderState('error');
+    }
+  }
+
   private readonly handleTrackSubscribed = (
     track: RemoteTrack,
     _publication: RemoteTrackPublication,
@@ -286,26 +293,12 @@ export class ProximityVoiceSystem {
   };
 
   private readonly handleParticipantDisconnected = (participant: RemoteParticipant): void => {
-    this.speakingPlayerIds.delete(participant.identity);
     this.removeRemoteNode(participant.identity);
-  };
-
-  private readonly handleActiveSpeakersChanged = (participants: Participant[]): void => {
-    this.speakingPlayerIds.clear();
-    for (const participant of participants) {
-      if (
-        participant.identity === this.room.sessionId ||
-        this.peerIds.has(participant.identity)
-      ) {
-        this.speakingPlayerIds.add(participant.identity);
-      }
-    }
   };
 
   private readonly handleVoiceDisconnected = (): void => {
     for (const node of this.remoteNodes.values()) disconnectNode(node);
     this.remoteNodes.clear();
-    this.speakingPlayerIds.clear();
     this.liveKit = undefined;
     this.talkingRequested = false;
     if (!this.destroyed) this.renderState('off');
@@ -334,7 +327,7 @@ export class ProximityVoiceSystem {
         : state === 'connecting'
           ? 'CONNECTING'
           : state === 'ready'
-            ? 'HOLD V'
+            ? 'LISTENING'
             : state === 'talking'
               ? 'TRANSMITTING'
               : state === 'unavailable'
@@ -344,11 +337,7 @@ export class ProximityVoiceSystem {
   }
 
   private readonly handleToggle = (): void => {
-    if (this.liveKit) {
-      void this.liveKit.disconnect();
-      return;
-    }
-    void this.enable().catch(() => undefined);
+    void this.prepareMicrophone();
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {

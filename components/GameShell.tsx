@@ -159,7 +159,7 @@ const GAME_SHELL_HTML = `
     <strong>PHONE</strong>
   </button>
   <aside id="voice-hud" class="hud-layer" aria-label="Proximity voice chat">
-    <button id="voice-button" type="button" aria-pressed="false" title="Enable voice, then hold V to talk">VOICE</button>
+    <button id="voice-button" type="button" aria-pressed="false" title="Listening is automatic. Click once to allow your mic, then hold V to talk">VOICE</button>
     <span id="voice-status">OFF</span>
   </aside>
   <div id="event-toast" class="hud-layer" role="status"></div>
