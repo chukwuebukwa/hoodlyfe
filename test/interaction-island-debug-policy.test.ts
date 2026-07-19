@@ -101,6 +101,7 @@ function vehicle(id: string, x: number): VehicleInteractionState {
     kind: 'vehicle',
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x,
     y: 0,
     angle: 0,

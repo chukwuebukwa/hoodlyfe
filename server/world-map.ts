@@ -1,6 +1,12 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
+import {
+  STREET_GROUND_SURFACE_ID,
+  SurfaceMap,
+  type SurfaceActorKind,
+  type SurfaceManifest
+} from '../shared/world/surface-map.ts';
 
 const MAP_RANDOM = new DeterministicRandom('industrial-district-map:v1');
 
@@ -24,11 +30,19 @@ interface MapMetadata {
 export interface RoadNode {
   column: number;
   row: number;
+  surfaceId?: string;
+}
+
+export interface SurfacePosition {
+  x: number;
+  y: number;
+  surfaceId: string;
 }
 
 export interface TrafficSpawn extends RoadNode {
   x: number;
   y: number;
+  surfaceId?: string;
   angle: number;
   targetColumn: number;
   targetRow: number;
@@ -43,12 +57,13 @@ export class CollisionMap {
   readonly tileWidth: number;
   readonly tileHeight: number;
   readonly spawn: {x: number; y: number};
+  readonly surfaces: SurfaceMap;
   private readonly collisions: number[];
   private readonly openCells: Array<{column: number; row: number}>;
   private readonly roads: number[];
   private readonly roadCells: RoadNode[];
 
-  constructor(map: TiledMapData, metadata: MapMetadata) {
+  constructor(map: TiledMapData, metadata: MapMetadata, surfaces?: SurfaceMap) {
     const collisionLayer = map.layers.find((layer) => layer.name === 'collisions');
     if (!collisionLayer || collisionLayer.data.length !== map.width * map.height) {
       throw new Error('Industrial District is missing a valid collisions layer.');
@@ -58,6 +73,7 @@ export class CollisionMap {
     this.height = map.height;
     this.tileWidth = map.tilewidth;
     this.tileHeight = map.tileheight;
+    this.surfaces = surfaces ?? new SurfaceMap(flatSurfaceManifest(map));
     this.collisions = collisionLayer.data;
     const roadLayer = map.layers.find((layer) => layer.name === 'roads');
     this.roads = roadLayer?.data.length === map.width * map.height
@@ -84,7 +100,10 @@ export class CollisionMap {
     const metadata = JSON.parse(
       readFileSync(resolve(mapsDirectory, 'district-map.metadata.json'), 'utf8')
     ) as MapMetadata;
-    return new CollisionMap(map, metadata);
+    const surfaces = new SurfaceMap(JSON.parse(
+      readFileSync(resolve(mapsDirectory, 'surface-manifest.json'), 'utf8')
+    ));
+    return new CollisionMap(map, metadata, surfaces);
   }
 
   physicsGeometry(): {
@@ -112,7 +131,13 @@ export class CollisionMap {
     return this.collisions[row * this.width + column] !== 0;
   }
 
-  canOccupy(x: number, y: number, radius: number): boolean {
+  canOccupy(
+    x: number,
+    y: number,
+    radius: number,
+    surfaceId?: string,
+    actorKind: SurfaceActorKind = 'player'
+  ): boolean {
     const diagonal = radius * 0.72;
     const samples = [
       [x - radius, y],
@@ -124,10 +149,82 @@ export class CollisionMap {
       [x - diagonal, y + diagonal],
       [x + diagonal, y + diagonal]
     ];
-    return samples.every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY));
+    if (!samples.every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY))) return false;
+    return surfaceId
+      ? this.surfaces.canOccupy(surfaceId, x, y, radius, actorKind)
+      : this.surfaces.surfaceIdsAt(x, y, actorKind).some((candidate) => (
+        this.surfaces.canOccupyConnected(candidate, x, y, radius, actorKind)
+      ));
   }
 
-  spawnFor(playerIndex: number, radius: number): {x: number; y: number} {
+  heightAt(surfaceId: string, x: number, y: number): number | undefined {
+    return this.surfaces.heightAt(surfaceId, x, y);
+  }
+
+  surfacesCanInteract(
+    firstSurfaceId: string,
+    secondSurfaceId: string,
+    actorKind: SurfaceActorKind
+  ): boolean {
+    return firstSurfaceId === secondSurfaceId ||
+      this.surfaces.neighbors(firstSurfaceId, actorKind).includes(secondSurfaceId);
+  }
+
+  actorsCanInteract(
+    firstSurfaceId: string,
+    firstX: number,
+    firstY: number,
+    secondSurfaceId: string,
+    secondX: number,
+    secondY: number,
+    actorKind: SurfaceActorKind
+  ): boolean {
+    if (firstSurfaceId === secondSurfaceId) return true;
+    if (!this.surfacesCanInteract(firstSurfaceId, secondSurfaceId, actorKind)) return false;
+    const firstHeight = this.heightAt(firstSurfaceId, firstX, firstY);
+    const secondHeight = this.heightAt(secondSurfaceId, secondX, secondY);
+    return firstHeight !== undefined && secondHeight !== undefined &&
+      Math.abs(firstHeight - secondHeight) <= 32;
+  }
+
+  surfaceAfterMove(
+    surfaceId: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    radius: number,
+    actorKind: SurfaceActorKind
+  ): string | undefined {
+    const crossing = this.surfaces.transitionFor(
+      surfaceId,
+      fromX,
+      fromY,
+      toX,
+      toY,
+      actorKind
+    );
+    const nextSurfaceId = crossing?.surfaceId ?? surfaceId;
+    const collisionClear = this.surfaces.footprintSamples(
+      nextSurfaceId,
+      toX,
+      toY,
+      radius,
+      actorKind
+    ).every((sample) => (
+      sample.surfaceId !== this.surfaces.manifest.defaultSurfaceId ||
+      !this.isBlockedAt(sample.x, sample.y)
+    ));
+    return collisionClear && this.surfaces.canOccupyConnected(
+      nextSurfaceId,
+      toX,
+      toY,
+      radius,
+      actorKind
+    ) ? nextSurfaceId : undefined;
+  }
+
+  spawnFor(playerIndex: number, radius: number): SurfacePosition {
     const offsets = [
       [0, 0], [24, 0], [0, 24], [24, 24], [-24, 0], [0, -24], [-24, -24], [24, -24]
     ];
@@ -135,38 +232,45 @@ export class CollisionMap {
       const [offsetX, offsetY] = offsets[(playerIndex + step) % offsets.length];
       const x = this.spawn.x + offsetX;
       const y = this.spawn.y + offsetY;
-      if (this.canOccupy(x, y, radius)) {
-        return {x, y};
+      const surfaceId = this.spawnSurfaceAt(x, y, radius, 'player', playerIndex + step);
+      if (surfaceId) {
+        return {x, y, surfaceId};
       }
     }
-    return {...this.spawn};
+    return {...this.spawn, surfaceId: STREET_GROUND_SURFACE_ID};
   }
 
-  openPoint(index: number, radius: number): {x: number; y: number} {
+  openPoint(index: number, radius: number): SurfacePosition {
     if (this.openCells.length === 0) {
-      return {...this.spawn};
+      return {...this.spawn, surfaceId: STREET_GROUND_SURFACE_ID};
     }
     const start = Math.abs(index * 97) % this.openCells.length;
     for (let step = 0; step < this.openCells.length; step++) {
       const cell = this.openCells[(start + step * 37) % this.openCells.length];
       const x = (cell.column + 0.5) * this.tileWidth;
       const y = (cell.row + 0.5) * this.tileHeight;
-      if (this.canOccupy(x, y, radius)) {
-        return {x, y};
+      const surfaceId = this.spawnSurfaceAt(x, y, radius, 'player', index + step);
+      if (surfaceId) {
+        return {x, y, surfaceId};
       }
     }
-    return {...this.spawn};
+    return {...this.spawn, surfaceId: STREET_GROUND_SURFACE_ID};
   }
 
-  pedestrianSpawn(index: number, radius: number): {x: number; y: number} {
-    if (this.openCells.length === 0) return {...this.spawn};
+  pedestrianSpawn(index: number, radius: number): SurfacePosition {
+    if (this.openCells.length === 0) {
+      return {...this.spawn, surfaceId: STREET_GROUND_SURFACE_ID};
+    }
     const start = Math.abs(index * 97) % this.openCells.length;
     for (let step = 0; step < this.openCells.length; step++) {
       const cell = this.openCells[(start + step * 37) % this.openCells.length];
       if (this.isRoadCell(cell.column, cell.row)) continue;
       const x = (cell.column + 0.5) * this.tileWidth;
       const y = (cell.row + 0.5) * this.tileHeight;
-      if (this.canOccupy(x, y, radius)) return {x, y};
+      const surfaceId = this.spawnSurfaceAt(x, y, radius, 'pedestrian', index + step);
+      if (surfaceId) {
+        return {x, y, surfaceId};
+      }
     }
     return this.openPoint(index, radius);
   }
@@ -179,18 +283,25 @@ export class CollisionMap {
     radius: number,
     seed: number,
     avoidRoad = false
-  ): {x: number; y: number} {
+  ): SurfacePosition {
     for (let attempt = 0; attempt < 96; attempt++) {
       const sample = MAP_RANDOM.unit('open-point-distance', seed + attempt * 17);
       const angle = MAP_RANDOM.unit('open-point-angle', seed + attempt * 31 + 7) * Math.PI * 2;
       const distance = minDistance + (maxDistance - minDistance) * sample;
       const candidateX = x + Math.cos(angle) * distance;
       const candidateY = y + Math.sin(angle) * distance;
+      const surfaceId = this.spawnSurfaceAt(
+        candidateX,
+        candidateY,
+        radius,
+        'player',
+        seed + attempt
+      );
       if (
-        this.canOccupy(candidateX, candidateY, radius) &&
+        surfaceId &&
         (!avoidRoad || !this.isRoadAt(candidateX, candidateY))
       ) {
-        return {x: candidateX, y: candidateY};
+        return {x: candidateX, y: candidateY, surfaceId};
       }
     }
     return avoidRoad ? this.pedestrianSpawn(seed, radius) : this.openPoint(seed, radius);
@@ -200,24 +311,40 @@ export class CollisionMap {
     return this.isRoadCell(Math.floor(x / this.tileWidth), Math.floor(y / this.tileHeight));
   }
 
-  roadNeighbors(column: number, row: number): RoadNode[] {
+  roadNeighbors(column: number, row: number, surfaceId?: string): RoadNode[] {
     const candidates = [
       {column: column + 1, row},
       {column: column - 1, row},
       {column, row: row + 1},
       {column, row: row - 1}
     ];
-    return candidates.filter((candidate) => this.isRoadCell(candidate.column, candidate.row));
+    return candidates.flatMap((candidate) => {
+      if (!this.isRoadCell(candidate.column, candidate.row)) return [];
+      if (!surfaceId) return [candidate];
+      const from = this.roadPoint({column, row, surfaceId});
+      const to = this.roadPoint(candidate);
+      const nextSurfaceId = this.surfaceAfterMove(
+        surfaceId,
+        from.x,
+        from.y,
+        to.x,
+        to.y,
+        0,
+        'vehicle'
+      );
+      return nextSurfaceId ? [{...candidate, surfaceId: nextSurfaceId}] : [];
+    });
   }
 
-  roadPoint(node: RoadNode): {x: number; y: number} {
+  roadPoint(node: RoadNode): SurfacePosition {
     return {
       x: (node.column + 0.5) * this.tileWidth,
-      y: (node.row + 0.5) * this.tileHeight
+      y: (node.row + 0.5) * this.tileHeight,
+      surfaceId: node.surfaceId ?? STREET_GROUND_SURFACE_ID
     };
   }
 
-  nearestRoadNode(x: number, y: number, radius: number): RoadNode | undefined {
+  nearestRoadNode(x: number, y: number, radius: number, surfaceId?: string): RoadNode | undefined {
     let nearest: RoadNode | undefined;
     let nearestDistanceSquared = Number.POSITIVE_INFINITY;
     for (const node of this.roadCells) {
@@ -225,10 +352,15 @@ export class CollisionMap {
       const deltaX = point.x - x;
       const deltaY = point.y - y;
       const distanceSquared = deltaX * deltaX + deltaY * deltaY;
-      if (distanceSquared >= nearestDistanceSquared || !this.canOccupy(point.x, point.y, radius)) {
+      const candidateSurfaceId = surfaceId && this.canOccupy(
+        point.x, point.y, radius, surfaceId, 'vehicle'
+      ) ? surfaceId : (!surfaceId
+          ? this.spawnSurfaceAt(point.x, point.y, radius, 'vehicle', 0)
+          : undefined);
+      if (distanceSquared >= nearestDistanceSquared || !candidateSurfaceId) {
         continue;
       }
-      nearest = node;
+      nearest = {...node, surfaceId: candidateSurfaceId};
       nearestDistanceSquared = distanceSquared;
     }
     return nearest ? {...nearest} : undefined;
@@ -253,12 +385,13 @@ export class CollisionMap {
       const cell = this.roadCells[(start + step * 53) % this.roadCells.length];
       const x = (cell.column + 0.5) * this.tileWidth;
       const y = (cell.row + 0.5) * this.tileHeight;
-      if (!this.canOccupy(x, y, radius)) continue;
+      const surfaceId = this.spawnSurfaceAt(x, y, radius, 'vehicle', normalizedIndex + step);
+      if (!surfaceId) continue;
 
-      const neighbors = this.roadNeighbors(cell.column, cell.row).filter((neighbor) => {
+      const neighbors = this.roadNeighbors(cell.column, cell.row, surfaceId).filter((neighbor) => {
         const neighborX = (neighbor.column + 0.5) * this.tileWidth;
         const neighborY = (neighbor.row + 0.5) * this.tileHeight;
-        return this.canOccupy(neighborX, neighborY, radius);
+        return this.canOccupy(neighborX, neighborY, radius, neighbor.surfaceId, 'vehicle');
       });
       const straight = neighbors.filter((neighbor) => {
         const oppositeColumn = cell.column - (neighbor.column - cell.column);
@@ -271,6 +404,7 @@ export class CollisionMap {
       return {
         x,
         y,
+        surfaceId,
         column: cell.column,
         row: cell.row,
         targetColumn: target.column,
@@ -301,4 +435,46 @@ export class CollisionMap {
     return column >= 0 && row >= 0 && column < this.width && row < this.height &&
       this.roads[row * this.width + column] !== 0;
   }
+
+  private spawnSurfaceAt(
+    x: number,
+    y: number,
+    radius: number,
+    actorKind: SurfaceActorKind,
+    index: number
+  ): string | undefined {
+    const candidates = this.surfaces.surfaceIdsAt(x, y, actorKind)
+      .filter((surfaceId) => this.canOccupy(x, y, radius, surfaceId, actorKind));
+    if (candidates.length === 0) return undefined;
+    return candidates[Math.abs(Math.trunc(index)) % candidates.length];
+  }
+}
+
+function flatSurfaceManifest(map: TiledMapData): SurfaceManifest {
+  const width = map.width * map.tilewidth;
+  const height = map.height * map.tileheight;
+  return {
+    version: 1,
+    collisionRevision: 2,
+    blockSize: Math.max(map.tilewidth, map.tileheight),
+    defaultSurfaceId: STREET_GROUND_SURFACE_ID,
+    surfaces: [{
+      id: STREET_GROUND_SURFACE_ID,
+      spaceId: 'street',
+      actorKinds: ['player', 'pedestrian', 'vehicle', 'projectile', 'prop'],
+      triangles: [
+        {
+          a: {x: 0, y: 0, z: 0},
+          b: {x: width, y: 0, z: 0},
+          c: {x: width, y: height, z: 0}
+        },
+        {
+          a: {x: 0, y: 0, z: 0},
+          b: {x: width, y: height, z: 0},
+          c: {x: 0, y: height, z: 0}
+        }
+      ]
+    }],
+    transitions: []
+  };
 }

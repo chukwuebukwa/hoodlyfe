@@ -234,6 +234,7 @@ function snapshotFor(
       vehicleKind: 'sedan',
       spaceId: 'street',
       layerId: 'ground',
+      surfaceId: 'street-ground',
       x: pose.x,
       y: pose.y,
       angle: pose.angle,

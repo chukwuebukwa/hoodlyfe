@@ -64,14 +64,6 @@ interface PhysicsAttempt extends PhysicsBodyState {
   readonly id: string;
 }
 
-export interface VehicleHumanoidContactPhaseResult {
-  readonly vehicles: readonly VehicleState[];
-  readonly players: readonly PlayerState[];
-  readonly npcs: readonly NpcState[];
-  readonly contacts: number;
-  readonly damagingContacts: number;
-}
-
 interface VehicleSimulationControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -110,7 +102,10 @@ export class VehicleSimulationController {
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly pendingPhysicsDrives: PendingPhysicsDrive[] = [];
   private readonly physicsStepCostSamples: number[] = [];
-  private readonly previousBodies = new Map<string, {x: number; y: number; angle: number}>();
+  private readonly previousBodies = new Map<
+    string,
+    {x: number; y: number; angle: number; surfaceId: string}
+  >();
   private readonly impactAt = new Map<string, number>();
 
   constructor(private readonly options: VehicleSimulationControllerOptions) {}
@@ -119,9 +114,10 @@ export class VehicleSimulationController {
     this.previousBodies.clear();
     for (const vehicle of this.options.state.vehicles.values()) {
       this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle
+          x: vehicle.x,
+          y: vehicle.y,
+          angle: vehicle.angle,
+          surfaceId: vehicle.surfaceId
       });
     }
     for (const player of this.options.state.players.values()) {
@@ -129,7 +125,8 @@ export class VehicleSimulationController {
         this.previousBodies.set(physicsBodyKey('player', player.id), {
           x: player.x,
           y: player.y,
-          angle: player.angle
+          angle: player.angle,
+          surfaceId: player.surfaceId
         });
       }
     }
@@ -138,7 +135,8 @@ export class VehicleSimulationController {
         this.previousBodies.set(physicsBodyKey('pedestrian', npc.id), {
           x: npc.x,
           y: npc.y,
-          angle: npc.angle
+          angle: npc.angle,
+          surfaceId: npc.surfaceId
         });
       }
     }
@@ -194,17 +192,51 @@ export class VehicleSimulationController {
     }
   }
 
-  stepPhysics(deltaSeconds: number, nowMs: number): VehicleHumanoidContactPhaseResult {
+  stepPhysics(deltaSeconds: number, nowMs: number) {
+    const surfaceIds = [...new Set([
+      ...[...this.options.state.vehicles.values()].map((vehicle) => vehicle.surfaceId),
+      ...[...this.options.state.players.values()]
+        .filter((player) => player.alive && !player.vehicleId && player.spaceId === 'street')
+        .map((player) => player.surfaceId),
+      ...[...this.options.state.npcs.values()]
+        .filter((npc) => npc.alive)
+        .map((npc) => npc.surfaceId)
+    ])].sort();
+    const startedAt = performance.now();
+    const results = surfaceIds.map((surfaceId) => (
+      this.stepSurfacePhysics(surfaceId, deltaSeconds, nowMs)
+    ));
+    if (surfaceIds.length === 0) {
+      for (const key of [...this.options.physics.keys()]) this.options.physics.remove(key);
+    }
+    this.physicsStepCostSamples.push(performance.now() - startedAt);
+    if (this.physicsStepCostSamples.length > PHYSICS_COST_SAMPLE_LIMIT) {
+      this.physicsStepCostSamples.shift();
+    }
+    this.pendingPhysicsDrives.length = 0;
+    return Object.freeze({
+      vehicles: Object.freeze(results.flatMap((result) => result.vehicles)),
+      players: Object.freeze(results.flatMap((result) => result.players)),
+      npcs: Object.freeze(results.flatMap((result) => result.npcs)),
+      contacts: results.reduce((sum, result) => sum + result.contacts, 0),
+      damagingContacts: results.reduce((sum, result) => sum + result.damagingContacts, 0)
+    });
+  }
+
+  private stepSurfacePhysics(surfaceId: string, deltaSeconds: number, nowMs: number) {
     const physics = this.options.physics;
+    physics.setStaticsEnabled(
+      surfaceId === (this.options.world.surfaces?.manifest.defaultSurfaceId ?? surfaceId)
+    );
     const attempts = new Map<string, PhysicsAttempt>();
     const pending = new Map(this.pendingPhysicsDrives.map((drive) => [drive.vehicle.id, drive]));
-    const memberIds = new Set<string>();
     const delta = Math.max(0.001, deltaSeconds);
     // ponytail: rebuild dynamic bodies each tick; preserve them only if profiling shows
     // registration cost matters more than deterministic replay from plain body state.
     for (const key of [...physics.keys()]) physics.remove(key);
 
     const vehicles = [...this.options.state.vehicles.values()]
+      .filter((vehicle) => vehicle.surfaceId === surfaceId)
       .sort((left, right) => left.id.localeCompare(right.id));
     for (const vehicle of vehicles) {
       const key = physicsBodyKey('vehicle', vehicle.id);
@@ -225,11 +257,13 @@ export class VehicleSimulationController {
       };
       physics.registerVehicle(key, vehicle.kind, state);
       attempts.set(key, {key, kind: 'vehicle', id: vehicle.id, ...state});
-      memberIds.add(key);
     }
 
     const players = [...this.options.state.players.values()]
-      .filter((player) => player.alive && !player.vehicleId && player.spaceId === 'street')
+      .filter((player) => (
+        player.alive && !player.vehicleId && player.spaceId === 'street' &&
+        player.surfaceId === surfaceId
+      ))
       .sort((left, right) => left.id.localeCompare(right.id));
     for (const player of players) {
       const key = physicsBodyKey('player', player.id);
@@ -254,11 +288,10 @@ export class VehicleSimulationController {
         linvelY: (desired.y - previous.y) / delta,
         angvel: 0
       });
-      memberIds.add(key);
     }
 
     const npcs = [...this.options.state.npcs.values()]
-      .filter((npc) => npc.alive)
+      .filter((npc) => npc.alive && npc.surfaceId === surfaceId)
       .sort((left, right) => left.id.localeCompare(right.id));
     for (const npc of npcs) {
       const key = physicsBodyKey('pedestrian', npc.id);
@@ -283,22 +316,13 @@ export class VehicleSimulationController {
         linvelY: (desired.y - previous.y) / delta,
         angvel: 0
       });
-      memberIds.add(key);
     }
 
-    for (const key of [...physics.keys()]) {
-      if (!memberIds.has(key)) physics.remove(key);
-    }
-
-    const startedAt = performance.now();
     physics.step();
-    this.physicsStepCostSamples.push(performance.now() - startedAt);
-    if (this.physicsStepCostSamples.length > PHYSICS_COST_SAMPLE_LIMIT) {
-      this.physicsStepCostSamples.shift();
-    }
 
     const movedVehicles: VehicleState[] = [];
     for (const vehicle of vehicles) {
+      const previous = this.previousBodies.get(physicsBodyKey('vehicle', vehicle.id)) ?? vehicle;
       const drive = pending.get(vehicle.id);
       const desired = drive?.desired ?? {
         x: vehicle.x,
@@ -312,8 +336,28 @@ export class VehicleSimulationController {
         desired
       );
       if (!captured) continue;
+      const surfaceAfterMove = this.options.world.surfaceAfterMove;
+      const capturedSurfaceId = typeof surfaceAfterMove === 'function'
+        ? surfaceAfterMove.call(
+          this.options.world,
+          previous.surfaceId,
+          previous.x,
+          previous.y,
+          captured.pose.x,
+          captured.pose.y,
+          VEHICLE_RADIUS,
+          'vehicle'
+        )
+        : vehicle.surfaceId;
+      if (!capturedSurfaceId) {
+        vehicle.x = previous.x;
+        vehicle.y = previous.y;
+        vehicle.speed = 0;
+        continue;
+      }
       vehicle.x = captured.pose.x;
       vehicle.y = captured.pose.y;
+      vehicle.surfaceId = capturedSurfaceId;
       vehicle.angle = captured.pose.angle;
       vehicle.speed = captured.pose.speed;
       if (drive && captured.collidedWithWorld) {
@@ -362,7 +406,6 @@ export class VehicleSimulationController {
         if (this.applyHumanoidImpact(first, second, contact, nowMs)) damagingContacts++;
       }
     }
-    this.pendingPhysicsDrives.length = 0;
     return Object.freeze({
       vehicles: Object.freeze(movedVehicles),
       players: Object.freeze(players),
@@ -576,7 +619,17 @@ export class VehicleSimulationController {
     emergencyResponse = false
   ): TrafficObstacle[] {
     const vehicles = this.options.nearbyVehicles(vehicle.x, vehicle.y, lookAhead)
-      .filter((candidate) => candidate.id !== vehicle.id)
+      .filter((candidate) => (
+        candidate.id !== vehicle.id && this.actorsCanInteract(
+          candidate.surfaceId,
+          candidate.x,
+          candidate.y,
+          vehicle.surfaceId,
+          vehicle.x,
+          vehicle.y,
+          'vehicle'
+        )
+      ))
       .map((candidate): TrafficObstacle => ({
         ...vehicleObstacleDimensions(candidate.kind),
         id: candidate.id,
@@ -588,7 +641,17 @@ export class VehicleSimulationController {
         angle: candidate.angle
       }));
     const players = this.options.nearbyPlayers(vehicle.x, vehicle.y, lookAhead)
-      .filter((candidate) => candidate.alive && !candidate.vehicleId)
+      .filter((candidate) => (
+        candidate.alive && !candidate.vehicleId && this.actorsCanInteract(
+          candidate.surfaceId,
+          candidate.x,
+          candidate.y,
+          vehicle.surfaceId,
+          vehicle.x,
+          vehicle.y,
+          'pedestrian'
+        )
+      ))
       .map((candidate): TrafficObstacle => ({
         id: `player:${candidate.id}`,
         kind: 'pedestrian',
@@ -597,7 +660,15 @@ export class VehicleSimulationController {
         radius: PLAYER_RADIUS
       }));
     const npcs = this.options.nearbyNpcs(vehicle.x, vehicle.y, lookAhead)
-      .filter((candidate) => candidate.alive)
+      .filter((candidate) => candidate.alive && this.actorsCanInteract(
+        candidate.surfaceId,
+        candidate.x,
+        candidate.y,
+        vehicle.surfaceId,
+        vehicle.x,
+        vehicle.y,
+        'pedestrian'
+      ))
       .map((candidate): TrafficObstacle => ({
         id: `npc:${candidate.id}`,
         kind: 'pedestrian',
@@ -607,6 +678,30 @@ export class VehicleSimulationController {
       }));
     const signals = this.options.signals?.obstaclesFor(vehicle, nowMs, emergencyResponse) ?? [];
     return [...vehicles, ...players, ...npcs, ...signals];
+  }
+
+  private actorsCanInteract(
+    firstSurfaceId: string,
+    firstX: number,
+    firstY: number,
+    secondSurfaceId: string,
+    secondX: number,
+    secondY: number,
+    actorKind: 'vehicle' | 'pedestrian'
+  ): boolean {
+    const policy = this.options.world.actorsCanInteract;
+    return typeof policy === 'function'
+      ? policy.call(
+        this.options.world,
+        firstSurfaceId,
+        firstX,
+        firstY,
+        secondSurfaceId,
+        secondX,
+        secondY,
+        actorKind
+      )
+      : firstSurfaceId === secondSurfaceId;
   }
 
   private destroy(
@@ -681,7 +776,8 @@ export class VehicleSimulationController {
     this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
       x: vehicle.x,
       y: vehicle.y,
-      angle: vehicle.angle
+      angle: vehicle.angle,
+      surfaceId: vehicle.surfaceId
     });
     this.options.events.publish({
       type: 'vehicle.restored',
@@ -696,6 +792,7 @@ export class VehicleSimulationController {
     for (const player of this.options.access.occupants(vehicle.id)) {
       player.x = vehicle.x;
       player.y = vehicle.y;
+      player.surfaceId = vehicle.surfaceId;
       if (player.vehicleSeat === 0) player.angle = vehicle.angle;
     }
   }

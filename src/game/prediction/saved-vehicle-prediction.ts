@@ -13,6 +13,7 @@ export interface PredictedVehiclePose {
   y: number;
   angle: number;
   speed: number;
+  surfaceId?: string;
 }
 
 export interface VehicleInputMove extends MovementVector {
@@ -43,7 +44,14 @@ export interface VehiclePredictionReplaySample {
   readonly pose: PredictedVehiclePose;
 }
 
-type OccupancyQuery = (x: number, y: number, radius: number) => boolean;
+type OccupancyQuery = (
+  x: number,
+  y: number,
+  radius: number,
+  surfaceId?: string,
+  fromX?: number,
+  fromY?: number
+) => boolean | string;
 
 export type VehiclePoseStepper = (
   pose: PredictedVehiclePose,
@@ -146,7 +154,9 @@ export class SavedVehiclePrediction {
     const compared = historical ?? this.physicsPose ?? authoritative;
     const pending = this.history.filter((move) => move.sequence > acknowledged);
     const measured = correction(authoritative, compared, false, pending.length, this.physicsPose ?? compared);
+    const surfaceChanged = authoritative.surfaceId !== compared.surfaceId;
     const requiresResimulation = !historical ||
+      surfaceChanged ||
       measured.positionError > RESIMULATE_POSITION_ERROR ||
       measured.angularError > RESIMULATE_ANGLE_ERROR ||
       measured.speedError > RESIMULATE_SPEED_ERROR;
@@ -244,7 +254,8 @@ function correction(
     angularError: Math.abs(normalizeAngle(authoritative.angle - compared.angle)),
     speedError: Math.abs(authoritative.speed - compared.speed),
     resimulated,
-    hardCorrection: positionError > HARD_CORRECTION_DISTANCE,
+    hardCorrection: authoritative.surfaceId !== compared.surfaceId ||
+      positionError > HARD_CORRECTION_DISTANCE,
     pendingMoveCount
   };
 }

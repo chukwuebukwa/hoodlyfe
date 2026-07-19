@@ -116,6 +116,28 @@ test('client engine prediction retraces the server physics path bit-for-bit', ()
   );
 });
 
+test('client vehicle prediction retains an authoritative surface transition', () => {
+  const world = PhysicsWorld.create(geometry());
+  const prediction = new SavedVehiclePrediction(
+    createVehiclePhysicsPoseStepper(() => world, 'car')
+  );
+  prediction.initialize({
+    x: 100,
+    y: 100,
+    angle: 0,
+    speed: 0,
+    surfaceId: 'street-ground'
+  });
+  const advanced = prediction.advance(
+    {x: 0, y: -1},
+    'sedan',
+    DT,
+    () => 'bridge'
+  );
+  world.free();
+  assert.equal(advanced.pose.surfaceId, 'bridge');
+});
+
 test('island batch replay matches the shared drive recipe per vehicle and skips the rest', () => {
   const referenceWorld = PhysicsWorld.create(geometry());
   const islandWorld = PhysicsWorld.create(geometry());
@@ -236,6 +258,7 @@ function vehicleEntity(id: string, x: number, y: number): VehicleInteractionStat
     kind: 'vehicle',
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x,
     y,
     angle: 0,

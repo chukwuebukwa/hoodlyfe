@@ -73,6 +73,25 @@ test('walking into a parked vehicle separates without damage', () => {
   assert.equal(fixture.vehicle.x, 1000);
 });
 
+test('overlapping bodies on different physical surfaces never contact or push', () => {
+  const fixture = contactFixture();
+  fixture.player.surfaceId = 'bridge-deck';
+  fixture.player.x = fixture.vehicle.x;
+  fixture.player.y = fixture.vehicle.y;
+  fixture.room.vehicleSimulation.beginTick();
+
+  const result = fixture.room.vehicleSimulation.stepPhysics(
+    VEHICLE_SIMULATION_STEP_SECONDS,
+    1_000
+  );
+
+  assert.equal(result.contacts, 0);
+  assert.equal(result.damagingContacts, 0);
+  assert.equal(fixture.player.health, 100);
+  assert.equal(fixture.player.x, fixture.vehicle.x);
+  assert.equal(fixture.player.y, fixture.vehicle.y);
+});
+
 test('per-pair impact records damage distinct pedestrians and debounce only repeats', () => {
   const fixture = contactFixture();
   const npc = new NpcState();

@@ -23,6 +23,7 @@ interface PendingVehicleExplosion {
   sourceId: string;
   x: number;
   y: number;
+  surfaceId: string;
   excludedPlayerIds: string[];
 }
 
@@ -50,14 +51,15 @@ export class ExplosionController {
     y: number,
     sourceId: string,
     sourceKind: ExplosionSourceKind,
-    nowMs: number
+    nowMs: number,
+    surfaceId: string
   ): string {
     const activeSourceId = sourceId && this.options.state.players.has(sourceId) ? sourceId : '';
     const effectiveSourceKind: ExplosionSourceKind = activeSourceId
       ? 'player'
       : (sourceKind === 'vehicle' ? 'vehicle' : 'world');
     return this.createAndApply(
-      kind, x, y, activeSourceId, effectiveSourceKind, nowMs, []
+      kind, x, y, activeSourceId, effectiveSourceKind, nowMs, surfaceId, []
     );
   }
 
@@ -72,6 +74,7 @@ export class ExplosionController {
         sourceId: event.sourceId,
         x: vehicle.x,
         y: vehicle.y,
+        surfaceId: vehicle.surfaceId,
         excludedPlayerIds: [...event.occupantIds]
       });
     }
@@ -100,6 +103,7 @@ export class ExplosionController {
       activeSourceId,
       activeSourceId ? 'player' : 'vehicle',
       nowMs,
+      explosion.surfaceId,
       explosion.excludedPlayerIds
     );
   }
@@ -111,6 +115,7 @@ export class ExplosionController {
     sourceId: string,
     sourceKind: ExplosionSourceKind,
     nowMs: number,
+    surfaceId: string,
     excludedPlayerIds: readonly string[]
   ): string {
     const policy = EXPLOSION_POLICIES[kind];
@@ -120,13 +125,14 @@ export class ExplosionController {
     explosion.kind = kind;
     explosion.sourceId = sourceId;
     explosion.sourceKind = sourceKind;
+    explosion.surfaceId = surfaceId;
     explosion.x = x;
     explosion.y = y;
     explosion.radius = policy.radius;
     explosion.createdAt = nowMs;
     explosion.expiresAt = nowMs + policy.visualLifetimeMs;
     this.options.state.explosions.set(explosion.id, explosion);
-    this.applyDamage(kind, x, y, sourceId, nowMs, excludedPlayerIds);
+    this.applyDamage(kind, x, y, sourceId, nowMs, surfaceId, excludedPlayerIds);
     this.options.events.publish({
       type: 'explosion.created',
       tick: this.options.clock().tick,
@@ -148,11 +154,15 @@ export class ExplosionController {
     y: number,
     sourceId: string,
     nowMs: number,
+    surfaceId: string,
     excludedPlayerIds: readonly string[]
   ): void {
     const policy = EXPLOSION_POLICIES[kind];
     for (const player of this.options.queryPlayers(x, y, policy.radius)) {
-      if (!player.alive || player.vehicleId || excludedPlayerIds.includes(player.id)) continue;
+      if (
+        !player.alive || player.vehicleId || player.surfaceId !== surfaceId ||
+        excludedPlayerIds.includes(player.id)
+      ) continue;
       const amount = scaledDamage(player.x, player.y, x, y, policy.radius, policy.maximumPedestrianDamage);
       this.options.damage.player(
         player,
@@ -165,7 +175,7 @@ export class ExplosionController {
       );
     }
     for (const npc of this.options.queryNpcs(x, y, policy.radius)) {
-      if (!npc.alive) continue;
+      if (!npc.alive || npc.surfaceId !== surfaceId) continue;
       const amount = scaledDamage(npc.x, npc.y, x, y, policy.radius, policy.maximumPedestrianDamage);
       this.options.damage.npc(
         npc,
@@ -177,7 +187,7 @@ export class ExplosionController {
       );
     }
     for (const vehicle of this.options.queryVehicles(x, y, policy.radius)) {
-      if (vehicle.destroyed) continue;
+      if (vehicle.destroyed || vehicle.surfaceId !== surfaceId) continue;
       const amount = scaledDamage(vehicle.x, vehicle.y, x, y, policy.radius, policy.maximumVehicleDamage);
       const directionX = vehicle.x - x;
       const directionY = vehicle.y - y;

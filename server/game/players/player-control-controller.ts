@@ -129,8 +129,29 @@ export class PlayerControlController {
           this.options.interiors?.canOccupy(spaceId, x, y, radius) ?? false,
         modifiers
       ).pose;
-    player.x = moved.x;
-    player.y = moved.y;
+    if (player.spaceId === 'street') {
+      const moveSurface = this.options.world.surfaceAfterMove;
+      const surfaceId = typeof moveSurface === 'function'
+        ? moveSurface.call(
+          this.options.world,
+          player.surfaceId,
+          player.x,
+          player.y,
+          moved.x,
+          moved.y,
+          PLAYER_RADIUS,
+          'player'
+        )
+        : player.surfaceId;
+      if (surfaceId) {
+        player.x = moved.x;
+        player.y = moved.y;
+        player.surfaceId = surfaceId;
+      }
+    } else {
+      player.x = moved.x;
+      player.y = moved.y;
+    }
     if (player.spaceId !== 'street') this.options.interiors?.afterMove(player);
     if (!player.action) this.options.interiors?.tryEnter(player);
     player.lastInputSequence = control.lastSequence;

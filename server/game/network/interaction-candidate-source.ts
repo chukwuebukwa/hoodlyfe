@@ -15,7 +15,12 @@ export interface InteractionBroadphaseActor {
 }
 
 export interface InteractionCandidateSourceOptions {
-  queryActors: (x: number, y: number, radius: number) => readonly InteractionBroadphaseActor[];
+  queryActors: (
+    x: number,
+    y: number,
+    radius: number,
+    surfaceId: string
+  ) => readonly InteractionBroadphaseActor[];
   radius?: number;
 }
 
@@ -34,7 +39,7 @@ export class InteractionCandidateSource {
   forAnchor(anchor: InteractionProjectionAnchor): InteractionCandidateReference[] {
     const candidates: Array<InteractionCandidateReference & {distance: number}> = [];
     const seen = new Set<string>();
-    for (const actor of this.options.queryActors(anchor.x, anchor.y, this.radius)) {
+    for (const actor of this.options.queryActors(anchor.x, anchor.y, this.radius, anchor.layerId)) {
       const reference = this.actorReference(actor, anchor.spaceId);
       if (!reference) continue;
       if (reference.kind === anchor.kind && reference.id === anchor.id) continue;
@@ -42,10 +47,14 @@ export class InteractionCandidateSource {
     }
     if (anchor.spaceId === STREET_SPACE_ID) {
       for (const rocket of this.state.rockets.values()) {
-        this.addProjectile(candidates, seen, anchor, rocket.id, rocket.x, rocket.y);
+        if (rocket.surfaceId === anchor.layerId) {
+          this.addProjectile(candidates, seen, anchor, rocket.id, rocket.x, rocket.y);
+        }
       }
       for (const projectile of this.state.thrownProjectiles.values()) {
-        this.addProjectile(candidates, seen, anchor, projectile.id, projectile.x, projectile.y);
+        if (projectile.surfaceId === anchor.layerId) {
+          this.addProjectile(candidates, seen, anchor, projectile.id, projectile.x, projectile.y);
+        }
       }
     }
     return candidates

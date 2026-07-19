@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import type {
   DistrictNetworkState,
   NetworkNpc,
@@ -72,7 +73,10 @@ import {
   type OnFootPredictionCorrection
 } from '../prediction/saved-on-foot-prediction.ts';
 import type {OnFootInputMoveMessage} from '../../../shared/protocol/on-foot-input.ts';
-import {onFootMovementScale} from '../../../shared/simulation/on-foot-step.ts';
+import {
+  onFootMovementScale,
+  type OnFootWorldOccupancy
+} from '../../../shared/simulation/on-foot-step.ts';
 import {
   angleCorrectionOffset,
   decayCorrectionOffset,
@@ -130,6 +134,7 @@ interface RenderedEntity {
   onFootPrediction?: SavedOnFootPrediction;
   onFootCorrection?: OnFootPredictionCorrection;
   predictedSpaceId?: string;
+  predictedSurfaceId?: string;
   acknowledgedInputSequence?: number;
   vehiclePrediction?: SavedVehiclePrediction;
   vehicleCorrection?: VehiclePredictionCorrection;
@@ -201,8 +206,17 @@ export class ThreeDistrictEntities {
     private readonly scene: THREE.Scene,
     private readonly textures: EntityTextures,
     private readonly lpcSources: LpcSpriteSources,
-    private readonly surfaceHeightAt: (x: number, y: number) => number,
+    private readonly surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
     private readonly canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean,
+    private readonly surfaceAfterMove: (
+      surfaceId: string,
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+      radius: number,
+      actorKind: 'player' | 'vehicle'
+    ) => string | undefined,
     private readonly onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
@@ -212,8 +226,17 @@ export class ThreeDistrictEntities {
 
   static async create(
     scene: THREE.Scene,
-    surfaceHeightAt: (x: number, y: number) => number,
-    canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean = () => true,
+    surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
+    canOccupy: (spaceId: string, x: number, y: number, radius: number) => boolean,
+    surfaceAfterMove: (
+      surfaceId: string,
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+      radius: number,
+      actorKind: 'player' | 'vehicle'
+    ) => string | undefined,
     onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
@@ -269,6 +292,7 @@ export class ThreeDistrictEntities {
       lpcSources,
       surfaceHeightAt,
       canOccupy,
+      surfaceAfterMove,
       onRemoteTimeline,
       remoteTimelinesEnabled,
       vehiclePhysicsWorld
@@ -347,7 +371,7 @@ export class ThreeDistrictEntities {
     rendered.mesh.position.set(
       stinger.x,
       serverYToThree(stinger.y),
-      this.surfaceHeightAt(stinger.x, stinger.y) + 7
+      this.surfaceHeightAt(stinger.x, stinger.y, STREET_GROUND_SURFACE_ID) + 7
     );
     rendered.mesh.rotation.z = serverAngleToThree(stinger.angle);
     rendered.mesh.visible = segmentCount > 0;
@@ -395,7 +419,7 @@ export class ThreeDistrictEntities {
     const advanced = rendered.onFootPrediction.advance(
       movement,
       deltaSeconds,
-      this.canOccupy,
+      this.onFootCanOccupy,
       movementScale
     );
     rendered.visualOffsetX = decayCorrectionOffset(
@@ -411,7 +435,16 @@ export class ThreeDistrictEntities {
     const x = advanced.pose.x + rendered.visualOffsetX;
     const y = advanced.pose.y + rendered.visualOffsetY;
     rendered.predictedSpaceId = advanced.pose.spaceId;
-    rendered.mesh.position.set(x, serverYToThree(y), this.surfaceHeightAt(x, y) + 4);
+    rendered.predictedSurfaceId = advanced.pose.surfaceId;
+    rendered.mesh.position.set(
+      x,
+      serverYToThree(y),
+      this.surfaceHeightAt(
+        x,
+        y,
+        advanced.pose.surfaceId ?? player.surfaceId ?? STREET_GROUND_SURFACE_ID
+      ) + 4
+    );
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
     const correction = rendered.onFootCorrection;
@@ -431,7 +464,7 @@ export class ThreeDistrictEntities {
       movement,
       vehicle.kind,
       deltaSeconds,
-      (x, y, radius) => this.canOccupy('street', x, y, radius),
+      this.vehicleCanOccupy,
       vehicleMechanicalStepModifiers(
         vehicle.engineDamage,
         vehicle.onFire,
@@ -462,10 +495,15 @@ export class ThreeDistrictEntities {
     };
     rendered.predictedAngle = predicted.angle;
     rendered.predictedSpeed = predicted.speed;
+    rendered.predictedSurfaceId = advanced.pose.surfaceId;
     rendered.mesh.position.set(
       predicted.x,
       serverYToThree(predicted.y),
-      this.surfaceHeightAt(predicted.x, predicted.y) + 3
+      this.surfaceHeightAt(
+        predicted.x,
+        predicted.y,
+        advanced.pose.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
+      ) + 3
     );
     rendered.mesh.rotation.z = serverVehicleAngleToThree(predicted.angle);
     rendered.mesh.userData.worldX = predicted.x;
@@ -475,6 +513,43 @@ export class ThreeDistrictEntities {
     rendered.vehicleCorrection = undefined;
     return {correction, outboundMoves: advanced.outboundMoves};
   }
+
+  private readonly onFootCanOccupy: OnFootWorldOccupancy = (
+    spaceId,
+    x,
+    y,
+    radius,
+    surfaceId,
+    fromX = x,
+    fromY = y
+  ) => spaceId === 'street'
+    ? this.surfaceAfterMove(
+      surfaceId ?? STREET_GROUND_SURFACE_ID,
+      fromX,
+      fromY,
+      x,
+      y,
+      radius,
+      'player'
+    ) ?? false
+    : this.canOccupy(spaceId, x, y, radius);
+
+  private readonly vehicleCanOccupy = (
+    x: number,
+    y: number,
+    radius: number,
+    surfaceId = STREET_GROUND_SURFACE_ID,
+    fromX = x,
+    fromY = y
+  ): boolean | string => this.surfaceAfterMove(
+    surfaceId,
+    fromX,
+    fromY,
+    x,
+    y,
+    radius,
+    'vehicle'
+  ) ?? false;
 
   prepareInteractionReplay(
     baseline: InteractionIslandBaseline
@@ -651,6 +726,7 @@ export class ThreeDistrictEntities {
           createHumanoidPhysicsPoseStepper(this.vehiclePhysicsWorld, id)
         ),
         predictedSpaceId: player.spaceId || 'street',
+        predictedSurfaceId: player.surfaceId ?? STREET_GROUND_SURFACE_ID,
         acknowledgedInputSequence: player.lastInputSequence ?? 0,
         visualOffsetX: 0,
         visualOffsetY: 0
@@ -658,8 +734,10 @@ export class ThreeDistrictEntities {
     });
     const playerSpaceId = player.spaceId || 'street';
     const localOnFoot = isLocal && player.alive && !player.vehicleId;
+    const playerSurfaceId = player.surfaceId ?? STREET_GROUND_SURFACE_ID;
     const authorityChanged = rendered.authoritativeX !== player.x ||
-      rendered.authoritativeY !== player.y || rendered.predictedSpaceId !== playerSpaceId;
+      rendered.authoritativeY !== player.y || rendered.predictedSpaceId !== playerSpaceId ||
+      rendered.predictedSurfaceId !== playerSurfaceId;
     const acknowledgedSequence = player.lastInputSequence ?? 0;
     const acknowledgementChanged = rendered.acknowledgedInputSequence !== acknowledgedSequence;
     rendered.localPlayer = isLocal;
@@ -673,17 +751,22 @@ export class ThreeDistrictEntities {
     );
     if (localOnFoot && !rendered.localOnFoot) {
       rendered.onFootPrediction?.initialize(
-        {x: player.x, y: player.y, spaceId: playerSpaceId},
+        {x: player.x, y: player.y, spaceId: playerSpaceId, surfaceId: playerSurfaceId},
         acknowledgedSequence
       );
       rendered.mesh.position.set(
         player.x,
         serverYToThree(player.y),
-        this.surfaceHeightAt(player.x, player.y) + 4
+        this.surfaceHeightAt(
+          player.x,
+          player.y,
+          player.surfaceId ?? STREET_GROUND_SURFACE_ID
+        ) + 4
       );
       rendered.visualOffsetX = 0;
       rendered.visualOffsetY = 0;
       rendered.predictedSpaceId = playerSpaceId;
+      rendered.predictedSurfaceId = playerSurfaceId;
       rendered.acknowledgedInputSequence = acknowledgedSequence;
     } else if (
       localOnFoot &&
@@ -693,9 +776,9 @@ export class ThreeDistrictEntities {
       const beforeX = rendered.mesh.position.x;
       const beforeY = serverYToThree(rendered.mesh.position.y);
       const correction = rendered.onFootPrediction?.reconcile(
-        {x: player.x, y: player.y, spaceId: playerSpaceId},
+        {x: player.x, y: player.y, spaceId: playerSpaceId, surfaceId: playerSurfaceId},
         acknowledgedSequence,
-        this.canOccupy
+        this.onFootCanOccupy
       );
       if (correction) {
         const offset = positionCorrectionOffset(
@@ -709,6 +792,7 @@ export class ThreeDistrictEntities {
         rendered.visualOffsetY = offset.y;
         rendered.onFootCorrection = correction;
         rendered.predictedSpaceId = correction.pose.spaceId;
+        rendered.predictedSurfaceId = correction.pose.surfaceId;
         rendered.acknowledgedInputSequence = acknowledgedSequence;
       }
     }
@@ -818,7 +902,11 @@ export class ThreeDistrictEntities {
     rendered.presentationAimOrigin = attachments.weaponBase;
     const x = attachments.body.x;
     const y = attachments.body.y;
-    const z = this.surfaceHeightAt(x, y) + (attachments.passenger ? 8 : 4);
+    const z = this.surfaceHeightAt(
+      x,
+      y,
+      player.surfaceId ?? STREET_GROUND_SURFACE_ID
+    ) + (attachments.passenger ? 8 : 4);
     if (localOnFoot) rendered.mesh.position.z = z;
     else positionEntity(rendered.mesh, x, y, z, buffered ? 1 : interaction ? 0.38 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
@@ -856,7 +944,15 @@ export class ThreeDistrictEntities {
       );
     }
     if (rendered.blood) {
-      rendered.blood.position.set(player.x, serverYToThree(player.y), this.surfaceHeightAt(player.x, player.y) + 2);
+      rendered.blood.position.set(
+        player.x,
+        serverYToThree(player.y),
+        this.surfaceHeightAt(
+          player.x,
+          player.y,
+          player.surfaceId ?? STREET_GROUND_SURFACE_ID
+        ) + 2
+      );
       rendered.blood.visible = !player.alive && !vehicle;
     }
     if (rendered.fire) {
@@ -888,7 +984,11 @@ export class ThreeDistrictEntities {
     if (rendered.label) {
       const labelX = attachments.root.x;
       const labelY = attachments.root.y;
-      const labelZ = this.surfaceHeightAt(labelX, labelY) + 12;
+      const labelZ = this.surfaceHeightAt(
+        labelX,
+        labelY,
+        player.surfaceId ?? STREET_GROUND_SURFACE_ID
+      ) + 12;
       rendered.label.position.set(
         labelX,
         serverYToThree(labelY) + 40 + Math.max(0, player.vehicleSeat) * 13,
@@ -934,7 +1034,7 @@ export class ThreeDistrictEntities {
       rendered.mesh,
       x,
       y,
-      this.surfaceHeightAt(x, y) + 3,
+      this.surfaceHeightAt(x, y, npc.surfaceId ?? STREET_GROUND_SURFACE_ID) + 3,
       buffered ? 1 : interaction ? 0.36 : 0.28
     );
     const reaction = combatReactionPresentation(npc);
@@ -992,7 +1092,11 @@ export class ThreeDistrictEntities {
       reaction.tint ?? melee.tint ?? presentation.tint ?? 0xffffff
     );
     if (rendered.blood) {
-      rendered.blood.position.set(x, serverYToThree(y), this.surfaceHeightAt(x, y) + 2);
+      rendered.blood.position.set(
+        x,
+        serverYToThree(y),
+        this.surfaceHeightAt(x, y, npc.surfaceId ?? STREET_GROUND_SURFACE_ID) + 2
+      );
       rendered.blood.visible = !npc.alive || npc.action === 'dead';
     }
     if (rendered.fire) {
@@ -1060,7 +1164,8 @@ export class ThreeDistrictEntities {
     }));
     const authorityChanged = (
       rendered.authoritativeX !== vehicle.x || rendered.authoritativeY !== vehicle.y ||
-      rendered.authoritativeAngle !== vehicle.angle || rendered.authoritativeSpeed !== vehicle.speed
+      rendered.authoritativeAngle !== vehicle.angle || rendered.authoritativeSpeed !== vehicle.speed ||
+      rendered.predictedSurfaceId !== (vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID)
     );
     rendered.authoritativeX = vehicle.x;
     rendered.authoritativeY = vehicle.y;
@@ -1087,10 +1192,15 @@ export class ThreeDistrictEntities {
     if (becameLocalDriver) {
       rendered.predictedAngle = vehicle.angle;
       rendered.predictedSpeed = vehicle.speed;
+      rendered.predictedSurfaceId = vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID;
       rendered.mesh.position.set(
         vehicle.x,
         serverYToThree(vehicle.y),
-        this.surfaceHeightAt(vehicle.x, vehicle.y) + 3
+        this.surfaceHeightAt(
+          vehicle.x,
+          vehicle.y,
+          vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
+        ) + 3
       );
       rendered.mesh.rotation.z = serverVehicleAngleToThree(vehicle.angle);
       rendered.mesh.userData.positionInitialized = true;
@@ -1099,7 +1209,8 @@ export class ThreeDistrictEntities {
         x: vehicle.x,
         y: vehicle.y,
         angle: vehicle.angle,
-        speed: vehicle.speed
+        speed: vehicle.speed,
+        surfaceId: vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
       }, acknowledgedSequence);
       rendered.visualOffsetX = 0;
       rendered.visualOffsetY = 0;
@@ -1117,18 +1228,15 @@ export class ThreeDistrictEntities {
         x: vehicle.x,
         y: vehicle.y,
         angle: vehicle.angle,
-        speed: vehicle.speed
-      }, acknowledgedSequence, vehicle.kind, (x, y, radius) => this.canOccupy(
-        'street',
-        x,
-        y,
-        radius
-      ), vehicleMechanicalStepModifiers(
+        speed: vehicle.speed,
+        surfaceId: vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
+      }, acknowledgedSequence, vehicle.kind, this.vehicleCanOccupy, vehicleMechanicalStepModifiers(
         vehicle.engineDamage,
         vehicle.onFire,
         vehicle.tyreDamageMask
       ));
       if (correction) {
+        rendered.predictedSurfaceId = correction.pose.surfaceId;
         rendered.vehicleCorrection = correction;
         const offset = positionCorrectionOffset(
           beforeX,
@@ -1167,7 +1275,11 @@ export class ThreeDistrictEntities {
     const x = interaction?.x ?? buffered?.x ?? vehicle.x;
     const y = interaction?.y ?? buffered?.y ?? vehicle.y;
     const angle = interaction?.angle ?? buffered?.angle ?? vehicle.angle;
-    const z = this.surfaceHeightAt(x, y) + 3;
+    const z = this.surfaceHeightAt(
+      x,
+      y,
+      vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
+    ) + 3;
     if (!localDriver) {
       positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.3);
       rendered.mesh.rotation.z = rotateTowards(
@@ -1653,7 +1765,12 @@ function initializedOnFootPrediction(
 ): SavedOnFootPrediction {
   const prediction = new SavedOnFootPrediction(stepper);
   prediction.initialize(
-    {x: player.x, y: player.y, spaceId: player.spaceId || 'street'},
+    {
+      x: player.x,
+      y: player.y,
+      spaceId: player.spaceId || 'street',
+      surfaceId: player.surfaceId ?? STREET_GROUND_SURFACE_ID
+    },
     player.lastInputSequence ?? 0
   );
   return prediction;

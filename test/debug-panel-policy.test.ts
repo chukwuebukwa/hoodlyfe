@@ -52,6 +52,7 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     interactionReplay: 'off',
     interactionSelection: 'off',
     playerReaction: 'off',
+    surface: 'off',
     simulationPhases: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
@@ -71,6 +72,22 @@ test('debug panel exposes the local player reaction state', () => {
   assert.equal(
     projectDebugPanel(state, undefined, undefined, undefined, undefined, 'driver').playerReaction,
     'hit / stagger left 35% / HP 72 / armor 8'
+  );
+});
+
+test('debug panel exposes the local authoritative physical surface', () => {
+  const state = createState();
+  state.players.set('driver', {
+    spaceId: 'street',
+    surfaceId: 'bridge-deck',
+    vehicleId: '',
+    x: 128.4,
+    y: 63.6
+  } as never);
+
+  assert.equal(
+    projectDebugPanel(state, undefined, undefined, undefined, undefined, 'driver').surface,
+    'street / bridge-deck @ 128,64'
   );
 });
 

@@ -296,6 +296,9 @@ export class FireControlController {
     bullet.id = String(this.nextBulletId++);
     bullet.ownerId = ownerId;
     bullet.ownerKind = ownerKind;
+    bullet.surfaceId = (
+      this.options.state.players.get(ownerId) ?? this.options.state.npcs.get(ownerId)
+    )?.surfaceId ?? bullet.surfaceId;
     bullet.angle = angle;
     bullet.weapon = weapon;
     bullet.x = x + Math.cos(angle) * 18;

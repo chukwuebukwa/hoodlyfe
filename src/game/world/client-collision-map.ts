@@ -58,7 +58,7 @@ export class ClientCollisionMap {
     ].every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY));
   }
 
-  private isBlockedAt(x: number, y: number): boolean {
+  isBlockedAt(x: number, y: number): boolean {
     const column = Math.floor(x / this.map.tilewidth);
     const row = Math.floor(y / this.map.tileheight);
     if (column < 0 || row < 0 || column >= this.map.width || row >= this.map.height) return true;

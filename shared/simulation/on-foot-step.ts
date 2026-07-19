@@ -10,6 +10,7 @@ export interface OnFootPose {
   x: number;
   y: number;
   spaceId: string;
+  surfaceId?: string;
 }
 
 export interface OnFootControlCommand {
@@ -49,7 +50,8 @@ export function integrateOnFootPose(
   return {
     x: finite(pose.x) + inputX * normalization * distance,
     y: finite(pose.y) + inputY * normalization * distance,
-    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street'
+    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street',
+    ...(pose.surfaceId ? {surfaceId: pose.surfaceId} : {})
   };
 }
 
@@ -57,8 +59,11 @@ export type OnFootWorldOccupancy = (
   spaceId: string,
   x: number,
   y: number,
-  radius: number
-) => boolean;
+  radius: number,
+  surfaceId?: string,
+  fromX?: number,
+  fromY?: number
+) => boolean | string;
 
 export function stepInteriorOnFootPose(
   pose: OnFootPose,
@@ -78,12 +83,25 @@ export function stepInteriorOnFootPose(
   const moveY = attemptedY - startY;
   let x = startX;
   let y = startY;
-  const collidedX = moveX !== 0 && !canOccupy(spaceId, attemptedX, y, radius);
-  if (!collidedX) x = attemptedX;
-  const collidedY = moveY !== 0 && !canOccupy(spaceId, x, attemptedY, radius);
-  if (!collidedY) y = attemptedY;
+  let surfaceId = pose.surfaceId;
+  const xOccupancy = moveX !== 0
+    ? canOccupy(spaceId, attemptedX, y, radius, surfaceId, x, y)
+    : true;
+  const collidedX = !xOccupancy;
+  if (!collidedX) {
+    x = attemptedX;
+    if (typeof xOccupancy === 'string') surfaceId = xOccupancy;
+  }
+  const yOccupancy = moveY !== 0
+    ? canOccupy(spaceId, x, attemptedY, radius, surfaceId, x, y)
+    : true;
+  const collidedY = !yOccupancy;
+  if (!collidedY) {
+    y = attemptedY;
+    if (typeof yOccupancy === 'string') surfaceId = yOccupancy;
+  }
   return {
-    pose: {x, y, spaceId},
+    pose: {x, y, spaceId, ...(surfaceId ? {surfaceId} : {})},
     attemptedX,
     attemptedY,
     collidedX,

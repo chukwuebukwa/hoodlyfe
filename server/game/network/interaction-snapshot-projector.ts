@@ -14,6 +14,7 @@ import {
   type RemoteIntentState
 } from '../../../shared/protocol/interaction-contracts.ts';
 import {validateInteractionSnapshot} from '../../../shared/protocol/interaction-snapshot-validation.ts';
+import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import {
   ON_FOOT_PLAYER_RADIUS,
   ON_FOOT_PLAYER_SPEED,
@@ -386,7 +387,7 @@ export class InteractionSnapshotProjector {
       player,
       player.id,
       player.spaceId || 'street',
-      'ground',
+      player.surfaceId || STREET_GROUND_SURFACE_ID,
       player.x,
       player.y,
       player.angle,
@@ -404,7 +405,6 @@ export class InteractionSnapshotProjector {
       movementMode: movementMode(common.velocityX, common.velocityY, intent),
       actionPhase: phase,
       actionTick: actionTick(this.tracks.get(entityKey('player', player.id)), clock.tick, phase),
-      surfaceId: player.spaceId || 'street',
       alive: player.alive
     });
   }
@@ -416,7 +416,7 @@ export class InteractionSnapshotProjector {
       npc,
       npc.id,
       'street',
-      'ground',
+      npc.surfaceId || STREET_GROUND_SURFACE_ID,
       npc.x,
       npc.y,
       npc.angle,
@@ -438,7 +438,6 @@ export class InteractionSnapshotProjector {
         clock.tick,
         phase
       ),
-      surfaceId: 'street',
       alive: npc.alive
     });
   }
@@ -455,7 +454,7 @@ export class InteractionSnapshotProjector {
       vehicle,
       vehicle.id,
       'street',
-      'ground',
+      vehicle.surfaceId || STREET_GROUND_SURFACE_ID,
       vehicle.x,
       vehicle.y,
       vehicle.angle,
@@ -486,7 +485,7 @@ export class InteractionSnapshotProjector {
   }
 
   private projectProjectile(
-    projectile: {id: string; x: number; y: number; angle: number},
+    projectile: {id: string; surfaceId: string; x: number; y: number; angle: number},
     radius: number,
     ownerId: string,
     clock: InteractionClock,
@@ -497,7 +496,7 @@ export class InteractionSnapshotProjector {
       projectile,
       projectile.id,
       'street',
-      'ground',
+      projectile.surfaceId || STREET_GROUND_SURFACE_ID,
       projectile.x,
       projectile.y,
       projectile.angle,
@@ -519,7 +518,7 @@ export class InteractionSnapshotProjector {
     object: object,
     id: string,
     spaceId: string,
-    layerId: string,
+    surfaceId: string,
     x: number,
     y: number,
     angle: number,
@@ -530,7 +529,7 @@ export class InteractionSnapshotProjector {
     clock: InteractionClock,
     exactMotion?: InteractionProjectileMotion
   ): KinematicInteractionState | undefined {
-    if (!id || !spaceId || !layerId || ![x, y, angle].every(Number.isFinite)) return undefined;
+    if (!id || !spaceId || !surfaceId || ![x, y, angle].every(Number.isFinite)) return undefined;
     const key = entityKey(kind, id);
     const previous = this.tracks.get(key);
     const lifecycleChanged = Boolean(previous && (
@@ -579,7 +578,8 @@ export class InteractionSnapshotProjector {
       id,
       kind,
       spaceId,
-      layerId,
+      surfaceId,
+      layerId: surfaceId,
       x,
       y,
       angle: normalizeAngle(angle),

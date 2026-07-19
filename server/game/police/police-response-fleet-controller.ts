@@ -180,6 +180,7 @@ export class PoliceResponseFleetController {
     vehicle.kind = 'police';
     vehicle.x = spawn.x;
     vehicle.y = spawn.y;
+    if (spawn.surfaceId) vehicle.surfaceId = spawn.surfaceId;
     vehicle.angle = spawn.angle;
     vehicle.maxHealth = vehicleConfig(vehicle.kind).maxHealth;
     vehicle.health = vehicle.maxHealth;

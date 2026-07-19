@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Text.Json;
 using OpenGta2.GameData.Map;
 using OpenGta2.GameData.Riff;
@@ -110,6 +111,7 @@ public sealed class WebAssetExporter
         Directory.CreateDirectory(mapsDirectory);
         Directory.CreateDirectory(spritesDirectory);
         ExportThreePrototype(map, style, surfaces, mapsDirectory, originX, originY, width, height);
+        ExportSurfaceManifest(surfaces, mapsDirectory, originX, originY, width, height, spawn);
 
         var baseAtlas = CreateAtlas(style, baseVariants);
         var overlayAtlas = CreateAtlas(style, overlayVariants);
@@ -219,7 +221,7 @@ public sealed class WebAssetExporter
                 var faces = new List<TileFace>();
                 for (var z = column.Offset; z < column.Height; z++)
                 {
-                    var block = map.CompressedMap.Blocks[column.Blocks[z - column.Offset]];
+                    ref var block = ref map.CompressedMap.Blocks[column.Blocks[z - column.Offset]];
                     var tile = block.Lid.TileGraphic;
                     if (tile == 0 || tile >= tileCount)
                     {
@@ -231,7 +233,8 @@ public sealed class WebAssetExporter
                         block.Lid.Rotation,
                         block.Lid.Flip,
                         block.SlopeType.GroundType,
-                        z + 1));
+                        z + 1,
+                        WalkableSurfaceGeometry.Build(ref block, new Vector3(x, y, z))));
                 }
 
                 result[y, x] = new SurfaceCell(faces.ToArray());
@@ -546,6 +549,240 @@ public sealed class WebAssetExporter
         };
         WriteJson(Path.Combine(outputDirectory, "prototype.json"), payload);
     }
+
+    private static void ExportSurfaceManifest(
+        SurfaceCell[,] surfaces,
+        string mapsDirectory,
+        int originX,
+        int originY,
+        int width,
+        int height,
+        GridPoint spawn)
+    {
+        var faces = new List<SurfaceFace>();
+        for (var y = originY; y < originY + height; y++)
+        {
+            for (var x = originX; x < originX + width; x++)
+            {
+                foreach (var face in surfaces[y, x].Faces)
+                {
+                    if (face.GroundType == GroundType.Air || face.Triangles.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    faces.Add(new SurfaceFace(
+                        faces.Count,
+                        x,
+                        y,
+                        face,
+                        PlaneKey(face.Triangles[0]),
+                        BoundaryEdges(face.Triangles)));
+                }
+            }
+        }
+
+        if (faces.Count == 0)
+        {
+            throw new InvalidDataException("Surface manifest requires at least one walkable face.");
+        }
+
+        var edges = new Dictionary<SurfaceEdgeKey, List<(SurfaceFace Face, SurfaceBoundaryEdge Edge)>>();
+        foreach (var face in faces)
+        {
+            foreach (var edge in face.BoundaryEdges)
+            {
+                if (!edges.TryGetValue(edge.Key, out var entries))
+                {
+                    entries = [];
+                    edges.Add(edge.Key, entries);
+                }
+                entries.Add((face, edge));
+            }
+        }
+
+        var parents = Enumerable.Range(0, faces.Count).ToArray();
+        foreach (var entries in edges.Values)
+        {
+            for (var first = 0; first < entries.Count; first++)
+            {
+                for (var second = first + 1; second < entries.Count; second++)
+                {
+                    if (entries[first].Face.PlaneKey == entries[second].Face.PlaneKey)
+                    {
+                        Union(parents, entries[first].Face.Index, entries[second].Face.Index);
+                    }
+                }
+            }
+        }
+
+        var grouped = faces.GroupBy(face => Root(parents, face.Index)).ToArray();
+        var pedestrianFace = surfaces[spawn.Y, spawn.X].PedestrianFace;
+        var defaultFace = faces.FirstOrDefault(face =>
+            face.X == spawn.X && face.Y == spawn.Y && face.Face.Height == pedestrianFace?.Height);
+        if (defaultFace is null)
+        {
+            throw new InvalidDataException("Spawn does not resolve to an exported surface.");
+        }
+        var defaultRoot = Root(parents, defaultFace.Index);
+        var surfaceIds = new Dictionary<int, string>();
+        foreach (var group in grouped)
+        {
+            var first = group
+                .OrderBy(face => face.Y)
+                .ThenBy(face => face.X)
+                .ThenBy(face => face.Face.Height)
+                .First();
+            var id = group.Key == defaultRoot
+                ? "street-ground"
+                : $"street-surface-{first.X - originX}-{first.Y - originY}-{first.Face.Height}";
+            if (surfaceIds.ContainsValue(id))
+            {
+                throw new InvalidDataException($"Surface ID {id} is not stable and unique.");
+            }
+            surfaceIds.Add(group.Key, id);
+        }
+        var defaultSurfaceId = surfaceIds[defaultRoot];
+
+        var actorKinds = new[] {"player", "pedestrian", "vehicle", "projectile", "prop"};
+        var exportedSurfaces = grouped
+            .Select(group => new
+            {
+                id = surfaceIds[group.Key],
+                spaceId = "street",
+                actorKinds,
+                triangles = group
+                    .SelectMany(face => face.Face.Triangles)
+                    .Select(triangle => new
+                    {
+                        a = SurfacePoint(triangle.A, originX, originY),
+                        b = SurfacePoint(triangle.B, originX, originY),
+                        c = SurfacePoint(triangle.C, originX, originY)
+                    })
+                    .ToArray()
+            })
+            .OrderBy(surface => surface.id, StringComparer.Ordinal)
+            .ToArray();
+
+        var exportedTransitions = new List<object>();
+        var transitionKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entries in edges.Values)
+        {
+            for (var first = 0; first < entries.Count; first++)
+            {
+                for (var second = first + 1; second < entries.Count; second++)
+                {
+                    var firstRoot = Root(parents, entries[first].Face.Index);
+                    var secondRoot = Root(parents, entries[second].Face.Index);
+                    if (firstRoot == secondRoot)
+                    {
+                        continue;
+                    }
+                    var firstId = surfaceIds[firstRoot];
+                    var secondId = surfaceIds[secondRoot];
+                    var fromId = string.CompareOrdinal(firstId, secondId) <= 0 ? firstId : secondId;
+                    var toId = fromId == firstId ? secondId : firstId;
+                    var edge = entries[first].Edge;
+                    var transitionKey = $"{fromId}|{toId}|{edge.Key}";
+                    if (!transitionKeys.Add(transitionKey))
+                    {
+                        continue;
+                    }
+                    exportedTransitions.Add(new
+                    {
+                        id = $"surface-transition-{exportedTransitions.Count + 1}",
+                        fromSurfaceId = fromId,
+                        toSurfaceId = toId,
+                        from = SurfacePoint2(edge.A, originX, originY),
+                        to = SurfacePoint2(edge.B, originX, originY),
+                        actorKinds,
+                        bidirectional = true
+                    });
+                }
+            }
+        }
+
+        WriteJson(Path.Combine(mapsDirectory, "surface-manifest.json"), new
+        {
+            version = 1,
+            collisionRevision = 2,
+            blockSize = TileSize,
+            defaultSurfaceId,
+            surfaces = exportedSurfaces,
+            transitions = exportedTransitions
+        });
+    }
+
+    private static object SurfacePoint(Vector3 point, int originX, int originY) => new
+    {
+        x = (point.X - originX) * TileSize,
+        y = (point.Y - originY) * TileSize,
+        z = point.Z * TileSize
+    };
+
+    private static object SurfacePoint2(Vector3 point, int originX, int originY) => new
+    {
+        x = (point.X - originX) * TileSize,
+        y = (point.Y - originY) * TileSize
+    };
+
+    private static SurfaceBoundaryEdge[] BoundaryEdges(IReadOnlyList<WalkableSurfaceTriangle> triangles)
+    {
+        var edges = new Dictionary<SurfaceEdgeKey, (int Count, SurfaceBoundaryEdge Edge)>();
+        foreach (var triangle in triangles)
+        {
+            Add(triangle.A, triangle.B);
+            Add(triangle.B, triangle.C);
+            Add(triangle.C, triangle.A);
+        }
+        return edges.Values.Where(entry => entry.Count == 1).Select(entry => entry.Edge).ToArray();
+
+        void Add(Vector3 a, Vector3 b)
+        {
+            var key = SurfaceEdgeKey.From(a, b);
+            if (edges.TryGetValue(key, out var entry))
+            {
+                edges[key] = (entry.Count + 1, entry.Edge);
+            }
+            else
+            {
+                edges.Add(key, (1, new SurfaceBoundaryEdge(key, a, b)));
+            }
+        }
+    }
+
+    private static string PlaneKey(WalkableSurfaceTriangle triangle)
+    {
+        var normal = Vector3.Normalize(Vector3.Cross(triangle.B - triangle.A, triangle.C - triangle.A));
+        if (normal.Z < 0)
+        {
+            normal = -normal;
+        }
+        return $"{Quantize(normal.X)}:{Quantize(normal.Y)}:{Quantize(normal.Z)}:" +
+            $"{Quantize(Vector3.Dot(normal, triangle.A))}";
+    }
+
+    private static int Root(int[] parents, int index)
+    {
+        while (parents[index] != index)
+        {
+            parents[index] = parents[parents[index]];
+            index = parents[index];
+        }
+        return index;
+    }
+
+    private static void Union(int[] parents, int first, int second)
+    {
+        var firstRoot = Root(parents, first);
+        var secondRoot = Root(parents, second);
+        if (firstRoot != secondRoot)
+        {
+            parents[Math.Max(firstRoot, secondRoot)] = Math.Min(firstRoot, secondRoot);
+        }
+    }
+
+    private static long Quantize(float value) => (long)MathF.Round(value * 100_000);
 
     private ThreeOccluderGroup[] BuildThreeOccluders(
         MapChunkGeometry geometry,
@@ -1107,7 +1344,43 @@ public sealed class WebAssetExporter
         Rotation Rotation,
         bool Flip,
         GroundType GroundType,
-        int Height);
+        int Height,
+        IReadOnlyList<WalkableSurfaceTriangle> Triangles);
+    private sealed record SurfaceFace(
+        int Index,
+        int X,
+        int Y,
+        TileFace Face,
+        string PlaneKey,
+        IReadOnlyList<SurfaceBoundaryEdge> BoundaryEdges);
+    private readonly record struct SurfaceBoundaryEdge(
+        SurfaceEdgeKey Key,
+        Vector3 A,
+        Vector3 B);
+    private readonly record struct QuantizedPoint(long X, long Y, long Z) : IComparable<QuantizedPoint>
+    {
+        public static QuantizedPoint From(Vector3 point) => new(
+            Quantize(point.X),
+            Quantize(point.Y),
+            Quantize(point.Z));
+
+        public int CompareTo(QuantizedPoint other)
+        {
+            var x = X.CompareTo(other.X);
+            if (x != 0) return x;
+            var y = Y.CompareTo(other.Y);
+            return y != 0 ? y : Z.CompareTo(other.Z);
+        }
+    }
+    private readonly record struct SurfaceEdgeKey(QuantizedPoint A, QuantizedPoint B)
+    {
+        public static SurfaceEdgeKey From(Vector3 first, Vector3 second)
+        {
+            var a = QuantizedPoint.From(first);
+            var b = QuantizedPoint.From(second);
+            return a.CompareTo(b) <= 0 ? new(a, b) : new(b, a);
+        }
+    }
     private sealed record TileStack(string Key, IReadOnlyList<TileFace> Faces);
     private readonly record struct GridPoint(int X, int Y);
     private sealed record TileVariants(

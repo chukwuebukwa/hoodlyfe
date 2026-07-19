@@ -203,6 +203,7 @@ function vehicleState(vehicle: VehicleState): VehicleInteractionState {
     kind: 'vehicle',
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x: vehicle.x,
     y: vehicle.y,
     angle: vehicle.angle,

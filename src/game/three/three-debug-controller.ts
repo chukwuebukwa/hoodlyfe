@@ -61,6 +61,7 @@ export class ThreeDebugController {
     interactionReplay: document.querySelector('#debug-interaction-replay'),
     interactionSelection: document.querySelector('#debug-interaction-selection'),
     playerReaction: document.querySelector('#debug-player-reaction'),
+    surface: document.querySelector('#debug-surface'),
     simulationPhases: document.querySelector('#debug-simulation-phases'),
     rollout: document.querySelector('#debug-netcode-rollout')
   };

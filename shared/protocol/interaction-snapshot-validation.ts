@@ -123,10 +123,9 @@ function parseInteractionEntity(value: unknown): InteractionEntityState | undefi
       ['free', 'melee', 'reload', 'hit', 'knockdown', 'entering']
     );
     const actionTick = safeNonnegativeInteger(record.actionTick);
-    const surfaceId = boundedString(record.surfaceId, MAX_SPACE_ID_LENGTH);
     if (
       radius === undefined || !movementMode || !actionPhase || actionTick === undefined ||
-      !surfaceId || typeof record.alive !== 'boolean'
+      typeof record.alive !== 'boolean'
     ) return undefined;
     return Object.freeze({
       ...common,
@@ -135,7 +134,6 @@ function parseInteractionEntity(value: unknown): InteractionEntityState | undefi
       movementMode,
       actionPhase,
       actionTick,
-      surfaceId,
       alive: record.alive
     });
   }
@@ -185,6 +183,7 @@ function parseKinematic(record: Record<string, unknown>): KinematicInteractionSt
   const id = boundedId(record.id);
   const kind = oneOf(record.kind, ['player', 'pedestrian', 'vehicle', 'prop', 'projectile']);
   const spaceId = boundedString(record.spaceId, MAX_SPACE_ID_LENGTH);
+  const surfaceId = boundedString(record.surfaceId, MAX_SPACE_ID_LENGTH);
   const layerId = boundedString(record.layerId, MAX_SPACE_ID_LENGTH);
   const x = finiteInRange(record.x, -MAX_ABSOLUTE_POSITION, MAX_ABSOLUTE_POSITION);
   const y = finiteInRange(record.y, -MAX_ABSOLUTE_POSITION, MAX_ABSOLUTE_POSITION);
@@ -204,7 +203,7 @@ function parseKinematic(record: Record<string, unknown>): KinematicInteractionSt
     'ambient'
   ]);
   if (
-    !id || !kind || !spaceId || !layerId || x === undefined || y === undefined ||
+    !id || !kind || !spaceId || !surfaceId || !layerId || x === undefined || y === undefined ||
     angle === undefined || velocityX === undefined || velocityY === undefined ||
     angularVelocity === undefined || colliderRevision === undefined ||
     lifecycleRevision === undefined || !interactionPriority
@@ -213,6 +212,7 @@ function parseKinematic(record: Record<string, unknown>): KinematicInteractionSt
     id,
     kind,
     spaceId,
+    surfaceId,
     layerId,
     x,
     y,

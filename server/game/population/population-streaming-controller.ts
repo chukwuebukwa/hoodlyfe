@@ -55,6 +55,7 @@ interface VirtualPedestrianRecord {
   kind: 'civilian' | 'police';
   x: number;
   y: number;
+  surfaceId: string;
   angle: number;
   active: boolean;
   step: number;
@@ -150,6 +151,7 @@ export class PopulationStreamingController {
         kind: index < STREAMED_CIVILIAN_RECORDS ? 'civilian' : 'police',
         x: position.x,
         y: position.y,
+        surfaceId: position.surfaceId,
         angle: this.options.random.unit('stream-ped-angle', id) * Math.PI * 2,
         active: false,
         step: 0,
@@ -507,7 +509,8 @@ export class PopulationStreamingController {
         record.kind,
         record.x,
         record.y,
-        record.angle
+        record.angle,
+        record.surfaceId
       );
       record.active = true;
       record.nextStepAt = nowMs + POPULATION_STREAMING.dormantStepMs;
@@ -722,6 +725,7 @@ export class PopulationStreamingController {
       record.angle = Math.atan2(next.y - record.y, next.x - record.x);
       record.x = next.x;
       record.y = next.y;
+      record.surfaceId = next.surfaceId;
       record.nextStepAt = nowMs + POPULATION_STREAMING.dormantStepMs;
     }
     while (remaining > 0 && trafficRecords.length > 0) {
@@ -757,6 +761,7 @@ export class PopulationStreamingController {
     vehicle.kind = record.kind;
     vehicle.x = position.x;
     vehicle.y = position.y;
+    vehicle.surfaceId = position.surfaceId;
     vehicle.angle = record.spawn.angle;
     vehicle.maxHealth = vehicleConfig(record.kind).maxHealth;
     vehicle.health = vehicle.maxHealth;
@@ -814,12 +819,13 @@ export class PopulationStreamingController {
     return true;
   }
 
-  private trafficPosition(spawn: TrafficSpawn): {x: number; y: number} {
+  private trafficPosition(spawn: TrafficSpawn): {x: number; y: number; surfaceId: string} {
     const lane = trafficLanePoint(spawn);
-    return this.options.world.canOccupy(lane.x, lane.y, VEHICLE_RADIUS) &&
+    const surfaceId = spawn.surfaceId ?? 'street-ground';
+    return this.options.world.canOccupy(lane.x, lane.y, VEHICLE_RADIUS, surfaceId, 'vehicle') &&
       this.options.world.isRoadAt(lane.x, lane.y)
-      ? lane
-      : {x: spawn.x, y: spawn.y};
+      ? {...lane, surfaceId}
+      : {x: spawn.x, y: spawn.y, surfaceId};
   }
 
   private activePedestrianCount(): number {

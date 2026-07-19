@@ -51,6 +51,7 @@ export class PhysicsWorld {
   private readonly bodies = new Map<string, RAPIER.RigidBody>();
   private readonly colliders = new Map<string, RAPIER.Collider>();
   private readonly colliderKeys = new Map<number, string>();
+  private readonly staticColliders: RAPIER.Collider[] = [];
   private freed = false;
 
   private constructor(geometry: PhysicsWorldGeometry) {
@@ -173,6 +174,11 @@ export class PhysicsWorld {
 
   step(): void {
     this.world.step();
+  }
+
+  setStaticsEnabled(enabled: boolean): void {
+    const collisionGroups = enabled ? groups(STATIC_MEMBERSHIP, 0xffff) : 0;
+    for (const collider of this.staticColliders) collider.setCollisionGroups(collisionGroups);
   }
 
   contacts(): readonly PhysicsContact[] {
@@ -307,11 +313,12 @@ export class PhysicsWorld {
 
   private createStatic(x: number, y: number, halfWidth: number, halfHeight: number): void {
     const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, y));
-    this.world.createCollider(
+    const collider = this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(halfWidth, halfHeight)
-        .setCollisionGroups((STATIC_MEMBERSHIP << 16) | 0xffff),
+        .setCollisionGroups(groups(STATIC_MEMBERSHIP, 0xffff)),
       body
     );
+    this.staticColliders.push(collider);
   }
 }
 

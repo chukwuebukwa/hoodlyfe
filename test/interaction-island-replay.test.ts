@@ -184,6 +184,7 @@ function vehicle(id: string, x: number) {
     kind: 'vehicle' as const,
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x,
     y: 0,
     angle: 0,

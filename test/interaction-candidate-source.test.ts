@@ -52,7 +52,7 @@ test('candidate source deterministically filters broad-phase actors by physical 
     x: 0,
     y: 0,
     spaceId: 'street',
-    layerId: 'ground'
+    layerId: local.surfaceId
   }), [
     {kind: 'player', id: 'remote'},
     {kind: 'pedestrian', id: 'npc-1'},
@@ -65,7 +65,7 @@ test('candidate source deterministically filters broad-phase actors by physical 
     x: 5,
     y: 0,
     spaceId: 'mercy-hospital',
-    layerId: 'ground'
+    layerId: interior.surfaceId
   }), []);
 });
 

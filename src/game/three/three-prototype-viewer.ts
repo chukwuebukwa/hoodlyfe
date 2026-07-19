@@ -19,6 +19,7 @@ import type {NetcodeRolloutController} from '../network/netcode-rollout-controll
 import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {STREET_SPACE_ID, interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
+import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../../shared/world/surface-map.ts';
 import {
   createMixedInteractionBodyStep
 } from '../prediction/mixed-interaction-replay.ts';
@@ -90,6 +91,10 @@ export class ThreePrototypeViewer {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly clock = new THREE.Clock();
   private readonly keys = new Set<string>();
+  private readonly serverAuthorityOnly = new URLSearchParams(window.location.search)
+    .get('prediction') === 'off';
+  private lastAuthorityInputAt = Number.NEGATIVE_INFINITY;
+  private lastAuthorityInput = {x: Number.NaN, y: Number.NaN};
   private frame = 0;
   private zoom = 1.65;
   private baseHeight = 1;
@@ -111,6 +116,7 @@ export class ThreePrototypeViewer {
   private readonly mapOccluders = new Map<string, THREE.Group>();
   private qa?: ThreeQaDriver;
   private payload?: PrototypePayload;
+  private surfaceMap?: SurfaceMap;
   private centerInitialized = false;
   private vehiclePhysicsGeometry?: PhysicsWorldGeometry;
   private vehiclePhysicsWorlds?: {prediction: PhysicsWorld; islands: PhysicsWorld};
@@ -134,6 +140,7 @@ export class ThreePrototypeViewer {
   async start(): Promise<void> {
     const payload = await loadPayload('/assets/maps/three/prototype.json');
     this.payload = payload;
+    this.surfaceMap = await loadSurfaceMap('/assets/maps/surface-manifest.json');
     const metadata = await loadMapMetadata('/assets/maps/district-map.metadata.json');
     const collision = await ClientCollisionMap.load();
     if (this.room) {
@@ -156,6 +163,16 @@ export class ThreePrototypeViewer {
         this.scene,
         this.surfaceHeightAt,
         (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius),
+        (surfaceId, fromX, fromY, toX, toY, radius, actorKind) => this.surfaceAfterMove(
+          collision,
+          surfaceId,
+          fromX,
+          fromY,
+          toX,
+          toY,
+          radius,
+          actorKind
+        ),
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
         () => this.rolloutEnabled('remoteTimelines'),
         () => this.vehiclePhysicsWorld('prediction')
@@ -289,7 +306,7 @@ export class ThreePrototypeViewer {
   }
 
   private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
-    return this.netcodeRollout?.enabled(stage) ?? true;
+    return !this.serverAuthorityOnly && (this.netcodeRollout?.enabled(stage) ?? true);
   }
 
   // Engine prediction only mirrors a server that negotiated the stage on; without a
@@ -400,22 +417,33 @@ export class ThreePrototypeViewer {
       this.entities?.synchronize(
         this.room.state,
         localSpaceId,
-        this.room.sessionId,
+        this.serverAuthorityOnly ? '' : this.room.sessionId,
         renderServerTime,
         quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
       this.combatFirePrediction?.synchronizeAuthoritative(this.room.state.bullets);
       this.world?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0};
+      const local = this.room.state.players.get(this.room.sessionId);
       this.world?.synchronizePredictedBullets(
         this.combatFirePrediction?.update(now) ?? [],
-        localSpaceId
+        localSpaceId,
+        local?.surfaceId ?? STREET_GROUND_SURFACE_ID
       );
-      const local = this.room.state.players.get(this.room.sessionId);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
-      if (local && !localVehicle) {
+      if (this.serverAuthorityOnly && local?.alive) {
+        if (
+          now - this.lastAuthorityInputAt >= 50 ||
+          movement.x !== this.lastAuthorityInput.x ||
+          movement.y !== this.lastAuthorityInput.y
+        ) {
+          this.room.send('input', movement);
+          this.lastAuthorityInputAt = now;
+          this.lastAuthorityInput = movement;
+        }
+      } else if (local && !localVehicle) {
         const prediction = this.entities?.predictLocalPlayer(
           this.room.sessionId,
           movement,
@@ -434,7 +462,7 @@ export class ThreePrototypeViewer {
           );
         }
       }
-      if (local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
+      if (!this.serverAuthorityOnly && local?.vehicleId && local.vehicleSeat === 0 && localVehicle) {
         const prediction = this.entities?.predictLocalVehicle(local.vehicleId, movement, delta);
         if (prediction?.outboundMoves.length) {
           this.room.send(VEHICLE_INPUT_MESSAGE, {
@@ -517,7 +545,12 @@ export class ThreePrototypeViewer {
     this.renderer.domElement.releasePointerCapture(event.pointerId);
   };
 
-  private readonly surfaceHeightAt = (x: number, y: number): number => {
+  private readonly surfaceHeightAt = (x: number, y: number, surfaceId?: string): number => {
+    if (surfaceId) {
+      const authoritativeHeight = this.surfaceMap?.heightAt(surfaceId, x, y);
+      if (authoritativeHeight !== undefined) return authoritativeHeight;
+      return this.surfaceMap?.heightAt(STREET_GROUND_SURFACE_ID, x, y) ?? 0;
+    }
     const interiorHeight = this.interiors?.surfaceHeightAt(x, y);
     if (interiorHeight !== undefined) return interiorHeight;
     const payload = this.payload;
@@ -526,6 +559,40 @@ export class ThreePrototypeViewer {
     const row = Math.max(0, Math.min(payload.surfaces.height - 1, Math.floor(y / payload.blockSize)));
     return payload.surfaces.values[row * payload.surfaces.width + column] * payload.blockSize;
   };
+
+  private surfaceAfterMove(
+    collision: ClientCollisionMap,
+    surfaceId: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    radius: number,
+    actorKind: 'player' | 'vehicle'
+  ): string | undefined {
+    const surfaces = this.surfaceMap;
+    if (!surfaces) return undefined;
+    const nextSurfaceId = surfaces.transitionFor(
+      surfaceId, fromX, fromY, toX, toY, actorKind
+    )?.surfaceId ?? surfaceId;
+    const collisionClear = surfaces.footprintSamples(
+      nextSurfaceId,
+      toX,
+      toY,
+      radius,
+      actorKind
+    ).every((sample) => (
+      sample.surfaceId !== surfaces.manifest.defaultSurfaceId ||
+      !collision.isBlockedAt(sample.x, sample.y)
+    ));
+    return collisionClear && surfaces.canOccupyConnected(
+      nextSurfaceId,
+      toX,
+      toY,
+      radius,
+      actorKind
+    ) ? nextSurfaceId : undefined;
+  }
 
   private followLocalPlayer(): void {
     const room = this.room;
@@ -644,6 +711,12 @@ async function loadPayload(url: string): Promise<PrototypePayload> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Three prototype geometry failed to load (${response.status}).`);
   return response.json() as Promise<PrototypePayload>;
+}
+
+async function loadSurfaceMap(url: string): Promise<SurfaceMap> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to load surface manifest: ${response.status}`);
+  return new SurfaceMap(await response.json());
 }
 
 async function loadMapMetadata(url: string): Promise<MapMetadataPayload> {

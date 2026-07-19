@@ -139,6 +139,7 @@ export class SavedOnFootPrediction {
     const pending = this.history.filter((move) => move.sequence > acknowledged);
     const measured = correction(baseline, compared, false, pending.length, this.physicsPose ?? compared);
     const requiresResimulation = !historical || measured.spaceChanged ||
+      baseline.surfaceId !== compared.surfaceId ||
       measured.positionError > RESIMULATE_POSITION_ERROR;
     if (!requiresResimulation) {
       this.history = pending;
@@ -235,12 +236,13 @@ function correction(
 ): OnFootPredictionCorrection {
   const positionError = Math.hypot(authoritative.x - compared.x, authoritative.y - compared.y);
   const spaceChanged = authoritative.spaceId !== compared.spaceId;
+  const surfaceChanged = authoritative.surfaceId !== compared.surfaceId;
   return {
     pose: {...pose},
     positionError,
     spaceChanged,
     resimulated,
-    hardCorrection: spaceChanged || positionError > HARD_CORRECTION_DISTANCE,
+    hardCorrection: spaceChanged || surfaceChanged || positionError > HARD_CORRECTION_DISTANCE,
     pendingMoveCount
   };
 }
@@ -249,7 +251,8 @@ function sanitizePose(pose: OnFootPose): OnFootPose {
   return {
     x: Number.isFinite(pose.x) ? pose.x : 0,
     y: Number.isFinite(pose.y) ? pose.y : 0,
-    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street'
+    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street',
+    ...(pose.surfaceId ? {surfaceId: pose.surfaceId} : {})
   };
 }
 

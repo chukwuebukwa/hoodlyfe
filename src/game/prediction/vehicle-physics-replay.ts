@@ -1,6 +1,7 @@
 // Engine-backed stepping shared by direct prediction and interaction-island replay.
 
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import type {
   HumanoidInteractionState,
   InteractionEntityState,
@@ -36,6 +37,9 @@ import {
 export function createVehiclePhysicsBatchStep(world: PhysicsWorld): InteractionReplayBatchStep {
   return (entities, controls, context) => {
     for (const key of [...world.keys()]) world.remove(key);
+    world.setStaticsEnabled(
+      entities[0]?.surfaceId === STREET_GROUND_SURFACE_ID
+    );
     const vehicles = entities.filter((entity): entity is VehicleInteractionState => (
       entity.kind === 'vehicle' && entity.spaceId === STREET_SPACE_ID
     ));
@@ -136,7 +140,7 @@ export function createVehiclePhysicsPoseStepper(
   world: () => PhysicsWorld | undefined,
   vehicleId: string
 ): VehiclePoseStepper {
-  return (pose, movement, kind, deltaSeconds, _canOccupy, modifiers) => {
+  return (pose, movement, kind, deltaSeconds, canOccupy, modifiers) => {
     const active = world();
     if (!active) throw new Error('Vehicle physics world is not initialized.');
     for (const key of [...active.keys()]) active.remove(key);
@@ -150,8 +154,24 @@ export function createVehiclePhysicsPoseStepper(
       deltaSeconds,
       modifiers
     );
+    const occupancy = canOccupy(
+      target.x,
+      target.y,
+      20,
+      pose.surfaceId,
+      pose.x,
+      pose.y
+    );
+    if (!occupancy) return {...pose, speed: 0};
+    const surfaceId = typeof occupancy === 'string' ? occupancy : pose.surfaceId;
+    active.setStaticsEnabled(
+      (surfaceId ?? STREET_GROUND_SURFACE_ID) === STREET_GROUND_SURFACE_ID
+    );
     active.step();
-    return captureVehicleBody(active, key, target)?.pose ?? target;
+    return {
+      ...(captureVehicleBody(active, key, target)?.pose ?? target),
+      ...(surfaceId ? {surfaceId} : {})
+    };
   };
 }
 
@@ -173,10 +193,22 @@ export function createHumanoidPhysicsPoseStepper(
     const active = world();
     if (!active) throw new Error('Humanoid physics world is not initialized.');
     for (const key of [...active.keys()]) active.remove(key);
-    const desired = integrateOnFootPose(pose, command, deltaSeconds, modifiers);
+    const desired = stepInteriorOnFootPose(
+      pose,
+      command,
+      deltaSeconds,
+      canOccupy,
+      modifiers
+    ).pose;
+    active.setStaticsEnabled(
+      (desired.surfaceId ?? STREET_GROUND_SURFACE_ID) === STREET_GROUND_SURFACE_ID
+    );
     const key = physicsBodyKey('player', playerId);
     driveHumanoidBody(active, key, radius, pose, desired, deltaSeconds);
     active.step();
-    return captureHumanoidBody(active, key, pose.spaceId) ?? desired;
+    return {
+      ...(captureHumanoidBody(active, key, pose.spaceId) ?? desired),
+      ...(desired.surfaceId ? {surfaceId: desired.surfaceId} : {})
+    };
   };
 }

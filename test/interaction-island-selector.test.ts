@@ -233,6 +233,7 @@ function vehicle(id: string, x: number, velocityX = 0): VehicleInteractionState 
     vehicleKind: 'sedan',
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x,
     y: 0,
     angle: 0,

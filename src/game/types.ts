@@ -14,6 +14,7 @@ export interface NetworkPlayer {
   id: string;
   name: string;
   spaceId?: string;
+  surfaceId?: string;
   x: number;
   y: number;
   angle: number;
@@ -56,6 +57,7 @@ export interface NetworkBullet {
   id: string;
   ownerId: string;
   ownerKind: string;
+  surfaceId?: string;
   x: number;
   y: number;
   angle: number;
@@ -67,6 +69,7 @@ export interface NetworkThrownProjectile {
   id: string;
   ownerId: string;
   kind: 'grenade' | 'molotov';
+  surfaceId?: string;
   x: number;
   y: number;
   height: number;
@@ -78,6 +81,7 @@ export interface NetworkThrownProjectile {
 export interface NetworkRocketProjectile {
   id: string;
   ownerId: string;
+  surfaceId?: string;
   x: number;
   y: number;
   angle: number;
@@ -89,6 +93,7 @@ export interface NetworkExplosion {
   kind: 'grenade' | 'rocket' | 'vehicle';
   sourceId: string;
   sourceKind: 'player' | 'vehicle' | 'world';
+  surfaceId?: string;
   x: number;
   y: number;
   radius: number;
@@ -99,6 +104,7 @@ export interface NetworkExplosion {
 export interface NetworkFireZone {
   id: string;
   ownerId: string;
+  surfaceId?: string;
   x: number;
   y: number;
   radius: number;
@@ -138,6 +144,7 @@ export interface NetworkTrafficSignal {
 export interface NetworkNpc {
   id: string;
   kind: 'civilian' | 'police' | 'hostile';
+  surfaceId?: string;
   x: number;
   y: number;
   angle: number;
@@ -160,6 +167,7 @@ export interface NetworkNpc {
 export interface NetworkVehicle {
   id: string;
   kind: VehicleKind;
+  surfaceId?: string;
   x: number;
   y: number;
   angle: number;

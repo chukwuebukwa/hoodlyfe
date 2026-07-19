@@ -41,6 +41,16 @@ test('shared on-foot step resolves each world collision axis independently', () 
   assert.equal(result.collidedY, false);
 });
 
+test('shared on-foot step retains an authoritative surface transition', () => {
+  const result = stepInteriorOnFootPose(
+    {x: 100, y: 100, spaceId: 'street', surfaceId: 'street-ground'},
+    {moveX: 1, moveY: 0},
+    ON_FOOT_SIMULATION_STEP_SECONDS,
+    () => 'bridge'
+  );
+  assert.equal(result.pose.surfaceId, 'bridge');
+});
+
 test('on-foot action policy keeps melee locomotion and gates other actions', () => {
   assert.equal(onFootMovementScale('', 'pistol', 0), 1);
   assert.equal(onFootMovementScale('entering', 'pistol', 0), 0);

@@ -39,6 +39,7 @@ export interface DebugPanelProjection {
   interactionReplay: string;
   interactionSelection: string;
   playerReaction: string;
+  surface: string;
   simulationPhases: string;
   events: string[];
 }
@@ -112,11 +113,20 @@ export function projectDebugPanel(
       : 'off',
     interactionSelection: interactionIslandSelectionSummary(interactionIsland),
     playerReaction: playerReactionSummary(state, localPlayerId),
+    surface: playerSurfaceSummary(state, localPlayerId),
     simulationPhases: simulationPhaseSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function playerSurfaceSummary(state?: DistrictNetworkState, localPlayerId?: string): string {
+  const player = localPlayerId ? state?.players.get(localPlayerId) : undefined;
+  if (!player) return 'off';
+  const vehicle = player.vehicleId ? state?.vehicles.get(player.vehicleId) : undefined;
+  const surfaceId = vehicle?.surfaceId ?? player.surfaceId ?? 'missing';
+  return `${player.spaceId ?? 'street'} / ${surfaceId} @ ${Math.round(player.x)},${Math.round(player.y)}`;
 }
 
 function playerReactionSummary(state?: DistrictNetworkState, playerId?: string): string {

@@ -26,6 +26,7 @@ export interface HistoricalCombatBody {
   readonly kind: CombatTargetKind;
   readonly lifecycleRevision: number;
   readonly spaceId: string;
+  readonly surfaceId: string;
   readonly x: number;
   readonly y: number;
   readonly angle: number;
@@ -47,6 +48,7 @@ export interface HistoricalSegmentQuery {
   readonly endX: number;
   readonly endY: number;
   readonly projectileRadius?: number;
+  readonly surfaceId?: string;
   readonly excludedIds?: ReadonlySet<string>;
   readonly kinds?: ReadonlySet<CombatTargetKind>;
 }
@@ -116,11 +118,13 @@ export class CombatHitboxHistory {
     const bodies: HistoricalCombatBody[] = [];
     for (const player of input.players) {
       if (!player.alive || player.vehicleId || player.spaceId !== 'street') continue;
-      bodies.push(this.circleBody('player', player.id, player, player.x, player.y, player.angle));
+      bodies.push(this.circleBody(
+        'player', player.id, player, player.x, player.y, player.angle, player.surfaceId
+      ));
     }
     for (const npc of input.npcs) {
       if (!npc.alive) continue;
-      bodies.push(this.circleBody('npc', npc.id, npc, npc.x, npc.y, npc.angle));
+      bodies.push(this.circleBody('npc', npc.id, npc, npc.x, npc.y, npc.angle, npc.surfaceId));
     }
     for (const vehicle of input.vehicles) {
       if (vehicle.destroyed) continue;
@@ -131,6 +135,7 @@ export class CombatHitboxHistory {
         kind: 'vehicle',
         lifecycleRevision: this.lifecycleRevision('vehicle', vehicle.id, vehicle, topology),
         spaceId: 'street',
+        surfaceId: vehicle.surfaceId,
         x: vehicle.x,
         y: vehicle.y,
         angle: vehicle.angle,
@@ -166,7 +171,11 @@ export class CombatHitboxHistory {
     const projectileRadius = Math.max(0, Number(input.projectileRadius) || 0);
     let hit: HistoricalCombatHit | undefined;
     for (const body of sample.bodies) {
-      if (input.excludedIds?.has(body.id) || (input.kinds && !input.kinds.has(body.kind))) continue;
+      if (
+        input.excludedIds?.has(body.id) ||
+        (input.kinds && !input.kinds.has(body.kind)) ||
+        (input.surfaceId && input.surfaceId !== body.surfaceId)
+      ) continue;
       const progress = segmentHitProgress(input, body, projectileRadius);
       if (progress === undefined) continue;
       const candidate = Object.freeze({
@@ -232,7 +241,8 @@ export class CombatHitboxHistory {
     reference: object,
     x: number,
     y: number,
-    angle: number
+    angle: number,
+    surfaceId: string
   ): HistoricalCombatBody {
     const topology = `circle:${HUMANOID_HIT_RADIUS}`;
     return Object.freeze({
@@ -240,6 +250,7 @@ export class CombatHitboxHistory {
       kind,
       lifecycleRevision: this.lifecycleRevision(kind, id, reference, topology),
       spaceId: 'street',
+      surfaceId,
       x,
       y,
       angle,
@@ -397,6 +408,7 @@ function sameTopology(first: HistoricalCombatBody, second: HistoricalCombatBody)
   if (
     first.lifecycleRevision !== second.lifecycleRevision ||
     first.spaceId !== second.spaceId ||
+    first.surfaceId !== second.surfaceId ||
     first.hitbox.shape !== second.hitbox.shape
   ) return false;
   if (first.hitbox.shape === 'circle' && second.hitbox.shape === 'circle') {

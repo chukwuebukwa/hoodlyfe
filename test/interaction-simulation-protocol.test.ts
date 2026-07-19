@@ -156,6 +156,7 @@ function vehicleEntity(): Record<string, unknown> {
     vehicleKind: 'sedan',
     spaceId: 'street',
     layerId: 'ground',
+    surfaceId: 'street-ground',
     x: 100,
     y: 200,
     angle: 0.2,

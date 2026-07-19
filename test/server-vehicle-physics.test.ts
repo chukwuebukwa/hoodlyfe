@@ -79,6 +79,24 @@ test('world contact stops the vehicle at the wall and applies impact damage', ()
   assert.ok(Math.abs(car.speed) < 120, `vehicle kept speed ${car.speed.toFixed(0)} against the wall`);
 });
 
+test('elevated vehicles ignore flat statics from the sheet below', () => {
+  const wallColumn = 40;
+  const wallX = wallColumn * TILE;
+  const physics = PhysicsWorld.create(geometry(wallColumn));
+  const {room, car, driver} = fixture('sedan', physics, {x: wallX - 180, y: 2048});
+  car.surfaceId = 'bridge';
+  driver.surfaceId = 'bridge';
+  room.world.surfaces = {manifest: {defaultSurfaceId: 'street-ground'}};
+  room.world.surfaceAfterMove = () => 'bridge';
+
+  for (let tick = 0; tick < Math.round(3 / DT); tick++) {
+    driveTick(room, car, {throttle: 1, steering: 0}, tick);
+  }
+
+  physics.free();
+  assert.ok(car.x > wallX + 40, `elevated vehicle stopped at flat wall: ${car.x}`);
+});
+
 test('physics path acknowledges input sequences and keeps undriven vehicles physical', () => {
   const physics = PhysicsWorld.create(geometry());
   const acknowledged: Array<{vehicleId: string; sequence: number}> = [];

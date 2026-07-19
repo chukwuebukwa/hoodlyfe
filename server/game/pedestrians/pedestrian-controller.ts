@@ -144,7 +144,8 @@ export class PedestrianController {
       kind,
       position.x,
       position.y,
-      random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2
+      random.unit('npc-spawn-angle', `${id}:${seed}`) * Math.PI * 2,
+      position.surfaceId
     );
   }
 
@@ -153,7 +154,8 @@ export class PedestrianController {
     kind: 'civilian' | 'police',
     x: number,
     y: number,
-    angle: number
+    angle: number,
+    surfaceId?: string
   ): NpcState {
     const existing = this.options.state.npcs.get(id);
     if (existing) return existing;
@@ -162,6 +164,11 @@ export class PedestrianController {
     npc.kind = kind;
     npc.x = x;
     npc.y = y;
+    npc.surfaceId = surfaceId ?? this.options.world.surfaces.surfaceIdsAt(
+      x,
+      y,
+      'pedestrian'
+    )[0] ?? npc.surfaceId;
     npc.angle = angle;
     npc.health = healthFor(kind);
     npc.action = 'wander';
@@ -366,6 +373,7 @@ export class PedestrianController {
     npc.kind = 'hostile';
     npc.x = position.x;
     npc.y = position.y;
+    npc.surfaceId = position.surfaceId;
     npc.angle = Math.atan2(centerY - position.y, centerX - position.x);
     npc.health = Math.max(25, Math.min(200, Math.floor(health)));
     npc.action = 'assault';
@@ -402,8 +410,14 @@ export class PedestrianController {
     const sideAngle = vehicle.angle - Math.PI / 2;
     const preferredX = vehicle.x + Math.cos(sideAngle) * 48;
     const preferredY = vehicle.y + Math.sin(sideAngle) * 48;
-    const position = this.options.world.canOccupy(preferredX, preferredY, PEDESTRIAN_RADIUS)
-      ? {x: preferredX, y: preferredY}
+    const position = this.options.world.canOccupy(
+      preferredX,
+      preferredY,
+      PEDESTRIAN_RADIUS,
+      vehicle.surfaceId,
+      'pedestrian'
+    )
+      ? {x: preferredX, y: preferredY, surfaceId: vehicle.surfaceId}
       : this.options.world.openPointNear(
         vehicle.x,
         vehicle.y,
@@ -417,6 +431,7 @@ export class PedestrianController {
     npc.kind = 'civilian';
     npc.x = position.x;
     npc.y = position.y;
+    npc.surfaceId = position.surfaceId;
     npc.angle = Math.atan2(position.y - vehicle.y, position.x - vehicle.x);
     npc.health = healthFor(npc.kind);
     npc.action = 'startle';
@@ -450,6 +465,7 @@ export class PedestrianController {
     );
     npc.x = position.x;
     npc.y = position.y;
+    npc.surfaceId = position.surfaceId;
     npc.health = healthFor(npc.kind);
     npc.armor = 0;
     npc.alive = true;

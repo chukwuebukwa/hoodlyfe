@@ -561,9 +561,14 @@ export class DistrictRoom extends Room<DistrictState> {
     this.thrownProjectileController = new ThrownProjectileController({
       state: this.state,
       world: this.world,
-      resolve: (kind, x, y, ownerId, nowMs) => {
-        if (kind === 'molotov') this.fireZoneController.ignite(x, y, ownerId, nowMs);
-        else this.explosionController.detonate('grenade', x, y, ownerId, 'player', nowMs);
+      resolve: (kind, x, y, ownerId, nowMs, surfaceId) => {
+        if (kind === 'molotov') {
+          this.fireZoneController.ignite(x, y, ownerId, nowMs, surfaceId);
+        } else {
+          this.explosionController.detonate(
+            'grenade', x, y, ownerId, 'player', nowMs, surfaceId
+          );
+        }
       },
       remove: (projectileId) => this.lifecycle.defer(
         `thrown.remove:${projectileId}`,
@@ -810,16 +815,19 @@ export class DistrictRoom extends Room<DistrictState> {
         minX, minY, maxX, maxY, {kinds: ['vehicle']}
       ).map((record) => this.state.vehicles.get(record.id))
         .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
-      detonate: (x, y, ownerId, nowMs) => {
-        this.explosionController.detonate('rocket', x, y, ownerId, 'player', nowMs);
+      detonate: (x, y, ownerId, nowMs, surfaceId) => {
+        this.explosionController.detonate(
+          'rocket', x, y, ownerId, 'player', nowMs, surfaceId
+        );
       },
       remove: (rocketId) => this.lifecycle.defer(`rocket.remove:${rocketId}`, () => {
         this.state.rockets.delete(rocketId);
       })
     });
     this.interactionCandidates = new InteractionCandidateSource(this.state, {
-      queryActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
+      queryActors: (x, y, radius, surfaceId) => this.spatialIndex.queryCircle(x, y, radius, {
         kinds: ['player', 'npc', 'vehicle'],
+        layerId: surfaceId,
         includeRecordRadius: true
       })
     });
@@ -1051,6 +1059,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.name = sanitizeName(options?.name, this.state.players.size + 1);
     player.x = spawn.x;
     player.y = spawn.y;
+    player.surfaceId = spawn.surfaceId;
     player.angle = -Math.PI / 2;
     this.wardrobeController.initialize(client.sessionId);
     this.appearanceController.initialize(player, options?.appearance);
@@ -1132,11 +1141,25 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private playerSpatialRecord(player: PlayerState): SpatialRecord<WorldEntityKind> {
-    return {id: player.id, kind: 'player', x: player.x, y: player.y, radius: PLAYER_RADIUS};
+    return {
+      id: player.id,
+      kind: 'player',
+      x: player.x,
+      y: player.y,
+      radius: PLAYER_RADIUS,
+      layerId: player.surfaceId
+    };
   }
 
   private npcSpatialRecord(npc: NpcState): SpatialRecord<WorldEntityKind> {
-    return {id: npc.id, kind: 'npc', x: npc.x, y: npc.y, radius: PEDESTRIAN_RADIUS};
+    return {
+      id: npc.id,
+      kind: 'npc',
+      x: npc.x,
+      y: npc.y,
+      radius: PEDESTRIAN_RADIUS,
+      layerId: npc.surfaceId
+    };
   }
 
   private vehicleSpatialRecord(vehicle: VehicleState): SpatialRecord<WorldEntityKind> {
@@ -1145,7 +1168,8 @@ export class DistrictRoom extends Room<DistrictState> {
       kind: 'vehicle',
       x: vehicle.x,
       y: vehicle.y,
-      radius: VEHICLE_COLLISION_BOUNDING_RADIUS
+      radius: VEHICLE_COLLISION_BOUNDING_RADIUS,
+      layerId: vehicle.surfaceId
     };
   }
 

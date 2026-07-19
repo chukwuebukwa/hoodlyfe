@@ -71,14 +71,14 @@ export class DistrictPopulationController {
     const kinds = PARKED_VEHICLE_KINDS;
     for (let index = 0; index < kinds.length; index++) {
       let angle = index % 2 === 0 ? -Math.PI / 2 : 0;
-      let position: {x: number; y: number};
+      let position: {x: number; y: number; surfaceId?: string};
       if (index === 0) {
         const starter = this.starterVehiclePosition();
         position = starter.position;
         angle = starter.angle;
       } else if (kinds[index] === 'police') {
         const spawn = this.options.world.trafficSpawn(157, VEHICLE_RADIUS);
-        position = {x: spawn.x, y: spawn.y};
+        position = spawn;
         angle = spawn.angle;
       } else {
         position = this.options.world.openPointNear(
@@ -133,23 +133,45 @@ export class DistrictPopulationController {
     return fallback;
   }
 
-  private starterVehiclePosition(): {position: {x: number; y: number}; angle: number} {
+  private starterVehiclePosition(): {
+    position: {x: number; y: number; surfaceId: string};
+    angle: number;
+  } {
     const offsets = [[52, 0], [-52, 0], [0, 52], [0, -52]];
     for (const [offsetX, offsetY] of offsets) {
       const candidate = {
         x: this.options.world.spawn.x + offsetX,
         y: this.options.world.spawn.y + offsetY
       };
-      if (!this.options.world.canOccupy(candidate.x, candidate.y, VEHICLE_RADIUS)) continue;
-      return {position: candidate, angle: Math.atan2(offsetY, offsetX)};
+      const surfaceId = this.options.world.surfaces.surfaceIdsAt(
+        candidate.x,
+        candidate.y,
+        'vehicle'
+      ).find((id) => this.options.world.canOccupy(
+        candidate.x,
+        candidate.y,
+        VEHICLE_RADIUS,
+        id,
+        'vehicle'
+      ));
+      if (!surfaceId) continue;
+      return {position: {...candidate, surfaceId}, angle: Math.atan2(offsetY, offsetX)};
     }
-    return {position: {...this.options.world.spawn}, angle: Math.PI};
+    const fallback = this.options.world.trafficSpawn(0, VEHICLE_RADIUS);
+    return {
+      position: {
+        x: fallback.x,
+        y: fallback.y,
+        surfaceId: fallback.surfaceId ?? 'street-ground'
+      },
+      angle: fallback.angle
+    };
   }
 
   private createVehicle(
     id: string,
     kind: VehicleKind,
-    position: {x: number; y: number},
+    position: {x: number; y: number; surfaceId?: string},
     angle: number
   ): VehicleState {
     const vehicle = new VehicleState();
@@ -157,6 +179,7 @@ export class DistrictPopulationController {
     vehicle.kind = kind;
     vehicle.x = position.x;
     vehicle.y = position.y;
+    if (position.surfaceId) vehicle.surfaceId = position.surfaceId;
     vehicle.angle = angle;
     vehicle.maxHealth = vehicleConfig(kind).maxHealth;
     vehicle.health = vehicle.maxHealth;

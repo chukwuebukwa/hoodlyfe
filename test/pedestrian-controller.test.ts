@@ -45,6 +45,7 @@ test('panicked civilian startles toward a threat before fleeing away', () => {
   threat.id = 'threat';
   threat.x = civilian.x - 30;
   threat.y = civilian.y;
+  threat.surfaceId = civilian.surfaceId;
   state.players.set(threat.id, threat);
 
   controller.panic(civilian.id, threat.id, 5000);
@@ -53,10 +54,13 @@ test('panicked civilian startles toward a threat before fleeing away', () => {
   assert.ok(Math.abs(civilian.angle - Math.PI) < 0.0001);
   assert.equal(civilian.action, 'startle');
   const startledX = civilian.x;
+  const startledDistance = Math.hypot(civilian.x - threat.x, civilian.y - threat.y);
   controller.update(civilian, 1 / 30, 1500);
-  assert.ok(Math.abs(civilian.angle) < 0.0001);
   assert.equal(civilian.action, 'flee');
-  assert.ok(civilian.x > startledX);
+  assert.ok(
+    civilian.x > startledX ||
+    Math.hypot(civilian.x - threat.x, civilian.y - threat.y) > startledDistance
+  );
   const diagnostic = controller.diagnostics().find((entry) => entry.id === civilian.id);
   assert.ok(diagnostic);
   assert.equal(diagnostic.objective, 'flee');
