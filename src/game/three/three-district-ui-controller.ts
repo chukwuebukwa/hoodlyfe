@@ -29,6 +29,7 @@ import type {DistrictNetworkState} from '../types.ts';
 import {RadioSystem} from '../audio/radio-system.ts';
 import {SfxSystem} from '../audio/sfx-system.ts';
 import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
+import {ProximityVoiceSystem} from '../audio/proximity-voice-system.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
@@ -41,6 +42,7 @@ export class ThreeDistrictUiController {
   private readonly radio: RadioSystem;
   private readonly sfx: SfxSystem;
   private readonly vehicleAudio: VehicleAudioSystem;
+  private readonly voice: ProximityVoiceSystem;
   private readonly medical: MedicalCarePresentationController;
   private readonly appearance: AppearanceCreatorController;
   private readonly minimap?: MinimapRenderer;
@@ -67,6 +69,7 @@ export class ThreeDistrictUiController {
     this.radio = new RadioSystem(document, room);
     this.sfx = new SfxSystem(room);
     this.vehicleAudio = new VehicleAudioSystem();
+    this.voice = new ProximityVoiceSystem(room);
     this.medical = new MedicalCarePresentationController(room);
     this.appearance = new AppearanceCreatorController(room, room.sessionId);
     const canvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
@@ -93,6 +96,10 @@ export class ThreeDistrictUiController {
     return this.appearance.isOpen();
   }
 
+  playerVoiceActivity(playerId: string): number {
+    return this.voice.playerVoiceActivity(playerId);
+  }
+
   update(state: DistrictNetworkState, nowMs: number): void {
     if (nowMs - this.lastUpdateAt < UI_INTERVAL_MS) return;
     this.lastUpdateAt = nowMs;
@@ -103,6 +110,7 @@ export class ThreeDistrictUiController {
     this.radio.synchronize(local, vehicle);
     this.sfx.synchronize(local, vehicle);
     this.vehicleAudio.synchronize(local, vehicle, state.vehicles);
+    this.voice.synchronize(state);
     document.querySelector('#minimap-hud')?.classList.toggle(
       'hidden',
       Boolean(local && local.spaceId !== STREET_SPACE_ID)
@@ -139,6 +147,7 @@ export class ThreeDistrictUiController {
     this.radio.destroy();
     this.sfx.destroy();
     this.vehicleAudio.destroy();
+    this.voice.destroy();
     this.hud.destroy();
   }
 

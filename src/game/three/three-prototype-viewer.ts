@@ -146,7 +146,8 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt,
         (spaceId, x, y, radius) => collision.canOccupy(spaceId, x, y, radius),
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
-        () => this.rolloutEnabled('remoteTimelines')
+        () => this.rolloutEnabled('remoteTimelines'),
+        (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0
       );
       this.world = await ThreeDistrictWorld.create(
         this.scene,

@@ -22,6 +22,7 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - Timed car entry and carjacking with door-side animation and a fleeing ejected driver.
 - Acceleration, reversing, steering, wall collision, exiting, and vehicle impact damage.
 - Desktop controls and responsive dual-stick touch controls.
+- Optional spatial proximity voice with desktop and touch push-to-talk.
 
 ## Requirements
 
@@ -66,6 +67,21 @@ Open `http://127.0.0.1:5173`. The WebSocket game server listens on port `2567`.
 | Fire | Hold primary mouse button | Hold right stick |
 | Previous / next weapon | Q / E, mouse wheel, or HUD arrows | HUD arrows |
 | Enter / exit / hijack vehicle | F or the vehicle action button | CAR button |
+| Proximity voice | Enable VOICE, then hold V | Hold PTT |
+
+## Proximity Voice
+
+Voice chat uses LiveKit for WebRTC media transport and Colyseus for authoritative
+same-space proximity. It stays disabled when the LiveKit variables are omitted.
+
+```bash
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your-key
+LIVEKIT_API_SECRET=your-secret
+```
+
+The API secret must remain server-side. Players subscribe before entering audible
+range, fade smoothly to silence at 700 world units, and unsubscribe beyond 950 units.
 
 ## Architecture
 

@@ -157,6 +157,10 @@ const GAME_SHELL_HTML = `
     <span>NOCK</span>
     <strong>PHONE</strong>
   </button>
+  <aside id="voice-hud" class="hud-layer" aria-label="Proximity voice chat">
+    <button id="voice-button" type="button" aria-pressed="false" title="Enable voice, then hold V to talk">VOICE</button>
+    <span id="voice-status">OFF</span>
+  </aside>
   <div id="event-toast" class="hud-layer" role="status"></div>
   <div id="death-screen" class="hidden" aria-live="assertive">
     <strong>WASTED</strong>
@@ -171,6 +175,7 @@ const GAME_SHELL_HTML = `
       <i id="move-thumb"></i>
     </div>
     <button id="interact-button" type="button" aria-label="Enter or exit vehicle">CAR</button>
+    <button id="voice-touch-button" type="button" aria-label="Hold to talk">PTT</button>
     <div id="aim-stick" class="touch-stick" aria-label="Aim and fire">
       <i id="aim-thumb"></i>
     </div>

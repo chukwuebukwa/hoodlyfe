@@ -90,10 +90,12 @@ import {
 import {InteractionReplayPresentation} from '../rendering/interaction-replay-presentation.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
 import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
+import {voiceIndicatorPresentation} from '../rendering/voice-indicator-policy.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   label?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  voiceIndicator?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   weapon?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   smoke?: THREE.Object3D;
   fire?: THREE.Object3D;
@@ -201,7 +203,8 @@ export class ThreeDistrictEntities {
     private readonly onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
-    private readonly remoteTimelinesEnabled: () => boolean = () => true
+    private readonly remoteTimelinesEnabled: () => boolean = () => true,
+    private readonly playerVoiceActivity: (playerId: string) => number = () => 0
   ) {}
 
   static async create(
@@ -211,7 +214,8 @@ export class ThreeDistrictEntities {
     onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
-    remoteTimelinesEnabled: () => boolean = () => true
+    remoteTimelinesEnabled: () => boolean = () => true,
+    playerVoiceActivity: (playerId: string) => number = () => 0
   ): Promise<ThreeDistrictEntities> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
@@ -263,7 +267,8 @@ export class ThreeDistrictEntities {
       surfaceHeightAt,
       canOccupy,
       onRemoteTimeline,
-      remoteTimelinesEnabled
+      remoteTimelinesEnabled,
+      playerVoiceActivity
     );
   }
 
@@ -633,6 +638,7 @@ export class ThreeDistrictEntities {
           58
         ),
         label: nameLabel(player.name),
+        voiceIndicator: voiceIndicator(),
         weapon,
         blood: spriteMesh(this.textures.blood, 4, 1, 3, 64, 64),
         fire: createFireSmokeEffect({radius: 11, seed: id.length, smokeWeight: 0.36}),
@@ -884,6 +890,22 @@ export class ThreeDistrictEntities {
         labelZ
       );
       rendered.label.visible = player.alive;
+    }
+    if (rendered.voiceIndicator) {
+      const activity = voiceIndicatorPresentation(
+        this.playerVoiceActivity(player.id),
+        performance.now()
+      );
+      const anchorX = attachments.root.x;
+      const anchorY = attachments.root.y;
+      rendered.voiceIndicator.position.set(
+        anchorX,
+        serverYToThree(anchorY) + 57 + Math.max(0, player.vehicleSeat) * 13,
+        this.surfaceHeightAt(anchorX, anchorY) + 13
+      );
+      rendered.voiceIndicator.visible = player.alive && activity.visible;
+      rendered.voiceIndicator.scale.setScalar(activity.scale);
+      rendered.voiceIndicator.material.opacity = activity.opacity;
     }
   }
 
@@ -1259,6 +1281,7 @@ export class ThreeDistrictEntities {
     this.rendered.set(id, rendered);
     this.scene.add(rendered.mesh);
     if (rendered.label) this.scene.add(rendered.label);
+    if (rendered.voiceIndicator) this.scene.add(rendered.voiceIndicator);
     if (rendered.weapon) this.scene.add(rendered.weapon);
     if (rendered.smoke) this.scene.add(rendered.smoke);
     if (rendered.fire) this.scene.add(rendered.fire);
@@ -1286,6 +1309,12 @@ export class ThreeDistrictEntities {
       rendered.label.geometry.dispose();
       rendered.label.material.map?.dispose();
       rendered.label.material.dispose();
+    }
+    if (rendered.voiceIndicator) {
+      this.scene.remove(rendered.voiceIndicator);
+      rendered.voiceIndicator.geometry.dispose();
+      rendered.voiceIndicator.material.map?.dispose();
+      rendered.voiceIndicator.material.dispose();
     }
     for (const effect of [
       rendered.weapon, rendered.smoke, rendered.fire, rendered.blood,
@@ -1509,6 +1538,49 @@ function nameLabel(name: string): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasi
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(128, 24), material);
   mesh.renderOrder = 20;
+  return mesh;
+}
+
+function voiceIndicator(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Voice indicator canvas is unavailable.');
+  context.fillStyle = 'rgba(8, 14, 13, 0.88)';
+  context.beginPath();
+  context.arc(32, 32, 28, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = '#72f1a8';
+  context.lineWidth = 4;
+  context.lineCap = 'round';
+  context.beginPath();
+  context.moveTo(15, 28);
+  context.lineTo(23, 28);
+  context.lineTo(32, 20);
+  context.lineTo(32, 44);
+  context.lineTo(23, 36);
+  context.lineTo(15, 36);
+  context.closePath();
+  context.stroke();
+  context.beginPath();
+  context.arc(32, 32, 11, -0.72, 0.72);
+  context.stroke();
+  context.beginPath();
+  context.arc(32, 32, 18, -0.72, 0.72);
+  context.stroke();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), material);
+  mesh.renderOrder = 22;
+  mesh.visible = false;
   return mesh;
 }
 

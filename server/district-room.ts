@@ -58,6 +58,7 @@ import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
+import {ProximityVoiceController} from './game/audio/proximity-voice-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
@@ -124,6 +125,7 @@ import {
   ON_FOOT_INPUT_MESSAGE,
   type OnFootInputBatchMessage
 } from '../shared/protocol/on-foot-input.ts';
+import {VOICE_TOKEN_REQUEST_MESSAGE} from '../shared/protocol/proximity-voice.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {DistrictSimulation} from './game/world/district-simulation.ts';
@@ -175,6 +177,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
+  private voiceChat!: ProximityVoiceController;
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
   private medicalController!: MedicalCareController;
@@ -238,6 +241,13 @@ export class DistrictRoom extends Room<DistrictState> {
     this.laneGraph = LaneGraph.load(this.world);
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
+    this.voiceChat = new ProximityVoiceController({
+      state: this.state,
+      roomName: `nock0:${this.roomId}`,
+      send: (playerId, type, payload) => {
+        this.clients.find((client) => client.sessionId === playerId)?.send(type, payload);
+      }
+    });
     this.worldStimulusAdapter = new WorldStimulusAdapter({
       state: this.state,
       registry: this.worldStimuli
@@ -921,7 +931,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.population.populate();
     this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
-    this.setSimulationInterval((deltaTime) => this.simulation.advance(deltaTime), 1000 / 30);
+    this.setSimulationInterval((deltaTime) => {
+      this.simulation.advance(deltaTime);
+      this.voiceChat.synchronize();
+    }, 1000 / 30);
 
     this.onMessage<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
@@ -944,6 +957,9 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage<NetcodeRolloutRequest>(NETCODE_ROLLOUT_REQUEST_MESSAGE, (client, message) => {
       if (!validateNetcodeRolloutRequest(message)) return;
       client.send(NETCODE_ROLLOUT_MANIFEST_MESSAGE, this.netcodeRollout);
+    });
+    this.onMessage(VOICE_TOKEN_REQUEST_MESSAGE, (client) => {
+      void this.voiceChat.issueToken(client.sessionId);
     });
 
     this.onMessage<PlayerAimInput>('aim', (client, message) => {
@@ -1059,6 +1075,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.debugSubscribers.delete(client.sessionId);
     this.networkProbe.clear(client.sessionId);
     this.authIdentities.delete(client.sessionId);
+    this.voiceChat.clearPlayer(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     this.policeArrests.clearPlayer(client.sessionId, this.simulationClock.nowMs);
     if (player) this.vehicleAccess.removePlayer(player);

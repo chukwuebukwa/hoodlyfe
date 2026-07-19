@@ -51,6 +51,10 @@ export class AudioBus {
     return this.ensureContext()?.createBufferSource();
   }
 
+  createMediaStreamSource(stream: MediaStream): MediaStreamAudioSourceNode | undefined {
+    return this.ensureContext()?.createMediaStreamSource(stream);
+  }
+
   async decodeAudio(url: string): Promise<AudioBuffer | undefined> {
     const context = this.ensureContext();
     if (!context) return undefined;
