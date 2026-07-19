@@ -122,13 +122,12 @@ test('physics path acknowledges input sequences and keeps undriven vehicles phys
   physics.free();
 });
 
-test('restored vehicles spawn without sweeping through actors', () => {
+test('expired wreck removal does not sweep through actors', () => {
   const physics = PhysicsWorld.create(geometry());
   const room = new DistrictRoom() as any;
   room.world = {
     canOccupy: () => true,
-    isBlockedAt: () => false,
-    openPointNear: () => ({x: 300, y: 1000})
+    isBlockedAt: () => false
   };
   room.setState(new DistrictState());
   const car = new VehicleState();
@@ -150,9 +149,39 @@ test('restored vehicles spawn without sweeping through actors', () => {
   const result = room.vehicleSimulation.stepPhysics(DT, 1000);
 
   physics.free();
-  assert.equal(car.x, 300);
+  assert.equal(room.state.vehicles.has(car.id), false);
   assert.equal(bystander.health, 100);
   assert.equal(result.contacts, 0);
+});
+
+test('traffic replacement adopts its new authoritative surface', () => {
+  const physics = PhysicsWorld.create(geometry());
+  const {room, car} = fixture('sedan', physics, {x: 2048, y: 2048});
+  car.surfaceId = 'bridge';
+  room.trafficController.register(car.id, {
+    x: car.x,
+    y: car.y,
+    angle: car.angle,
+    column: 0,
+    row: 0,
+    targetColumn: 1,
+    targetRow: 0
+  }, 100);
+  room.trafficController.spawn = () => ({
+    x: 300,
+    y: 400,
+    surfaceId: 'street-ground',
+    angle: 0,
+    column: 4,
+    row: 6,
+    targetColumn: 5,
+    targetRow: 6
+  });
+
+  room.vehicleSimulation.returnToTraffic(car, 1_000);
+
+  physics.free();
+  assert.equal(car.surfaceId, 'street-ground');
 });
 
 test('40 driven vehicles preserve the 1ms amortized CPU baseline', () => {

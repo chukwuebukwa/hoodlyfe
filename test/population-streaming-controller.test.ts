@@ -64,6 +64,25 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
   assert.equal(fixture.controller.diagnostics().activeTraffic, 0);
 });
 
+test('destroyed streamed traffic is retired and replaced at a fresh traffic spawn', () => {
+  const fixture = createFixture();
+  fixture.controller.initialize(0);
+  fixture.controller.update([{x: 0, y: 0}], 100);
+  const destroyed = [...fixture.state.vehicles.values()][0];
+  const destroyedX = destroyed.x;
+  destroyed.destroyed = true;
+
+  assert.equal(fixture.controller.retireDestroyedVehicle(destroyed.id, 1_000), true);
+  assert.equal(fixture.state.vehicles.has(destroyed.id), false);
+  assert.ok(fixture.released.includes(destroyed.id));
+
+  const spawnIndex = 1_000 + destroyed.id.length * 97;
+  const replacementX = Math.round((spawnIndex - 10_000) / 193) * 2 * 64;
+  fixture.controller.update([{x: replacementX + 800, y: 0}], 10_000);
+  assert.equal(fixture.state.vehicles.get(destroyed.id)?.x, replacementX);
+  assert.notEqual(replacementX, destroyedX);
+});
+
 test('combat pedestrians and damaged traffic remain pinned outside every player cell', () => {
   const fixture = createFixture();
   fixture.controller.initialize(0);

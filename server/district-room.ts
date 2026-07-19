@@ -527,7 +527,11 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs,
         crimeKind,
         impact
-      )
+      ),
+      retireStreamedVehicle: (vehicleId, nowMs) => (
+        this.populationStreaming?.retireDestroyedVehicle(vehicleId, nowMs) ?? false
+      ),
+      onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
     this.explosionController = new ExplosionController({
       state: this.state,

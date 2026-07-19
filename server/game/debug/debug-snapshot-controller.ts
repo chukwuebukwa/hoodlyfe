@@ -194,8 +194,6 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.vehicleId} ignited; explosion fuse armed`;
     case 'vehicle.destroyed':
       return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
-    case 'vehicle.restored':
-      return `${event.vehicleId} restored to ${event.health} hp`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
     case 'police.arrest-started':

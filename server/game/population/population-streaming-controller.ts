@@ -251,6 +251,20 @@ export class PopulationStreamingController {
     };
   }
 
+  retireDestroyedVehicle(vehicleId: string, nowMs: number): boolean {
+    const record = this.traffic.get(vehicleId);
+    const vehicle = this.options.state.vehicles.get(vehicleId);
+    if (!record?.active || !vehicle?.destroyed) return false;
+    this.options.traffic.release(vehicleId);
+    this.options.state.vehicles.delete(vehicleId);
+    this.options.onVehicleDematerialized?.(vehicleId);
+    record.active = false;
+    record.spawn = this.options.traffic.spawn(nowMs + vehicleId.length * 97, VEHICLE_RADIUS);
+    record.nextStepAt = nowMs + this.stepOffset(vehicleId);
+    this.trafficStationarySince.delete(vehicleId);
+    return true;
+  }
+
   private retireInvisibleTrafficJams(
     anchors: readonly PopulationInterestAnchor[],
     nowMs: number

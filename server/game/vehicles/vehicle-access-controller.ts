@@ -60,7 +60,7 @@ export class VehicleAccessController {
     if (nowMs < player.actionUntil) return;
     const action = player.action;
     const vehicle = this.options.state.vehicles.get(player.actionVehicleId);
-    if (!vehicle || Math.hypot(vehicle.x - player.x, vehicle.y - player.y) > 112) {
+    if (!vehicle || vehicle.destroyed || Math.hypot(vehicle.x - player.x, vehicle.y - player.y) > 112) {
       if (vehicle?.hijackBy === player.id) vehicle.hijackBy = '';
       this.clearAction(player);
       return;

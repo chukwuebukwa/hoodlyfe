@@ -24,11 +24,12 @@ import {
   driveHumanoidBody,
   physicsBodyKey
 } from '../../../shared/simulation/humanoid-body-drive.ts';
+import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
-const RESPAWN_DELAY_MS = 8000;
+const WRECK_LIFETIME_MS = 8_000;
 const PHYSICS_COST_SAMPLE_LIMIT = 600;
 const TRAFFIC_IMPACT_COOLDOWN_MS = 600;
 const DRIVER_IMPACT_COOLDOWN_MS = 450;
@@ -95,6 +96,8 @@ interface VehicleSimulationControllerOptions {
     crimeKind?: CrimeKind,
     impact?: DamageImpact
   ) => void;
+  retireStreamedVehicle?: (vehicleId: string, nowMs: number) => boolean;
+  onVehicleRemoved?: (vehicleId: string) => void;
 }
 
 export class VehicleSimulationController {
@@ -551,10 +554,12 @@ export class VehicleSimulationController {
     for (const occupant of this.options.access.occupants(vehicle.id)) {
       this.options.access.removePlayer(occupant);
     }
+    this.options.traffic.release(vehicle.id);
     const spawn = this.options.traffic.spawn(nowMs + vehicle.id.length * 97, VEHICLE_RADIUS);
     Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
     vehicle.x = spawn.x;
     vehicle.y = spawn.y;
+    vehicle.surfaceId = spawn.surfaceId ?? STREET_GROUND_SURFACE_ID;
     vehicle.angle = spawn.angle;
     vehicle.speed = 90;
     vehicle.destroyed = false;
@@ -565,6 +570,12 @@ export class VehicleSimulationController {
     vehicle.siren = false;
     this.fireSources.delete(vehicle.id);
     this.options.traffic.register(vehicle.id, spawn, configuration.traffic.cruiseSpeed);
+    this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      surfaceId: vehicle.surfaceId
+    });
   }
 
   damage(
@@ -741,7 +752,7 @@ export class VehicleSimulationController {
     nowMs: number
   ): void {
     vehicle.destroyed = true;
-    vehicle.respawnAt = nowMs + RESPAWN_DELAY_MS;
+    vehicle.respawnAt = nowMs + WRECK_LIFETIME_MS;
     vehicle.speed = 0;
     vehicle.traffic = false;
     vehicle.hijackBy = '';
@@ -789,33 +800,17 @@ export class VehicleSimulationController {
   private updateDestroyed(vehicle: VehicleState, nowMs: number): void {
     vehicle.speed = 0;
     if (nowMs < vehicle.respawnAt) return;
-    const position = this.options.world.openPointNear(
-      vehicle.x,
-      vehicle.y,
-      0,
-      96,
-      VEHICLE_RADIUS,
-      nowMs + vehicle.id.length
-    );
-    vehicle.x = position.x;
-    vehicle.y = position.y;
-    Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
-    vehicle.destroyed = false;
-    vehicle.respawnAt = 0;
-    vehicle.traffic = this.options.traffic.has(vehicle.id);
-    this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: vehicle.angle,
-      surfaceId: vehicle.surfaceId
-    });
-    this.options.events.publish({
-      type: 'vehicle.restored',
-      tick: this.options.clock().tick,
-      nowMs,
-      vehicleId: vehicle.id,
-      health: vehicle.health
-    });
+    if (this.options.retireStreamedVehicle?.(vehicle.id, nowMs)) {
+      this.previousBodies.delete(physicsBodyKey('vehicle', vehicle.id));
+      return;
+    }
+    if (this.options.traffic.has(vehicle.id)) {
+      this.returnToTraffic(vehicle, nowMs);
+      return;
+    }
+    this.options.state.vehicles.delete(vehicle.id);
+    this.options.onVehicleRemoved?.(vehicle.id);
+    this.previousBodies.delete(physicsBodyKey('vehicle', vehicle.id));
   }
 
   private syncOccupants(vehicle: VehicleState): void {

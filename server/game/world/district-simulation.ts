@@ -152,7 +152,7 @@ export class DistrictSimulation {
         this.options.vehicles.beginTick(nowMs);
         this.options.state.vehicles.forEach((vehicle) => {
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
-          this.options.indexVehicle(vehicle);
+          if (this.options.state.vehicles.has(vehicle.id)) this.options.indexVehicle(vehicle);
         });
       }),
       phase('player-motion', ({deltaSeconds, nowMs}) => {
