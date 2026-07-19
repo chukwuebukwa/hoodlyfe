@@ -167,7 +167,7 @@ test('fire control consumes rocket ammo only after an authoritative launch is ac
   assert.equal(player.ammoRocket, 1, 'Passengers cannot fire the launcher.');
 });
 
-test('fire control correlates exact predicted bullet counts before consuming authority', () => {
+test('fire control applies server rewind without client projectile prediction', () => {
   const state = new DistrictState();
   const player = new PlayerState();
   player.id = 'correlated-shooter';
@@ -182,30 +182,15 @@ test('fire control correlates exact predicted bullet counts before consuming aut
       return {effectiveServerShotTimeMs: 1_875, rewindMs: 125, resolved: false};
     }
   });
-  const forged = fire.shoot(player.id, {
+  const result = fire.shoot(player.id, {
     protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 1,
     clientSampleTimeMs: 1_875,
     controlledEntityId: player.id,
-    aimAngle: Math.PI / 2,
-    predictedSpawnIds: [1, 2]
-  });
-  assert.equal(forged.reason, 'spawn-count-mismatch');
-  assert.equal(player.ammoPistol, 120);
-  assert.equal(state.bullets.size, 0);
-
-  const result = fire.shoot(player.id, {
-    protocolVersion: COMBAT_PROTOCOL_VERSION,
-    sequence: 2,
-    clientSampleTimeMs: 1_875,
-    controlledEntityId: player.id,
-    aimAngle: Math.PI / 2,
-    predictedSpawnIds: [91]
+    aimAngle: Math.PI / 2
   });
   assert.equal(result.accepted, true);
-  assert.equal(result.rewindMs, 125);
-  assert.equal(result.projectiles[0]?.clientSpawnId, 91);
-  assert.equal(result.projectiles[0]?.authoritativeSpawnId, compensations[0]);
+  assert.deepEqual(compensations, [[...state.bullets.keys()][0]]);
   assert.ok(Math.abs([...state.bullets.values()][0].angle - Math.PI / 2) < 1e-12);
   assert.equal(player.ammoPistol, 119);
 });

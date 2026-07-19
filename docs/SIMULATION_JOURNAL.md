@@ -13,7 +13,7 @@ divergence detection. It is the durable recording layer anticipated by
 
 The server simulation was already deterministic by construction:
 
-- `FixedStepClock` advances the world in fixed 33.33 ms ticks.
+- `FixedStepClock` advances the world in fixed 16.67 ms ticks.
 - `DeterministicRandom` is stateless and keyed by `(seed, stream, key)`, so random draws
   do not depend on call order.
 - The Rapier physics world registers bodies in deterministic order at a fixed timestep.
@@ -29,7 +29,7 @@ replays reproduce world time exactly.
 JSONL. The first line is a header; every following line is one record:
 
 ```jsonl
-{"kind":"header","version":1,"seed":1234,"epochMs":1752969600000,"stepMs":33.33,"hashIntervalTicks":30,"collisionRevision":2,"rolloutRevision":"server-authority","recordedAt":"..."}
+{"kind":"header","version":1,"seed":1234,"epochMs":1752969600000,"stepMs":16.67,"hashIntervalTicks":60,"collisionRevision":2,"rolloutRevision":"server-authority","recordedAt":"..."}
 {"kind":"spawn","tick":0,"sessionId":"abc","name":"Player 1"}
 {"kind":"command","tick":5,"sessionId":"abc","type":"on-foot.input","payload":{"moves":[...]}}
 {"kind":"events","tick":25,"events":[{"type":"weapon.fired","tick":25,...}]}

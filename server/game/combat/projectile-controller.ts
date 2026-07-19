@@ -1,6 +1,7 @@
 import type {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {WEAPONS, isBulletWeaponId} from '../../weapons.ts';
+import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
 import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
@@ -54,7 +55,7 @@ export class ProjectileController {
     const bullet = input.bullet;
     const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
     bullet.createdAt = window.effectiveServerTimeMs;
-    const stepCount = Math.max(1, Math.ceil(window.rewindMs / (1000 / 30)));
+    const stepCount = Math.max(1, Math.ceil(window.rewindMs / SIMULATION_STEP_MS));
     const stepMs = window.rewindMs / stepCount;
     for (let step = 0; step < stepCount; step++) {
       const startX = bullet.x;

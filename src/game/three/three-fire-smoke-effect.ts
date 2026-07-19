@@ -187,11 +187,7 @@ export function createFireSmokeEffect(options: FireSmokeEffectOptions): THREE.Gr
   smoke.position.z = options.burst ? 12 : 8;
   smoke.renderOrder = 31;
 
-  const light = new THREE.PointLight(0xff7a24, options.burst ? 1.8 : 0.9, baseRadius * 5.5, 1.9);
-  light.position.z = options.burst ? 34 : 24;
-  light.userData.role = 'fire-light';
-
-  group.add(smoke, fire, light);
+  group.add(smoke, fire);
   (group.userData as FireSmokeUserData).fireSmokeUniforms = uniforms;
   (group.userData as FireSmokeUserData).baseRadius = baseRadius;
   (group.userData as FireSmokeUserData).fireWeight = options.fireWeight ?? 1;
@@ -216,8 +212,4 @@ export function updateFireSmokeEffect(
   uniforms.smokeTime.value = seconds + seedOffset * 0.09;
   uniforms.fireIntensity.value = clamped * fireWeight;
   uniforms.smokeIntensity.value = clamped * 0.78 * smokeWeight;
-  const light = group.children.find((child) => child instanceof THREE.PointLight) as THREE.PointLight | undefined;
-  if (light) {
-    light.intensity = clamped * fireWeight * (0.75 + Math.sin(seconds * 16 + seedOffset) * 0.16);
-  }
 }

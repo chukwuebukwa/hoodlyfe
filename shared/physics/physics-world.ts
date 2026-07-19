@@ -4,8 +4,9 @@
 
 import RAPIER from '@dimforge/rapier2d-compat';
 import {vehicleDefinition} from '../content/vehicle-catalog.ts';
+import {SIMULATION_STEP_SECONDS} from '../simulation/timing.ts';
 
-export const PHYSICS_TIMESTEP_SECONDS = 1 / 30;
+export const PHYSICS_TIMESTEP_SECONDS = SIMULATION_STEP_SECONDS;
 const VEHICLE_RESTITUTION = 0.2;
 const VEHICLE_FRICTION = 0.6;
 const HUMANOID_DENSITY = 0.4;

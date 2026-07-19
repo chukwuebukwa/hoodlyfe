@@ -44,7 +44,6 @@ import {
 } from '../shared/protocol/network-quality.ts';
 import {
   COMBAT_FIRE_MESSAGE,
-  COMBAT_FIRE_RECEIPT_MESSAGE,
   type CombatFireCommand
 } from '../shared/protocol/combat-fire.ts';
 import {
@@ -834,11 +833,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.combatFireCommands = new CombatFireCommandController({
       state: this.state,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      fire: (playerId, command) => this.fireControl.shoot(playerId, command),
-      send: (playerId, receipt) => this.clients
-        .find((client) => client.sessionId === playerId)
-        ?.send(COMBAT_FIRE_RECEIPT_MESSAGE, receipt)
+      fire: (playerId, command) => this.fireControl.shoot(playerId, command)
     });
     this.rocketProjectileController = new RocketProjectileController({
       state: this.state,
@@ -942,7 +937,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
     if (!options?.externalSimulation) {
-      this.setSimulationInterval((deltaTime) => this.simulation.advance(deltaTime), 1000 / 30);
+      this.setSimulationInterval(
+        (deltaTime) => this.simulation.advance(deltaTime),
+        this.simulationClock.stepMs
+      );
     }
 
     this.registerJournaledCommand<PlayerMoveInput>('input', (client, message) => {

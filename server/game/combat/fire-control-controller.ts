@@ -14,22 +14,9 @@ import type {GameEventStream} from '../events/game-events.ts';
 import {AMMUNITION_CAPACITY} from '../../../shared/content/street-services.ts';
 import type {CombatFireCommand} from '../../../shared/protocol/combat-fire.ts';
 
-export interface FireProjectileResult {
-  readonly clientSpawnId: number;
-  readonly authoritativeSpawnId: string;
-  readonly resolved: boolean;
-  readonly weapon: BulletWeaponId;
-  readonly x: number;
-  readonly y: number;
-  readonly angle: number;
-}
-
 export interface FireControlResult {
   readonly accepted: boolean;
   readonly reason?: string;
-  readonly effectiveServerShotTimeMs: number;
-  readonly rewindMs: number;
-  readonly projectiles: readonly FireProjectileResult[];
 }
 
 interface FireControlControllerOptions {
@@ -80,7 +67,7 @@ export class FireControlController {
     const player = this.options.state.players.get(playerId);
     const clock = this.options.clock();
     if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0)) {
-      return rejected(clock.nowMs, 'not-allowed');
+      return rejected('not-allowed');
     }
     const weaponId: WeaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
     const weapon = WEAPONS[weaponId];
@@ -88,21 +75,17 @@ export class FireControlController {
       if (player.action === 'melee' && weapon.fireMode === 'melee') {
         const result = this.options.meleeAttack?.({playerId, weapon: weapon.id, nowMs: clock.nowMs});
         return result?.accepted
-          ? accepted(clock.nowMs)
-          : rejected(clock.nowMs, 'action-blocked');
+          ? accepted()
+          : rejected('action-blocked');
       }
-      return rejected(clock.nowMs, 'action-blocked');
+      return rejected('action-blocked');
     }
-    if (player.vehicleId && !weapon.passengerAllowed) return rejected(clock.nowMs, 'not-allowed');
+    if (player.vehicleId && !weapon.passengerAllowed) return rejected('not-allowed');
     if (
       clock.nowMs - (this.lastAttackAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
       ammoFor(player, weaponId) <= 0
     ) {
-      return rejected(clock.nowMs, 'cooldown-or-empty');
-    }
-    const expectedPredictedSpawns = weapon.fireMode === 'bullet' ? weapon.pellets : 0;
-    if (command && command.predictedSpawnIds.length !== expectedPredictedSpawns) {
-      return rejected(clock.nowMs, 'spawn-count-mismatch');
+      return rejected('cooldown-or-empty');
     }
 
     const origin = this.shotOrigin(player);
@@ -113,9 +96,9 @@ export class FireControlController {
         weapon: weapon.id,
         nowMs: clock.nowMs
       });
-      if (!result?.accepted) return rejected(clock.nowMs, 'action-blocked');
+      if (!result?.accepted) return rejected('action-blocked');
       this.lastAttackAt.set(playerId, clock.nowMs);
-      return accepted(clock.nowMs);
+      return accepted();
     }
     if (weapon.fireMode === 'thrown') {
       const created = this.options.throwExplosive?.({
@@ -126,12 +109,12 @@ export class FireControlController {
         angle: aimAngle,
         nowMs: clock.nowMs
       }) ?? false;
-      if (!created) return rejected(clock.nowMs, 'capacity-exceeded');
+      if (!created) return rejected('capacity-exceeded');
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-      return accepted(clock.nowMs);
+      return accepted();
     }
     if (weapon.fireMode === 'rocket') {
       const created = this.options.launchRocket?.({
@@ -141,21 +124,18 @@ export class FireControlController {
         angle: aimAngle,
         nowMs: clock.nowMs
       }) ?? false;
-      if (!created) return rejected(clock.nowMs, 'capacity-exceeded');
+      if (!created) return rejected('capacity-exceeded');
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-      return accepted(clock.nowMs);
+      return accepted();
     }
 
     this.lastAttackAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
     setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-    const projectiles: FireProjectileResult[] = [];
-    let effectiveServerShotTimeMs = clock.nowMs;
-    let rewindMs = 0;
     const excludedIds = new Set([playerId]);
     if (player.vehicleId) excludedIds.add(player.vehicleId);
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
@@ -171,34 +151,16 @@ export class FireControlController {
         clock.nowMs,
         weapon.id
       );
-      const compensation = command && this.options.compensateBullet
-        ? this.options.compensateBullet({
-            bullet,
-            requestedServerShotTimeMs: command.clientSampleTimeMs,
-            nowMs: clock.nowMs,
-            excludedIds
-          })
-        : undefined;
-      if (compensation) {
-        effectiveServerShotTimeMs = compensation.effectiveServerShotTimeMs;
-        rewindMs = compensation.rewindMs;
+      if (command && this.options.compensateBullet) {
+        this.options.compensateBullet({
+          bullet,
+          requestedServerShotTimeMs: command.clientSampleTimeMs,
+          nowMs: clock.nowMs,
+          excludedIds
+        });
       }
-      projectiles.push(Object.freeze({
-        clientSpawnId: command?.predictedSpawnIds[pellet] ?? 0,
-        authoritativeSpawnId: bullet.id,
-        resolved: compensation?.resolved ?? false,
-        weapon: weapon.id,
-        x: bullet.x,
-        y: bullet.y,
-        angle: bullet.angle
-      }));
     }
-    return Object.freeze({
-      accepted: true,
-      effectiveServerShotTimeMs,
-      rewindMs,
-      projectiles: Object.freeze(projectiles)
-    });
+    return accepted();
   }
 
   cycle(playerId: string, rawDirection: unknown): void {
@@ -309,21 +271,10 @@ export class FireControlController {
   }
 }
 
-function accepted(nowMs: number): FireControlResult {
-  return Object.freeze({
-    accepted: true,
-    effectiveServerShotTimeMs: nowMs,
-    rewindMs: 0,
-    projectiles: Object.freeze([])
-  });
+function accepted(): FireControlResult {
+  return Object.freeze({accepted: true});
 }
 
-function rejected(nowMs: number, reason: string): FireControlResult {
-  return Object.freeze({
-    accepted: false,
-    reason,
-    effectiveServerShotTimeMs: nowMs,
-    rewindMs: 0,
-    projectiles: Object.freeze([])
-  });
+function rejected(reason: string): FireControlResult {
+  return Object.freeze({accepted: false, reason});
 }

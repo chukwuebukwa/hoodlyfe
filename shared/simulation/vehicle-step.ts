@@ -1,8 +1,9 @@
 import {vehicleDefinition} from '../content/vehicle-catalog.ts';
+import {SIMULATION_HZ, SIMULATION_STEP_SECONDS} from './timing.ts';
 import {vehicleTyreHandlingModifiers} from './vehicle-tyre-state.ts';
 
-export const VEHICLE_SIMULATION_HZ = 30;
-export const VEHICLE_SIMULATION_STEP_SECONDS = 1 / VEHICLE_SIMULATION_HZ;
+export const VEHICLE_SIMULATION_HZ = SIMULATION_HZ;
+export const VEHICLE_SIMULATION_STEP_SECONDS = SIMULATION_STEP_SECONDS;
 export const MAX_VEHICLE_STEP_SECONDS = 0.05;
 
 export interface VehicleWorldPose {

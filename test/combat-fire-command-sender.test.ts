@@ -20,8 +20,7 @@ test('authoritative fire commands preserve rewind metadata without local predict
     sequence: 1,
     clientSampleTimeMs: 1_250,
     controlledEntityId: 'player-1',
-    aimAngle: Math.PI / 2,
-    predictedSpawnIds: [1, 2, 3, 4, 5, 6]
+    aimAngle: Math.PI / 2
   });
 });
 

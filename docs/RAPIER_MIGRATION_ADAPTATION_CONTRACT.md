@@ -16,7 +16,7 @@ snapshot interpolation; client prediction is deferred.
 
 - The server remains authoritative for damage, crimes, arrests, economy, missions,
   spawning, and every execute-once outcome.
-- Simulation stays fixed at 30 Hz and keeps the existing phase order.
+- Simulation stays fixed at 60 Hz and keeps the existing phase order.
 - Activation, replication AOI, and presentation LOD remain independent scopes.
 - Combat rewind and interior collision keep their existing ownership.
 

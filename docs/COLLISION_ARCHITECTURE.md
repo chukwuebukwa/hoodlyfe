@@ -6,7 +6,7 @@ Street collision has one owner: Rapier.
 
 1. Vehicle and humanoid controllers compute desired motion.
 2. The server rebuilds active street bodies from the tick baseline in stable key order.
-3. `PhysicsWorld` advances all bodies once at 30 Hz.
+3. `PhysicsWorld` advances all bodies once at 60 Hz.
 4. Simulation state captures the resulting poses and velocities.
 5. Server controllers consume Rapier contact facts and apply damage, crime, and other
    execute-once outcomes.

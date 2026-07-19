@@ -17,11 +17,9 @@ import {
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
 import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
-import {COMBAT_PROTOCOL_VERSION} from '../shared/protocol/combat-fire.ts';
 import {
   COMBAT_FIRE_MESSAGE,
-  COMBAT_FIRE_RECEIPT_MESSAGE,
-  type CombatFireReceipt
+  COMBAT_PROTOCOL_VERSION
 } from '../shared/protocol/combat-fire.ts';
 import {ON_FOOT_INPUT_MESSAGE} from '../shared/protocol/on-foot-input.ts';
 import {
@@ -74,15 +72,10 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
-  const fireReceipts: CombatFireReceipt[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   second.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
-  first.onMessage<CombatFireReceipt>(
-    COMBAT_FIRE_RECEIPT_MESSAGE,
-    (receipt) => fireReceipts.push(receipt)
-  );
   first.onMessage<AppearanceResultMessage>(
     APPEARANCE_RESULT_MESSAGE,
     (result) => appearanceResults.push(result)
@@ -200,21 +193,14 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     sequence: 1,
     clientSampleTimeMs: first.state.serverTimeMs,
     controlledEntityId: first.sessionId,
-    aimAngle: safeFireAngle(first, first.sessionId, world),
-    predictedSpawnIds: [9_001]
+    aimAngle: safeFireAngle(first, first.sessionId, world)
   };
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
-  await waitUntil(() => fireReceipts.length === 1);
-  assert.equal(fireReceipts[0].status, 'accepted');
-  assert.equal(fireReceipts[0].projectiles[0]?.clientSpawnId, 9_001);
-  assert.ok(fireReceipts[0].rewindMs >= 0 && fireReceipts[0].rewindMs <= 200);
   await waitUntil(() => first.state.players.get(first.sessionId)?.ammoSmg === 239);
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
-  await waitUntil(() => fireReceipts.length === 2);
-  assert.equal(fireReceipts[1].reason, 'stale-sequence');
-  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'shotgun');
+  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'rocket');
   assert.equal(first.state.players.get(first.sessionId)?.ammoRocket, 4);

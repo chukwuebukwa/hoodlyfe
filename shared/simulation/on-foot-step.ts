@@ -1,7 +1,8 @@
 import {isMeleeWeaponId, WEAPONS} from '../content/weapon-catalog.ts';
+import {SIMULATION_HZ, SIMULATION_STEP_SECONDS} from './timing.ts';
 
-export const ON_FOOT_SIMULATION_HZ = 30;
-export const ON_FOOT_SIMULATION_STEP_SECONDS = 1 / ON_FOOT_SIMULATION_HZ;
+export const ON_FOOT_SIMULATION_HZ = SIMULATION_HZ;
+export const ON_FOOT_SIMULATION_STEP_SECONDS = SIMULATION_STEP_SECONDS;
 export const ON_FOOT_MAX_STEP_SECONDS = 0.05;
 export const ON_FOOT_PLAYER_RADIUS = 11;
 export const ON_FOOT_PLAYER_SPEED = 190;

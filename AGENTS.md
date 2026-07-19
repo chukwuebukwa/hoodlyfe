@@ -18,12 +18,12 @@ GAME_JOURNAL_DIR=journals npm run dev:server
 
 Each district room writes `journals/district-<roomId>-<timestamp>.jsonl`: a header
 (seed, epoch, collision revision), every simulation-affecting client command at the tick
-it applied, all drained game events per tick, and a state hash every 30 ticks. Cost is
+it applied, all drained game events per tick, and a state hash every 60 ticks. Cost is
 negligible; there is no reason to run without it during development.
 
 ### Debug from a journal
 
-The tick rate is 30/sec ("2 minutes in" ≈ tick 3600). Start by reading, not replaying —
+The tick rate is 60/sec ("2 minutes in" ≈ tick 7200). Start by reading, not replaying —
 the `events` records are grep-able ground truth:
 
 ```bash
@@ -57,7 +57,7 @@ await room.onCreate({seed: 1234, epochMs: 1_000_000, journalSink: new MemoryJour
   externalSimulation: true});
 room.applyJournaledSpawn('p1', {name: 'Tester'});
 room.applyJournaledCommand('p1', ON_FOOT_INPUT_MESSAGE, {moves: [{sequence: 1, x: 1, y: 0}]});
-room.stepSimulationTick(); // one fixed 33.33ms tick
+room.stepSimulationTick(); // one fixed 16.67ms tick
 ```
 
 See `test/journal-replay.test.ts` for a complete scripted session.
@@ -77,5 +77,5 @@ See `test/journal-replay.test.ts` for a complete scripted session.
 ### When the user reports a gameplay bug
 
 Ask for (or locate) the journal from that session plus a rough time ("around 3 minutes
-in"), convert to a tick (×1800/min), read the events around it, and iterate against the
+in"), convert to a tick (×3600/min), read the events around it, and iterate against the
 frozen journal — do not burn time trying to reproduce live first.

@@ -1,8 +1,9 @@
 import type {GameEvent} from '../events/game-events.ts';
+import {SIMULATION_HZ} from '../../../shared/simulation/timing.ts';
 import type {JournalSink} from './journal-sink.ts';
 import {JOURNAL_FORMAT_VERSION, type JournalHeader, type JournalRecord} from './journal-types.ts';
 
-export const DEFAULT_HASH_INTERVAL_TICKS = 30;
+export const DEFAULT_HASH_INTERVAL_TICKS = SIMULATION_HZ;
 
 export interface SimulationJournalOptions {
   sink: JournalSink;

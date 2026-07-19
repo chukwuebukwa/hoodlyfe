@@ -1,8 +1,9 @@
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
+import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
 import type {NpcState, PlayerState, VehicleState} from '../../state.ts';
 
-export const COMBAT_HISTORY_TICKS = 24;
 export const COMBAT_HISTORY_RETENTION_MS = 800;
+export const COMBAT_HISTORY_TICKS = Math.ceil(COMBAT_HISTORY_RETENTION_MS / SIMULATION_STEP_MS);
 export const PUBLIC_COMBAT_REWIND_MS = 200;
 export const HUMANOID_HIT_RADIUS = 11;
 

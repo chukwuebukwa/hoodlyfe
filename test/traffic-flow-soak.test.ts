@@ -11,6 +11,11 @@ import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-con
 import {CollisionMap} from '../server/world-map.ts';
 import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
 import {
+  SIMULATION_HZ,
+  SIMULATION_STEP_MS,
+  SIMULATION_STEP_SECONDS
+} from '../shared/simulation/timing.ts';
+import {
   junctionMovementsConflict,
   type TrafficJunctionMovement
 } from '../server/game/traffic/traffic-junction-conflict-policy.ts';
@@ -88,8 +93,8 @@ test('a streamed street population continues circulating through a one-minute so
     traffic.register(vehicle.id, spawn, vehicleConfig(vehicle.kind).traffic.cruiseSpeed);
   }
 
-  for (let tick = 1; tick <= 1_800; tick++) {
-    const nowMs = tick * 1_000 / 30;
+  for (let tick = 1; tick <= SIMULATION_HZ * 60; tick++) {
+    const nowMs = tick * SIMULATION_STEP_MS;
     traffic.beginTick(nowMs);
     for (const vehicle of vehicles) {
       const obstacles = vehicles
@@ -115,7 +120,7 @@ test('a streamed street population continues circulating through a one-minute so
           speed: other.speed,
           angle: other.angle
         }));
-      traffic.update(vehicle, 1 / 30, nowMs, {obstacles});
+      traffic.update(vehicle, SIMULATION_STEP_SECONDS, nowMs, {obstacles});
       traffic.observe(vehicle, nowMs, obstacles);
     }
     const diagnostics = traffic.diagnostics();
@@ -294,7 +299,7 @@ test('a streamed street population continues circulating through a one-minute so
     `${maximumConcurrentOverlaps} traffic vehicle pairs overlapped concurrently.`
   );
   assert.ok(
-    overlapPairTicks <= 60,
+    overlapPairTicks <= SIMULATION_HZ * 2,
     `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
   );
   assert.ok(

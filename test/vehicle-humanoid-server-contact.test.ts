@@ -23,7 +23,7 @@ test('authoritative vehicle-humanoid phase runs after body motion and uses OBB c
   assert.equal(result.damagingContacts, 1);
   assert.equal(fixture.player.health, 55);
   assert.ok(fixture.player.x >= 1036);
-  assert.equal(fixture.vehicle.x, 1004);
+  assert.equal(fixture.vehicle.x, 1000 + 120 * VEHICLE_SIMULATION_STEP_SECONDS);
   assert.equal(fixture.vehicle.speed, 120);
   assert.deepEqual(result.players.map((player: PlayerState) => player.id), ['target']);
   assert.deepEqual(result.vehicles.map((vehicle: VehicleState) => vehicle.id), ['car']);

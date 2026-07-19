@@ -24,8 +24,8 @@ test('shared on-foot step preserves analog input and caps diagonal speed', () =>
     ON_FOOT_SIMULATION_STEP_SECONDS,
     canOccupy
   );
-  assert.ok(Math.abs(half.distance - 190 * 0.5 / 30) < 1e-9);
-  assert.ok(Math.abs(diagonal.distance - 190 / 30) < 1e-9);
+  assert.ok(Math.abs(half.distance - 190 * 0.5 * ON_FOOT_SIMULATION_STEP_SECONDS) < 1e-9);
+  assert.ok(Math.abs(diagonal.distance - 190 * ON_FOOT_SIMULATION_STEP_SECONDS) < 1e-9);
 });
 
 test('shared on-foot step resolves each world collision axis independently', () => {

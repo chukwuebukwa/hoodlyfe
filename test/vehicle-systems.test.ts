@@ -39,11 +39,13 @@ test('vehicle damage tracks components, ignition, delayed explosion, and weapon 
 });
 
 test('player driving consumes distinct model acceleration from the shared catalog', () => {
-  assert.deepEqual([
+  const speeds = [
     drivenSpeed('taxi'),
     drivenSpeed('sedan'),
     drivenSpeed('police')
-  ].map(Math.round), [360, 390, 440]);
+  ];
+  assert.deepEqual(speeds.map(Math.round), [357, 388, 438]);
+  assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
 });
 
 test('district projectile resolution damages vehicles and consumes the bullet', () => {
@@ -81,7 +83,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
 function drivenSpeed(kind: string): number {
   const {room, vehicle, player} = drivingFixture(kind);
   room.playerControl.setMove(player.id, {x: 0, y: -1});
-  updateVehicle(room, vehicle, 30);
+  updateVehicle(room, vehicle, Math.round(1 / VEHICLE_SIMULATION_STEP_SECONDS));
   return vehicle.speed;
 }
 

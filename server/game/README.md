@@ -134,7 +134,7 @@ game/
 
 ## Simulation Order
 
-`DistrictSimulation` owns the tested 30 Hz order: frame state, activation/streaming,
+`DistrictSimulation` owns the tested 60 Hz order: frame state, activation/streaming,
 environment, vehicle motion, player motion, crime response, pedestrian motion, dynamic
 contacts, history capture, projectiles, world effects, pickups, incidents/missions,
 lifecycle mutation, event dispatch, then snapshots/observability. `DistrictRoom` invokes
