@@ -16,6 +16,7 @@ import {CombatFirePredictionController} from '../network/combat-fire-prediction-
 import {InteractionIslandController} from '../network/interaction-island-controller.ts';
 import type {InteractionSnapshotInbox} from '../network/interaction-snapshot-inbox.ts';
 import type {NetcodeRolloutController} from '../network/netcode-rollout-controller.ts';
+import type {NockPhoneController} from '../ui/nock-phone-controller.ts';
 import {ClientCollisionMap} from '../world/client-collision-map.ts';
 import {STREET_SPACE_ID, interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {WORLD_COLLISION_REVISION} from '../../../shared/simulation/world-collision-revision.ts';
@@ -71,7 +72,8 @@ export class ThreePrototypeViewer {
     private readonly parent: HTMLElement,
     private readonly room?: Room<DistrictNetworkState>,
     private readonly interactionSnapshots?: InteractionSnapshotInbox,
-    private readonly netcodeRollout?: NetcodeRolloutController
+    private readonly netcodeRollout?: NetcodeRolloutController,
+    private readonly phone?: NockPhoneController
   ) {
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -183,7 +185,8 @@ export class ThreePrototypeViewer {
         this.room,
         payload.surfaces.width * payload.blockSize,
         payload.surfaces.height * payload.blockSize,
-        () => this.entities?.playerPose(this.room?.sessionId ?? '')
+        () => this.entities?.playerPose(this.room?.sessionId ?? ''),
+        this.phone
       );
       this.input = new ThreeInputController({
         room: this.room,

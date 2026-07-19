@@ -11,6 +11,7 @@ import {
 import type {DistrictNetworkState} from './game/types.ts';
 import {InteractionSnapshotInbox} from './game/network/interaction-snapshot-inbox.ts';
 import {NetcodeRolloutController} from './game/network/netcode-rollout-controller.ts';
+import {NockPhoneController} from './game/ui/nock-phone-controller.ts';
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
@@ -33,6 +34,7 @@ class GameRuntimeController implements GameRuntime {
   private loadingUi: LoadingController | undefined;
   private interactionSnapshots: InteractionSnapshotInbox | undefined;
   private netcodeRollout: NetcodeRolloutController | undefined;
+  private readonly phone = NockPhoneController.forDocument();
 
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
@@ -106,7 +108,8 @@ class GameRuntimeController implements GameRuntime {
       game,
       this.activeRoom,
       this.interactionSnapshots,
-      this.netcodeRollout
+      this.netcodeRollout,
+      this.phone
     );
     await this.activeThree.start();
     this.loadingUi?.set(0.95, 'Preparing driver');

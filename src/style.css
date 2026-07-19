@@ -1245,7 +1245,8 @@ canvas {
 }
 
 #phone-home.hidden,
-#phone-profile-app-screen.hidden {
+#phone-profile-app-screen.hidden,
+#phone-wallet-app-screen.hidden {
   display: none;
 }
 
