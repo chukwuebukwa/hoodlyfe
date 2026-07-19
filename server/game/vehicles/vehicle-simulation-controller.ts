@@ -13,6 +13,12 @@ import type {VehicleAccessController} from './vehicle-access-controller.ts';
 import type {DamageImpact} from '../combat/combat-survivability-policy.ts';
 import {stepVehicleWithWorldCollision} from '../../../shared/simulation/vehicle-step.ts';
 import {
+  captureVehicleBody,
+  driveVehicleBody
+} from '../../../shared/simulation/vehicle-body-drive.ts';
+import type {VehicleWorldPose} from '../../../shared/physics/vehicle-world-collision.ts';
+import type {PhysicsWorld} from '../../../shared/physics/physics-world.ts';
+import {
   VehicleHumanoidContactSystem,
   type VehicleHumanoidContactPhaseResult
 } from './vehicle-humanoid-contact-system.ts';
@@ -21,6 +27,7 @@ const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
 const RESPAWN_DELAY_MS = 8000;
+const PHYSICS_COST_SAMPLE_LIMIT = 600;
 
 function vehicleObstacleDimensions(kind: string): Pick<TrafficObstacle, 'halfLength' | 'halfWidth'> {
   const collision = vehicleConfig(kind).collision;
@@ -37,6 +44,13 @@ interface SimulationClock {
   tick: number;
 }
 
+interface PendingPhysicsDrive {
+  vehicle: VehicleState;
+  driverId: string;
+  sequence?: number;
+  desired: VehicleWorldPose;
+}
+
 interface VehicleSimulationControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -45,6 +59,7 @@ interface VehicleSimulationControllerOptions {
   traffic: TrafficController;
   signals?: Pick<TrafficSignalController, 'obstaclesFor'>;
   policeVehicles?: Pick<PoliceVehicleController, 'has' | 'update'>;
+  physics?: PhysicsWorld;
   clock: () => SimulationClock;
   inputFor: (playerId: string) => DriverInput | undefined;
   acknowledgeInput?: (playerId: string, vehicleId: string, sequence: number) => void;
@@ -75,6 +90,8 @@ export class VehicleSimulationController {
   private readonly damageSystem = new VehicleDamageSystem();
   private readonly collisionPairsThisTick = new Set<string>();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
+  private readonly pendingPhysicsDrives: PendingPhysicsDrive[] = [];
+  private readonly physicsStepCostSamples: number[] = [];
 
   constructor(private readonly options: VehicleSimulationControllerOptions) {
     this.humanoidContacts = new VehicleHumanoidContactSystem(options);
@@ -150,6 +167,10 @@ export class VehicleSimulationController {
     const driver = vehicle.driverId ? this.options.state.players.get(vehicle.driverId) : undefined;
     const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
     if (driver?.alive && input) {
+      if (this.options.physics) {
+        this.queuePhysicsDrive(vehicle, driver.id, input, deltaSeconds);
+        return;
+      }
       const movement = stepVehicleWithWorldCollision(
         {
           x: vehicle.x,
@@ -192,6 +213,53 @@ export class VehicleSimulationController {
       }
       vehicle.speed = approach(vehicle.speed, 0, 220 * deltaSeconds);
     }
+  }
+
+  stepPhysics(nowMs: number): readonly VehicleState[] {
+    const physics = this.options.physics;
+    if (!physics) return [];
+    const driven = new Set(this.pendingPhysicsDrives.map((drive) => drive.vehicle.id));
+    for (const key of [...physics.keys()]) {
+      if (!driven.has(key)) physics.remove(key);
+    }
+    if (this.pendingPhysicsDrives.length === 0) return [];
+
+    const startedAt = performance.now();
+    physics.step();
+    this.physicsStepCostSamples.push(performance.now() - startedAt);
+    if (this.physicsStepCostSamples.length > PHYSICS_COST_SAMPLE_LIMIT) {
+      this.physicsStepCostSamples.shift();
+    }
+
+    const moved: VehicleState[] = [];
+    for (const {vehicle, driverId, sequence, desired} of this.pendingPhysicsDrives) {
+      const captured = captureVehicleBody(physics, vehicle.id, desired);
+      if (!captured) continue;
+      vehicle.x = captured.pose.x;
+      vehicle.y = captured.pose.y;
+      vehicle.angle = captured.pose.angle;
+      vehicle.speed = captured.pose.speed;
+      if (captured.collidedWithWorld) {
+        this.damage(
+          vehicle,
+          this.damageSystem.wallImpactDamage(captured.impactSpeed),
+          '',
+          'world',
+          nowMs,
+          captured.impactSpeed >= 0 ? 'front' : 'rear'
+        );
+      }
+      if (sequence !== undefined) {
+        this.options.acknowledgeInput?.(driverId, vehicle.id, sequence);
+      }
+      moved.push(vehicle);
+    }
+    this.pendingPhysicsDrives.length = 0;
+    return moved;
+  }
+
+  physicsStepCosts(): readonly number[] {
+    return this.physicsStepCostSamples;
   }
 
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
@@ -276,6 +344,31 @@ export class VehicleSimulationController {
   repair(vehicle: VehicleState): void {
     Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
     this.fireSources.delete(vehicle.id);
+  }
+
+  private queuePhysicsDrive(
+    vehicle: VehicleState,
+    driverId: string,
+    input: DriverInput,
+    deltaSeconds: number
+  ): void {
+    const physics = this.options.physics;
+    if (!physics || deltaSeconds <= 0) return;
+    const desired = driveVehicleBody(
+      physics,
+      vehicle.id,
+      vehicle.kind,
+      {x: vehicle.x, y: vehicle.y, angle: vehicle.angle, speed: vehicle.speed},
+      {steering: input.inputX, throttle: -input.inputY},
+      deltaSeconds,
+      this.damageSystem.stepModifiers(
+        vehicle.engineDamage,
+        vehicle.onFire,
+        vehicle.tyreDamageMask
+      )
+    );
+    vehicle.siren = false;
+    this.pendingPhysicsDrives.push({vehicle, driverId, sequence: input.sequence, desired});
   }
 
   private trafficObstacles(

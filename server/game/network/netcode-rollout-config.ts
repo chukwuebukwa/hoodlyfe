@@ -4,7 +4,9 @@ import {
   type NetcodeRolloutStage
 } from '../../../shared/protocol/netcode-rollout.ts';
 
-const ENVIRONMENT_KEYS: Readonly<Record<NetcodeRolloutStage, string>> = Object.freeze({
+type LegacyStage = Exclude<NetcodeRolloutStage, 'serverVehiclePhysics'>;
+
+const ENVIRONMENT_KEYS: Readonly<Record<LegacyStage, string>> = Object.freeze({
   remoteTimelines: 'GAME_NETCODE_REMOTE_TIMELINES',
   interactionSnapshots: 'GAME_NETCODE_INTERACTION_SNAPSHOTS',
   interactionReplay: 'GAME_NETCODE_INTERACTION_REPLAY',
@@ -12,12 +14,26 @@ const ENVIRONMENT_KEYS: Readonly<Record<NetcodeRolloutStage, string>> = Object.f
   projectilePrediction: 'GAME_NETCODE_PROJECTILE_PREDICTION'
 });
 
+export interface ServerPhysicsRollout {
+  readonly vehicles: boolean;
+}
+
+// Server-scoped stage 1 flag (RAPIER_MIGRATION_ADAPTATION_CONTRACT.md). Not part of
+// the negotiated manifest until stage 2 gives clients something to switch on.
+export function resolveServerPhysicsRollout(
+  environment: Readonly<Record<string, string | undefined>> = process.env
+): ServerPhysicsRollout {
+  const value = environment.GAME_NETCODE_SERVER_VEHICLE_PHYSICS;
+  if (value === undefined || value.trim() === '') return {vehicles: false};
+  return {vehicles: parseBoolean(value, 'GAME_NETCODE_SERVER_VEHICLE_PHYSICS')};
+}
+
 export function resolveNetcodeRolloutManifest(
   environment: Readonly<Record<string, string | undefined>> = process.env
 ): NetcodeRolloutManifest {
-  const stages = {} as Record<NetcodeRolloutStage, boolean>;
+  const stages = {} as Record<LegacyStage, boolean>;
   for (const [stage, environmentKey] of Object.entries(ENVIRONMENT_KEYS) as Array<
-    [NetcodeRolloutStage, string]
+    [LegacyStage, string]
   >) {
     stages[stage] = parseBoolean(environment[environmentKey], environmentKey);
   }
@@ -27,7 +43,8 @@ export function resolveNetcodeRolloutManifest(
     interactionSnapshots: stages.interactionSnapshots,
     interactionReplay: stages.interactionReplay,
     combatRewind: stages.combatRewind,
-    projectilePrediction: stages.projectilePrediction
+    projectilePrediction: stages.projectilePrediction,
+    serverVehiclePhysics: resolveServerPhysicsRollout(environment).vehicles
   });
 }
 

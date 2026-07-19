@@ -12,7 +12,8 @@ const ALL_ON = Object.freeze({
   interactionSnapshots: true,
   interactionReplay: true,
   combatRewind: true,
-  projectilePrediction: true
+  projectilePrediction: true,
+  serverVehiclePhysics: true
 });
 
 test('client installs its listener before request and enables only negotiated stages', () => {

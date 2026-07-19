@@ -10,8 +10,14 @@ export const NETCODE_ROLLOUT_STAGE_KEYS = Object.freeze([
   'interactionSnapshots',
   'interactionReplay',
   'combatRewind',
-  'projectilePrediction'
+  'projectilePrediction',
+  'serverVehiclePhysics'
 ] as const);
+
+// Stages appended after initial deployment: absent in manifests from older peers,
+// validated as off rather than rejected so rolling deployments stay compatible.
+const APPENDED_STAGE_KEYS: ReadonlySet<NetcodeRolloutStage> =
+  new Set(['serverVehiclePhysics']);
 
 export type NetcodeRolloutStage = typeof NETCODE_ROLLOUT_STAGE_KEYS[number];
 
@@ -21,6 +27,7 @@ export interface NetcodeRolloutStages {
   readonly interactionReplay: boolean;
   readonly combatRewind: boolean;
   readonly projectilePrediction: boolean;
+  readonly serverVehiclePhysics: boolean;
 }
 
 export interface NetcodeRolloutRequest {
@@ -55,7 +62,8 @@ export const LEGACY_NETCODE_ROLLOUT_MANIFEST: NetcodeRolloutManifest = freezeMan
     interactionSnapshots: false,
     interactionReplay: false,
     combatRewind: false,
-    projectilePrediction: false
+    projectilePrediction: false,
+    serverVehiclePhysics: false
   }
 });
 
@@ -96,6 +104,10 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
   if (!stageRecord) return rejected('invalid-stages');
   const stages = {} as Record<NetcodeRolloutStage, boolean>;
   for (const key of NETCODE_ROLLOUT_STAGE_KEYS) {
+    if (stageRecord[key] === undefined && APPENDED_STAGE_KEYS.has(key)) {
+      stages[key] = false;
+      continue;
+    }
     if (typeof stageRecord[key] !== 'boolean') return rejected('invalid-stages');
     stages[key] = stageRecord[key];
   }
@@ -112,7 +124,8 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
       interactionSnapshots: stages.interactionSnapshots,
       interactionReplay: stages.interactionReplay,
       combatRewind: stages.combatRewind,
-      projectilePrediction: stages.projectilePrediction
+      projectilePrediction: stages.projectilePrediction,
+      serverVehiclePhysics: stages.serverVehiclePhysics
     }
   })};
 }

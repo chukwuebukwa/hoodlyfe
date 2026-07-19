@@ -10,6 +10,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import next from 'next';
 import {DistrictRoom} from './district-room.ts';
+import {resolveServerPhysicsRollout} from './game/network/netcode-rollout-config.ts';
+import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
 import {CollisionMap} from './world-map.ts';
 
 const port = Number(process.env.PORT ?? process.env.GAME_PORT ?? 2567);
@@ -19,6 +21,7 @@ await nextApp?.prepare();
 const processStartedAt = Date.now();
 // Fail the process before Railway marks it healthy if required runtime map assets are absent.
 CollisionMap.load();
+if (resolveServerPhysicsRollout().vehicles) await initializePhysicsEngine();
 const eventLoopDelay = monitorEventLoopDelay({resolution: 10});
 eventLoopDelay.enable();
 const app = express();

@@ -94,7 +94,11 @@ import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
 import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
-import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
+import {
+  resolveNetcodeRolloutManifest,
+  resolveServerPhysicsRollout
+} from './game/network/netcode-rollout-config.ts';
+import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -171,6 +175,8 @@ export class DistrictRoom extends Room<DistrictState> {
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
   private readonly netcodeRollout = resolveNetcodeRolloutManifest();
+  private readonly serverPhysicsRollout = resolveServerPhysicsRollout();
+  private physicsWorld?: PhysicsWorld;
   private simulation!: DistrictSimulation;
   private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
@@ -223,7 +229,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private random = new DeterministicRandom('industrial-district:v1');
   private world!: CollisionMap;
 
-  onCreate(options?: DistrictRoomOptions): void {
+  async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
@@ -235,6 +241,12 @@ export class DistrictRoom extends Room<DistrictState> {
       Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
     );
     this.world = CollisionMap.load();
+    this.physicsWorld?.free();
+    this.physicsWorld = undefined;
+    if (this.serverPhysicsRollout.vehicles) {
+      await initializePhysicsEngine();
+      this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
+    }
     this.laneGraph = LaneGraph.load(this.world);
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
@@ -497,6 +509,7 @@ export class DistrictRoom extends Room<DistrictState> {
       traffic: this.trafficController,
       signals: this.trafficSignalController,
       policeVehicles: this.policeVehicleController,
+      physics: this.physicsWorld,
       clock: () => ({tick: this.simulationClock.tick}),
       inputFor: (playerId) => {
         const player = this.state.players.get(playerId);
@@ -1077,6 +1090,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.crimeController.clearSuspect(client.sessionId);
     this.interactionSnapshots.clearPlayer(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
+  }
+
+  onDispose(): void {
+    this.physicsWorld?.free();
+    this.physicsWorld = undefined;
   }
 
   private noticePlayer(

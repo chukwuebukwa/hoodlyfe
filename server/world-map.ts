@@ -87,6 +87,22 @@ export class CollisionMap {
     return new CollisionMap(map, metadata);
   }
 
+  physicsGeometry(): {
+    width: number;
+    height: number;
+    tileWidth: number;
+    tileHeight: number;
+    collisions: readonly number[];
+  } {
+    return {
+      width: this.width,
+      height: this.height,
+      tileWidth: this.tileWidth,
+      tileHeight: this.tileHeight,
+      collisions: this.collisions
+    };
+  }
+
   isBlockedAt(x: number, y: number): boolean {
     const column = Math.floor(x / this.tileWidth);
     const row = Math.floor(y / this.tileHeight);

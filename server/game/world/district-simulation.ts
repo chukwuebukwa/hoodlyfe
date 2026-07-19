@@ -157,6 +157,9 @@ export class DistrictSimulation {
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
           this.options.indexVehicle(vehicle);
         });
+        for (const vehicle of this.options.vehicles.stepPhysics(nowMs)) {
+          this.options.indexVehicle(vehicle);
+        }
         for (const vehicle of this.options.vehicles.finishTick(nowMs)) {
           this.options.indexVehicle(vehicle);
         }

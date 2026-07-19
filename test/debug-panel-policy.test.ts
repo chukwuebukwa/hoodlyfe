@@ -437,7 +437,8 @@ test('debug panel projects negotiated netcode stages and fail-closed state', () 
           interactionSnapshots: true,
           interactionReplay: false,
           combatRewind: true,
-          projectilePrediction: false
+          projectilePrediction: false,
+          serverVehiclePhysics: false
         }
       }
     }
