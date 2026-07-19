@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import {
   atlasUv,
   faceBrightness,
+  mapSurfaceHeightAt,
   perspectiveHeightForSpan,
+  renderedSurfaceHeight,
   serverAngleToThree,
   serverPedestrianAngleToThree,
   serverVehicleAngleToThree,
@@ -12,6 +15,7 @@ import {
   renderedVehicleLampAnchor,
   vehicleLampAnchor
 } from '../src/game/three/three-prototype-policy.ts';
+import type {ThreeMapManifest} from '../src/game/three/three-map-format.ts';
 
 test('three prototype maps tile-local UVs into the complete GTA2 atlas', () => {
   assert.deepEqual(atlasUv({tile: 33, u: 0.25, v: 0.75}, {columns: 32, rows: 31}), [
@@ -63,4 +67,15 @@ test('three prototype derives perspective height and production face shading det
   assert.equal(faceBrightness(0), 1);
   assert.equal(faceBrightness(1), 16 / 31);
   assert.equal(faceBrightness(20), 0.18);
+});
+
+test('expanded district actors use the rendered street height at spawn', () => {
+  const map = JSON.parse(
+    readFileSync('public/assets/maps/three/world.json', 'utf8')
+  ) as ThreeMapManifest;
+
+  const spawnHeight = mapSurfaceHeightAt(8416, 8288, map);
+  assert.equal(spawnHeight, 128);
+  assert.equal(renderedSurfaceHeight('street-ground', 0, spawnHeight, 'street-ground'), 128);
+  assert.equal(renderedSurfaceHeight('bridge-ramp', 256, spawnHeight, 'street-ground'), 256);
 });

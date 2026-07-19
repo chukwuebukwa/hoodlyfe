@@ -16,7 +16,9 @@ import {CombatFireCommandSender} from '../network/combat-fire-command-sender.ts'
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
 import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../../shared/world/surface-map.ts';
 import {
+  mapSurfaceHeightAt,
   perspectiveHeightForSpan,
+  renderedSurfaceHeight,
   serverYToThree
 } from './three-prototype-policy.ts';
 import {ThreeMapChunkStreamer} from './three-map-chunk-streamer.ts';
@@ -390,18 +392,21 @@ export class ThreePrototypeViewer {
   };
 
   private readonly surfaceHeightAt = (x: number, y: number, surfaceId?: string): number => {
-    if (surfaceId) {
-      const authoritativeHeight = this.surfaceMap?.heightAt(surfaceId, x, y);
-      if (authoritativeHeight !== undefined) return authoritativeHeight;
-      return this.surfaceMap?.heightAt(STREET_GROUND_SURFACE_ID, x, y) ?? 0;
+    if (!surfaceId) {
+      const interiorHeight = this.interiors?.surfaceHeightAt(x, y);
+      if (interiorHeight !== undefined) return interiorHeight;
     }
-    const interiorHeight = this.interiors?.surfaceHeightAt(x, y);
-    if (interiorHeight !== undefined) return interiorHeight;
     const payload = this.payload;
     if (!payload) return 0;
-    const column = Math.max(0, Math.min(payload.surfaces.width - 1, Math.floor(x / payload.blockSize)));
-    const row = Math.max(0, Math.min(payload.surfaces.height - 1, Math.floor(y / payload.blockSize)));
-    return payload.surfaces.values[row * payload.surfaces.width + column] * payload.blockSize;
+    const authoredHeight = surfaceId && surfaceId !== STREET_GROUND_SURFACE_ID
+      ? this.surfaceMap?.heightAt(surfaceId, x, y)
+      : undefined;
+    return renderedSurfaceHeight(
+      surfaceId,
+      authoredHeight,
+      mapSurfaceHeightAt(x, y, payload),
+      STREET_GROUND_SURFACE_ID
+    );
   };
 
   private mapStreamingView(): {halfWidth: number; halfHeight: number} {
