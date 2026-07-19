@@ -223,6 +223,10 @@ export class ThreePrototypeViewer {
         canvas: this.renderer.domElement,
         camera: this.camera,
         player: () => this.room?.state.players.get(this.room.sessionId),
+        vehicleAngle: (vehicleId) => (
+          this.entities?.vehiclePose(vehicleId)?.angle ??
+          this.room?.state.vehicles.get(vehicleId)?.angle
+        ),
         surfaceZ: () => this.center.z,
         onFire: (angle) => this.combatFirePrediction?.requestFire(angle),
         isBlocked: () => this.ui?.isInputBlocked() ?? false

@@ -63,6 +63,28 @@ export function normalizeMovement(x: number, y: number): MovementVector {
   return {x: finiteX / magnitude, y: finiteY / magnitude};
 }
 
+export function directionalVehicleMovement(
+  stickX: number,
+  stickY: number,
+  vehicleAngle: number
+): MovementVector {
+  const stick = normalizeMovement(stickX, stickY);
+  const magnitude = Math.hypot(stick.x, stick.y);
+  if (magnitude === 0) return {x: 0, y: 0};
+
+  const desiredAngle = Math.atan2(stick.y, stick.x);
+  const currentAngle = Number.isFinite(vehicleAngle) ? vehicleAngle : desiredAngle;
+  const angleDelta = Math.atan2(
+    Math.sin(desiredAngle - currentAngle),
+    Math.cos(desiredAngle - currentAngle)
+  );
+
+  return normalizeMovement(
+    Math.max(-1, Math.min(1, angleDelta / (Math.PI / 2))),
+    -magnitude
+  );
+}
+
 export function canUseWeaponControls(player?: NetworkPlayer): boolean {
   return Boolean(
     player?.alive &&

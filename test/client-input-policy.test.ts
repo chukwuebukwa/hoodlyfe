@@ -4,6 +4,7 @@ import {
   canRequestPrimaryAttack,
   canUseWeaponControls,
   ClientInputCadence,
+  directionalVehicleMovement,
   normalizeMovement
 } from '../src/game/input/client-input-policy.ts';
 import type {NetworkPlayer} from '../src/game/types.ts';
@@ -16,6 +17,23 @@ test('client movement normalization preserves analog magnitude and caps combined
   assert.ok(Math.abs(Math.hypot(diagonal.x, diagonal.y) - 1) < 0.0001);
   const combined = normalizeMovement(1.4, -0.6);
   assert.ok(Math.abs(Math.hypot(combined.x, combined.y) - 1) < 0.0001);
+});
+
+test('mobile vehicle movement steers toward the pointed world direction', () => {
+  assert.deepEqual(directionalVehicleMovement(0, 0, 0), {x: 0, y: 0});
+  assert.deepEqual(directionalVehicleMovement(1, 0, 0), {x: 0, y: -1});
+
+  const downRight = directionalVehicleMovement(1, 1, 0);
+  assert.ok(downRight.x > 0);
+  assert.ok(downRight.y < 0, 'the lower half of the stick still drives forward');
+
+  const alignedDownLeft = directionalVehicleMovement(-1, 1, Math.PI * 3 / 4);
+  assert.ok(Math.abs(alignedDownLeft.x) < 0.0001);
+  assert.ok(Math.abs(alignedDownLeft.y + 1) < 0.0001);
+
+  const turnTowardLeft = directionalVehicleMovement(-1, 0, -Math.PI / 2);
+  assert.ok(turnTowardLeft.x < 0);
+  assert.ok(turnTowardLeft.y < 0);
 });
 
 test('client input cadence separates movement heartbeat, aim, fire, and weapon gates', () => {

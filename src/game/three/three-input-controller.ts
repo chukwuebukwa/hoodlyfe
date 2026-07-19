@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
 import {
   canRequestPrimaryAttack,
+  directionalVehicleMovement,
   normalizeMovement
 } from '../input/client-input-policy.ts';
 import {TouchControls} from '../touch-controls.ts';
@@ -16,6 +17,7 @@ interface ThreeInputControllerOptions {
   canvas: HTMLCanvasElement;
   camera: THREE.Camera;
   player: () => NetworkPlayer | undefined;
+  vehicleAngle?: (vehicleId: string) => number | undefined;
   surfaceZ: () => number;
   onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
@@ -52,11 +54,18 @@ export class ThreeInputController {
       this.fireQueued = false;
       return {x: 0, y: 0};
     }
+    const touchMovement = player.vehicleId && player.vehicleSeat === 0
+      ? directionalVehicleMovement(
+          this.touch.movement.x,
+          this.touch.movement.y,
+          this.options.vehicleAngle?.(player.vehicleId) ?? player.angle
+        )
+      : this.touch.movement;
     const movement = normalizeMovement(
-      this.touch.movement.x +
+      touchMovement.x +
         (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
         (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0),
-      this.touch.movement.y +
+      touchMovement.y +
         (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0) -
         (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0)
     );
