@@ -1,0 +1,39 @@
+.playtest-banner {
+  position: fixed;
+  z-index: 210;
+  top: 14px;
+  left: 50%;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 205, 61, 0.72);
+  background: rgba(8, 10, 11, 0.9);
+  color: #f7f7f2;
+  font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  transform: translateX(-50%);
+}
+
+.playtest-banner strong { color: #ffcd3d; }
+.playtest-banner span { color: #9ea3a5; }
+.playtest-banner a { color: #f7f7f2; text-decoration: none; }
+
+.playtest-error {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  background: #080a0b;
+  color: #ffcd3d;
+  font: 800 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+}
+
+.playtest-error a { color: #f7f7f2; font-size: 13px; }
+
+@media (max-width: 680px) {
+  .playtest-banner { top: 8px; gap: 8px; }
+  .playtest-banner span { display: none; }
+}

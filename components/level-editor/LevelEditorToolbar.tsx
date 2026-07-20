@@ -25,6 +25,7 @@ interface LevelEditorToolbarProps {
   districtId: string;
   districts: Array<{id: string; label: string}>;
   canExplore: boolean;
+  authoritativePlaytest: boolean;
   playDraftBusy: boolean;
   canExportBundle: boolean;
   dirty: boolean;
@@ -117,7 +118,9 @@ export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
           type="button"
           onClick={props.onPlayDraft}
           disabled={!props.canExplore || props.playDraftBusy}
-          title="Walk the current immutable editor draft"
+          title={props.authoritativePlaytest
+            ? 'Run the current immutable draft in the authoritative multiplayer game'
+            : 'Walk the current immutable draft in the geometry preview'}
           aria-label="Play current draft"
         ><Gamepad2 size={17} /></button>
         <button className="le-icon-button le-mobile-only" type="button" onClick={props.onToggleInspector} title="Toggle inspector" aria-label="Toggle inspector">

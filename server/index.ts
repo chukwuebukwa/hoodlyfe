@@ -9,7 +9,7 @@ import {monitorEventLoopDelay} from 'node:perf_hooks';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import next from 'next';
-import {DistrictRoom} from './district-room.ts';
+import {DistrictPlaytestRoom, DistrictRoom} from './district-room.ts';
 import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
 import {CollisionMap} from './world-map.ts';
 import {RuntimeHealthMonitor} from './runtime-health.ts';
@@ -103,6 +103,8 @@ const requestFatalShutdown = (error: Error): void => {
   });
 };
 gameServer.define('district', DistrictRoom, {runtimeHealth, fatalShutdown: requestFatalShutdown});
+gameServer.define('district-playtest', DistrictPlaytestRoom)
+  .filterBy(['assetSourceId', 'revisionId']);
 
 await gameServer.listen(port, '0.0.0.0');
 console.log(`NOCK0 district server listening on http://localhost:${port}`);

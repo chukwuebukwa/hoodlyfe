@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {LEVEL_EDITOR_SCHEMA_VERSION, type LevelEditorDocument} from '../src/tools/level-editor/level-document.ts';
-import {validateLevelDocument} from '../src/tools/level-editor/level-validation.ts';
+import {
+  playtestBlockingValidationIssues,
+  validateLevelDocument
+} from '../src/tools/level-editor/level-validation.ts';
 
 test('validation reports blocked spawns, off-road corridors, and missing junction references', () => {
   const document = fixture();
@@ -20,6 +23,51 @@ test('validation accepts a minimal coherent level document', () => {
   document.layers.roads.fill(1);
   document.lanes.junctions = [];
   const report = validateLevelDocument(document);
+  assert.equal(report.counts.error, 0);
+});
+
+test('validation rejects a junction that is referenced by but does not lie on a corridor', () => {
+  const document = fixture();
+  document.layers.collision[0] = 0;
+  document.layers.roads.fill(1);
+  document.lanes.corridors.push({
+    id: 'cross',
+    speedLimit: 80,
+    points: [{x: 64, y: 0}, {x: 64, y: 127}]
+  });
+  document.lanes.junctions = [{
+    id: 'offset-junction',
+    x: 64,
+    y: 33,
+    corridors: ['main', 'cross']
+  }];
+
+  const report = validateLevelDocument(document);
+  const issues = report.issues.filter((issue) => issue.code === 'junction-off-corridor');
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /main/);
+  assert.equal(report.counts.error, 1);
+  assert.equal(playtestBlockingValidationIssues(report).length, 0);
+});
+
+test('validation accepts a junction on every referenced corridor segment', () => {
+  const document = fixture();
+  document.layers.collision[0] = 0;
+  document.layers.roads.fill(1);
+  document.lanes.corridors.push({
+    id: 'cross',
+    speedLimit: 80,
+    points: [{x: 64, y: 0}, {x: 64, y: 127}]
+  });
+  document.lanes.junctions = [{
+    id: 'valid-junction',
+    x: 64,
+    y: 32,
+    corridors: ['main', 'cross']
+  }];
+
+  const report = validateLevelDocument(document);
+  assert.equal(report.issues.some((issue) => issue.code === 'junction-off-corridor'), false);
   assert.equal(report.counts.error, 0);
 });
 

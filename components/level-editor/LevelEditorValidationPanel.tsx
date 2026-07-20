@@ -1,6 +1,6 @@
 'use client';
 
-import {AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, Info, X} from 'lucide-react';
+import {AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, Info, Wrench, X} from 'lucide-react';
 import type {ValidationIssue, ValidationReport} from '../../src/tools/level-editor/level-validation.ts';
 
 interface LevelEditorValidationPanelProps {
@@ -8,10 +8,12 @@ interface LevelEditorValidationPanelProps {
   open: boolean;
   onOpenChange(open: boolean): void;
   onSelectIssue(issue: ValidationIssue): void;
+  onRepairJunctions(): void;
 }
 
-export function LevelEditorValidationPanel({report, open, onOpenChange, onSelectIssue}: LevelEditorValidationPanelProps) {
+export function LevelEditorValidationPanel({report, open, onOpenChange, onSelectIssue, onRepairJunctions}: LevelEditorValidationPanelProps) {
   const total = report.issues.length;
+  const hasRepairableJunctions = report.issues.some((issue) => issue.code === 'junction-off-corridor');
   return (
     <section className={`le-validation ${open ? 'is-open' : ''}`} aria-label="Level validation results">
       <button className="le-validation__summary" type="button" onClick={() => onOpenChange(!open)} aria-expanded={open}>
@@ -24,7 +26,11 @@ export function LevelEditorValidationPanel({report, open, onOpenChange, onSelect
       </button>
       {open && (
         <div className="le-validation__drawer">
-          <header><strong>{total === 0 ? 'No validation issues' : `${total} validation issue${total === 1 ? '' : 's'}`}</strong><button className="le-icon-button" type="button" onClick={() => onOpenChange(false)} aria-label="Close validation"><X size={16} /></button></header>
+          <header>
+            <strong>{total === 0 ? 'No validation issues' : `${total} validation issue${total === 1 ? '' : 's'}`}</strong>
+            {hasRepairableJunctions && <button className="le-wide-command" type="button" onClick={onRepairJunctions}><Wrench size={15} /> Repair junctions</button>}
+            <button className="le-icon-button" type="button" onClick={() => onOpenChange(false)} aria-label="Close validation"><X size={16} /></button>
+          </header>
           {total === 0 ? (
             <p className="le-empty-state">The editor document passed structural and placement checks.</p>
           ) : (

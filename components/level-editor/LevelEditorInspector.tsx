@@ -10,6 +10,7 @@ import type {
   SpawnKind
 } from '../../src/tools/level-editor/level-document.ts';
 import {selectionKey, type EditorSelection} from '../../src/tools/level-editor/editor-ui.ts';
+import {repairJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
 
 interface LevelEditorInspectorProps {
   document: LevelEditorDocument;
@@ -134,9 +135,10 @@ function CorridorInspector(props: LevelEditorInspectorProps & {corridor: LaneCor
   function update(label: string, patch: Partial<LaneCorridor>, nextId?: string): void {
     props.onCommit(label, (document) => {
       const corridors = document.lanes.corridors.map((candidate) => candidate.id === corridor.id ? {...candidate, ...patch} : candidate);
-      const junctions = nextId
+      let junctions = nextId
         ? document.lanes.junctions.map((junction) => ({...junction, corridors: junction.corridors.map((id) => id === corridor.id ? nextId : id)}))
         : document.lanes.junctions;
+      if (patch.points) junctions = repairJunctionIntersections(corridors, junctions, nextId ?? corridor.id).junctions;
       return {...document, lanes: {...document.lanes, corridors, junctions}};
     });
     if (nextId) props.onSelectionChange({kind: 'corridor', id: nextId});

@@ -3,7 +3,12 @@
 import {useEffect, useRef} from 'react';
 import type {GameRuntime} from '../src/main.ts';
 
-export function GameRuntimeMount(): null {
+interface GameRuntimeMountProps {
+  roomName?: string;
+  roomOptions?: Record<string, string>;
+}
+
+export function GameRuntimeMount({roomName, roomOptions}: GameRuntimeMountProps = {}): null {
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
 
   useEffect(() => {
@@ -13,7 +18,9 @@ export function GameRuntimeMount(): null {
       if (cancelled) return;
       const runtime = await startGameRuntime({
         serverUrl: resolveGameServerUrl(),
-        auth: {provider: 'guest'}
+        auth: {provider: 'guest'},
+        roomName,
+        roomOptions
       });
       if (cancelled) {
         runtime.destroy();
@@ -29,7 +36,7 @@ export function GameRuntimeMount(): null {
       runtimeRef.current?.destroy();
       runtimeRef.current = undefined;
     };
-  }, []);
+  }, [roomName, roomOptions]);
 
   return null;
 }

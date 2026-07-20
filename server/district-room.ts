@@ -160,6 +160,10 @@ import {WorldStimulusRegistry} from './game/world/world-stimulus-registry.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
 import {RuntimeHealthMonitor} from './runtime-health.ts';
+import {
+  loadPlaytestWorld,
+  type PlaytestWorldOptions
+} from './editor/playtest-world-loader.ts';
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -167,7 +171,7 @@ interface CycleWeaponMessage {
 
 const RADIO_STATION_IDS = new Set(['station-0', 'station-1', 'station-3', 'radio-off']);
 
-interface DistrictRoomOptions {
+interface DistrictRoomOptions extends PlaytestWorldOptions {
   seed?: number | string;
   epochMs?: number;
   journalSink?: JournalSink;
@@ -273,6 +277,10 @@ export class DistrictRoom extends Room<DistrictState> {
   private runtimeHealth?: RuntimeHealthMonitor;
   private fatalShutdown?: (error: Error) => void;
 
+  protected acceptsPlaytestRevision(): boolean {
+    return false;
+  }
+
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
       ? options.runtimeHealth
@@ -293,11 +301,15 @@ export class DistrictRoom extends Room<DistrictState> {
     this.journal?.close();
     this.journal = undefined;
     this.journaledCommands.clear();
-    this.world = CollisionMap.load();
+    const playtest = this.acceptsPlaytestRevision()
+      ? await loadPlaytestWorld(options ?? {})
+      : undefined;
+    this.autoDispose = Boolean(playtest);
+    this.world = playtest?.world ?? CollisionMap.load();
     this.physicsWorld?.free();
     await initializePhysicsEngine();
     this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
-    this.laneGraph = LaneGraph.load(this.world);
+    this.laneGraph = playtest?.laneGraph ?? LaneGraph.load(this.world);
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
     this.voiceChat = new ProximityVoiceController({
@@ -1359,6 +1371,12 @@ export class DistrictRoom extends Room<DistrictState> {
     };
   }
 
+}
+
+export class DistrictPlaytestRoom extends DistrictRoom {
+  protected override acceptsPlaytestRevision(): boolean {
+    return true;
+  }
 }
 
 function resolveSeed(requested: number | string | undefined): number | string {

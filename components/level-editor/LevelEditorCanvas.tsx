@@ -26,6 +26,10 @@ import type {
   PointerReadout,
   ViewportReadout
 } from '../../src/tools/level-editor/editor-ui.ts';
+import {
+  nearestCorridorIntersection,
+  repairJunctionIntersections
+} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
 
 export interface CanvasViewCommand {
   id: number;
@@ -410,19 +414,17 @@ export function LevelEditorCanvas({
 
   function createJunction(world: Point2D): void {
     const before = documentRef.current;
-    const point = snapPoint(world, preferencesRef.current.snapSize);
-    const nearest = before.lanes.corridors
-      .map((corridor) => ({id: corridor.id, distance: distanceToPolyline(point, corridor.points)}))
-      .sort((left, right) => left.distance - right.distance)
-      .filter((candidate) => candidate.distance <= before.map.tileSize * 2)
-      .slice(0, 4)
-      .map((candidate) => candidate.id);
+    const intersection = nearestCorridorIntersection(before.lanes.corridors, world, before.map.tileSize * 2);
+    if (!intersection) {
+      callbacksRef.current.onStatus('No corridor intersection nearby. Draw crossing corridors before placing a junction.');
+      return;
+    }
     const id = uniqueId('junction', before.lanes.junctions.map((junction) => junction.id));
-    const junction: LaneJunction = {id, ...point, corridors: nearest};
+    const junction: LaneJunction = {id, ...intersection.point, corridors: intersection.corridorIds};
     const after = {...before, lanes: {...before.lanes, junctions: [...before.lanes.junctions, junction]}};
     callbacksRef.current.onExecute(documentCommand('Add junction', before, after));
     callbacksRef.current.onSelectionChange({kind: 'junction', id});
-    callbacksRef.current.onStatus(`Added ${id} with ${nearest.length} nearby corridor connection${nearest.length === 1 ? '' : 's'}.`);
+    callbacksRef.current.onStatus(`Added ${id} at an exact ${intersection.corridorIds.length}-corridor intersection.`);
   }
 
   function createSpawn(world: Point2D): void {
@@ -783,7 +785,8 @@ function moveSelection(
     const points = corridor.points.map((point) => snapPoint({x: point.x + dx, y: point.y + dy}, snapSize));
     return {...corridor, points};
   });
-  return {...document, lanes: {...document.lanes, corridors}};
+  const repaired = repairJunctionIntersections(corridors, document.lanes.junctions, selection.id);
+  return {...document, lanes: {...document.lanes, corridors, junctions: repaired.junctions}};
 }
 
 function paintMode(tool: EditorTool): {layer: 'collision' | 'roads'; value: number} | undefined {

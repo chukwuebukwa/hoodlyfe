@@ -14,6 +14,8 @@ import {NockPhoneController} from './game/ui/nock-phone-controller.ts';
 export interface StartGameRuntimeOptions {
   serverUrl: string;
   auth?: ClientAuthPayload;
+  roomName?: string;
+  roomOptions?: Record<string, string>;
 }
 
 export interface GameRuntime {
@@ -88,7 +90,8 @@ class GameRuntimeController implements GameRuntime {
     this.loadingUi?.setTitle('NOCK0');
     this.loadingUi?.set(0.14, 'Connecting district server');
     const client = new Client(this.options.serverUrl);
-    this.activeRoom = await client.joinOrCreate<DistrictNetworkState>('district', {
+    this.activeRoom = await client.joinOrCreate<DistrictNetworkState>(this.options.roomName ?? 'district', {
+      ...this.options.roomOptions,
       name: driverName,
       appearance: playerAppearance,
       auth: playerAuth,

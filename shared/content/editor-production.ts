@@ -40,3 +40,24 @@ export interface EditorPublishResponse {
   revision: EditorPublishedRevision;
   unchanged: boolean;
 }
+
+export interface EditorPlaytestRevision {
+  schemaVersion: 1;
+  assetSourceId: string;
+  worldId: string;
+  revision: string;
+  createdAt: string;
+  actor: string;
+  documentKey: string;
+  sourceFingerprint: string;
+  validation: {errors: number; warnings: number};
+}
+
+export interface EditorPlaytestResponse {
+  revision: EditorPlaytestRevision;
+  unchanged: boolean;
+  roomName: 'district-playtest';
+  token: string;
+  playUrl: string;
+  warnings: string[];
+}
