@@ -126,7 +126,7 @@
     {
       "id": "south-boulevard-north",
       "speedLimit": 126,
-      "direction": "forward",
+      "direction": "reverse",
       "lanesPerDirection": 2,
       "points": [
         {
@@ -142,7 +142,7 @@
     {
       "id": "south-boulevard-south",
       "speedLimit": 126,
-      "direction": "reverse",
+      "direction": "forward",
       "lanesPerDirection": 2,
       "points": [
         {
@@ -158,7 +158,7 @@
     {
       "id": "south-boulevard-west-return",
       "speedLimit": 52,
-      "direction": "forward",
+      "direction": "reverse",
       "points": [
         {
           "x": 5968,
@@ -173,7 +173,7 @@
     {
       "id": "south-boulevard-east-return",
       "speedLimit": 52,
-      "direction": "forward",
+      "direction": "reverse",
       "points": [
         {
           "x": 9728,
@@ -404,8 +404,8 @@
       "y": 9696,
       "angle": 0,
       "blockedEdgeIds": [
-        "south-boulevard-north:forward:edge:2",
-        "south-boulevard-north:forward:lane-1:edge:2"
+        "south-boulevard-north:reverse:edge:2",
+        "south-boulevard-north:reverse:lane-1:edge:2"
       ],
       "vehiclePoses": [
         {

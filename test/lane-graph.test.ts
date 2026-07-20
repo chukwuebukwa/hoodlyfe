@@ -40,8 +40,8 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   )));
   assert.equal(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-north').length, 8);
   assert.equal(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-south').length, 8);
-  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-north').every((node) => node.direction === 'forward'));
-  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-south').every((node) => node.direction === 'reverse'));
+  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-north').every((node) => node.direction === 'reverse'));
+  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-south').every((node) => node.direction === 'forward'));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.junctionId === 'south-boulevard-east-north-return'));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.junctionId === 'south-boulevard-west-south-return'));
   assert.ok(graph.nodes().every((node) => graph.outgoing(node.id).length > 0));
@@ -153,17 +153,17 @@ test('lane route planner crosses corridors deterministically without violating d
   const planner = new TrafficRoutePlanner(graph);
   const first = planner.plan(
     'north-service-road:forward:0',
-    'south-boulevard-south:reverse:3'
+    'south-boulevard-south:forward:0'
   );
   const second = planner.plan(
     'north-service-road:forward:0',
-    'south-boulevard-south:reverse:3'
+    'south-boulevard-south:forward:0'
   );
 
   assert.deepEqual(first, second);
   assert.equal(first.complete, true);
   assert.equal(first.nodeIds[0], 'north-service-road:forward:0');
-  assert.equal(first.nodeIds.at(-1), 'south-boulevard-south:reverse:3');
+  assert.equal(first.nodeIds.at(-1), 'south-boulevard-south:forward:0');
   assert.equal(first.edgeIds.length, first.nodeIds.length - 1);
   assert.ok(first.edgeIds.some((edgeId) => graph.edge(edgeId)?.kind === 'connector'));
   for (let index = 0; index < first.edgeIds.length; index++) {
@@ -178,7 +178,7 @@ test('bounded lane planning returns explicit partial work rather than hiding fai
   const graph = LaneGraph.load(CollisionMap.load());
   const plan = new TrafficRoutePlanner(graph, 2).plan(
     'north-service-road:forward:0',
-    'south-boulevard-south:reverse:3'
+    'south-boulevard-south:forward:0'
   );
 
   assert.equal(plan.complete, false);

@@ -48,8 +48,8 @@ test('Preview compiles the saved one-way carriageways into the authoritative wor
 
   assert.ok(northEdges.length > 0);
   assert.ok(southEdges.length > 0);
-  assert.equal(northEdges.every((edge) => edge.id.includes(':forward')), true);
-  assert.equal(southEdges.every((edge) => edge.id.includes(':reverse')), true);
+  assert.equal(northEdges.every((edge) => edge.id.includes(':reverse')), true);
+  assert.equal(southEdges.every((edge) => edge.id.includes(':forward')), true);
   assert.ok(preview.laneGraph.edges().some((edge) => edge.junctionId === 'south-boulevard-west-south-return'));
   assert.ok(preview.laneGraph.edges().some((edge) => edge.junctionId === 'south-boulevard-east-south-return'));
 });
