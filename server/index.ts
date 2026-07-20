@@ -32,9 +32,13 @@ setInterval(() => {
 }, 60_000).unref();
 const app = express();
 app.use(cors({origin: true, credentials: true}));
-// Full 256x256 editor documents include collision and road-cell arrays. Keep a
-// bounded ceiling above their normal encoded size without accepting unbounded bodies.
-app.use(express.json({limit: '2mb'}));
+const jsonParser = express.json();
+app.use((request, response, nextMiddleware) => {
+  // Next route handlers own editor request streams and apply their own bounded parser.
+  // Parsing here first leaves Next waiting on a body Express already consumed.
+  if (request.path.startsWith('/api/editor/')) return nextMiddleware();
+  jsonParser(request, response, nextMiddleware);
+});
 app.get('/health', (_request, response) => {
   const now = Date.now();
   const healthy = runtimeHealth.isHealthy(now, 2_000);

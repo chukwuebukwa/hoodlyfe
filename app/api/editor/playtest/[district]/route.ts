@@ -5,6 +5,10 @@ import {
   EditorStorageError,
   storeEditorPlaytestRevision
 } from '../../../../../server/editor/editor-object-store.ts';
+import {
+  EditorRequestBodyError,
+  readEditorJsonBody
+} from '../../../../../server/editor/editor-request-body.ts';
 import {issuePlaytestTicket} from '../../../../../server/editor/playtest-ticket.ts';
 import {compilePlaytestWorld} from '../../../../../server/editor/playtest-world-loader.ts';
 
@@ -16,7 +20,7 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const {district} = await context.params;
-    const document = await request.json() as unknown;
+    const document = await readEditorJsonBody(request);
     if (!isLevelEditorDocument(document)) {
       return NextResponse.json({error: 'Invalid level editor document.'}, {status: 400});
     }
@@ -42,6 +46,9 @@ export async function POST(
     };
     return NextResponse.json(response, {headers: {'Cache-Control': 'no-store'}});
   } catch (error) {
+    if (error instanceof EditorRequestBodyError) {
+      return NextResponse.json({error: error.message}, {status: error.status});
+    }
     if (error instanceof EditorStorageError) {
       return NextResponse.json({error: error.message}, {status: error.status});
     }
