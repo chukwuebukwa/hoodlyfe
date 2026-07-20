@@ -39,6 +39,7 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
   validateSpawns(document, issues);
   validateCorridors(document, issues);
   validateJunctions(document, issues);
+  validateCorridorConnectivity(document, issues);
   validateRoadblocks(document, issues);
 
   return {
@@ -137,6 +138,66 @@ function validateJunctions(document: LevelEditorDocument, issues: ValidationIssu
           junction
         );
       }
+    }
+  }
+}
+
+function validateCorridorConnectivity(document: LevelEditorDocument, issues: ValidationIssue[]): void {
+  const corridors = document.lanes.corridors;
+  if (corridors.length <= 1) return;
+  const corridorsById = new Map(corridors.map((corridor) => [corridor.id, corridor]));
+  const adjacency = new Map(corridors.map((corridor) => [corridor.id, new Set<string>()]));
+
+  for (const junction of document.lanes.junctions) {
+    const connected = [...new Set(junction.corridors)].filter((corridorId) => {
+      const corridor = corridorsById.get(corridorId);
+      return corridor && pointOnPolyline(junction, corridor.points);
+    });
+    if (connected.length < 2) continue;
+    for (const corridorId of connected) {
+      for (const neighborId of connected) {
+        if (neighborId !== corridorId) adjacency.get(corridorId)?.add(neighborId);
+      }
+    }
+  }
+
+  const components: string[][] = [];
+  const unvisited = new Set(corridors.map((corridor) => corridor.id));
+  while (unvisited.size > 0) {
+    const seed = [...unvisited].sort()[0];
+    const component: string[] = [];
+    const pending = [seed];
+    unvisited.delete(seed);
+    while (pending.length > 0) {
+      const corridorId = pending.pop()!;
+      component.push(corridorId);
+      for (const neighborId of adjacency.get(corridorId) ?? []) {
+        if (!unvisited.delete(neighborId)) continue;
+        pending.push(neighborId);
+      }
+    }
+    components.push(component.sort());
+  }
+  if (components.length <= 1) return;
+
+  const primaryCorridorId = corridors[0].id;
+  components.sort((left, right) => (
+    right.length - left.length ||
+    Number(right.includes(primaryCorridorId)) - Number(left.includes(primaryCorridorId)) ||
+    left[0].localeCompare(right[0])
+  ));
+  for (const component of components.slice(1)) {
+    for (const corridorId of component) {
+      const corridor = corridorsById.get(corridorId)!;
+      add(
+        issues,
+        'error',
+        'corridor-disconnected',
+        `${corridorId} is disconnected from the main traffic network. Add a junction that connects it to another corridor.`,
+        'corridor',
+        corridorId,
+        corridor.points[0]
+      );
     }
   }
 }

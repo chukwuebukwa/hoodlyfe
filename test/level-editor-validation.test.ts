@@ -46,8 +46,9 @@ test('validation rejects a junction that is referenced by but does not lie on a 
   const issues = report.issues.filter((issue) => issue.code === 'junction-off-corridor');
   assert.equal(issues.length, 1);
   assert.match(issues[0].message, /main/);
-  assert.equal(report.counts.error, 1);
-  assert.equal(playtestBlockingValidationIssues(report).length, 0);
+  assert.ok(report.issues.some((issue) => issue.code === 'corridor-disconnected'));
+  assert.equal(report.counts.error, 2);
+  assert.equal(playtestBlockingValidationIssues(report).length, 1);
 });
 
 test('validation accepts a junction on every referenced corridor segment', () => {
@@ -69,6 +70,44 @@ test('validation accepts a junction on every referenced corridor segment', () =>
   const report = validateLevelDocument(document);
   assert.equal(report.issues.some((issue) => issue.code === 'junction-off-corridor'), false);
   assert.equal(report.counts.error, 0);
+});
+
+test('validation rejects a corridor disconnected from the main traffic network', () => {
+  const document = fixture();
+  document.layers.collision[0] = 0;
+  document.layers.roads.fill(1);
+  document.lanes.junctions = [];
+  document.lanes.corridors.push({
+    id: 'isolated',
+    speedLimit: 80,
+    points: [{x: 32, y: 96}, {x: 96, y: 96}]
+  });
+
+  const report = validateLevelDocument(document);
+  const issue = report.issues.find((candidate) => candidate.code === 'corridor-disconnected');
+  assert.equal(issue?.entityId, 'isolated');
+  assert.match(issue?.message ?? '', /Add a junction/);
+  assert.equal(playtestBlockingValidationIssues(report).includes(issue!), true);
+});
+
+test('validation accepts corridors joined by an exact authored junction', () => {
+  const document = fixture();
+  document.layers.collision[0] = 0;
+  document.layers.roads.fill(1);
+  document.lanes.corridors.push({
+    id: 'cross',
+    speedLimit: 80,
+    points: [{x: 64, y: 0}, {x: 64, y: 127}]
+  });
+  document.lanes.junctions = [{
+    id: 'connected',
+    x: 64,
+    y: 32,
+    corridors: ['main', 'cross']
+  }];
+
+  const report = validateLevelDocument(document);
+  assert.equal(report.issues.some((issue) => issue.code === 'corridor-disconnected'), false);
 });
 
 test('validation rejects empty entity ids before export', () => {

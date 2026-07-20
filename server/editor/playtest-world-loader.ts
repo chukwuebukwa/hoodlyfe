@@ -28,6 +28,13 @@ export interface LoadedPlaytestWorld {
   warnings: string[];
 }
 
+export class PlaytestLaneGraphError extends Error {
+  constructor(readonly issues: readonly string[]) {
+    super(`Authored traffic lanes are invalid: ${issues[0] ?? 'unknown lane graph error'}`);
+    this.name = 'PlaytestLaneGraphError';
+  }
+}
+
 export async function loadPlaytestWorld(options: PlaytestWorldOptions): Promise<LoadedPlaytestWorld> {
   const assetSourceId = requiredString(options.assetSourceId, 'asset source');
   const revisionId = requiredString(options.revisionId, 'revision');
@@ -73,18 +80,14 @@ export function compilePlaytestWorld(
       {name: 'roads', data: [...document.layers.roads]}
     ]
   }, {spawn: {x: spawn.x, y: spawn.y}}, repositoryWorld.surfaces);
-  const warnings: string[] = [];
   let laneGraph: LaneGraph;
   try {
     laneGraph = LaneGraph.fromDocument(document.lanes, world);
   } catch (error) {
     if (!(error instanceof LaneGraphValidationError)) throw error;
-    laneGraph = LaneGraph.load(world);
-    warnings.push(
-      `Authored lane graph was rejected; traffic is using repository lanes (${error.issues.length} issue${error.issues.length === 1 ? '' : 's'}).`
-    );
+    throw new PlaytestLaneGraphError(error.issues);
   }
-  return {assetSourceId, revisionId, document, world, laneGraph, warnings};
+  return {assetSourceId, revisionId, document, world, laneGraph, warnings: []};
 }
 
 function requiredString(value: string | undefined, label: string): string {

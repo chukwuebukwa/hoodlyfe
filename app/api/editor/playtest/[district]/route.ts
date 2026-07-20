@@ -10,7 +10,10 @@ import {
   readEditorJsonBody
 } from '../../../../../server/editor/editor-request-body.ts';
 import {issuePlaytestTicket} from '../../../../../server/editor/playtest-ticket.ts';
-import {compilePlaytestWorld} from '../../../../../server/editor/playtest-world-loader.ts';
+import {
+  compilePlaytestWorld,
+  PlaytestLaneGraphError
+} from '../../../../../server/editor/playtest-world-loader.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +39,6 @@ export async function POST(
       revision: stored.revision.revision,
       token
     });
-    if (preflight.warnings.length > 0) query.set('laneFallback', '1');
     const response: EditorPlaytestResponse = {
       ...stored,
       roomName: 'district-playtest',
@@ -46,6 +48,9 @@ export async function POST(
     };
     return NextResponse.json(response, {headers: {'Cache-Control': 'no-store'}});
   } catch (error) {
+    if (error instanceof PlaytestLaneGraphError) {
+      return NextResponse.json({error: error.message, issues: error.issues}, {status: 422});
+    }
     if (error instanceof EditorRequestBodyError) {
       return NextResponse.json({error: error.message}, {status: error.status});
     }
