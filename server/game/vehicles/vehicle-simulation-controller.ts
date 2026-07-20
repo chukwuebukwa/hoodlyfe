@@ -20,11 +20,13 @@ import {
 } from '../../../shared/simulation/vehicle-body-drive.ts';
 import type {VehicleWorldPose} from '../../../shared/simulation/vehicle-step.ts';
 import type {PhysicsBodyState, PhysicsContact, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
-import {
-  driveHumanoidBody,
-  physicsBodyKey
-} from '../../../shared/simulation/humanoid-body-drive.ts';
+import {physicsBodyKey} from '../../../shared/simulation/humanoid-body-drive.ts';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
+import {
+  PhysicsBodyRegistry,
+  type PhysicsActorDescriptor,
+  type PhysicsLifecycleOperations
+} from './physics-body-registry.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -63,6 +65,23 @@ interface PhysicsAttempt extends PhysicsBodyState {
   readonly key: string;
   readonly kind: 'vehicle' | 'player' | 'pedestrian';
   readonly id: string;
+}
+
+export interface PhysicsRuntimeDiagnostics {
+  bodies: number;
+  worlds: number;
+  contacts: number;
+  lifecycle: {
+    tick: PhysicsLifecycleOperations;
+    cumulative: PhysicsLifecycleOperations;
+  };
+  stepMs: {
+    latest: number;
+    p50: number;
+    p95: number;
+    max: number;
+    samples: number;
+  };
 }
 
 interface VehicleSimulationControllerOptions {
@@ -111,8 +130,13 @@ export class VehicleSimulationController {
   >();
   private readonly impactAt = new Map<string, number>();
   private readonly physicsBySurface = new Map<string, PhysicsWorld>();
+  private readonly bodyRegistry: PhysicsBodyRegistry;
+  private latestContactCount = 0;
+  private rootSurfaceId?: string;
 
-  constructor(private readonly options: VehicleSimulationControllerOptions) {}
+  constructor(private readonly options: VehicleSimulationControllerOptions) {
+    this.bodyRegistry = new PhysicsBodyRegistry((surfaceId) => this.physicsForSurface(surfaceId));
+  }
 
   beginTick(nowMs = this.options.state.serverTimeMs): void {
     this.previousBodies.clear();
@@ -224,19 +248,26 @@ export class VehicleSimulationController {
         actorsFor(npc.surfaceId).npcs.push(npc);
       }
     }
-    for (const physics of this.physicsBySurface.values()) {
-      for (const key of [...physics.keys()]) physics.remove(key);
-    }
     this.pruneImpactRecords(nowMs);
     const pending = new Map(this.pendingPhysicsDrives.map((drive) => [drive.vehicle.id, drive]));
+    const prepared = this.preparePhysicsActors(actorsBySurface, pending, deltaSeconds);
+    this.bodyRegistry.reconcile(prepared.descriptors);
+    this.assertPhysicsBodyOwnership(prepared.descriptors.length);
     const results = [...actorsBySurface].sort(([left], [right]) => left.localeCompare(right))
       .map(([surfaceId, actors]) => (
-      this.stepSurfacePhysics(surfaceId, actors, pending, deltaSeconds, nowMs)
+      this.stepSurfacePhysics(
+        surfaceId,
+        actors,
+        pending,
+        prepared.attemptsBySurface.get(surfaceId) ?? new Map(),
+        nowMs
+      )
     ));
     this.physicsStepCostSamples.push(performance.now() - startedAt);
     if (this.physicsStepCostSamples.length > PHYSICS_COST_SAMPLE_LIMIT) {
       this.physicsStepCostSamples.shift();
     }
+    this.latestContactCount = results.reduce((sum, result) => sum + result.physicsContacts, 0);
     this.pendingPhysicsDrives.length = 0;
     return Object.freeze({
       vehicles: Object.freeze(results.flatMap((result) => result.vehicles)),
@@ -251,94 +282,13 @@ export class VehicleSimulationController {
     surfaceId: string,
     actors: {vehicles: VehicleState[]; players: PlayerState[]; npcs: NpcState[]},
     pending: ReadonlyMap<string, PendingPhysicsDrive>,
-    deltaSeconds: number,
+    attempts: ReadonlyMap<string, PhysicsAttempt>,
     nowMs: number
   ) {
     const physics = this.physicsForSurface(surfaceId);
-    const attempts = new Map<string, PhysicsAttempt>();
-    const delta = Math.max(0.001, deltaSeconds);
-
     const vehicles = actors.vehicles.sort((left, right) => left.id.localeCompare(right.id));
-    for (const vehicle of vehicles) {
-      const key = physicsBodyKey('vehicle', vehicle.id);
-      const previous = this.previousBodies.get(key) ?? vehicle;
-      const desired = pending.get(vehicle.id)?.desired ?? {
-        x: vehicle.x,
-        y: vehicle.y,
-        angle: vehicle.angle,
-        speed: vehicle.destroyed ? 0 : vehicle.speed
-      };
-      const state = {
-        x: previous.x,
-        y: previous.y,
-        rotation: desired.angle,
-        linvelX: (desired.x - previous.x) / delta,
-        linvelY: (desired.y - previous.y) / delta,
-        angvel: 0
-      };
-      physics.registerVehicle(key, vehicle.kind, state);
-      attempts.set(key, {key, kind: 'vehicle', id: vehicle.id, ...state});
-    }
-
     const players = actors.players.sort((left, right) => left.id.localeCompare(right.id));
-    for (const player of players) {
-      const key = physicsBodyKey('player', player.id);
-      const previous = this.previousBodies.get(key) ?? player;
-      const desired = {x: player.x, y: player.y, spaceId: player.spaceId};
-      const state = {
-        x: previous.x,
-        y: previous.y,
-        rotation: 0,
-        linvelX: (desired.x - previous.x) / delta,
-        linvelY: (desired.y - previous.y) / delta,
-        angvel: 0
-      };
-      driveHumanoidBody(
-        physics, key, PLAYER_RADIUS,
-        {x: previous.x, y: previous.y, spaceId: player.spaceId}, desired, delta
-      );
-      attempts.set(key, {
-        key,
-        kind: 'player',
-        id: player.id,
-        x: previous.x,
-        y: previous.y,
-        rotation: 0,
-        linvelX: (desired.x - previous.x) / delta,
-        linvelY: (desired.y - previous.y) / delta,
-        angvel: 0
-      });
-    }
-
     const npcs = actors.npcs.sort((left, right) => left.id.localeCompare(right.id));
-    for (const npc of npcs) {
-      const key = physicsBodyKey('pedestrian', npc.id);
-      const previous = this.previousBodies.get(key) ?? npc;
-      const desired = {x: npc.x, y: npc.y, spaceId: 'street'};
-      const state = {
-        x: previous.x,
-        y: previous.y,
-        rotation: 0,
-        linvelX: (desired.x - previous.x) / delta,
-        linvelY: (desired.y - previous.y) / delta,
-        angvel: 0
-      };
-      driveHumanoidBody(
-        physics, key, NPC_RADIUS,
-        {x: previous.x, y: previous.y, spaceId: 'street'}, desired, delta
-      );
-      attempts.set(key, {
-        key,
-        kind: 'pedestrian',
-        id: npc.id,
-        x: previous.x,
-        y: previous.y,
-        rotation: 0,
-        linvelX: (desired.x - previous.x) / delta,
-        linvelY: (desired.y - previous.y) / delta,
-        angvel: 0
-      });
-    }
 
     physics.step();
 
@@ -416,7 +366,8 @@ export class VehicleSimulationController {
 
     let contacts = 0;
     let damagingContacts = 0;
-    for (const contact of physics.contacts()) {
+    const physicsContacts = physics.contacts();
+    for (const contact of physicsContacts) {
       const first = attempts.get(contact.first);
       const second = attempts.get(contact.second);
       if (!first || !second) continue;
@@ -432,14 +383,118 @@ export class VehicleSimulationController {
       players: Object.freeze(players),
       npcs: Object.freeze(npcs),
       contacts,
-      damagingContacts
+      damagingContacts,
+      physicsContacts: physicsContacts.length
     });
+  }
+
+  private preparePhysicsActors(
+    actorsBySurface: ReadonlyMap<string, {
+      vehicles: VehicleState[];
+      players: PlayerState[];
+      npcs: NpcState[];
+    }>,
+    pending: ReadonlyMap<string, PendingPhysicsDrive>,
+    deltaSeconds: number
+  ): {
+    descriptors: PhysicsActorDescriptor[];
+    attemptsBySurface: Map<string, Map<string, PhysicsAttempt>>;
+  } {
+    const descriptors: PhysicsActorDescriptor[] = [];
+    const attemptsBySurface = new Map<string, Map<string, PhysicsAttempt>>();
+    const delta = Math.max(0.001, deltaSeconds);
+    for (const [surfaceId, actors] of [...actorsBySurface].sort(([left], [right]) => (
+      left.localeCompare(right)
+    ))) {
+      const attempts = new Map<string, PhysicsAttempt>();
+      attemptsBySurface.set(surfaceId, attempts);
+      for (const vehicle of [...actors.vehicles].sort((left, right) => left.id.localeCompare(right.id))) {
+        const key = physicsBodyKey('vehicle', vehicle.id);
+        const previous = this.previousBodies.get(key) ?? vehicle;
+        const desired = pending.get(vehicle.id)?.desired ?? {
+          x: vehicle.x,
+          y: vehicle.y,
+          angle: vehicle.angle,
+          speed: vehicle.destroyed ? 0 : vehicle.speed
+        };
+        const attempt: PhysicsAttempt = {
+          key,
+          kind: 'vehicle',
+          id: vehicle.id,
+          x: previous.x,
+          y: previous.y,
+          rotation: desired.angle,
+          linvelX: (desired.x - previous.x) / delta,
+          linvelY: (desired.y - previous.y) / delta,
+          angvel: 0
+        };
+        attempts.set(key, attempt);
+        descriptors.push({
+          key,
+          actorType: 'vehicle',
+          entityId: vehicle.id,
+          surfaceId,
+          shapeKey: `vehicle:${vehicle.kind}`,
+          state: attempt
+        });
+      }
+      for (const player of [...actors.players].sort((left, right) => left.id.localeCompare(right.id))) {
+        const key = physicsBodyKey('player', player.id);
+        const previous = this.previousBodies.get(key) ?? player;
+        const attempt: PhysicsAttempt = {
+          key,
+          kind: 'player',
+          id: player.id,
+          x: previous.x,
+          y: previous.y,
+          rotation: 0,
+          linvelX: (player.x - previous.x) / delta,
+          linvelY: (player.y - previous.y) / delta,
+          angvel: 0
+        };
+        attempts.set(key, attempt);
+        descriptors.push({
+          key,
+          actorType: 'player',
+          entityId: player.id,
+          surfaceId,
+          shapeKey: `humanoid:${PLAYER_RADIUS}`,
+          state: attempt
+        });
+      }
+      for (const npc of [...actors.npcs].sort((left, right) => left.id.localeCompare(right.id))) {
+        const key = physicsBodyKey('pedestrian', npc.id);
+        const previous = this.previousBodies.get(key) ?? npc;
+        const attempt: PhysicsAttempt = {
+          key,
+          kind: 'pedestrian',
+          id: npc.id,
+          x: previous.x,
+          y: previous.y,
+          rotation: 0,
+          linvelX: (npc.x - previous.x) / delta,
+          linvelY: (npc.y - previous.y) / delta,
+          angvel: 0
+        };
+        attempts.set(key, attempt);
+        descriptors.push({
+          key,
+          actorType: 'pedestrian',
+          entityId: npc.id,
+          surfaceId,
+          shapeKey: `humanoid:${NPC_RADIUS}`,
+          state: attempt
+        });
+      }
+    }
+    return {descriptors, attemptsBySurface};
   }
 
   private physicsForSurface(surfaceId: string): PhysicsWorld {
     const existing = this.physicsBySurface.get(surfaceId);
     if (existing) return existing;
-    const defaultSurfaceId = this.options.world.surfaces?.manifest.defaultSurfaceId ?? surfaceId;
+    const defaultSurfaceId = this.options.world.surfaces?.manifest.defaultSurfaceId ??
+      (this.rootSurfaceId ??= surfaceId);
     const physics = surfaceId === defaultSurfaceId
       ? this.options.physics
       : this.options.physics.fork(false);
@@ -448,8 +503,49 @@ export class VehicleSimulationController {
     return physics;
   }
 
+  private assertPhysicsBodyOwnership(expectedBodies: number): void {
+    const worldBodies = [...this.physicsBySurface.values()].reduce((sum, world) => (
+      sum + world.bodyCount
+    ), 0);
+    if (this.bodyRegistry.bodyCount !== expectedBodies || worldBodies !== expectedBodies) {
+      throw new Error(
+        `Physics body ownership mismatch: ${expectedBodies} actors, ` +
+        `${this.bodyRegistry.bodyCount} registry bodies, ${worldBodies} world bodies.`
+      );
+    }
+  }
+
   physicsStepCosts(): readonly number[] {
     return this.physicsStepCostSamples;
+  }
+
+  physicsDiagnostics(): PhysicsRuntimeDiagnostics {
+    const samples = [...this.physicsStepCostSamples].sort((left, right) => left - right);
+    return {
+      bodies: this.bodyRegistry.bodyCount,
+      worlds: this.physicsBySurface.size,
+      contacts: this.latestContactCount,
+      lifecycle: {
+        tick: this.bodyRegistry.tickOperations(),
+        cumulative: this.bodyRegistry.cumulativeOperations()
+      },
+      stepMs: {
+        latest: this.physicsStepCostSamples.at(-1) ?? 0,
+        p50: percentile(samples, 0.5),
+        p95: percentile(samples, 0.95),
+        max: samples.at(-1) ?? 0,
+        samples: samples.length
+      }
+    };
+  }
+
+  physicsBodyIdentity(key: string): number | undefined {
+    return this.bodyRegistry.bodyIdentity(key);
+  }
+
+  disposePhysics(): void {
+    this.bodyRegistry.clear();
+    this.physicsBySurface.clear();
   }
 
   private applyVehicleContact(
@@ -852,6 +948,11 @@ function approach(value: number, target: number, amount: number): number {
   if (value < target) return Math.min(target, value + amount);
   if (value > target) return Math.max(target, value - amount);
   return value;
+}
+
+function percentile(sorted: readonly number[], quantile: number): number {
+  if (sorted.length === 0) return 0;
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * quantile))];
 }
 
 export {classifyImpactZone};

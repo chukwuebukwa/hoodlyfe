@@ -52,6 +52,9 @@ export class ThreeDebugController {
     playerReaction: document.querySelector('#debug-player-reaction'),
     surface: document.querySelector('#debug-surface'),
     simulationPhases: document.querySelector('#debug-simulation-phases'),
+    physics: document.querySelector('#debug-physics'),
+    physicsLifecycle: document.querySelector('#debug-physics-lifecycle'),
+    physicsStep: document.querySelector('#debug-physics-step'),
     rollout: document.querySelector('#debug-netcode-rollout')
   };
   private snapshot?: DebugSnapshot;

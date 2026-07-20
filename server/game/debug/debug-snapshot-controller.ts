@@ -2,6 +2,7 @@ import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
+  type DebugPhysicsEntry,
   type DebugPoliceArrestEntry,
   type DebugPoliceRoadblockEntry,
   type DebugPoliceStingerEntry,
@@ -53,6 +54,7 @@ interface DebugSnapshotControllerOptions {
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
+  physics?: () => DebugPhysicsEntry;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -162,6 +164,7 @@ export class DebugSnapshotController {
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
+      physics: clonePhysics(this.options.physics?.()),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }
@@ -256,5 +259,16 @@ function clonePoliceResponse(
     demands: response.demands.map((demand) => ({...demand})),
     assignments: response.assignments.map((assignment) => ({...assignment})),
     lastChanges: response.lastChanges.map((change) => ({...change}))
+  } : undefined;
+}
+
+function clonePhysics(physics: DebugPhysicsEntry | undefined): DebugPhysicsEntry | undefined {
+  return physics ? {
+    ...physics,
+    lifecycle: {
+      tick: {...physics.lifecycle.tick},
+      cumulative: {...physics.lifecycle.cumulative}
+    },
+    stepMs: {...physics.stepMs}
   } : undefined;
 }

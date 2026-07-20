@@ -138,6 +138,10 @@ export class PhysicsWorld {
     return this.bodies.has(key);
   }
 
+  get bodyCount(): number {
+    return this.bodies.size;
+  }
+
   keys(): IterableIterator<string> {
     return this.bodies.keys();
   }
@@ -147,6 +151,37 @@ export class PhysicsWorld {
     if (!body) return;
     body.setLinvel({x: finiteOrZero(linvelX), y: finiteOrZero(linvelY)}, true);
     body.setAngvel(finiteOrZero(angvel), true);
+  }
+
+  shouldTeleport(key: string, state: PhysicsBodyState, teleportTolerance = 0.001): boolean {
+    const body = this.bodies.get(key);
+    if (!body) return false;
+    const translation = body.translation();
+    return Math.hypot(
+      translation.x - finiteOrZero(state.x),
+      translation.y - finiteOrZero(state.y)
+    ) > Math.max(0, teleportTolerance);
+  }
+
+  synchronizeVelocity(key: string, state: PhysicsBodyState): void {
+    const body = this.bodies.get(key);
+    if (!body) return;
+    body.setRotation(finiteOrZero(state.rotation), true);
+    body.setLinvel({x: finiteOrZero(state.linvelX), y: finiteOrZero(state.linvelY)}, true);
+    body.setAngvel(finiteOrZero(state.angvel), true);
+  }
+
+  teleport(key: string, state: PhysicsBodyState): void {
+    const body = this.bodies.get(key);
+    if (!body) return;
+    body.setTranslation({x: finiteOrZero(state.x), y: finiteOrZero(state.y)}, true);
+    body.setRotation(finiteOrZero(state.rotation), true);
+    body.setLinvel({x: finiteOrZero(state.linvelX), y: finiteOrZero(state.linvelY)}, true);
+    body.setAngvel(finiteOrZero(state.angvel), true);
+  }
+
+  bodyIdentity(key: string): number | undefined {
+    return this.bodies.get(key)?.handle;
   }
 
   writeback(key: string, state: PhysicsBodyState): void {
@@ -245,6 +280,10 @@ export class PhysicsWorld {
     this.freed = true;
     for (const child of this.children) child.free();
     this.children.clear();
+    this.bodies.clear();
+    this.colliders.clear();
+    this.colliderKeys.clear();
+    this.staticColliders.length = 0;
     this.world.free();
   }
 

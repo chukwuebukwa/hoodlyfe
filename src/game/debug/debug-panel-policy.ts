@@ -35,6 +35,9 @@ export interface DebugPanelProjection {
   playerReaction: string;
   surface: string;
   simulationPhases: string;
+  physics: string;
+  physicsLifecycle: string;
+  physicsStep: string;
   events: string[];
 }
 
@@ -85,10 +88,35 @@ export function projectDebugPanel(
     playerReaction: playerReactionSummary(state, localPlayerId),
     surface: playerSurfaceSummary(state, localPlayerId),
     simulationPhases: simulationPhaseSummary(snapshot),
+    physics: physicsSummary(snapshot),
+    physicsLifecycle: physicsLifecycleSummary(snapshot),
+    physicsStep: physicsStepSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function physicsSummary(snapshot?: DebugSnapshot): string {
+  const physics = snapshot?.physics;
+  return physics
+    ? `${physics.bodies} bodies / ${physics.worlds} worlds / ${physics.contacts} contacts`
+    : 'off';
+}
+
+function physicsLifecycleSummary(snapshot?: DebugSnapshot): string {
+  const lifecycle = snapshot?.physics?.lifecycle.tick;
+  if (!lifecycle) return 'off';
+  return `CREATE ${lifecycle.created} REMOVE ${lifecycle.removed} MOVE ${lifecycle.migrated} ` +
+    `REPLACE ${lifecycle.replaced} TELEPORT ${lifecycle.teleported}`;
+}
+
+function physicsStepSummary(snapshot?: DebugSnapshot): string {
+  const step = snapshot?.physics?.stepMs;
+  return step
+    ? `${step.latest.toFixed(2)}ms / p50 ${step.p50.toFixed(2)} / ` +
+      `p95 ${step.p95.toFixed(2)} / max ${step.max.toFixed(2)} / ${step.samples}`
+    : 'off';
 }
 
 function playerSurfaceSummary(state?: DistrictNetworkState, localPlayerId?: string): string {

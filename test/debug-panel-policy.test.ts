@@ -50,6 +50,9 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     playerReaction: 'off',
     surface: 'off',
     simulationPhases: 'off',
+    physics: 'off',
+    physicsLifecycle: 'off',
+    physicsStep: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
 });
@@ -389,6 +392,24 @@ test('debug panel summarizes server phase cost and failures', () => {
     projectDebugPanel(createState(), snapshot).simulationPhases,
     '2 phases / 0.90ms / vehicle-motion 0.80ms / 1 fail'
   );
+});
+
+test('debug panel summarizes persistent physics lifecycle and timing', () => {
+  const snapshot = createSnapshot();
+  snapshot.physics = {
+    bodies: 72,
+    worlds: 5,
+    contacts: 3,
+    lifecycle: {
+      tick: {created: 0, removed: 0, migrated: 1, replaced: 0, teleported: 0},
+      cumulative: {created: 90, removed: 18, migrated: 4, replaced: 2, teleported: 1}
+    },
+    stepMs: {latest: 0.41, p50: 0.35, p95: 0.83, max: 1.2, samples: 600}
+  };
+  const panel = projectDebugPanel(createState(), snapshot);
+  assert.equal(panel.physics, '72 bodies / 5 worlds / 3 contacts');
+  assert.equal(panel.physicsLifecycle, 'CREATE 0 REMOVE 0 MOVE 1 REPLACE 0 TELEPORT 0');
+  assert.equal(panel.physicsStep, '0.41ms / p50 0.35 / p95 0.83 / max 1.20 / 600');
 });
 
 test('debug panel exposes region, network timing, and interpolation pressure', () => {

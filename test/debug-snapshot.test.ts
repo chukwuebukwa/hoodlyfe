@@ -85,6 +85,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeTactics?.[0].goalX, 180);
   assert.equal(first.policeArrests?.[0].phase, 'securing');
   assert.equal(first.policeArrests?.[0].suspectX, 120);
+  assert.equal(first.physics?.bodies, 72);
+  assert.equal(first.physics?.lifecycle.tick.teleported, 0);
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -390,6 +392,16 @@ function createFixture(enabled: boolean | (() => boolean)) {
       maxDurationMs: 0.2,
       failures: 0
     }],
+    physics: () => ({
+      bodies: 72,
+      worlds: 5,
+      contacts: 3,
+      lifecycle: {
+        tick: {created: 0, removed: 0, migrated: 0, replaced: 0, teleported: 0},
+        cumulative: {created: 72, removed: 0, migrated: 0, replaced: 0, teleported: 0}
+      },
+      stepMs: {latest: 0.41, p50: 0.35, p95: 0.83, max: 1.2, samples: 600}
+    }),
     traffic: () => [traffic],
     trafficLaneGraph: () => laneGraph,
     policeResponse: () => response,

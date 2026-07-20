@@ -108,13 +108,16 @@ export interface DistrictSimulationOptions {
   indexPlayer: (player: PlayerState) => void;
   indexNpc: (npc: NpcState) => void;
   indexVehicle: (vehicle: VehicleState) => void;
+  onPhaseChange?: (phase: {id: string; tick: number} | undefined) => void;
 }
 
 export class DistrictSimulation {
   private readonly pipeline: SimulationPhasePipeline<DistrictSimulationContext>;
 
   constructor(private readonly options: DistrictSimulationOptions) {
-    this.pipeline = new SimulationPhasePipeline(this.createPhases());
+    this.pipeline = new SimulationPhasePipeline(this.createPhases(), {
+      onPhaseChange: options.onPhaseChange
+    });
   }
 
   advance(elapsedMs: number): number {
@@ -125,6 +128,14 @@ export class DistrictSimulation {
 
   diagnostics(): SimulationPhaseDiagnostic[] {
     return this.pipeline.diagnostics();
+  }
+
+  activePhase(): {id: string; tick: number} | undefined {
+    return this.pipeline.activePhase();
+  }
+
+  lastFailedPhase(): {id: string; tick: number} | undefined {
+    return this.pipeline.lastFailedPhase();
   }
 
   private createPhases(): ReadonlyArray<SimulationPhaseDefinition<DistrictSimulationContext>> {

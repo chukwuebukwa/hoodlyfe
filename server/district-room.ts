@@ -1,5 +1,12 @@
 import {join} from 'node:path';
-import {type Client, Room} from '@colyseus/core';
+import {
+  OnCreateException,
+  SimulationIntervalException,
+  TimedEventException,
+  type Client,
+  type RoomException,
+  Room
+} from '@colyseus/core';
 import {
   DEBUG_SUBSCRIBE_MESSAGE,
   DEBUG_UNSUBSCRIBE_MESSAGE
@@ -54,6 +61,7 @@ import {
 } from '../shared/protocol/netcode-rollout.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
+import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
 import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
@@ -136,6 +144,7 @@ import {WorldStimulusAdapter} from './game/world/world-stimulus-adapter.ts';
 import {WorldStimulusRegistry} from './game/world/world-stimulus-registry.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
+import {RuntimeHealthMonitor} from './runtime-health.ts';
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -150,6 +159,8 @@ interface DistrictRoomOptions {
   journalHashIntervalTicks?: number;
   // Skip the wall-clock simulation interval so a harness can call stepSimulationTick().
   externalSimulation?: boolean;
+  runtimeHealth?: RuntimeHealthMonitor;
+  fatalShutdown?: (error: Error) => void;
 }
 
 interface JournaledCommandClient {
@@ -241,8 +252,16 @@ export class DistrictRoom extends Room<DistrictState> {
     (client: JournaledCommandClient, payload: unknown) => void
   >();
   private world!: CollisionMap;
+  private runtimeHealth?: RuntimeHealthMonitor;
+  private fatalShutdown?: (error: Error) => void;
 
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
+    this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
+      ? options.runtimeHealth
+      : undefined;
+    this.fatalShutdown = typeof options?.fatalShutdown === 'function'
+      ? options.fatalShutdown
+      : undefined;
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
@@ -442,6 +461,7 @@ export class DistrictRoom extends Room<DistrictState> {
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
+      physics: () => this.vehicleSimulation?.physicsDiagnostics(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -937,7 +957,8 @@ export class DistrictRoom extends Room<DistrictState> {
       journal: this.journal,
       indexPlayer: (player) => this.indexPlayer(player),
       indexNpc: (npc) => this.indexNpc(npc),
-      indexVehicle: (vehicle) => this.indexVehicle(vehicle)
+      indexVehicle: (vehicle) => this.indexVehicle(vehicle),
+      onPhaseChange: (phase) => this.runtimeHealth?.phaseChanged(phase)
     });
     this.serviceController.initialize();
     this.medicalController.initialize();
@@ -949,8 +970,7 @@ export class DistrictRoom extends Room<DistrictState> {
     if (!options?.externalSimulation) {
       this.setSimulationInterval(
         (deltaTime) => {
-          this.simulation.advance(deltaTime);
-          this.voiceChat.synchronize();
+          this.completeSimulationTick(deltaTime);
         },
         this.simulationClock.stepMs
       );
@@ -1012,8 +1032,8 @@ export class DistrictRoom extends Room<DistrictState> {
       const status = this.appearanceController.update(client.sessionId, message);
       client.send(APPEARANCE_RESULT_MESSAGE, {status});
     });
-    this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, (client, message) => {
-      void this.spawnPlayerWithAuth(client, {
+    this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, async (client, message) => {
+      await this.spawnPlayerWithAuth(client, {
         name: message?.name,
         appearance: message?.appearance,
         auth: message?.auth
@@ -1049,9 +1069,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage(DEBUG_UNSUBSCRIBE_MESSAGE, (client) => {
       this.debugSubscribers.delete(client.sessionId);
     });
+    this.runtimeHealth?.roomReady(this.roomId);
   }
 
-  onJoin(client: Client, options: DistrictJoinOptions = {}): void {
+  async onJoin(client: Client, options: DistrictJoinOptions = {}): Promise<void> {
     if (options.spectator) {
       client.view = this.replicationController.attach(client.sessionId, {
         ...this.world.spawnFor(this.state.players.size, PLAYER_RADIUS),
@@ -1059,7 +1080,7 @@ export class DistrictRoom extends Room<DistrictState> {
       });
       return;
     }
-    void this.spawnPlayerWithAuth(client, options);
+    await this.spawnPlayerWithAuth(client, options);
   }
 
   private async spawnPlayerWithAuth(
@@ -1128,7 +1149,30 @@ export class DistrictRoom extends Room<DistrictState> {
 
   onDispose(): void {
     this.journal?.close();
+    this.vehicleSimulation?.disposePhysics();
     this.physicsWorld?.free();
+  }
+
+  onUncaughtException(
+    error: RoomException<this>,
+    methodName: 'onCreate' | 'onAuth' | 'onJoin' | 'onLeave' | 'onDispose' |
+      'onMessage' | 'setSimulationInterval' | 'setInterval' | 'setTimeout'
+  ): void {
+    const phase = this.simulation?.lastFailedPhase();
+    console.error('[district] uncaught room exception', {
+      methodName,
+      errorName: error.name,
+      message: error.message,
+      phase,
+      cause: error.cause
+    });
+    const fatal = error instanceof OnCreateException ||
+      error instanceof SimulationIntervalException ||
+      error instanceof TimedEventException;
+    if (!fatal) return;
+    const cause = error.cause instanceof Error ? error.cause : error;
+    this.runtimeHealth?.fail(cause, methodName, phase);
+    this.fatalShutdown?.(cause);
   }
 
   private registerJournaledCommand<Message = undefined>(
@@ -1161,7 +1205,24 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   stepSimulationTick(): void {
-    this.simulation.advance(this.simulationClock.stepMs);
+    this.completeSimulationTick(this.simulationClock.stepMs);
+  }
+
+  private completeSimulationTick(deltaTime: number): void {
+    const startedAt = Date.now();
+    this.simulation.advance(deltaTime);
+    this.runtimeHealth?.tickSucceeded(
+      this.simulationClock.tick,
+      this.simulationClock.tick % SIMULATION_HZ === 0
+        ? this.vehicleSimulation.physicsDiagnostics()
+        : undefined
+    );
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > 5_000) {
+      const error = new Error(`District simulation tick exceeded watchdog limit: ${durationMs}ms.`);
+      this.runtimeHealth?.fail(error, 'simulation-watchdog', this.simulation.lastFailedPhase());
+      this.fatalShutdown?.(error);
+    }
     this.voiceChat.synchronize();
   }
 
