@@ -21,11 +21,6 @@ The active player, civilian, and police sheets are original AI-assisted pixel ar
 
 The active vehicle sheet is original AI-assisted pixel art stored at `public/assets/original/sprites/vehicles.png`. It contains civilian, police, and taxi frames in the existing 96-by-96 runtime contract. The generated master source is retained at `art/source/vehicles-master-chroma.png`. Police lights, vehicle damage tinting, smoke, and fire remain runtime effects rather than separate derived assets.
 
-The sedan 3D presentation prototype uses `public/assets/vehicles/3d/sedan.fbx`, created by
-Raphael Goncalves (Rgsdev) and released under CC0. Its retained source and license notice
-is `public/assets/vehicles/3d/LICENSE-RGSDEV.txt`. The FBX is presentation-only: the
-authoritative dimensions and collision shape continue to come from the vehicle catalog.
-
 These files replace the GTA2-derived pedestrian and vehicle sheets at runtime. The city map remains generated from the local GTA2 installation for compatibility testing.
 
 ## Local Development

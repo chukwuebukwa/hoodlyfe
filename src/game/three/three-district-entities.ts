@@ -71,11 +71,6 @@ import {
   vehicleUnderglowRotation,
   type VehicleUnderglow
 } from './three-vehicle-underglow.ts';
-import {
-  disposeVehicleModelInstance,
-  ThreeVehicleModelLoader,
-  updateVehicleModelVisual
-} from './three-vehicle-model-loader.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -90,8 +85,6 @@ interface RenderedEntity {
   emergencyRed?: RadialGlow;
   emergencyBlue?: RadialGlow;
   underglow?: VehicleUnderglow;
-  vehicleModel?: THREE.Group;
-  vehicleModelRequested?: boolean;
   appearanceKey?: string;
   attackSequence?: number;
   attackWeapon?: NetworkPlayer['weapon'];
@@ -163,8 +156,6 @@ export class ThreeDistrictEntities {
   private readonly rendered = new Map<string, RenderedEntity>();
   private readonly appearances = new Map<string, CompiledAppearanceTextures>();
   private readonly skidMarks: ThreeSkidMarkRenderer;
-  private readonly vehicleModels = new ThreeVehicleModelLoader();
-  private destroyed = false;
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly textures: EntityTextures,
@@ -445,10 +436,8 @@ export class ThreeDistrictEntities {
   }
 
   destroy(): void {
-    this.destroyed = true;
     this.skidMarks.destroy();
     for (const [id, rendered] of this.rendered) this.remove(id, rendered);
-    this.vehicleModels.destroy();
     for (const texture of [
       this.textures.player,
       this.textures.civilian,
@@ -886,7 +875,6 @@ export class ThreeDistrictEntities {
         : undefined,
       motion: createRemoteMotionTimeline('vehicle')
     }));
-    this.requestVehicleModel(id, rendered, vehicle.kind, definition.collision);
     if (serverTimeMs > 0) {
       rendered.motion?.push({
         timeMs: serverTimeMs,
@@ -925,18 +913,12 @@ export class ThreeDistrictEntities {
       buffered ? 1 : 0.2
     );
     rendered.renderedAngle = angle;
-    rendered.mesh.visible = !rendered.vehicleModel;
+    rendered.mesh.visible = true;
     rendered.mesh.material.opacity = visual.alpha;
     rendered.mesh.material.color.setHex(visual.tint ?? 0xffffff);
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
     rendered.mesh.userData.vehicle = vehicle;
-    if (rendered.vehicleModel) {
-      rendered.vehicleModel.position.set(x, serverYToThree(y), z - 2.5);
-      rendered.vehicleModel.rotation.z = serverAngleToThree(angle);
-      rendered.vehicleModel.visible = true;
-      updateVehicleModelVisual(rendered.vehicleModel, visual.alpha, visual.tint);
-    }
     this.skidMarks.observe(vehicle.id, {
       x,
       y,
@@ -950,26 +932,6 @@ export class ThreeDistrictEntities {
     this.positionVehicleEffects(rendered, vehicle);
   }
 
-  private requestVehicleModel(
-    id: string,
-    rendered: RenderedEntity,
-    kind: NetworkVehicle['kind'],
-    collision: ReturnType<typeof vehicleDefinition>['collision']
-  ): void {
-    if (rendered.vehicleModelRequested || !this.vehicleModels.hasModel(kind)) return;
-    rendered.vehicleModelRequested = true;
-    void this.vehicleModels.createInstance(kind, collision).then((model) => {
-      if (!model) return;
-      if (this.destroyed || this.rendered.get(id) !== rendered) {
-        disposeVehicleModelInstance(model);
-        return;
-      }
-      model.visible = false;
-      rendered.vehicleModel = model;
-      this.scene.add(model);
-    });
-  }
-
   private positionVehicleEffects(rendered: RenderedEntity, vehicle: NetworkVehicle): void {
     if (rendered.underglow) {
       rendered.underglow.position.set(
@@ -977,10 +939,7 @@ export class ThreeDistrictEntities {
         rendered.mesh.position.y,
         rendered.mesh.position.z - 1.4
       );
-      rendered.underglow.rotation.z = vehicleUnderglowRotation(
-        rendered.mesh.rotation.z,
-        rendered.vehicleModel?.rotation.z
-      );
+      rendered.underglow.rotation.z = vehicleUnderglowRotation(rendered.mesh.rotation.z);
     }
     const frontLamp = renderedVehicleLampAnchor(
       rendered.mesh.position.x,
@@ -1080,11 +1039,6 @@ export class ThreeDistrictEntities {
   }
 
   private remove(id: string, rendered: RenderedEntity): void {
-    if (rendered.vehicleModel) {
-      this.scene.remove(rendered.vehicleModel);
-      disposeVehicleModelInstance(rendered.vehicleModel);
-      rendered.vehicleModel = undefined;
-    }
     this.scene.remove(rendered.mesh);
     rendered.mesh.geometry.dispose();
     rendered.mesh.material.map?.dispose();

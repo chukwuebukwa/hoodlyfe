@@ -2,11 +2,8 @@ import * as THREE from 'three';
 
 export type VehicleUnderglow = THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
 
-export function vehicleUnderglowRotation(
-  spriteRotation: number,
-  modelRotation?: number
-): number {
-  return modelRotation ?? spriteRotation + Math.PI / 2;
+export function vehicleUnderglowRotation(spriteRotation: number): number {
+  return spriteRotation + Math.PI / 2;
 }
 
 export function vehicleUnderglow(length: number, width: number): VehicleUnderglow {
