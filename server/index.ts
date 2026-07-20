@@ -32,7 +32,9 @@ setInterval(() => {
 }, 60_000).unref();
 const app = express();
 app.use(cors({origin: true, credentials: true}));
-app.use(express.json());
+// Full 256x256 editor documents include collision and road-cell arrays. Keep a
+// bounded ceiling above their normal encoded size without accepting unbounded bodies.
+app.use(express.json({limit: '2mb'}));
 app.get('/health', (_request, response) => {
   const now = Date.now();
   const healthy = runtimeHealth.isHealthy(now, 2_000);

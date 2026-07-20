@@ -38,6 +38,10 @@ published level revisions, catalog discovery, and presigned district asset
 downloads under `/api/editor/*`. The next storage milestone is the district
 upload CLI and editor cloud-save/publish controls.
 
+The combined production server accepts JSON editor documents up to 2 MB. Current
+256x256 BIL documents are approximately 266 KB, so this leaves room for authored
+entities while retaining a bounded request-body limit.
+
 Use presigned redirects for district package reads. This sends large map and
 texture files directly from the bucket instead of through the game process.
 Do not mount a Railway Volume for district assets: volumes prevent horizontal
