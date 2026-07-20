@@ -20,3 +20,6 @@ public/assets/districts/*/
 
 # Simulation journal recordings (local debugging artifacts)
 journals/
+
+# Local editor revision cache used by authoritative Play Drafts in development.
+.nock0/

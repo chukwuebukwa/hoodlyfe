@@ -6,15 +6,21 @@ import {
 } from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {createHash} from 'node:crypto';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
+import {dirname, resolve} from 'node:path';
 import {DISTRICT_CATALOG} from '../../shared/content/district-catalog.ts';
 import type {
   DistrictAssetManifest,
   EditorDraftEnvelope,
+  EditorPlaytestRevision,
   EditorPublishedRevision,
   EditorPublishResponse
 } from '../../shared/content/editor-production.ts';
 import type {LevelEditorDocument} from '../../src/tools/level-editor/level-document.ts';
-import {validateLevelDocument} from '../../src/tools/level-editor/level-validation.ts';
+import {
+  playtestBlockingValidationIssues,
+  validateLevelDocument
+} from '../../src/tools/level-editor/level-validation.ts';
 
 export interface EditorBucketConfig {
   endpoint: string;
@@ -118,6 +124,59 @@ export async function publishEditorRevision(
   return {revision: published, unchanged};
 }
 
+export async function storeEditorPlaytestRevision(
+  assetSourceId: string,
+  document: LevelEditorDocument,
+  actor: string
+): Promise<{revision: EditorPlaytestRevision; unchanged: boolean}> {
+  assertDistrictId(assetSourceId);
+  const validation = validateLevelDocument(document);
+  const blockingIssues = playtestBlockingValidationIssues(validation);
+  if (blockingIssues.length > 0) {
+    throw new EditorStorageError(
+      422,
+      `Playtest revision has ${blockingIssues.length} blocking validation error${blockingIssues.length === 1 ? '' : 's'}.`
+    );
+  }
+  const revision = documentRevision(document);
+  const documentKey = districtRevisionKey(assetSourceId, revision);
+  const unchanged = editorStorageEnabled()
+    ? await objectExists(documentKey)
+    : await localRevisionExists(assetSourceId, revision);
+  if (!unchanged) {
+    if (editorStorageEnabled()) {
+      await putJson(documentKey, document, 'private, max-age=31536000, immutable');
+    } else {
+      await writeLocalRevision(assetSourceId, revision, document);
+    }
+  }
+  return {
+    unchanged,
+    revision: {
+      schemaVersion: 1,
+      assetSourceId,
+      worldId: document.id,
+      revision,
+      createdAt: new Date().toISOString(),
+      actor,
+      documentKey,
+      sourceFingerprint: sourceFingerprint(document),
+      validation: {errors: validation.counts.error, warnings: validation.counts.warning}
+    }
+  };
+}
+
+export async function readEditorPlaytestRevision(
+  assetSourceId: string,
+  revision: string
+): Promise<LevelEditorDocument | undefined> {
+  assertDistrictId(assetSourceId);
+  assertRevision(revision);
+  return editorStorageEnabled()
+    ? readJson<LevelEditorDocument>(districtRevisionKey(assetSourceId, revision))
+    : readLocalRevision(assetSourceId, revision);
+}
+
 export async function bucketDistrictIds(): Promise<string[]> {
   if (!editorStorageEnabled()) return [];
   const checks = await Promise.all(DISTRICT_CATALOG.map(async (district) => (
@@ -210,7 +269,7 @@ async function signedObjectUrl(key: string): Promise<string> {
   return getSignedUrl(client, new GetObjectCommand({Bucket: config.bucket, Key: key}), {expiresIn: 900});
 }
 
-function documentRevision(document: LevelEditorDocument): string {
+export function documentRevision(document: LevelEditorDocument): string {
   return createHash('sha256').update(JSON.stringify(document)).digest('hex').slice(0, 20);
 }
 
@@ -223,6 +282,56 @@ function sourceFingerprint(document: LevelEditorDocument): string {
     document.map.origin.x,
     document.map.origin.y
   ].join(':');
+}
+
+function localRevisionPath(assetSourceId: string, revision: string): string {
+  if (process.env.NODE_ENV === 'production') {
+    throw new EditorStorageError(503, 'Authoritative Play Draft requires editor object storage in production.');
+  }
+  return resolve(
+    process.cwd(),
+    '.nock0',
+    'editor',
+    'revisions',
+    assertDistrictId(assetSourceId),
+    `${assertRevision(revision)}.level.json`
+  );
+}
+
+async function localRevisionExists(assetSourceId: string, revision: string): Promise<boolean> {
+  try {
+    await readFile(localRevisionPath(assetSourceId, revision));
+    return true;
+  } catch (error) {
+    if (isFileNotFound(error)) return false;
+    throw error;
+  }
+}
+
+async function writeLocalRevision(
+  assetSourceId: string,
+  revision: string,
+  document: LevelEditorDocument
+): Promise<void> {
+  const path = localRevisionPath(assetSourceId, revision);
+  await mkdir(dirname(path), {recursive: true});
+  try {
+    await writeFile(path, `${JSON.stringify(document)}\n`, {encoding: 'utf8', flag: 'wx'});
+  } catch (error) {
+    if (!isFileExists(error)) throw error;
+  }
+}
+
+async function readLocalRevision(
+  assetSourceId: string,
+  revision: string
+): Promise<LevelEditorDocument | undefined> {
+  try {
+    return JSON.parse(await readFile(localRevisionPath(assetSourceId, revision), 'utf8')) as LevelEditorDocument;
+  } catch (error) {
+    if (isFileNotFound(error)) return undefined;
+    throw error;
+  }
 }
 
 function assertMatchingDistrict(districtId: string, document: LevelEditorDocument): void {
@@ -254,4 +363,12 @@ function isNotFound(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const candidate = error as {$metadata?: {httpStatusCode?: number}; name?: string};
   return candidate.$metadata?.httpStatusCode === 404 || candidate.name === 'NoSuchKey' || candidate.name === 'NotFound';
+}
+
+function isFileNotFound(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as {code?: string}).code === 'ENOENT');
+}
+
+function isFileExists(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as {code?: string}).code === 'EEXIST');
 }

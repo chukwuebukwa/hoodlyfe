@@ -17,21 +17,9 @@ test('production editor is hidden until explicitly enabled', () => {
   });
 });
 
-test('production editor requires configured credentials', () => {
-  assert.equal(evaluateEditorAccess(null, {
+test('enabled production editor is temporarily public', () => {
+  assert.deepEqual(evaluateEditorAccess(null, {
     NODE_ENV: 'production',
     EDITOR_PRODUCTION_ENABLED: '1'
-  }).allowed, false);
-  assert.equal(evaluateEditorAccess(null, {
-    NODE_ENV: 'production',
-    EDITOR_PRODUCTION_ENABLED: '1',
-    EDITOR_AUTH_USER: 'builder',
-    EDITOR_AUTH_PASSWORD: 'secret'
-  }).allowed, false);
-  assert.deepEqual(evaluateEditorAccess(`Basic ${btoa('builder:secret')}`, {
-    NODE_ENV: 'production',
-    EDITOR_PRODUCTION_ENABLED: '1',
-    EDITOR_AUTH_USER: 'builder',
-    EDITOR_AUTH_PASSWORD: 'secret'
-  }), {allowed: true, actor: 'builder'});
+  }), {allowed: true, actor: 'public-editor'});
 });

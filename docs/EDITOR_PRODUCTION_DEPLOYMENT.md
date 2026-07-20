@@ -7,12 +7,14 @@ same production Next server as the game. Set these service variables:
 
 ```text
 EDITOR_PRODUCTION_ENABLED=1
-EDITOR_AUTH_USER=<private username>
-EDITOR_AUTH_PASSWORD=<long random password>
+EDITOR_PLAYTEST_SECRET=<long random signing secret>
 ```
 
-The production proxy protects `/editor`, `/explore`, and `/api/editor/*` with
-HTTP Basic Auth. Local development remains open. Repository-backed BIL assets
+The production proxy exposes `/editor`, `/explore`, `/playtest`, and `/api/editor/*`
+without a username/password while the production enable flag is set. This is intentionally
+public for the current prototype: anyone with the URL can save drafts and create Play Draft
+rooms. Restore an identity-aware access layer before editor writes become valuable or destructive.
+Repository-backed BIL assets
 are available immediately. Locally converted WIL/STE packages are ignored by
 Git and are therefore not included in a normal Git deployment.
 
@@ -31,7 +33,7 @@ AWS_DEFAULT_REGION=auto
 AWS_S3_URL_STYLE=virtual
 ```
 
-The server already exposes protected endpoints for cloud drafts, immutable
+The server already exposes editor endpoints for cloud drafts, immutable
 published level revisions, catalog discovery, and presigned district asset
 downloads under `/api/editor/*`. The next storage milestone is the district
 upload CLI and editor cloud-save/publish controls.

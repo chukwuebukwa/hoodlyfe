@@ -22,9 +22,11 @@ import {
   type SourceArtifacts,
   type TiledMapDocument
 } from '../../src/tools/level-editor/level-document.ts';
+import type {EditorPlaytestResponse} from '../../shared/content/editor-production.ts';
 import {clearLevelDraft, loadLevelDraft, saveLevelDraft} from '../../src/tools/level-editor/level-draft-store.ts';
 import {createLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision.ts';
 import {saveLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision-store.ts';
+import {repairJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
 import {
   DEFAULT_EDITOR_PREFERENCES,
   reconcileSelection,
@@ -34,7 +36,11 @@ import {
   type PointerReadout,
   type ViewportReadout
 } from '../../src/tools/level-editor/editor-ui.ts';
-import {validateLevelDocument, type ValidationIssue} from '../../src/tools/level-editor/level-validation.ts';
+import {
+  playtestBlockingValidationIssues,
+  validateLevelDocument,
+  type ValidationIssue
+} from '../../src/tools/level-editor/level-validation.ts';
 import {LevelEditorCanvas, type CanvasViewCommand} from './LevelEditorCanvas';
 import {LevelEditorInspector} from './LevelEditorInspector';
 import {LevelEditorSidebar} from './LevelEditorSidebar';
@@ -217,6 +223,20 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     if (issue.point) requestView('focus', issue.point);
   }
 
+  function onRepairJunctions(): void {
+    const before = documentRef.current;
+    const result = repairJunctionIntersections(before.lanes.corridors, before.lanes.junctions);
+    if (result.repaired === 0) {
+      setStatus(result.unresolved > 0
+        ? `${result.unresolved} junction${result.unresolved === 1 ? '' : 's'} could not be repaired because their corridors do not intersect.`
+        : 'All junctions already lie on their connected corridors.');
+      return;
+    }
+    const after = {...before, lanes: {...before.lanes, junctions: result.junctions}};
+    onExecute(documentCommand('Repair lane junctions', before, after));
+    setStatus(`Repaired ${result.repaired} junction${result.repaired === 1 ? '' : 's'}${result.unresolved > 0 ? `; ${result.unresolved} remain unresolved` : ''}.`);
+  }
+
   function onExportProject(): void {
     downloadJson(`${document.id}.level.json`, document);
     setStatus('Downloaded editable level project.');
@@ -238,18 +258,40 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
 
   async function onPlayDraft(): Promise<void> {
     const currentReport = validateLevelDocument(documentRef.current);
-    if (currentReport.counts.error > 0) {
+    const blockingErrors = playtestBlockingValidationIssues(currentReport);
+    if (blockingErrors.length > 0) {
       setValidationOpen(true);
-      setStatus(`Play Draft blocked by ${currentReport.counts.error} validation error${currentReport.counts.error === 1 ? '' : 's'}.`);
+      setStatus(`Play Draft blocked by ${blockingErrors.length} validation error${blockingErrors.length === 1 ? '' : 's'}.`);
       return;
     }
     const previewWindow = window.open('', '_blank');
     setPlayDraftBusy(true);
-    setStatus('Creating immutable play draft...');
+    setStatus('Creating authoritative Play Draft room...');
     try {
-      const revision = await createLocalPlaytestRevision(documentRef.current);
-      await saveLocalPlaytestRevision(revision);
-      const target = `/explore?district=${encodeURIComponent(loaded.district.id)}&revision=${encodeURIComponent(revision.revisionId)}`;
+      if (!loaded.district.activeRuntime) {
+        const revision = await createLocalPlaytestRevision(documentRef.current);
+        await saveLocalPlaytestRevision(revision);
+        const target = `/explore?district=${encodeURIComponent(loaded.district.id)}&revision=${encodeURIComponent(revision.revisionId)}`;
+        setLastPlayDraftUrl(target);
+        if (previewWindow) {
+          previewWindow.location.assign(new URL(target, location.origin).href);
+          previewWindow.opener = null;
+        } else {
+          location.assign(target);
+        }
+        setStatus(`Geometry preview ${revision.revisionId.slice(0, 8)} created; this district is not connected to multiplayer yet.`);
+        return;
+      }
+      const response = await fetch(`/api/editor/playtest/${encodeURIComponent(loaded.district.id)}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(documentRef.current)
+      });
+      const payload = await response.json() as EditorPlaytestResponse | {error?: string};
+      if (!response.ok || !('playUrl' in payload)) {
+        throw new Error('error' in payload && payload.error ? payload.error : `Play Draft failed (HTTP ${response.status}).`);
+      }
+      const target = payload.playUrl;
       setLastPlayDraftUrl(target);
       if (previewWindow) {
         previewWindow.location.assign(new URL(target, location.origin).href);
@@ -257,7 +299,9 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
       } else {
         location.assign(target);
       }
-      setStatus(`Play Draft ${revision.revisionId.slice(0, 8)} created.`);
+      setStatus(payload.warnings.length > 0
+        ? `Play Draft created with traffic fallback: ${payload.warnings[0]}`
+        : `Authoritative Play Draft ${payload.revision.revision.slice(0, 8)} created.`);
     } catch (error) {
       previewWindow?.close();
       setStatus(error instanceof Error ? error.message : String(error));
@@ -294,6 +338,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         districtId={loaded.district.id}
         districts={loaded.availableDistricts}
         canExplore={true}
+        authoritativePlaytest={loaded.district.activeRuntime}
         playDraftBusy={playDraftBusy}
         canExportBundle={loaded.district.activeRuntime}
         dirty={dirty}
@@ -355,7 +400,13 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         onSelectionChange={setSelection}
         onDelete={onDelete}
       />
-      <LevelEditorValidationPanel report={report} open={validationOpen} onOpenChange={setValidationOpen} onSelectIssue={onSelectIssue} />
+      <LevelEditorValidationPanel
+        report={report}
+        open={validationOpen}
+        onOpenChange={setValidationOpen}
+        onSelectIssue={onSelectIssue}
+        onRepairJunctions={onRepairJunctions}
+      />
       <LevelEditorStatusBar status={status} playDraftUrl={lastPlayDraftUrl} pointer={pointer} viewport={viewport} />
       {(sidebarOpen || inspectorOpen) && <button className="le-mobile-scrim le-mobile-only" type="button" aria-label="Close panels" onClick={() => { setSidebarOpen(false); setInspectorOpen(false); }} />}
     </main>

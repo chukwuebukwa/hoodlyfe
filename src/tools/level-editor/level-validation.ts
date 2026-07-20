@@ -24,6 +24,8 @@ export interface ValidationReport {
   counts: Record<ValidationSeverity, number>;
 }
 
+const LANE_POINT_EPSILON = 0.001;
+
 export function validateLevelDocument(document: LevelEditorDocument): ValidationReport {
   const issues: ValidationIssue[] = [];
   const expectedCells = document.map.width * document.map.height;
@@ -47,6 +49,12 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
       info: issues.filter((issue) => issue.severity === 'info').length
     }
   };
+}
+
+export function playtestBlockingValidationIssues(report: ValidationReport): ValidationIssue[] {
+  return report.issues.filter((issue) => (
+    issue.severity === 'error' && issue.code !== 'junction-off-corridor'
+  ));
 }
 
 function validateSpawns(document: LevelEditorDocument, issues: ValidationIssue[]): void {
@@ -103,7 +111,7 @@ function validateCorridors(document: LevelEditorDocument, issues: ValidationIssu
 }
 
 function validateJunctions(document: LevelEditorDocument, issues: ValidationIssue[]): void {
-  const corridorIds = new Set(document.lanes.corridors.map((corridor) => corridor.id));
+  const corridorsById = new Map(document.lanes.corridors.map((corridor) => [corridor.id, corridor]));
   const ids = new Set<string>();
   for (const junction of document.lanes.junctions) {
     if (junction.id.trim().length === 0) add(issues, 'error', 'junction-id-empty', 'Junction ids cannot be empty.', 'junction', junction.id, junction);
@@ -112,13 +120,23 @@ function validateJunctions(document: LevelEditorDocument, issues: ValidationIssu
     if (!insideWorld(document, junction)) add(issues, 'error', 'junction-outside-map', `${junction.id} is outside the map.`, 'junction', junction.id, junction);
     if (junction.corridors.length < 2) add(issues, 'warning', 'junction-connections', `${junction.id} connects fewer than two corridors.`, 'junction', junction.id, junction);
     for (const corridorId of junction.corridors) {
-      if (!corridorIds.has(corridorId)) add(issues, 'error', 'junction-corridor-missing', `${junction.id} references missing corridor ${corridorId}.`, 'junction', junction.id, junction);
-    }
-    const nearest = document.lanes.corridors
-      .filter((corridor) => junction.corridors.includes(corridor.id))
-      .reduce((minimum, corridor) => Math.min(minimum, distanceToPolyline(junction, corridor.points)), Number.POSITIVE_INFINITY);
-    if (Number.isFinite(nearest) && nearest > document.map.tileSize * 1.5) {
-      add(issues, 'warning', 'junction-detached', `${junction.id} is ${Math.round(nearest)}px from its connected corridors.`, 'junction', junction.id, junction);
+      const corridor = corridorsById.get(corridorId);
+      if (!corridor) {
+        add(issues, 'error', 'junction-corridor-missing', `${junction.id} references missing corridor ${corridorId}.`, 'junction', junction.id, junction);
+        continue;
+      }
+      if (!pointOnPolyline(junction, corridor.points)) {
+        const offset = distanceToPolyline(junction, corridor.points);
+        add(
+          issues,
+          'error',
+          'junction-off-corridor',
+          `${junction.id} must lie on corridor ${corridorId} (currently ${formatDistance(offset)} away).`,
+          'junction',
+          junction.id,
+          junction
+        );
+      }
     }
   }
 }
@@ -160,6 +178,29 @@ function distanceToSegment(point: Point2D, start: Point2D, end: Point2D): number
   if (dx === 0 && dy === 0) return distance(point, start);
   const progress = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
   return distance(point, {x: start.x + dx * progress, y: start.y + dy * progress});
+}
+
+function pointOnPolyline(point: Point2D, points: Point2D[]): boolean {
+  for (let index = 1; index < points.length; index++) {
+    if (pointOnSegment(point, points[index - 1], points[index])) return true;
+  }
+  return false;
+}
+
+function pointOnSegment(point: Point2D, start: Point2D, end: Point2D): boolean {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const cross = (point.x - start.x) * dy - (point.y - start.y) * dx;
+  if (Math.abs(cross) > LANE_POINT_EPSILON) return false;
+  const dot = (point.x - start.x) * dx + (point.y - start.y) * dy;
+  const lengthSquared = dx * dx + dy * dy;
+  return dot >= -LANE_POINT_EPSILON && dot <= lengthSquared + LANE_POINT_EPSILON;
+}
+
+function formatDistance(distanceInPixels: number): string {
+  if (!Number.isFinite(distanceInPixels)) return 'an unknown distance';
+  if (distanceInPixels < 0.01) return `${distanceInPixels.toFixed(4)}px`;
+  return `${distanceInPixels.toFixed(1)}px`;
 }
 
 function distance(left: Point2D, right: Point2D): number {
