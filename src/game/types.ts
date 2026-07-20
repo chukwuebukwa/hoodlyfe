@@ -10,6 +10,7 @@ import type {
   MagazineWeaponId,
   WeaponId
 } from '../../shared/content/weapon-catalog.ts';
+import type {VehicleNeonColor} from '../../shared/content/vehicle-neon.ts';
 
 export type CombatReactionKind = '' | 'flinch' | 'stagger' | 'knockdown';
 export type CombatReactionDirection = 'front' | 'left' | 'back' | 'right';
@@ -205,6 +206,7 @@ export interface NetworkVehicle {
   hijackBy: string;
   siren?: boolean;
   radioStation?: string;
+  neonColor?: VehicleNeonColor;
 }
 
 export interface NetworkSoccerBall {

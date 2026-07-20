@@ -10,6 +10,10 @@ import {GameEventStream} from '../server/game/events/game-events.ts';
 import {StreetServiceController} from '../server/game/services/street-service-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
 import {refillAmmo} from '../server/weapons.ts';
+import {
+  VEHICLE_NEON_INSTALL_PRICE,
+  VEHICLE_NEON_RECOLOR_PRICE
+} from '../shared/content/vehicle-neon.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {
   STREET_SPACE_ID,
@@ -66,8 +70,37 @@ test('repair garage atomically charges and restores an eligible vehicle', () => 
   assert.equal(vehicle.damageFront, 0);
   assert.equal(fixture.repairCount(), 1);
   assert.equal(fixture.notices.at(-1)?.message, `Vehicle repaired -$${quote}`);
-  assert.equal(fixture.services.interact(fixture.player.id, 1001), false);
   assert.equal(fixture.economy.size, 1);
+});
+
+test('repair garage installs and recolors replicated vehicle neon after repairs are complete', () => {
+  const fixture = createFixture();
+  fixture.services.initialize();
+  fixture.player.cash = 1000;
+  const garage = fixture.state.services.get('repair-garage');
+  assert.ok(garage);
+  const vehicle = new VehicleState();
+  vehicle.id = 'custom-car';
+  vehicle.x = garage.x;
+  vehicle.y = garage.y;
+  vehicle.driverId = fixture.player.id;
+  fixture.state.vehicles.set(vehicle.id, vehicle);
+  fixture.player.vehicleId = vehicle.id;
+  fixture.player.vehicleSeat = 0;
+
+  assert.equal(fixture.services.interact(fixture.player.id, 1500), true);
+  assert.equal(vehicle.neonColor, 'cyan');
+  assert.equal(fixture.player.cash, 1000 - VEHICLE_NEON_INSTALL_PRICE);
+  assert.equal(fixture.notices.at(-1)?.message, 'CYAN neon installed -$350');
+
+  fixture.setTick(18);
+  assert.equal(fixture.services.interact(fixture.player.id, 1600), true);
+  assert.equal(vehicle.neonColor, 'magenta');
+  assert.equal(
+    fixture.player.cash,
+    1000 - VEHICLE_NEON_INSTALL_PRICE - VEHICLE_NEON_RECOLOR_PRICE
+  );
+  assert.equal(fixture.notices.at(-1)?.message, 'MAGENTA neon installed -$75');
 });
 
 test('repair rejection preserves cash and damage while consuming the interaction', () => {

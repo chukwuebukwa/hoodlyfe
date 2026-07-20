@@ -5,6 +5,11 @@ import {
   type StreetServiceKind
 } from '../../../shared/content/street-services.ts';
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
+import {
+  nextVehicleNeonColor,
+  vehicleNeonColorLabel,
+  vehicleNeonUpgradeQuote
+} from '../../../shared/content/vehicle-neon.ts';
 import {StreetServiceState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
@@ -98,8 +103,7 @@ export class StreetServiceController {
 
   private canOfferRepair(player: PlayerState): boolean {
     if (!player.vehicleId || player.vehicleSeat !== 0) return false;
-    const vehicle = this.options.state.vehicles.get(player.vehicleId);
-    return Boolean(vehicle && vehicleRepairQuote(vehicle) > 0);
+    return this.options.state.vehicles.has(player.vehicleId);
   }
 
   private canOfferAmmunition(player: PlayerState): boolean {
@@ -121,11 +125,14 @@ export class StreetServiceController {
       this.options.notice(player.id, 'Stop the vehicle inside the repair garage.', 'warning');
       return true;
     }
-    const quote = vehicleRepairQuote(vehicle);
+    const repairQuote = vehicleRepairQuote(vehicle);
+    const neonUpgrade = repairQuote <= 0;
+    const nextNeonColor = nextVehicleNeonColor(vehicle.neonColor);
+    const quote = neonUpgrade ? vehicleNeonUpgradeQuote(vehicle.neonColor) : repairQuote;
     const result = this.options.economy.debit(
       player.id,
       quote,
-      'vehicle-repair',
+      neonUpgrade ? 'vehicle-neon' : 'vehicle-repair',
       `service:${service.id}:${player.id}:${vehicle.id}:${this.options.clock().tick}`,
       nowMs
     );
@@ -133,8 +140,17 @@ export class StreetServiceController {
       this.noticeFailure(player.id, result, quote);
       return true;
     }
-    this.options.repairVehicle(vehicle);
-    this.options.notice(player.id, `Vehicle repaired -$${result.transaction?.amount ?? quote}`, 'success');
+    if (neonUpgrade) {
+      vehicle.neonColor = nextNeonColor;
+      this.options.notice(
+        player.id,
+        `${vehicleNeonColorLabel(nextNeonColor)} neon installed -$${result.transaction?.amount ?? quote}`,
+        'success'
+      );
+    } else {
+      this.options.repairVehicle(vehicle);
+      this.options.notice(player.id, `Vehicle repaired -$${result.transaction?.amount ?? quote}`, 'success');
+    }
     return true;
   }
 

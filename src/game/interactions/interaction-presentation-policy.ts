@@ -12,6 +12,12 @@ import type {
   NetworkVehicle
 } from '../types.ts';
 import {STREET_SPACE_ID, clientInteriorDefinitions} from '../../../shared/content/interior-catalog.ts';
+import {
+  nextVehicleNeonColor,
+  normalizeVehicleNeonColor,
+  vehicleNeonColorLabel,
+  vehicleNeonUpgradeQuote
+} from '../../../shared/content/vehicle-neon.ts';
 
 export type InteractionAffordanceKind =
   | 'hidden'
@@ -74,14 +80,25 @@ export function projectInteractionAffordance(
       };
     }
     const quote = serviceQuote(state, player, service);
+    const repairVehicle = service.kind === 'repair'
+      ? state.vehicles.get(player.vehicleId)
+      : undefined;
+    const repairsNeeded = repairVehicle ? vehicleRepairQuote(repairVehicle) > 0 : false;
+    const nextNeon = repairVehicle ? nextVehicleNeonColor(repairVehicle.neonColor) : 'cyan';
     const label = service.kind === 'repair'
-      ? `REPAIR $${quote}`
+      ? repairsNeeded
+        ? `REPAIR $${quote}`
+        : normalizeVehicleNeonColor(repairVehicle?.neonColor) === 'off'
+          ? `INSTALL NEON $${quote}`
+          : `NEON ${vehicleNeonColorLabel(nextNeon)} $${quote}`
       : (service.kind === 'hospital' ? `TREAT $${quote}` : `RESUPPLY $${quote}`);
     return {
       visible: true,
       kind: service.kind,
       label,
-      touchLabel: service.kind === 'repair' ? 'FIX' : (service.kind === 'hospital' ? 'CARE' : 'GEAR'),
+      touchLabel: service.kind === 'repair'
+        ? (repairsNeeded ? 'FIX' : 'NEON')
+        : (service.kind === 'hospital' ? 'CARE' : 'GEAR'),
       ariaLabel: `${service.label}, ${quote} dollars`
     };
   }
@@ -133,7 +150,7 @@ function nearestUsableService(
     if (service.kind === 'repair') {
       if (!player.vehicleId || player.vehicleSeat !== 0) continue;
       const vehicle = state.vehicles.get(player.vehicleId);
-      if (!vehicle || vehicleRepairQuote(vehicle) <= 0) continue;
+      if (!vehicle) continue;
       const distance = Math.hypot(vehicle.x - service.x, vehicle.y - service.y);
       if (distance <= service.radius) candidates.push({service, distance});
     } else if (service.kind === 'ammunition') {
@@ -161,7 +178,9 @@ function serviceQuote(
   service: NetworkStreetService
 ): number {
   if (service.kind === 'repair') {
-    return vehicleRepairQuote(state.vehicles.get(player.vehicleId) as NetworkVehicle);
+    const vehicle = state.vehicles.get(player.vehicleId) as NetworkVehicle;
+    const repairQuote = vehicleRepairQuote(vehicle);
+    return repairQuote > 0 ? repairQuote : vehicleNeonUpgradeQuote(vehicle.neonColor);
   }
   if (service.kind === 'hospital') return medicalTreatmentQuote(player.health);
   if (service.kind === 'clothing') return 0;

@@ -115,7 +115,15 @@ test('interaction projection gives usable services priority over vehicle actions
   assert.equal(projectInteractionAffordance(state, player.id).label, 'REPAIR $156');
 
   vehicle.health = vehicle.maxHealth;
-  assert.equal(projectInteractionAffordance(state, player.id).kind, 'exit-vehicle');
+  assert.deepEqual(projectInteractionAffordance(state, player.id), {
+    visible: true,
+    kind: 'repair',
+    label: 'INSTALL NEON $350',
+    touchLabel: 'NEON',
+    ariaLabel: 'Repair Garage, 350 dollars'
+  });
+  vehicle.neonColor = 'cyan';
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'NEON MAGENTA $75');
 });
 
 test('service minimap points preserve authoritative identities and positions', () => {

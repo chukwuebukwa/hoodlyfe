@@ -34,7 +34,8 @@ import {vehicleVisualState} from '../rendering/vehicle-render-policy.ts';
 import {actorBurnPresentation} from '../rendering/actor-burn-render-policy.ts';
 import {
   emergencyLightPresentation,
-  vehicleLightPresentation
+  vehicleLightPresentation,
+  vehicleNeonPresentation
 } from '../rendering/vehicle-light-render-policy.ts';
 import {
   ACTION_SPRITE_COLUMNS,
@@ -64,6 +65,17 @@ import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-e
 import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
 import {voiceIndicatorPresentation} from '../rendering/voice-indicator-policy.ts';
 import {ThreeSkidMarkRenderer} from './three-skid-mark-renderer.ts';
+import {
+  updateVehicleUnderglow,
+  vehicleUnderglow,
+  vehicleUnderglowRotation,
+  type VehicleUnderglow
+} from './three-vehicle-underglow.ts';
+import {
+  disposeVehicleModelInstance,
+  ThreeVehicleModelLoader,
+  updateVehicleModelVisual
+} from './three-vehicle-model-loader.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -77,6 +89,9 @@ interface RenderedEntity {
   taillight?: RadialGlow;
   emergencyRed?: RadialGlow;
   emergencyBlue?: RadialGlow;
+  underglow?: VehicleUnderglow;
+  vehicleModel?: THREE.Group;
+  vehicleModelRequested?: boolean;
   appearanceKey?: string;
   attackSequence?: number;
   attackWeapon?: NetworkPlayer['weapon'];
@@ -148,6 +163,8 @@ export class ThreeDistrictEntities {
   private readonly rendered = new Map<string, RenderedEntity>();
   private readonly appearances = new Map<string, CompiledAppearanceTextures>();
   private readonly skidMarks: ThreeSkidMarkRenderer;
+  private readonly vehicleModels = new ThreeVehicleModelLoader();
+  private destroyed = false;
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly textures: EntityTextures,
@@ -419,12 +436,19 @@ export class ThreeDistrictEntities {
       updateRadialGlow(rendered.headlight, 0xfff2c7, presentation.frontOpacity);
       rendered.taillight.visible = presentation.active && presentation.rearOpacity > 0.01;
       updateRadialGlow(rendered.taillight, presentation.rearColor, presentation.rearOpacity);
+      if (rendered.underglow) {
+        const neon = vehicleNeonPresentation(vehicle, nightIntensity, nearby.has(id));
+        rendered.underglow.visible = neon.active;
+        updateVehicleUnderglow(rendered.underglow, neon.color, neon.opacity);
+      }
     }
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.skidMarks.destroy();
     for (const [id, rendered] of this.rendered) this.remove(id, rendered);
+    this.vehicleModels.destroy();
     for (const texture of [
       this.textures.player,
       this.textures.civilian,
@@ -850,6 +874,10 @@ export class ThreeDistrictEntities {
       }),
       headlight: radialGlow(84, 0xfff2c7, 0, 12),
       taillight: radialGlow(34, 0xff1f2f, 0, 10),
+      underglow: vehicleUnderglow(
+        definition.collision.length,
+        definition.collision.width
+      ),
       emergencyRed: definition.presentation.emergencyLights
         ? radialGlow(38, 0xff303f, 0, 9)
         : undefined,
@@ -858,6 +886,7 @@ export class ThreeDistrictEntities {
         : undefined,
       motion: createRemoteMotionTimeline('vehicle')
     }));
+    this.requestVehicleModel(id, rendered, vehicle.kind, definition.collision);
     if (serverTimeMs > 0) {
       rendered.motion?.push({
         timeMs: serverTimeMs,
@@ -896,12 +925,18 @@ export class ThreeDistrictEntities {
       buffered ? 1 : 0.2
     );
     rendered.renderedAngle = angle;
-    rendered.mesh.visible = true;
+    rendered.mesh.visible = !rendered.vehicleModel;
     rendered.mesh.material.opacity = visual.alpha;
     rendered.mesh.material.color.setHex(visual.tint ?? 0xffffff);
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
     rendered.mesh.userData.vehicle = vehicle;
+    if (rendered.vehicleModel) {
+      rendered.vehicleModel.position.set(x, serverYToThree(y), z - 2.5);
+      rendered.vehicleModel.rotation.z = serverAngleToThree(angle);
+      rendered.vehicleModel.visible = true;
+      updateVehicleModelVisual(rendered.vehicleModel, visual.alpha, visual.tint);
+    }
     this.skidMarks.observe(vehicle.id, {
       x,
       y,
@@ -915,7 +950,38 @@ export class ThreeDistrictEntities {
     this.positionVehicleEffects(rendered, vehicle);
   }
 
+  private requestVehicleModel(
+    id: string,
+    rendered: RenderedEntity,
+    kind: NetworkVehicle['kind'],
+    collision: ReturnType<typeof vehicleDefinition>['collision']
+  ): void {
+    if (rendered.vehicleModelRequested || !this.vehicleModels.hasModel(kind)) return;
+    rendered.vehicleModelRequested = true;
+    void this.vehicleModels.createInstance(kind, collision).then((model) => {
+      if (!model) return;
+      if (this.destroyed || this.rendered.get(id) !== rendered) {
+        disposeVehicleModelInstance(model);
+        return;
+      }
+      model.visible = false;
+      rendered.vehicleModel = model;
+      this.scene.add(model);
+    });
+  }
+
   private positionVehicleEffects(rendered: RenderedEntity, vehicle: NetworkVehicle): void {
+    if (rendered.underglow) {
+      rendered.underglow.position.set(
+        rendered.mesh.position.x,
+        rendered.mesh.position.y,
+        rendered.mesh.position.z - 1.4
+      );
+      rendered.underglow.rotation.z = vehicleUnderglowRotation(
+        rendered.mesh.rotation.z,
+        rendered.vehicleModel?.rotation.z
+      );
+    }
     const frontLamp = renderedVehicleLampAnchor(
       rendered.mesh.position.x,
       rendered.mesh.position.y,
@@ -1009,10 +1075,16 @@ export class ThreeDistrictEntities {
     if (rendered.taillight) this.scene.add(rendered.taillight);
     if (rendered.emergencyRed) this.scene.add(rendered.emergencyRed);
     if (rendered.emergencyBlue) this.scene.add(rendered.emergencyBlue);
+    if (rendered.underglow) this.scene.add(rendered.underglow);
     return rendered;
   }
 
   private remove(id: string, rendered: RenderedEntity): void {
+    if (rendered.vehicleModel) {
+      this.scene.remove(rendered.vehicleModel);
+      disposeVehicleModelInstance(rendered.vehicleModel);
+      rendered.vehicleModel = undefined;
+    }
     this.scene.remove(rendered.mesh);
     rendered.mesh.geometry.dispose();
     rendered.mesh.material.map?.dispose();
@@ -1031,7 +1103,8 @@ export class ThreeDistrictEntities {
     }
     for (const effect of [
       rendered.weapon, rendered.smoke, rendered.fire, rendered.blood,
-      rendered.headlight, rendered.taillight, rendered.emergencyRed, rendered.emergencyBlue
+      rendered.headlight, rendered.taillight, rendered.emergencyRed, rendered.emergencyBlue,
+      rendered.underglow
     ]) {
       if (!effect) continue;
       this.scene.remove(effect);

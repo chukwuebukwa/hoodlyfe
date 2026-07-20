@@ -11,6 +11,7 @@ export type StreetEconomyReason =
   | 'cash-pickup'
   | 'ammunition'
   | 'vehicle-repair'
+  | 'vehicle-neon'
   | 'hospital'
   | 'custody'
   | 'clothing';

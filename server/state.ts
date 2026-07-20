@@ -389,6 +389,7 @@ export class VehicleState extends Schema {
   siren = false;
   radioStation = 'station-0';
   tyreDamageMask = 0;
+  neonColor = 'off';
 }
 
 defineTypes(VehicleState, {
@@ -418,7 +419,8 @@ defineTypes(VehicleState, {
   hijackBy: 'string',
   siren: 'boolean',
   radioStation: 'string',
-  tyreDamageMask: 'number'
+  tyreDamageMask: 'number',
+  neonColor: 'string'
 });
 
 export class SoccerBallState extends Schema {

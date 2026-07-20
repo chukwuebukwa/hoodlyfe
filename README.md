@@ -16,6 +16,7 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - Wandering civilians that flee when attacked.
 - Police that pursue and shoot players with wanted heat.
 - Three original vehicle sprites: a civilian sedan, police cruiser, and taxi.
+- A CC0 low-poly 3D sedan presentation prototype with the original sprite retained as its loading fallback.
 - Eight road-following civilian traffic cars that can strike pedestrians and be stolen.
 - Four-seat multiplayer cars with occupant nameplates, automatic driver promotion, and passenger shooting.
 - Passengers visibly lean out with their equipped weapon and recoil when firing.

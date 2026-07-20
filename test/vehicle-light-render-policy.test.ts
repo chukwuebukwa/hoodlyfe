@@ -3,7 +3,8 @@ import test from 'node:test';
 import type {NetworkVehicle} from '../src/game/types.ts';
 import {
   emergencyLightPresentation,
-  vehicleLightPresentation
+  vehicleLightPresentation,
+  vehicleNeonPresentation
 } from '../src/game/rendering/vehicle-light-render-policy.ts';
 
 function vehicle(overrides: Partial<NetworkVehicle> = {}): NetworkVehicle {
@@ -47,4 +48,20 @@ test('police emergency lamps alternate only for an operable active siren', () =>
   assert.equal(emergencyLightPresentation(vehicle({kind: 'police'}), 0).active, false);
   assert.equal(emergencyLightPresentation(vehicle({kind: 'sedan', siren: true}), 0).active, false);
   assert.equal(emergencyLightPresentation(vehicle({kind: 'police', siren: true, destroyed: true}), 0).active, false);
+});
+
+test('neon glow follows replicated color, proximity, operation, and darkness', () => {
+  assert.equal(vehicleNeonPresentation(vehicle(), 1, true).active, false);
+  const cyan = vehicleNeonPresentation(vehicle({neonColor: 'cyan'}), 1, true);
+  assert.equal(cyan.active, true);
+  assert.equal(cyan.color, 0x39e7ff);
+  assert.ok(Math.abs(cyan.opacity - 0.76) < 0.0001);
+  assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'magenta'}), 0, true).opacity, 0.34);
+  assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'lime'}), 1, false).active, false);
+  assert.equal(vehicleNeonPresentation(
+    vehicle({neonColor: 'violet', driverId: '', traffic: false}),
+    1,
+    true
+  ).active, false);
+  assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'amber', destroyed: true}), 1, true).active, false);
 });

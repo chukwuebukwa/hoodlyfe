@@ -1,4 +1,8 @@
 import type {NetworkVehicle} from '../types.ts';
+import {
+  normalizeVehicleNeonColor,
+  vehicleNeonColorHex
+} from '../../../shared/content/vehicle-neon.ts';
 
 export interface VehicleLightPresentation {
   active: boolean;
@@ -11,6 +15,12 @@ export interface EmergencyLightPresentation {
   active: boolean;
   redOpacity: number;
   blueOpacity: number;
+}
+
+export interface VehicleNeonPresentation {
+  active: boolean;
+  color: number;
+  opacity: number;
 }
 
 export function vehicleLightPresentation(
@@ -47,5 +57,23 @@ export function emergencyLightPresentation(
     active: true,
     redOpacity: redPhase ? 0.92 : 0.16,
     blueOpacity: redPhase ? 0.16 : 0.92
+  };
+}
+
+export function vehicleNeonPresentation(
+  vehicle: NetworkVehicle,
+  nightIntensity: number,
+  nearby: boolean
+): VehicleNeonPresentation {
+  const neonColor = normalizeVehicleNeonColor(vehicle.neonColor);
+  const operational = !vehicle.destroyed && !vehicle.onFire && vehicle.health > 0;
+  const engineActive = vehicle.traffic || Boolean(vehicle.driverId);
+  const active = nearby && neonColor !== 'off' && operational && engineActive;
+  if (!active) return {active: false, color: vehicleNeonColorHex(neonColor), opacity: 0};
+  const darkness = Math.max(0, Math.min(1, nightIntensity));
+  return {
+    active: true,
+    color: vehicleNeonColorHex(neonColor),
+    opacity: 0.34 + darkness * 0.42
   };
 }

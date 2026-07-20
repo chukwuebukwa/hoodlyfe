@@ -24,7 +24,7 @@ const VEHICLE_FIELDS = [
   'health', 'maxHealth',
   'engineDamage', 'damageFront', 'damageRear', 'damageLeft', 'damageRight', 'onFire',
   'fireStartedAt', 'destroyed', 'respawnAt', 'driverId', 'traffic', 'hijackBy', 'siren',
-  'radioStation', 'tyreDamageMask'
+  'radioStation', 'tyreDamageMask', 'neonColor'
 ] as const;
 
 const BULLET_FIELDS = [
