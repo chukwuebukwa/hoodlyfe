@@ -7,7 +7,7 @@ import {
 import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {GameEventStream} from '../events/game-events.ts';
-import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
+import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import {selectMeleeTargets, type MeleeTargetCandidate} from './melee-hit-policy.ts';
 import type {DamageImpact} from './combat-survivability-policy.ts';
 
@@ -239,16 +239,19 @@ export class MeleeCombatController {
         target.id === player.id ||
         !target.alive ||
         target.vehicleId ||
-        target.spaceId !== player.spaceId
+        target.spaceId !== player.spaceId ||
+        target.surfaceId !== player.surfaceId
       ) continue;
       candidates.push(this.candidate('player', target, PLAYER_RADIUS, player));
     }
     for (const target of this.options.queryNpcs(player.x, player.y, queryRadius)) {
-      if (!target.alive || player.spaceId !== 'street') continue;
+      if (
+        !target.alive || player.spaceId !== 'street' || target.surfaceId !== player.surfaceId
+      ) continue;
       candidates.push(this.candidate('npc', target, NPC_RADIUS, player));
     }
     for (const target of this.options.queryVehicles(player.x, player.y, queryRadius)) {
-      if (player.spaceId !== 'street') continue;
+      if (player.spaceId !== 'street' || target.surfaceId !== player.surfaceId) continue;
       candidates.push({
         ...this.candidate('vehicle', target, VEHICLE_RADIUS, player),
         targetable: !target.destroyed

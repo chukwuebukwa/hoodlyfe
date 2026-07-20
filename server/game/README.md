@@ -22,6 +22,9 @@ Rules:
 - Collection additions and removals during iteration go through the deferred lifecycle queue.
 - Random gameplay decisions use a named deterministic stream and a stable key.
 - Spatial gameplay queries go through the shared index and retain exact final geometry checks.
+- Simulation-affecting client messages register through `registerJournaledCommand` so the
+  simulation journal can capture and replay them; wall-clock reads route through the room
+  epoch plus the fixed-step clock, never `Date.now()` directly.
 
 ## Current Modules
 
@@ -49,6 +52,13 @@ game/
     medical-care-controller.ts
   events/
     game-events.ts
+  journal/
+    journal-types.ts
+    journal-sink.ts
+    simulation-journal.ts
+    state-hash.ts
+    journal-replay.ts
+    replay-cli.ts
   incidents/
     crime-policy.ts
     incident-registry.ts
@@ -108,7 +118,6 @@ game/
     wanted-system.ts
   vehicles/
     vehicle-access-controller.ts
-    vehicle-collision-system.ts
     vehicle-config.ts
     vehicle-damage-system.ts
     vehicle-simulation-controller.ts
@@ -125,7 +134,7 @@ game/
 
 ## Simulation Order
 
-`DistrictSimulation` owns the tested 30 Hz order: frame state, activation/streaming,
+`DistrictSimulation` owns the tested 60 Hz order: frame state, activation/streaming,
 environment, vehicle motion, player motion, crime response, pedestrian motion, dynamic
 contacts, history capture, projectiles, world effects, pickups, incidents/missions,
 lifecycle mutation, event dispatch, then snapshots/observability. `DistrictRoom` invokes
@@ -173,7 +182,7 @@ Extracted domain policies and room adapters now include:
 - `road-driving-system.ts` for shared road-constrained steering/acceleration/awareness execution and `road-route-planner.ts` for deterministic visit-bounded road-cell A* with explicit partial routes.
 - `police-response-fleet-controller.ts` for realizing the allocator's aggregate cruiser demand without owning suspect selection; `police-vehicle-policy.ts` for pure strategy/speed/lead calculations; and `police-vehicle-controller.ts` for assignment execution, private visibility/search memory, bounded replanning, steering composition, siren/hijack handoff, and F3 diagnostics.
 - `shared/content/vehicle-catalog.ts` for immutable model IDs, seating, footprint, health, mass, player handling, traffic tuning, and presentation metadata consumed by server and client adapters.
-- `vehicle-simulation-controller.ts` for catalog-driven authoritative handling, occupant projection, pedestrian impacts, car collisions, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
+- `vehicle-simulation-controller.ts` for authoritative Rapier motion and contacts, occupant projection, mechanical damage, fire, destruction, restoration, and mission return-to-traffic.
 - `fire-control-controller.ts` for authoritative holder state, seat rules, cooldown, ammunition, primary-attack family dispatch, spread, pellet count, muzzle origin, and bullet creation.
 - `melee-combat-controller.ts` for per-player combo progression, accepted swing runtime, server-owned impact timing, facing assistance, target-family caps, and existing damage-port requests; `melee-hit-policy.ts` for pure line-of-sight-aware range/arc scoring and deterministic ordering.
 - `projectile-controller.ts` for lifetime, swept movement, target-family collision, source exclusion, damage routing, and deferred removal.
@@ -191,7 +200,6 @@ Extracted domain policies and room adapters now include:
 - `traffic-junction-system.ts` for deterministic FIFO approach, crossing, and rear-clearance
   ownership with an abandonment lease; `traffic-maneuver-system.ts` owns bounded
   reverse/pass/merge recovery without bypassing protected queues.
-- `vehicle-collision-system.ts` for per-model oriented-box contact and separation beneath spatial broad-phase discovery.
 - `player-control-controller.ts` for per-player move intent, hostile wire-value normalization, aim gating, shared driver input, analog/diagonal magnitude, state-gated on-foot movement, collision resolution, reset, and disconnect cleanup.
 - `player-appearance-controller.ts` for finite catalog validation, default join fallback, private wardrobe gating, replicated visual-only equipped appearance mutation, update throttling, and disconnect cleanup.
 - `player-lifecycle-controller.ts` for death, vehicle/wanted/input cleanup, delegated medical completion, health/ammunition mutation, bounded attack-cancelable spawn protection, and respawn events.

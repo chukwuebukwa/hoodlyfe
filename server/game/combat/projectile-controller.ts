@@ -1,7 +1,8 @@
 import type {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {WEAPONS, isBulletWeaponId} from '../../weapons.ts';
-import {classifyImpactZone} from '../vehicles/vehicle-collision-system.ts';
+import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
+import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
 import type {DamageController} from './damage-controller.ts';
@@ -54,7 +55,7 @@ export class ProjectileController {
     const bullet = input.bullet;
     const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
     bullet.createdAt = window.effectiveServerTimeMs;
-    const stepCount = Math.max(1, Math.ceil(window.rewindMs / (1000 / 30)));
+    const stepCount = Math.max(1, Math.ceil(window.rewindMs / SIMULATION_STEP_MS));
     const stepMs = window.rewindMs / stepCount;
     for (let step = 0; step < stepCount; step++) {
       const startX = bullet.x;
@@ -62,6 +63,15 @@ export class ProjectileController {
       const durationSeconds = stepMs / 1000;
       const endX = startX + Math.cos(bullet.angle) * weapon.projectileSpeed * durationSeconds;
       const endY = startY + Math.sin(bullet.angle) * weapon.projectileSpeed * durationSeconds;
+      const nextSurface = this.surfaceAfterMove(bullet, startX, startY, endX, endY);
+      if (!nextSurface) {
+        this.options.state.bullets.delete(bullet.id);
+        return {
+          effectiveServerShotTimeMs: window.effectiveServerTimeMs,
+          rewindMs: window.rewindMs,
+          resolved: true
+        };
+      }
       const worldProgress = firstBlockedProgress(this.options.world, startX, startY, endX, endY);
       const historical = this.options.history?.querySegment({
         requestedServerTimeMs: window.effectiveServerTimeMs + (step + 1) * stepMs,
@@ -71,6 +81,7 @@ export class ProjectileController {
         endX,
         endY,
         projectileRadius: 4,
+        surfaceId: nextSurface,
         excludedIds: input.excludedIds
       });
       if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
@@ -96,6 +107,7 @@ export class ProjectileController {
       }
       bullet.x = endX;
       bullet.y = endY;
+      bullet.surfaceId = nextSurface;
     }
     return {
       effectiveServerShotTimeMs: window.effectiveServerTimeMs,
@@ -113,19 +125,26 @@ export class ProjectileController {
 
     const previousX = bullet.x;
     const previousY = bullet.y;
-    bullet.x += Math.cos(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
-    bullet.y += Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
-    if (this.options.world.isBlockedAt(bullet.x, bullet.y)) {
+    const nextX = bullet.x + Math.cos(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
+    const nextY = bullet.y + Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
+    const nextSurface = this.surfaceAfterMove(bullet, previousX, previousY, nextX, nextY);
+    if (!nextSurface || this.options.world.isBlockedAt(nextX, nextY)) {
       this.options.remove(bulletId);
       return;
     }
+    bullet.x = nextX;
+    bullet.y = nextY;
+    bullet.surfaceId = nextSurface;
 
     const minX = Math.min(previousX, bullet.x) - 4;
     const minY = Math.min(previousY, bullet.y) - 4;
     const maxX = Math.max(previousX, bullet.x) + 4;
     const maxY = Math.max(previousY, bullet.y) + 4;
     for (const target of this.options.queryPlayers(minX, minY, maxX, maxY)) {
-      if (!target.alive || target.vehicleId || target.id === bullet.ownerId) continue;
+      if (
+        !target.alive || target.vehicleId || target.id === bullet.ownerId ||
+        target.surfaceId !== bullet.surfaceId
+      ) continue;
       if (bullet.ownerKind === 'police' && target.wanted <= 0) continue;
       if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > PLAYER_RADIUS + 4) {
         continue;
@@ -149,7 +168,7 @@ export class ProjectileController {
     }
 
     for (const target of this.options.queryVehicles(minX, minY, maxX, maxY)) {
-      if (target.destroyed) continue;
+      if (target.destroyed || target.surfaceId !== bullet.surfaceId) continue;
       if (this.options.access.occupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) {
         continue;
       }
@@ -170,7 +189,7 @@ export class ProjectileController {
 
     if (bullet.ownerKind !== 'player') return;
     for (const target of this.options.queryNpcs(minX, minY, maxX, maxY)) {
-      if (!target.alive) continue;
+      if (!target.alive || target.surfaceId !== bullet.surfaceId) continue;
       if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > NPC_RADIUS + 4) {
         continue;
       }
@@ -190,6 +209,28 @@ export class ProjectileController {
       this.options.remove(bulletId);
       return;
     }
+  }
+
+  private surfaceAfterMove(
+    bullet: BulletState,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number
+  ): string | undefined {
+    const moveSurface = this.options.world.surfaceAfterMove;
+    return typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.options.world,
+        bullet.surfaceId,
+        fromX,
+        fromY,
+        toX,
+        toY,
+        4,
+        'projectile'
+      )
+      : bullet.surfaceId;
   }
 
   private resolveHistoricalHit(hit: HistoricalCombatHit, bullet: BulletState, nowMs: number): void {

@@ -24,6 +24,24 @@ test('disabled debug projection stores and publishes nothing', () => {
   assert.equal(fixture.published.length, 0);
 });
 
+test('debug projection follows its runtime subscriber gate', () => {
+  let enabled = false;
+  const fixture = createFixture(() => enabled);
+
+  fixture.clock.tick = 12;
+  fixture.controller.update([respawnEvent(12)]);
+  assert.equal(fixture.published.length, 0);
+
+  enabled = true;
+  fixture.controller.update([respawnEvent(12)]);
+  assert.equal(fixture.published.length, 1);
+
+  enabled = false;
+  fixture.clock.tick = 24;
+  fixture.controller.update([respawnEvent(24)]);
+  assert.equal(fixture.published.length, 1);
+});
+
 test('debug projection bounds history, samples cadence, and copies domain records', () => {
   const fixture = createFixture(true);
   addEntities(fixture.state);
@@ -34,14 +52,14 @@ test('debug projection bounds history, samples cadence, and copies domain record
   fixture.controller.update(events);
   assert.equal(fixture.published.length, 0);
 
-  fixture.clock.tick = 6;
-  fixture.clock.nowMs = 600;
+  fixture.clock.tick = 12;
+  fixture.clock.nowMs = 200;
   fixture.clock.droppedMs = 20;
   fixture.controller.update([]);
   assert.equal(fixture.published.length, 1);
   const first = fixture.published[0];
-  assert.equal(first.tick, 6);
-  assert.equal(first.nowMs, 600);
+  assert.equal(first.tick, 12);
+  assert.equal(first.nowMs, 200);
   assert.equal(first.droppedMs, 20);
   assert.equal(first.spatialEntities, 25);
   assert.equal(first.deferredCommands, 2);
@@ -67,6 +85,8 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeTactics?.[0].goalX, 180);
   assert.equal(first.policeArrests?.[0].phase, 'securing');
   assert.equal(first.policeArrests?.[0].suspectX, 120);
+  assert.equal(first.physics?.bodies, 72);
+  assert.equal(first.physics?.lifecycle.tick.teleported, 0);
 
   fixture.incident.status = 'reported';
   fixture.pursuit.mode = 'pursuit';
@@ -99,14 +119,14 @@ test('debug projection bounds history, samples cadence, and copies domain record
   assert.equal(first.policeTactics?.[0].goalX, 180);
   assert.equal(first.policeArrests?.[0].suspectX, 120);
 
-  fixture.clock.tick = 11;
-  fixture.controller.update([respawnEvent(11)]);
+  fixture.clock.tick = 23;
+  fixture.controller.update([respawnEvent(23)]);
   assert.equal(fixture.published.length, 1);
-  fixture.clock.tick = 12;
-  fixture.controller.update([respawnEvent(12)]);
+  fixture.clock.tick = 24;
+  fixture.controller.update([respawnEvent(24)]);
   assert.equal(fixture.published.length, 2);
   assert.equal(fixture.published[1].eventsThisTick, 1);
-  assert.equal(fixture.published[1].events.at(-1)?.tick, 12);
+  assert.equal(fixture.published[1].events.at(-1)?.tick, 24);
 });
 
 test('event summaries preserve compact gameplay context', () => {
@@ -173,7 +193,7 @@ test('event summaries preserve compact gameplay context', () => {
   }), 'driver busted by police-1; $800 seized');
 });
 
-function createFixture(enabled: boolean) {
+function createFixture(enabled: boolean | (() => boolean)) {
   const state = new DistrictState();
   const clock = {tick: 0, nowMs: 0, droppedMs: 0};
   const incident: Incident = {
@@ -372,6 +392,16 @@ function createFixture(enabled: boolean) {
       maxDurationMs: 0.2,
       failures: 0
     }],
+    physics: () => ({
+      bodies: 72,
+      worlds: 5,
+      contacts: 3,
+      lifecycle: {
+        tick: {created: 0, removed: 0, migrated: 0, replaced: 0, teleported: 0},
+        cumulative: {created: 72, removed: 0, migrated: 0, replaced: 0, teleported: 0}
+      },
+      stepMs: {latest: 0.41, p50: 0.35, p95: 0.83, max: 1.2, samples: 600}
+    }),
     traffic: () => [traffic],
     trafficLaneGraph: () => laneGraph,
     policeResponse: () => response,

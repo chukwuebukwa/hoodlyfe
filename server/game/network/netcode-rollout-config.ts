@@ -6,10 +6,7 @@ import {
 
 const ENVIRONMENT_KEYS: Readonly<Record<NetcodeRolloutStage, string>> = Object.freeze({
   remoteTimelines: 'GAME_NETCODE_REMOTE_TIMELINES',
-  interactionSnapshots: 'GAME_NETCODE_INTERACTION_SNAPSHOTS',
-  interactionReplay: 'GAME_NETCODE_INTERACTION_REPLAY',
-  combatRewind: 'GAME_NETCODE_COMBAT_REWIND',
-  projectilePrediction: 'GAME_NETCODE_PROJECTILE_PREDICTION'
+  combatRewind: 'GAME_NETCODE_COMBAT_REWIND'
 });
 
 export function resolveNetcodeRolloutManifest(
@@ -21,13 +18,10 @@ export function resolveNetcodeRolloutManifest(
   >) {
     stages[stage] = parseBoolean(environment[environmentKey], environmentKey);
   }
-  const revision = environment.GAME_NETCODE_ROLLOUT_REVISION?.trim() || 'm11-all-on';
+  const revision = environment.GAME_NETCODE_ROLLOUT_REVISION?.trim() || 'server-authority';
   return createNetcodeRolloutManifest(revision, {
     remoteTimelines: stages.remoteTimelines,
-    interactionSnapshots: stages.interactionSnapshots,
-    interactionReplay: stages.interactionReplay,
-    combatRewind: stages.combatRewind,
-    projectilePrediction: stages.projectilePrediction
+    combatRewind: stages.combatRewind
   });
 }
 

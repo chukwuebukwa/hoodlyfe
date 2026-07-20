@@ -1,3 +1,5 @@
+import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
+
 export interface SimulationFrame {
   tick: number;
   nowMs: number;
@@ -21,8 +23,8 @@ export class FixedStepClock {
   private discardedMs = 0;
 
   constructor(options: FixedStepClockOptions = {}) {
-    this.stepMs = positive(options.stepMs ?? 1000 / 30, 'stepMs');
-    this.maxCatchUpSteps = positiveInteger(options.maxCatchUpSteps ?? 5, 'maxCatchUpSteps');
+    this.stepMs = positive(options.stepMs ?? SIMULATION_STEP_MS, 'stepMs');
+    this.maxCatchUpSteps = positiveInteger(options.maxCatchUpSteps ?? 10, 'maxCatchUpSteps');
     this.maxElapsedMs = positive(options.maxElapsedMs ?? 250, 'maxElapsedMs');
   }
 

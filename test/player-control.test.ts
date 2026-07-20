@@ -99,7 +99,7 @@ test('on-foot locomotion preserves analog magnitude and caps diagonal speed', ()
   assert.ok(Math.abs(Math.hypot(player.x - 100, player.y - 100) - 190 / 30) < 0.0001);
 });
 
-test('on-foot locomotion resolves collision per axis and respects control states', () => {
+test('on-foot control authors desired motion and respects control states', () => {
   const state = new DistrictState();
   const world = {
     canOccupy: (x: number) => x <= 100
@@ -109,7 +109,7 @@ test('on-foot locomotion resolves collision per axis and respects control states
   controller.register(player.id);
   controller.setMove(player.id, {x: 1, y: 1});
   controller.updateOnFoot(player, 1 / 30);
-  assert.equal(player.x, 100);
+  assert.ok(player.x > 100);
   assert.ok(player.y > 100);
 
   const blockedPosition = {x: player.x, y: player.y};
@@ -126,7 +126,7 @@ test('on-foot locomotion resolves collision per axis and respects control states
   assert.deepEqual({x: player.x, y: player.y}, blockedPosition);
 });
 
-test('active melee preserves full collision-safe movement without entering doors', () => {
+test('active melee preserves full desired movement without entering doors', () => {
   const state = new DistrictState();
   let entryAttempts = 0;
   const world = {
@@ -149,7 +149,7 @@ test('active melee preserves full collision-safe movement without entering doors
 
   controller.updateOnFoot(player, 1 / 30);
 
-  assert.equal(player.x, 100, 'Melee momentum must still respect horizontal collision.');
+  assert.ok(Math.abs(player.x - (100 + 190 / 30 / Math.sqrt(2))) < 0.0001);
   assert.ok(Math.abs(player.y - (100 + 190 / 30 / Math.sqrt(2))) < 0.0001);
   assert.equal(entryAttempts, 0, 'An active swing cannot transition into an interior.');
 });

@@ -1,4 +1,5 @@
 import {MapSchema, Schema, defineTypes, view} from '@colyseus/schema';
+import {STREET_GROUND_SURFACE_ID} from '../shared/world/surface-map.ts';
 
 export class PlayerAppearanceState extends Schema {
   outfitName = 'Street Fit';
@@ -38,6 +39,7 @@ export class PlayerState extends Schema {
   id = '';
   name = '';
   spaceId = 'street';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   angle = 0;
@@ -80,6 +82,7 @@ defineTypes(PlayerState, {
   id: 'string',
   name: 'string',
   spaceId: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',
@@ -122,6 +125,7 @@ export class BulletState extends Schema {
   id = '';
   ownerId = '';
   ownerKind = 'player';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   angle = 0;
@@ -133,6 +137,7 @@ defineTypes(BulletState, {
   id: 'string',
   ownerId: 'string',
   ownerKind: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',
@@ -144,6 +149,7 @@ export class ThrownProjectileState extends Schema {
   id = '';
   ownerId = '';
   kind = 'grenade';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   height = 0;
@@ -156,6 +162,7 @@ defineTypes(ThrownProjectileState, {
   id: 'string',
   ownerId: 'string',
   kind: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   height: 'number',
@@ -167,6 +174,7 @@ defineTypes(ThrownProjectileState, {
 export class RocketProjectileState extends Schema {
   id = '';
   ownerId = '';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   angle = 0;
@@ -176,6 +184,7 @@ export class RocketProjectileState extends Schema {
 defineTypes(RocketProjectileState, {
   id: 'string',
   ownerId: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',
@@ -187,6 +196,7 @@ export class ExplosionState extends Schema {
   kind = 'grenade';
   sourceId = '';
   sourceKind = 'world';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   radius = 0;
@@ -197,6 +207,7 @@ export class ExplosionState extends Schema {
 export class FireZoneState extends Schema {
   id = '';
   ownerId = '';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   radius = 0;
@@ -207,6 +218,7 @@ export class FireZoneState extends Schema {
 defineTypes(FireZoneState, {
   id: 'string',
   ownerId: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   radius: 'number',
@@ -219,6 +231,7 @@ defineTypes(ExplosionState, {
   kind: 'string',
   sourceId: 'string',
   sourceKind: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   radius: 'number',
@@ -287,6 +300,7 @@ defineTypes(TrafficSignalState, {
 export class NpcState extends Schema {
   id = '';
   kind = 'civilian';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   angle = 0;
@@ -309,6 +323,7 @@ export class NpcState extends Schema {
 defineTypes(NpcState, {
   id: 'string',
   kind: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',
@@ -331,6 +346,7 @@ defineTypes(NpcState, {
 export class VehicleState extends Schema {
   id = '';
   kind = 'sedan';
+  surfaceId = STREET_GROUND_SURFACE_ID;
   x = 0;
   y = 0;
   angle = 0;
@@ -357,6 +373,7 @@ export class VehicleState extends Schema {
 defineTypes(VehicleState, {
   id: 'string',
   kind: 'string',
+  surfaceId: 'string',
   x: 'number',
   y: 'number',
   angle: 'number',

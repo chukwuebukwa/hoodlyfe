@@ -175,7 +175,7 @@ npm test
 npm run dev
 ```
 
-See [`docs/ENGINEERING_REPORT.md`](docs/ENGINEERING_REPORT.md) for the implementation report and staged production-scaling plan. See [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for the domain organization and extraction blueprint for pedestrian AI, driving AI, police, missions, economy, and other GTA-like systems. See [`docs/ONCHAIN_INTEGRATION.md`](docs/ONCHAIN_INTEGRATION.md) for the Robinhood Chain settlement-layer design, wallet identity plan, and the gates that precede any real-value mechanic.
+See [`docs/ENGINEERING_REPORT.md`](docs/ENGINEERING_REPORT.md) for the implementation report and staged production-scaling plan. See [`docs/PERSISTENT_PHYSICS_RESEARCH.md`](docs/PERSISTENT_PHYSICS_RESEARCH.md) for the persistent Rapier lifecycle, health contract, measurements, load-test command, and production rollback gates. See [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for the domain organization and extraction blueprint for pedestrian AI, driving AI, police, missions, economy, and other GTA-like systems. See [`docs/ONCHAIN_INTEGRATION.md`](docs/ONCHAIN_INTEGRATION.md) for the Robinhood Chain settlement-layer design, wallet identity plan, and the gates that precede any real-value mechanic.
 
 ## Asset Boundary
 

@@ -1335,7 +1335,8 @@ canvas {
 }
 
 #phone-home.hidden,
-#phone-profile-app-screen.hidden {
+#phone-profile-app-screen.hidden,
+#phone-wallet-app-screen.hidden {
   display: none;
 }
 
@@ -2163,14 +2164,6 @@ canvas {
 #debug-legend .signal { color: #56e3a2; }
 #debug-legend .traffic-deadlock { color: #b86bff; }
 #debug-legend .traffic-recovery { color: #ff2bd6; }
-#debug-legend .island-root { color: #ffd34e; }
-#debug-legend .island-contact { color: #ff5e68; }
-#debug-legend .island-retained { color: #ff9d3f; }
-#debug-legend .island-imminent { color: #55d6ff; }
-#debug-legend .island-hysteresis { color: #9d8bff; }
-#debug-legend .island-closure { color: #d979ff; }
-#debug-legend .island-overflow { color: #ff8a35; }
-#debug-legend .island-presented { color: #36f1d0; }
 
 #debug-events {
   max-height: 172px;

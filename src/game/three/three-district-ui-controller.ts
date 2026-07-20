@@ -31,6 +31,7 @@ import {SfxSystem} from '../audio/sfx-system.ts';
 import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
 import {ProximityVoiceSystem} from '../audio/proximity-voice-system.ts';
 import {LocalHudController} from '../ui/local-hud-controller.ts';
+import {NockPhoneController} from '../ui/nock-phone-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import type {ActorRenderPose} from '../rendering/render-types.ts';
@@ -45,6 +46,8 @@ export class ThreeDistrictUiController {
   private readonly voice: ProximityVoiceSystem;
   private readonly medical: MedicalCarePresentationController;
   private readonly appearance: AppearanceCreatorController;
+  private readonly phone: NockPhoneController;
+  private readonly ownsPhone: boolean;
   private readonly minimap?: MinimapRenderer;
   private readonly missionHud = document.querySelector<HTMLElement>('#mission-hud');
   private readonly missionTitle = document.querySelector('#mission-title');
@@ -64,8 +67,11 @@ export class ThreeDistrictUiController {
     private readonly room: Room<DistrictNetworkState>,
     worldWidth: number,
     worldHeight: number,
-    private readonly localPose: () => ActorRenderPose | undefined = () => undefined
+    private readonly localPose: () => ActorRenderPose | undefined = () => undefined,
+    phone?: NockPhoneController
   ) {
+    this.phone = phone ?? new NockPhoneController();
+    this.ownsPhone = !phone;
     this.radio = new RadioSystem(document, room);
     this.sfx = new SfxSystem(room);
     this.vehicleAudio = new VehicleAudioSystem();
@@ -93,7 +99,7 @@ export class ThreeDistrictUiController {
   }
 
   isInputBlocked(): boolean {
-    return this.appearance.isOpen();
+    return this.appearance.isOpen() || this.phone.isOpen();
   }
 
   playerVoiceActivity(playerId: string): number {
@@ -117,6 +123,7 @@ export class ThreeDistrictUiController {
     );
     this.medical.synchronize(local);
     this.appearance.synchronize(state);
+    this.phone.synchronize(state, this.room.sessionId);
     this.updateInteraction(state);
     if (onStreet) {
       this.updateMission(state);
@@ -144,6 +151,7 @@ export class ThreeDistrictUiController {
     this.room.onError.remove(this.handleDisconnected);
     this.medical.destroy();
     this.appearance.destroy();
+    if (this.ownsPhone) this.phone.destroy();
     this.radio.destroy();
     this.sfx.destroy();
     this.vehicleAudio.destroy();
@@ -231,7 +239,10 @@ export class ThreeDistrictUiController {
     this.lastUpdateAt = Number.NEGATIVE_INFINITY;
   };
 
-  private readonly handleDisconnected = (): void => {
+  private readonly handleDisconnected = (code?: number): void => {
+    if (code !== 4000) {
+      console.warn(`District connection closed unexpectedly (code ${code ?? 'unknown'}).`);
+    }
     this.hud.setConnection(false);
   };
 }

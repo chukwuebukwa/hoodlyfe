@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import type {TrafficSpawn} from '../../world-map.ts';
+import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 
 export type LaneDirection = 'forward' | 'reverse';
 export type LaneEdgeKind = 'lane' | 'connector' | 'turnaround';
@@ -18,6 +19,7 @@ export interface LaneCorridorDefinition {
   points: LanePointDefinition[];
   vehicleClasses?: LaneVehicleClass[];
   lanesPerDirection?: number;
+  surfaceId?: string;
 }
 
 export interface LaneJunctionDefinition extends LanePointDefinition {
@@ -77,6 +79,7 @@ export interface LaneGraphNode {
   speedLimit: number;
   junctionId: string;
   vehicleClasses: LaneVehicleClass[];
+  surfaceId: string;
 }
 
 export interface LaneGraphEdge {
@@ -89,6 +92,8 @@ export interface LaneGraphEdge {
   speedLimit: number;
   length: number;
   vehicleClasses: LaneVehicleClass[];
+  fromSurfaceId: string;
+  toSurfaceId: string;
 }
 
 export interface LaneProjection {
@@ -103,8 +108,19 @@ export interface LaneProjection {
 interface LaneGraphWorld {
   tileWidth: number;
   tileHeight: number;
+  surfaces?: {
+    surfaceIdsAt(x: number, y: number, actorKind: 'vehicle'): readonly string[];
+    manifest?: {defaultSurfaceId: string};
+    neighbors?(surfaceId: string, actorKind: 'vehicle'): readonly string[];
+  };
   isRoadAt(x: number, y: number): boolean;
-  canOccupy(x: number, y: number, radius: number): boolean;
+  canOccupy(
+    x: number,
+    y: number,
+    radius: number,
+    surfaceId?: string,
+    actorKind?: 'vehicle'
+  ): boolean;
 }
 
 interface CompiledLane {
@@ -198,6 +214,7 @@ export class LaneGraph {
     const issues = validateDocument(document);
     if (issues.length > 0) throw new LaneGraphValidationError(issues);
     const compiled = compileDocument(document);
+    issues.push(...bindNodeSurfaces(compiled.nodes, compiled.edges, world));
     issues.push(...validateCompiledGraph(compiled.nodes, compiled.edges, world));
     issues.push(...validateRoadblockDefinitions(document.roadblocks ?? [], compiled.edges, world));
     if (issues.length > 0) throw new LaneGraphValidationError(issues);
@@ -281,7 +298,10 @@ export class LaneGraph {
       if (!edgeAllowed(edge)) continue;
       const progress = progressOptions[(normalized + attempt) % progressOptions.length];
       const spawn = this.spawnOnEdge(edge, progress);
-      if (!this.world.isRoadAt(spawn.x, spawn.y) || !this.world.canOccupy(spawn.x, spawn.y, radius)) {
+      if (
+        !this.world.isRoadAt(spawn.x, spawn.y) ||
+        !this.world.canOccupy(spawn.x, spawn.y, radius, spawn.surfaceId, 'vehicle')
+      ) {
         continue;
       }
       return spawn;
@@ -307,15 +327,22 @@ export class LaneGraph {
     return this.spawnOnEdge(next, next.kind === 'lane' ? 0.5 : 0.8);
   }
 
-  capture(x: number, y: number, angle: number): TrafficSpawn | undefined {
-    const projection = this.project(x, y, angle);
+  capture(x: number, y: number, angle: number, surfaceId?: string): TrafficSpawn | undefined {
+    const projection = this.project(x, y, angle, 320, surfaceId);
     return projection ? this.spawnOnEdge(projection.edge, projection.progress) : undefined;
   }
 
-  project(x: number, y: number, angle?: number, maximumDistance = 320): LaneProjection | undefined {
+  project(
+    x: number,
+    y: number,
+    angle?: number,
+    maximumDistance = 320,
+    surfaceId?: string
+  ): LaneProjection | undefined {
     let best: LaneProjection | undefined;
     let bestScore = Number.POSITIVE_INFINITY;
     for (const edge of this.laneEdges) {
+      if (surfaceId && edge.fromSurfaceId !== surfaceId) continue;
       const from = this.node(edge.fromNodeId)!;
       const to = this.node(edge.toNodeId)!;
       const projection = projectPointToSegment(x, y, from, to);
@@ -348,9 +375,11 @@ export class LaneGraph {
       targetRow: Math.floor(to.y / this.world.tileHeight),
       laneEdgeId: edge.id,
       laneFromNodeId: edge.fromNodeId,
-      laneToNodeId: edge.toNodeId
+      laneToNodeId: edge.toNodeId,
+      surfaceId: from.surfaceId
     };
   }
+
 }
 
 function validateDocument(document: LaneGraphDocument): string[] {
@@ -471,7 +500,8 @@ function compileDocument(document: LaneGraphDocument): {
       samples,
       document.laneOffset + document.laneSpacing * laneIndex,
       laneIndex,
-      laneCount
+      laneCount,
+      corridor.surfaceId ?? ''
     ));
     const reverse = Array.from({length: laneCount}, (_, laneIndex) => compileLane(
       corridor,
@@ -479,7 +509,8 @@ function compileDocument(document: LaneGraphDocument): {
       [...samples].reverse(),
       document.laneOffset + document.laneSpacing * laneIndex,
       laneIndex,
-      laneCount
+      laneCount,
+      corridor.surfaceId ?? ''
     ));
     if (document.allowTerminalTurnarounds) {
       markTerminalJunctions(corridor.id, forward, reverse);
@@ -626,7 +657,8 @@ function compileLane(
   samples: CenterlineSample[],
   laneOffset: number,
   laneIndex: number,
-  laneCount: number
+  laneCount: number,
+  surfaceId: string
 ): CompiledLane {
   const id = laneIndex === 0
     ? `${corridor.id}:${direction}`
@@ -650,7 +682,8 @@ function compileLane(
       y: sample.y + heading.x * laneOffset,
       speedLimit: corridor.speedLimit,
       junctionId: sample.junctionId,
-      vehicleClasses
+      vehicleClasses,
+      surfaceId
     } satisfies LaneGraphNode;
   });
   return {id, corridorId: corridor.id, direction, laneIndex, laneCount, nodes};
@@ -670,7 +703,9 @@ function laneEdges(lane: CompiledLane): LaneGraphEdge[] {
       junctionId: '',
       speedLimit: Math.min(from.speedLimit, to.speedLimit),
       length: distance(from, to),
-      vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses)
+      vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
+      fromSurfaceId: from.surfaceId,
+      toSurfaceId: to.surfaceId
     });
   }
   return result;
@@ -707,7 +742,9 @@ function connectorEdge(
     junctionId,
     speedLimit: Math.min(from.speedLimit, to.speedLimit, kind === 'turnaround' ? 52 : 76),
     length: Math.max(12, distance(from, to)),
-    vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses)
+    vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
+    fromSurfaceId: from.surfaceId,
+    toSurfaceId: to.surfaceId
   };
 }
 
@@ -722,7 +759,7 @@ function validateCompiledGraph(
     if (nodeIds.has(node.id)) issues.push(`Duplicate compiled node ${node.id}.`);
     nodeIds.add(node.id);
     if (!world.isRoadAt(node.x, node.y)) issues.push(`Lane node ${node.id} is not on a road.`);
-    if (!world.canOccupy(node.x, node.y, VALIDATION_RADIUS)) {
+    if (!world.canOccupy(node.x, node.y, VALIDATION_RADIUS, node.surfaceId, 'vehicle')) {
       issues.push(`Lane node ${node.id} is blocked for a vehicle.`);
     }
   }
@@ -775,6 +812,48 @@ function validateCompiledGraph(
     }
   }
   return [...new Set(issues)].sort();
+}
+
+function bindNodeSurfaces(
+  nodes: LaneGraphNode[],
+  edges: LaneGraphEdge[],
+  world: LaneGraphWorld
+): string[] {
+  const issues: string[] = [];
+  const defaultSurfaceId = world.surfaces?.manifest?.defaultSurfaceId ?? STREET_GROUND_SURFACE_ID;
+  const lanes = new Map<string, LaneGraphNode[]>();
+  for (const node of nodes) {
+    const lane = lanes.get(node.laneId) ?? [];
+    lane.push(node);
+    lanes.set(node.laneId, lane);
+  }
+  for (const lane of lanes.values()) {
+    lane.sort((left, right) => left.index - right.index);
+    let previousSurfaceId = '';
+    for (const node of lane) {
+      if (node.surfaceId) {
+        previousSurfaceId = node.surfaceId;
+        continue;
+      }
+      const candidates = world.surfaces?.surfaceIdsAt(node.x, node.y, 'vehicle') ?? [defaultSurfaceId];
+      const connected = previousSurfaceId
+        ? new Set([previousSurfaceId, ...(world.surfaces?.neighbors?.(previousSurfaceId, 'vehicle') ?? [])])
+        : undefined;
+      const surfaceId = candidates.find((candidate) => connected?.has(candidate)) ?? candidates[0];
+      if (!surfaceId) {
+        issues.push(`Lane node ${node.id} has no physical surface.`);
+        continue;
+      }
+      node.surfaceId = surfaceId;
+      previousSurfaceId = surfaceId;
+    }
+  }
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  for (const edge of edges) {
+    edge.fromSurfaceId = nodeById.get(edge.fromNodeId)?.surfaceId ?? '';
+    edge.toSurfaceId = nodeById.get(edge.toNodeId)?.surfaceId ?? '';
+  }
+  return issues;
 }
 
 function validateRoadblockDefinitions(

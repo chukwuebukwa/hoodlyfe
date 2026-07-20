@@ -97,7 +97,33 @@ test('hijacking stops traffic, ejects its driver, and gives the player control',
   ]);
 });
 
-test('collision damage ignites a vehicle before explosion, ejection, and restoration', () => {
+test('a destroyed vehicle cancels a pending enter action', () => {
+  const room = new DistrictRoom() as any;
+  room.world = CollisionMap.load();
+  room.setState(new DistrictState());
+  attachTestVehicleAccess(room);
+  const player = new PlayerState();
+  player.id = 'entering-player';
+  player.x = room.world.spawn.x;
+  player.y = room.world.spawn.y;
+  const vehicle = new VehicleState();
+  vehicle.id = 'doomed-car';
+  vehicle.x = player.x + 24;
+  vehicle.y = player.y;
+  room.state.players.set(player.id, player);
+  room.state.vehicles.set(vehicle.id, vehicle);
+
+  room.vehicleAccess.interact(player.id, 1_000);
+  assert.equal(player.action, 'entering');
+  vehicle.destroyed = true;
+  room.vehicleAccess.updateAction(player, 3_000);
+
+  assert.equal(player.action, '');
+  assert.equal(player.vehicleId, '');
+  assert.equal(vehicle.driverId, '');
+});
+
+test('collision damage leaves a temporary wreck and then removes the vehicle', () => {
   const room = new DistrictRoom() as any;
   room.world = CollisionMap.load();
   room.setState(new DistrictState());
@@ -148,12 +174,6 @@ test('collision damage ignites a vehicle before explosion, ejection, and restora
   room.vehicleSimulation.update(vehicle, 1 / 30, 13_999);
   assert.equal(vehicle.destroyed, true);
   room.vehicleSimulation.update(vehicle, 1 / 30, 14_000);
-  assert.equal(vehicle.destroyed, false);
-  assert.equal(vehicle.health, 1000);
-  assert.equal(vehicle.engineDamage, 0);
-  assert.equal(vehicle.damageFront, 0);
-  assert.equal(vehicle.respawnAt, 0);
-  assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
-    'vehicle.restored'
-  ]);
+  assert.equal(room.state.vehicles.has(vehicle.id), false);
+  assert.deepEqual(room.events.drain(), []);
 });

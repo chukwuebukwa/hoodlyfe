@@ -45,15 +45,49 @@ test('debug panel projects authoritative counters and bounded event summaries', 
     region: 'unknown',
     latency: '0/0ms',
     patchGap: '0ms',
-    prediction: '0px',
     clockSync: 'unsynced',
     rollout: 'unavailable',
-    interactionIsland: 'off',
-    interactionReplay: 'off',
-    interactionSelection: 'off',
+    playerReaction: 'off',
+    surface: 'off',
     simulationPhases: 'off',
+    physics: 'off',
+    physicsLifecycle: 'off',
+    physicsStep: 'off',
     events: ['T41 driver committed vehicle-theft']
   });
+});
+
+test('debug panel exposes the local player reaction state', () => {
+  const state = createState();
+  state.players.set('driver', {
+    action: 'hit',
+    reactionKind: 'stagger',
+    reactionDirection: 'left',
+    reactionProgress: 0.35,
+    health: 72,
+    armor: 8
+  } as never);
+
+  assert.equal(
+    projectDebugPanel(state, undefined, undefined, undefined, 'driver').playerReaction,
+    'hit / stagger left 35% / HP 72 / armor 8'
+  );
+});
+
+test('debug panel exposes the local authoritative physical surface', () => {
+  const state = createState();
+  state.players.set('driver', {
+    spaceId: 'street',
+    surfaceId: 'bridge-deck',
+    vehicleId: '',
+    x: 128.4,
+    y: 63.6
+  } as never);
+
+  assert.equal(
+    projectDebugPanel(state, undefined, undefined, undefined, 'driver').surface,
+    'street / bridge-deck @ 128,64'
+  );
 });
 
 test('debug panel summarizes server-owned police tactical roles', () => {
@@ -360,7 +394,25 @@ test('debug panel summarizes server phase cost and failures', () => {
   );
 });
 
-test('debug panel exposes region, network timing, and reconciliation pressure', () => {
+test('debug panel summarizes persistent physics lifecycle and timing', () => {
+  const snapshot = createSnapshot();
+  snapshot.physics = {
+    bodies: 72,
+    worlds: 5,
+    contacts: 3,
+    lifecycle: {
+      tick: {created: 0, removed: 0, migrated: 1, replaced: 0, teleported: 0},
+      cumulative: {created: 90, removed: 18, migrated: 4, replaced: 2, teleported: 1}
+    },
+    stepMs: {latest: 0.41, p50: 0.35, p95: 0.83, max: 1.2, samples: 600}
+  };
+  const panel = projectDebugPanel(createState(), snapshot);
+  assert.equal(panel.physics, '72 bodies / 5 worlds / 3 contacts');
+  assert.equal(panel.physicsLifecycle, 'CREATE 0 REMOVE 0 MOVE 1 REPLACE 0 TELEPORT 0');
+  assert.equal(panel.physicsStep, '0.41ms / p50 0.35 / p95 0.83 / max 1.20 / 600');
+});
+
+test('debug panel exposes region, network timing, and interpolation pressure', () => {
   const panel = projectDebugPanel(createState(), undefined, {
     region: 'us-east4',
     buildId: 'abc123',
@@ -373,51 +425,14 @@ test('debug panel exposes region, network timing, and reconciliation pressure', 
     estimatedServerTimeMs: 1_420,
     interpolationDelayMs: 96,
     clockSynchronized: true,
-    predictionError: 8.4,
-    predictionErrorP95: 12.7,
-    predictionErrorMean: 6.2,
-    predictionCorrections: 14,
-    reconciliations: 2,
-    vehicleResimulations: 9,
-    vehiclePendingMoves: 5,
-    vehicleAcknowledgedMove: 34,
-    onFootResimulations: 3,
-    onFootPendingMoves: 4,
-    onFootAcknowledgedMove: 37,
     remoteSnapshotAgeP95Ms: 104,
     remoteBufferUnderrunPercent: 2.5,
-    remoteExtrapolationPercent: 6.7,
-    interactionIslandSize: 5,
-    interactionIslandPoints: 14,
-    interactionIslandBudget: 32,
-    interactionIslandOverflow: 2,
-    interactionIslandOverflowPoints: 5,
-    interactionIslandHorizonMs: 190,
-    interactionSnapshotAgeTicks: 1,
-    interactionHistoryFrames: 12,
-    interactionReplayCount: 4,
-    interactionReplayTicks: 9,
-    interactionReplayDurationP95Ms: 1.7,
-    interactionReplayPairSteps: 18,
-    interactionReplaySuppressedEffects: 2,
-    interactionReplayHardResets: 1
+    remoteExtrapolationPercent: 6.7
   });
   assert.equal(panel.region, 'us-east4 / abc123');
   assert.equal(panel.latency, '72/118ms +/-14');
   assert.equal(panel.patchGap, '61ms / T340');
-  assert.equal(
-    panel.prediction,
-    '8.4px now / 12.7px p95 / 14 corr / 2 snap / V A34 P5 R9 / F A37 P4 R3'
-  );
   assert.equal(panel.clockSync, '-18ms / 96ms buffer / 104ms age / 2.5% under / 6.7% extra');
-  assert.equal(
-    panel.interactionIsland,
-    '5 bodies / 14/32 pts / 2 (5 pts) overflow / 190ms horizon'
-  );
-  assert.equal(
-    panel.interactionReplay,
-    '1t snapshot age / H12 history / R4:9t 1.7ms p95 / 18 pairs / 2 suppressed / 1 reset'
-  );
 });
 
 test('debug panel projects negotiated netcode stages and fail-closed state', () => {
@@ -425,24 +440,20 @@ test('debug panel projects negotiated netcode stages and fail-closed state', () 
     createState(),
     undefined,
     undefined,
-    undefined,
     {
       source: 'negotiated',
       manifest: {
         protocolVersion: 1,
-        interactionProtocolVersion: 4,
+        combatProtocolVersion: 6,
         revision: 'canary-2',
         stages: {
           remoteTimelines: true,
-          interactionSnapshots: true,
-          interactionReplay: false,
-          combatRewind: true,
-          projectilePrediction: false
+          combatRewind: true
         }
       }
     }
   );
-  assert.equal(panel.rollout, 'negotiated / canary-2 / timeline,snapshot,rewind');
+  assert.equal(panel.rollout, 'negotiated / canary-2 / timeline,rewind');
 });
 
 function createState(): DistrictNetworkState {

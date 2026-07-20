@@ -17,3 +17,6 @@ GTA2INSTALLER.ZIP
 
 # Locally converted GTA2 districts. Keep source-derived assets out of Git.
 public/assets/districts/*/
+
+# Simulation journal recordings (local debugging artifacts)
+journals/

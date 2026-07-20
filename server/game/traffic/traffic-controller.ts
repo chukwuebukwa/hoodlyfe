@@ -164,7 +164,9 @@ export class TrafficController {
     return this.routes.advanceVirtual(spawn, seed);
   }
 
-  captureVirtual(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'>): TrafficSpawn {
+  captureVirtual(
+    vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'> & {surfaceId?: string}
+  ): TrafficSpawn {
     return this.routes.captureVirtual(vehicle);
   }
 
@@ -274,6 +276,25 @@ export class TrafficController {
   ): boolean {
     const runtime = this.runtime.get(vehicle.id);
     if (!runtime) return false;
+    runtime.route.surfaceId = vehicle.surfaceId;
+    const heightAt = this.options.world.heightAt;
+    if (
+      typeof heightAt === 'function' &&
+      heightAt.call(this.options.world, vehicle.surfaceId, vehicle.x, vehicle.y) === undefined
+    ) {
+      const surfaceId = this.options.world.surfaces?.surfaceIdsAt(
+        vehicle.x,
+        vehicle.y,
+        'vehicle'
+      ).find((candidate) => this.options.world.canOccupy(
+        vehicle.x,
+        vehicle.y,
+        20,
+        candidate,
+        'vehicle'
+      ));
+      if (surfaceId) vehicle.surfaceId = surfaceId;
+    }
     const collision = vehicleConfig(vehicle.kind).collision;
     const collisionHalfLength = collision.length / 2;
     const collisionHalfWidth = collision.width / 2;

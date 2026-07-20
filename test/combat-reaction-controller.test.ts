@@ -21,7 +21,7 @@ test('player reactions replicate progress, suppress restart, and accept stronger
     }
   });
 
-  assert.equal(controller.player(player, impact('melee', 'medium', 20, 0), result(20), 1000), true);
+  assert.equal(controller.player(player, impact('melee', 'medium', 20, 0), result(40), 1000), true);
   assert.equal(player.reactionSequence, 1);
   assert.equal(player.reactionKind, 'stagger');
   assert.equal(player.reactionDirection, 'front');
@@ -53,9 +53,9 @@ test('NPC reactions pause through their replicated deadline and clear on death',
 
   assert.equal(controller.npc(npc, impact('bullet', 'light', 1, 0), result(10), 500), true);
   assert.equal(npc.action, 'flinch');
-  controller.update(610);
+  controller.update(550);
   assert.equal(npc.reactionProgress, 0.5);
-  controller.update(720);
+  controller.update(600);
   assert.equal(npc.reactionKind, '');
   assert.equal(npc.action, 'wander');
 

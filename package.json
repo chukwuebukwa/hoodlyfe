@@ -15,6 +15,9 @@
     "map:expand": "tsx scripts/expand-district-map.ts",
     "map:validate": "tsx scripts/validate-district-map.ts",
     "level:apply": "tsx scripts/apply-level-editor-bundle.ts",
+    "physics:soak": "tsx scripts/bench/persistent-physics-soak.ts",
+    "physics:loadtest": "tsx scripts/loadtest/district-physics.ts --endpoint ws://127.0.0.1:2567 --room district --numClients 32 --delay 100",
+    "bots:map": "LOADTEST_MAP_TRAVERSAL=1 LOADTEST_DURATION_MS=180000 LOADTEST_RECONNECT_INTERVAL_MS=600000 tsx scripts/loadtest/district-physics.ts --endpoint ws://127.0.0.1:2567 --room district --numClients 10 --delay 200 --logLevel none",
     "build": "tsc --noEmit && next build",
     "deploy:railway": "railway up --service nock0 --environment production --no-gitignore",
     "dev": "concurrently -k -n server,web -c yellow,cyan \"npm:dev:server\" \"npm:dev:web\"",
@@ -22,8 +25,7 @@
     "dev:server": "tsx watch --env-file-if-exists=.env.local server/index.ts",
     "dev:web": "next dev -H 0.0.0.0 -p 5173",
     "start": "npm run dev",
-    "test:netcode": "tsx --test test/combat-fire-command-controller.test.ts test/combat-fire-prediction-controller.test.ts test/combat-fire-protocol.test.ts test/combat-hitbox-history.test.ts test/projectile-lag-compensation.test.ts test/correction-smoothing.test.ts test/debug-shell-contract.test.ts test/interaction-baseline-admission.test.ts test/interaction-candidate-source.test.ts test/interaction-contact-geometry.test.ts test/interaction-island-controller.test.ts test/interaction-island-debug-policy.test.ts test/interaction-island-replay.test.ts test/interaction-island-selector.test.ts test/interaction-island-soak.test.ts test/interaction-replay-presentation.test.ts test/interaction-simulation-protocol.test.ts test/interaction-snapshot-inbox.test.ts test/interaction-snapshot-projector.test.ts test/island-state-history.test.ts test/mixed-interaction-impairment.test.ts test/mixed-interaction-replay.test.ts test/netcode-impairment.test.ts test/netcode-rollout-config.test.ts test/netcode-rollout-controller.test.ts test/netcode-rollout-protocol.test.ts test/network-quality-controller.test.ts test/on-foot-netcode-impairment.test.ts test/on-foot-step.test.ts test/remote-intent-continuation.test.ts test/remote-motion-timeline.test.ts test/remote-timeline-impairment.test.ts test/remote-timeline-policy.test.ts test/replay-side-effect-gate.test.ts test/saved-on-foot-prediction.test.ts test/saved-vehicle-prediction.test.ts test/stable-interaction-pairs.test.ts test/vehicle-humanoid-contact.test.ts test/vehicle-humanoid-server-contact.test.ts test/vehicle-interaction-impairment.test.ts test/vehicle-interaction-replay.test.ts test/vehicle-server-contact-phase.test.ts test/vehicle-step.test.ts",
-    "test:netcode:soak": "NETCODE_SOAK_STRICT=1 tsx --test --test-concurrency=1 test/interaction-island-soak.test.ts",
+    "test:netcode": "tsx --test test/combat-fire-command-controller.test.ts test/combat-fire-command-sender.test.ts test/combat-fire-protocol.test.ts test/combat-hitbox-history.test.ts test/projectile-lag-compensation.test.ts test/debug-shell-contract.test.ts test/netcode-rollout-config.test.ts test/netcode-rollout-controller.test.ts test/netcode-rollout-protocol.test.ts test/network-quality-controller.test.ts test/on-foot-step.test.ts test/remote-motion-timeline.test.ts test/remote-timeline-impairment.test.ts test/remote-timeline-policy.test.ts test/vehicle-humanoid-server-contact.test.ts test/vehicle-server-contact-phase.test.ts test/vehicle-step.test.ts",
     "start:prod": "NODE_ENV=production tsx server/index.ts",
     "test": "tsx --test test/**/*.test.ts"
   },
@@ -31,6 +33,7 @@
     "@colyseus/core": "0.16.24",
     "@colyseus/schema": "3.0.76",
     "@colyseus/ws-transport": "0.16.5",
+    "@dimforge/rapier2d-compat": "0.19.3",
     "colyseus.js": "0.16.22",
     "cors": "2.8.5",
     "express": "4.21.2",
@@ -44,6 +47,7 @@
     "tsx": "4.23.0"
   },
   "devDependencies": {
+    "@colyseus/loadtest": "0.16.2",
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/node": "24.10.1",
@@ -51,6 +55,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.185.1",
     "concurrently": "9.2.1",
+    "playwright-core": "^1.61.1",
     "typescript": "5.9.3",
     "vite": "7.3.6"
   }

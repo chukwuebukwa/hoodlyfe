@@ -199,7 +199,7 @@ The district server advances one canonical fixed tick. It owns:
 - pickups, inventories, property access, purchases, and currency;
 - materialization and dematerialization of ambient population.
 
-NOCK0 already has a bounded 30 Hz `FixedStepClock`
+NOCK0 already has a bounded 60 Hz `FixedStepClock`
 ([`fixed-step-clock.ts`](../server/game/world/fixed-step-clock.ts)) and stable spatial
 queries ([`spatial-index.ts`](../server/game/world/spatial-index.ts)). Those remain the
 canonical time and broad-phase foundations.
@@ -254,8 +254,8 @@ pedestrian AI, economy, or mission logic.
 | Police or mission NPC | Server | Snapshot interpolation | Contact proxy; never client AI | Server |
 | Traffic vehicle | Server when active; virtual route when dormant | Snapshot interpolation | Swept collision horizon with owned actor | Server |
 | Hitscan shot | Server historical query | Immediate local fire presentation | Never a physical prediction body | Server hit/damage |
-| Slow projectile | Server | Predicted local shadow plus authoritative proxy | Owned spawn awaiting confirmation | Server impact/damage |
-| Grenade or rocket | Server | Predicted presentation only where deterministic | Locally thrown/launched | Server fuse/impact/damage |
+| Slow projectile | Server | Authoritative replication | Never | Server impact/damage |
+| Grenade or rocket | Server | Authoritative replication | Never | Server fuse/impact/damage |
 | Door or gate | Server | Optimistic animation | Local use awaiting confirmation | Server open/lock state |
 | Movable prop | Server | Interpolation or bounded contact prediction | Being pushed/hit by owned actor | Server final pose/damage |
 | Pickup | Server | Optimistic hide/pending state | Local collection request | Server inventory/economy |
@@ -283,7 +283,6 @@ interface PlayerInputCommand {
   buttons: number;            // bitset: fire, melee, use, enter, sprint, etc.
   selectedWeaponSlot: number;
   controlledEntityId: string; // player or occupied vehicle
-  predictedSpawnIds?: number[];
 }
 ```
 
@@ -554,7 +553,7 @@ coarse steps, and pins occupied/damaged/mission entities
 ([`population-streaming-controller.ts`](../server/game/population/population-streaming-controller.ts)).
 
 The next design should add a reduced level rather than jumping directly from full
-30 Hz actors to 3-second virtual movement for every family.
+60 Hz actors to 3-second virtual movement for every family.
 
 ### 10.3 Materialization contract
 
@@ -648,27 +647,14 @@ use a tighter cap than private Freemode.
 
 ### 11.3 Physical projectiles
 
-Slow bullets, rockets, and thrown weapons should use stable client spawn correlation:
+Slow bullets, rockets, and thrown weapons are server-created authoritative entities.
+The client sends only the sequenced fire command and its sampled server time; it does
+not create projectile IDs or wait for per-shot receipts. The server catches bullets
+up through a bounded historical query, then replicates any surviving projectile and
+emits authoritative impact and damage events.
 
-```ts
-interface PredictedSpawnRequest {
-  ownerId: string;
-  inputSequence: number;
-  clientSpawnId: number;
-  family: 'bullet' | 'rocket' | 'grenade' | 'molotov';
-}
-```
-
-The local browser creates a shadow object keyed by `clientSpawnId`. The server either:
-
-- confirms it with an authoritative entity ID and canonical state;
-- rejects it and the browser removes/fades the shadow;
-- confirms an immediate impact and replaces it with the impact presentation.
-
-Predicted projectiles never apply authoritative damage. SuperTuxKart's stable
-rewindable projectile IDs and Lance's shadow-object correlation demonstrate the
-underlying pattern; NOCK0 must implement it independently due engine and license
-boundaries.
+Local projectile shadows may be added later as presentation-only prediction, but
+they require a separately versioned protocol and must never apply damage.
 
 ### 11.4 Melee
 
@@ -741,7 +727,7 @@ remain authoritative.
 
 Purchases, mission rewards, property, owned cars, and future onchain settlement need
 idempotency keys and a durable ledger. A district emits an authoritative gameplay
-event; a service applies policy and persistence outside the 30 Hz tick. The browser
+event; a service applies policy and persistence outside the 60 Hz tick. The browser
 shows `pending`, `confirmed`, or `rejected`, never a locally trusted balance. See
 [`ONCHAIN_INTEGRATION.md`](ONCHAIN_INTEGRATION.md).
 
@@ -1076,7 +1062,7 @@ one local connection.
 ### 20.1 Existing foundations to preserve
 
 - Colyseus authoritative rooms and schema patches.
-- 30 Hz fixed server simulation with bounded catch-up.
+- 60 Hz fixed server simulation with bounded catch-up.
 - validated server-owned player intent.
 - saved vehicle input, acknowledgement, rewind, and static-world replay.
 - fixed-tick saved on-foot prediction over the shared pure movement step.

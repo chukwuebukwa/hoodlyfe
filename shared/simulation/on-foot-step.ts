@@ -1,7 +1,8 @@
 import {isMeleeWeaponId, WEAPONS} from '../content/weapon-catalog.ts';
+import {SIMULATION_HZ, SIMULATION_STEP_SECONDS} from './timing.ts';
 
-export const ON_FOOT_SIMULATION_HZ = 30;
-export const ON_FOOT_SIMULATION_STEP_SECONDS = 1 / ON_FOOT_SIMULATION_HZ;
+export const ON_FOOT_SIMULATION_HZ = SIMULATION_HZ;
+export const ON_FOOT_SIMULATION_STEP_SECONDS = SIMULATION_STEP_SECONDS;
 export const ON_FOOT_MAX_STEP_SECONDS = 0.05;
 export const ON_FOOT_PLAYER_RADIUS = 11;
 export const ON_FOOT_PLAYER_SPEED = 190;
@@ -10,6 +11,7 @@ export interface OnFootPose {
   x: number;
   y: number;
   spaceId: string;
+  surfaceId?: string;
 }
 
 export interface OnFootControlCommand {
@@ -32,44 +34,75 @@ export interface OnFootStepResult {
   distance: number;
 }
 
-export type OnFootWorldOccupancy = (
-  spaceId: string,
-  x: number,
-  y: number,
-  radius: number
-) => boolean;
-
-export function stepOnFootWithWorldCollision(
+export function integrateOnFootPose(
   pose: OnFootPose,
   command: OnFootControlCommand,
   deltaSeconds: number,
-  canOccupy: OnFootWorldOccupancy,
   modifiers: OnFootStepModifiers = {}
-): OnFootStepResult {
+): OnFootPose {
   const delta = finiteClamp(deltaSeconds, 0, ON_FOOT_MAX_STEP_SECONDS);
   const movementScale = finiteClamp(modifiers.movementScale ?? 1, 0, 2);
-  const radius = finiteClamp(modifiers.radius ?? ON_FOOT_PLAYER_RADIUS, 1, 256);
   const speed = finiteClamp(modifiers.speed ?? ON_FOOT_PLAYER_SPEED, 0, 1_000);
   const inputX = finiteClamp(command.moveX, -1, 1);
   const inputY = finiteClamp(command.moveY, -1, 1);
   const magnitude = Math.hypot(inputX, inputY);
   const normalization = magnitude > 1 ? 1 / magnitude : 1;
   const distance = speed * movementScale * delta;
-  const moveX = inputX * normalization * distance;
-  const moveY = inputY * normalization * distance;
+  return {
+    x: finite(pose.x) + inputX * normalization * distance,
+    y: finite(pose.y) + inputY * normalization * distance,
+    spaceId: typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street',
+    ...(pose.surfaceId ? {surfaceId: pose.surfaceId} : {})
+  };
+}
+
+export type OnFootWorldOccupancy = (
+  spaceId: string,
+  x: number,
+  y: number,
+  radius: number,
+  surfaceId?: string,
+  fromX?: number,
+  fromY?: number
+) => boolean | string;
+
+export function stepInteriorOnFootPose(
+  pose: OnFootPose,
+  command: OnFootControlCommand,
+  deltaSeconds: number,
+  canOccupy: OnFootWorldOccupancy,
+  modifiers: OnFootStepModifiers = {}
+): OnFootStepResult {
+  const radius = finiteClamp(modifiers.radius ?? ON_FOOT_PLAYER_RADIUS, 1, 256);
   const startX = finite(pose.x);
   const startY = finite(pose.y);
   const spaceId = typeof pose.spaceId === 'string' && pose.spaceId ? pose.spaceId : 'street';
-  const attemptedX = startX + moveX;
-  const attemptedY = startY + moveY;
+  const attempted = integrateOnFootPose(pose, command, deltaSeconds, modifiers);
+  const attemptedX = attempted.x;
+  const attemptedY = attempted.y;
+  const moveX = attemptedX - startX;
+  const moveY = attemptedY - startY;
   let x = startX;
   let y = startY;
-  const collidedX = moveX !== 0 && !canOccupy(spaceId, attemptedX, y, radius);
-  if (!collidedX) x = attemptedX;
-  const collidedY = moveY !== 0 && !canOccupy(spaceId, x, attemptedY, radius);
-  if (!collidedY) y = attemptedY;
+  let surfaceId = pose.surfaceId;
+  const xOccupancy = moveX !== 0
+    ? canOccupy(spaceId, attemptedX, y, radius, surfaceId, x, y)
+    : true;
+  const collidedX = !xOccupancy;
+  if (!collidedX) {
+    x = attemptedX;
+    if (typeof xOccupancy === 'string') surfaceId = xOccupancy;
+  }
+  const yOccupancy = moveY !== 0
+    ? canOccupy(spaceId, x, attemptedY, radius, surfaceId, x, y)
+    : true;
+  const collidedY = !yOccupancy;
+  if (!collidedY) {
+    y = attemptedY;
+    if (typeof yOccupancy === 'string') surfaceId = yOccupancy;
+  }
   return {
-    pose: {x, y, spaceId},
+    pose: {x, y, spaceId, ...(surfaceId ? {surfaceId} : {})},
     attemptedX,
     attemptedY,
     collidedX,

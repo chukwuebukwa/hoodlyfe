@@ -2,6 +2,7 @@ import {
   DEBUG_SNAPSHOT_MESSAGE,
   type DebugEventEntry,
   type DebugPedestrianAiEntry,
+  type DebugPhysicsEntry,
   type DebugPoliceArrestEntry,
   type DebugPoliceRoadblockEntry,
   type DebugPoliceStingerEntry,
@@ -18,6 +19,7 @@ import {
   type DebugTrafficLaneGraphEntry,
   type DebugTrafficSignalEntry
 } from '../../../shared/protocol/debug.ts';
+import {SIMULATION_HZ} from '../../../shared/simulation/timing.ts';
 import type {DistrictState} from '../../state.ts';
 import type {GameEvent} from '../events/game-events.ts';
 import type {Incident} from '../incidents/incident-registry.ts';
@@ -30,7 +32,7 @@ interface DebugClock {
 }
 
 interface DebugSnapshotControllerOptions {
-  enabled: boolean;
+  enabled: boolean | (() => boolean);
   state: DistrictState;
   clock: () => DebugClock;
   spatialSize: () => number;
@@ -52,6 +54,7 @@ interface DebugSnapshotControllerOptions {
   replication?: () => ReadonlyArray<DebugReplicationEntry>;
   population?: () => DebugPopulationStreamingEntry;
   simulationPhases?: () => ReadonlyArray<DebugSimulationPhaseEntry>;
+  physics?: () => DebugPhysicsEntry;
   publish: (messageType: string, snapshot: DebugSnapshot) => void;
   intervalTicks?: number;
   historyLimit?: number;
@@ -64,17 +67,23 @@ export class DebugSnapshotController {
   private lastBroadcastTick = 0;
 
   constructor(private readonly options: DebugSnapshotControllerOptions) {
-    this.intervalTicks = positiveInteger(options.intervalTicks ?? 6, 'Debug interval');
+    this.intervalTicks = positiveInteger(options.intervalTicks ?? SIMULATION_HZ / 5, 'Debug interval');
     this.historyLimit = positiveInteger(options.historyLimit ?? 8, 'Debug history limit');
   }
 
   update(events: readonly GameEvent[]): void {
-    if (!this.options.enabled) return;
+    if (!this.enabled()) return;
     this.capture(events);
     const clock = this.options.clock();
     if (clock.tick - this.lastBroadcastTick < this.intervalTicks) return;
     this.lastBroadcastTick = clock.tick;
     this.options.publish(DEBUG_SNAPSHOT_MESSAGE, this.snapshot(events.length, clock));
+  }
+
+  private enabled(): boolean {
+    return typeof this.options.enabled === 'function'
+      ? this.options.enabled()
+      : this.options.enabled;
   }
 
   private capture(events: readonly GameEvent[]): void {
@@ -155,6 +164,7 @@ export class DebugSnapshotController {
       replication: (this.options.replication?.() ?? []).map((entry) => ({...entry})),
       populationStreaming: this.options.population?.(),
       simulationPhases: (this.options.simulationPhases?.() ?? []).map((phase) => ({...phase})),
+      physics: clonePhysics(this.options.physics?.()),
       events: this.recentEvents.map((event) => ({...event}))
     };
   }
@@ -194,8 +204,6 @@ export function summarizeGameEvent(event: GameEvent): string {
       return `${event.vehicleId} ignited; explosion fuse armed`;
     case 'vehicle.destroyed':
       return `${event.vehicleId} destroyed by ${event.sourceId || event.sourceKind}`;
-    case 'vehicle.restored':
-      return `${event.vehicleId} restored to ${event.health} hp`;
     case 'player.respawned':
       return `${event.playerId} respawned`;
     case 'police.arrest-started':
@@ -251,5 +259,16 @@ function clonePoliceResponse(
     demands: response.demands.map((demand) => ({...demand})),
     assignments: response.assignments.map((assignment) => ({...assignment})),
     lastChanges: response.lastChanges.map((change) => ({...change}))
+  } : undefined;
+}
+
+function clonePhysics(physics: DebugPhysicsEntry | undefined): DebugPhysicsEntry | undefined {
+  return physics ? {
+    ...physics,
+    lifecycle: {
+      tick: {...physics.lifecycle.tick},
+      cumulative: {...physics.lifecycle.cumulative}
+    },
+    stepMs: {...physics.stepMs}
   } : undefined;
 }

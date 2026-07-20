@@ -76,6 +76,31 @@ export interface DebugSimulationPhaseEntry {
   failures: number;
 }
 
+export interface DebugPhysicsLifecycleEntry {
+  created: number;
+  removed: number;
+  migrated: number;
+  replaced: number;
+  teleported: number;
+}
+
+export interface DebugPhysicsEntry {
+  bodies: number;
+  worlds: number;
+  contacts: number;
+  lifecycle: {
+    tick: DebugPhysicsLifecycleEntry;
+    cumulative: DebugPhysicsLifecycleEntry;
+  };
+  stepMs: {
+    latest: number;
+    p50: number;
+    p95: number;
+    max: number;
+    samples: number;
+  };
+}
+
 export interface DebugTrafficAiEntry {
   vehicleId: string;
   mission: 'cruise-route';
@@ -364,5 +389,6 @@ export interface DebugSnapshot {
   replication?: DebugReplicationEntry[];
   populationStreaming?: DebugPopulationStreamingEntry;
   simulationPhases?: DebugSimulationPhaseEntry[];
+  physics?: DebugPhysicsEntry;
   events: DebugEventEntry[];
 }

@@ -1,9 +1,7 @@
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
-import type {InteractionIslandSelection} from '../prediction/interaction-island-selector.ts';
 import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
-import {interactionIslandSelectionSummary} from './interaction-island-debug-policy.ts';
 
 export interface DebugPanelProjection {
   clock: string;
@@ -32,13 +30,14 @@ export interface DebugPanelProjection {
   region: string;
   latency: string;
   patchGap: string;
-  prediction: string;
   clockSync: string;
   rollout: string;
-  interactionIsland: string;
-  interactionReplay: string;
-  interactionSelection: string;
+  playerReaction: string;
+  surface: string;
   simulationPhases: string;
+  physics: string;
+  physicsLifecycle: string;
+  physicsStep: string;
   events: string[];
 }
 
@@ -46,8 +45,8 @@ export function projectDebugPanel(
   state?: DistrictNetworkState,
   snapshot?: DebugSnapshot,
   network?: NetworkQualitySnapshot,
-  interactionIsland?: InteractionIslandSelection,
-  rollout?: NetcodeRolloutSnapshot
+  rollout?: NetcodeRolloutSnapshot,
+  localPlayerId?: string
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -79,13 +78,6 @@ export function projectDebugPanel(
       ? `${network.rttMedianMs}/${network.rttP95Ms}ms +/-${network.jitterMs}`
       : '0/0ms',
     patchGap: network ? `${network.patchGapP95Ms}ms / T${network.serverTick}` : '0ms',
-    prediction: network
-      ? `${network.predictionError}px now / ${network.predictionErrorP95}px p95 / ` +
-        `${network.predictionCorrections} corr / ${network.reconciliations} snap / ` +
-        `V A${network.vehicleAcknowledgedMove} P${network.vehiclePendingMoves} ` +
-        `R${network.vehicleResimulations} / F A${network.onFootAcknowledgedMove} ` +
-        `P${network.onFootPendingMoves} R${network.onFootResimulations}`
-      : '0px',
     clockSync: network
       ? `${network.clockOffsetMs}ms / ${Math.round(network.interpolationDelayMs)}ms buffer / ` +
         `${network.remoteSnapshotAgeP95Ms}ms age / ` +
@@ -93,27 +85,58 @@ export function projectDebugPanel(
         `${network.remoteExtrapolationPercent}% extra`
       : 'unsynced',
     rollout: rolloutSummary(rollout),
-    interactionIsland: network
-      ? `${network.interactionIslandSize} bodies / ` +
-        `${network.interactionIslandPoints}/${network.interactionIslandBudget} pts / ` +
-        `${network.interactionIslandOverflow} (${network.interactionIslandOverflowPoints} pts) ` +
-        `overflow / ${network.interactionIslandHorizonMs}ms horizon`
-      : 'off',
-    interactionReplay: network
-      ? `${network.interactionSnapshotAgeTicks}t snapshot age / ` +
-        `H${network.interactionHistoryFrames} history / ` +
-        `R${network.interactionReplayCount}:${network.interactionReplayTicks}t ` +
-        `${network.interactionReplayDurationP95Ms}ms p95 / ` +
-        `${network.interactionReplayPairSteps} pairs / ` +
-        `${network.interactionReplaySuppressedEffects} suppressed / ` +
-        `${network.interactionReplayHardResets} reset`
-      : 'off',
-    interactionSelection: interactionIslandSelectionSummary(interactionIsland),
+    playerReaction: playerReactionSummary(state, localPlayerId),
+    surface: playerSurfaceSummary(state, localPlayerId),
     simulationPhases: simulationPhaseSummary(snapshot),
+    physics: physicsSummary(snapshot),
+    physicsLifecycle: physicsLifecycleSummary(snapshot),
+    physicsStep: physicsStepSummary(snapshot),
     events: events.length > 0
       ? events.map((event) => `T${event.tick} ${event.summary}`)
       : ['No recent events']
   };
+}
+
+function physicsSummary(snapshot?: DebugSnapshot): string {
+  const physics = snapshot?.physics;
+  return physics
+    ? `${physics.bodies} bodies / ${physics.worlds} worlds / ${physics.contacts} contacts`
+    : 'off';
+}
+
+function physicsLifecycleSummary(snapshot?: DebugSnapshot): string {
+  const lifecycle = snapshot?.physics?.lifecycle.tick;
+  if (!lifecycle) return 'off';
+  return `CREATE ${lifecycle.created} REMOVE ${lifecycle.removed} MOVE ${lifecycle.migrated} ` +
+    `REPLACE ${lifecycle.replaced} TELEPORT ${lifecycle.teleported}`;
+}
+
+function physicsStepSummary(snapshot?: DebugSnapshot): string {
+  const step = snapshot?.physics?.stepMs;
+  return step
+    ? `${step.latest.toFixed(2)}ms / p50 ${step.p50.toFixed(2)} / ` +
+      `p95 ${step.p95.toFixed(2)} / max ${step.max.toFixed(2)} / ${step.samples}`
+    : 'off';
+}
+
+function playerSurfaceSummary(state?: DistrictNetworkState, localPlayerId?: string): string {
+  const player = localPlayerId ? state?.players.get(localPlayerId) : undefined;
+  if (!player) return 'off';
+  const vehicle = player.vehicleId ? state?.vehicles.get(player.vehicleId) : undefined;
+  const surfaceId = vehicle?.surfaceId ?? player.surfaceId ?? 'missing';
+  return `${player.spaceId ?? 'street'} / ${surfaceId} @ ${Math.round(player.x)},${Math.round(player.y)}`;
+}
+
+function playerReactionSummary(state?: DistrictNetworkState, playerId?: string): string {
+  if (!playerId) return 'off';
+  const player = state?.players.get(playerId);
+  if (!player) return 'waiting';
+  const action = player.action || 'free';
+  const reaction = player.reactionKind
+    ? `${player.reactionKind} ${player.reactionDirection ?? 'front'} ` +
+      `${Math.round((player.reactionProgress ?? 0) * 100)}%`
+    : 'none';
+  return `${action} / ${reaction} / HP ${player.health} / armor ${player.armor ?? 0}`;
 }
 
 function simulationPhaseSummary(snapshot?: DebugSnapshot): string {
@@ -140,10 +163,7 @@ function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {
 
 const ROLLOUT_STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   remoteTimelines: 'timeline',
-  interactionSnapshots: 'snapshot',
-  interactionReplay: 'island',
-  combatRewind: 'rewind',
-  projectilePrediction: 'projectile'
+  combatRewind: 'rewind'
 });
 
 function populationSummary(snapshot?: DebugSnapshot): string {

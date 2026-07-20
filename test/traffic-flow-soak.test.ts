@@ -11,6 +11,11 @@ import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-con
 import {CollisionMap} from '../server/world-map.ts';
 import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
 import {
+  SIMULATION_HZ,
+  SIMULATION_STEP_MS,
+  SIMULATION_STEP_SECONDS
+} from '../shared/simulation/timing.ts';
+import {
   junctionMovementsConflict,
   type TrafficJunctionMovement
 } from '../server/game/traffic/traffic-junction-conflict-policy.ts';
@@ -18,7 +23,8 @@ import {
 test('a streamed street population continues circulating through a one-minute soak', () => {
   const world = CollisionMap.load();
   const random = new DeterministicRandom('traffic-flow-soak');
-  const traffic = new TrafficController({world, random, laneGraph: LaneGraph.load(world)});
+  const laneGraph = LaneGraph.load(world);
+  const traffic = new TrafficController({world, random, laneGraph});
   const vehicles: VehicleState[] = [];
   const starts = new Map<string, {x: number; y: number}>();
   const previousJunctionPhase = new Map<string, string>();
@@ -79,6 +85,7 @@ test('a streamed street population continues circulating through a one-minute so
     vehicle.x = lane.x;
     vehicle.y = lane.y;
     vehicle.angle = spawn.angle;
+    vehicle.surfaceId = spawn.surfaceId ?? vehicle.surfaceId;
     vehicle.speed = 80;
     vehicle.traffic = true;
     vehicles.push(vehicle);
@@ -86,13 +93,22 @@ test('a streamed street population continues circulating through a one-minute so
     traffic.register(vehicle.id, spawn, vehicleConfig(vehicle.kind).traffic.cruiseSpeed);
   }
 
-  for (let tick = 1; tick <= 1_800; tick++) {
-    const nowMs = tick * 1_000 / 30;
+  for (let tick = 1; tick <= SIMULATION_HZ * 60; tick++) {
+    const nowMs = tick * SIMULATION_STEP_MS;
     traffic.beginTick(nowMs);
     for (const vehicle of vehicles) {
       const obstacles = vehicles
         .filter((other) => other.id !== vehicle.id &&
-          Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280)
+          Math.hypot(other.x - vehicle.x, other.y - vehicle.y) <= 280 &&
+          world.actorsCanInteract(
+            vehicle.surfaceId,
+            vehicle.x,
+            vehicle.y,
+            other.surfaceId,
+            other.x,
+            other.y,
+            'vehicle'
+          ))
         .map((other) => ({
           halfLength: vehicleConfig(other.kind).collision.length / 2,
           halfWidth: vehicleConfig(other.kind).collision.width / 2,
@@ -104,7 +120,7 @@ test('a streamed street population continues circulating through a one-minute so
           speed: other.speed,
           angle: other.angle
         }));
-      traffic.update(vehicle, 1 / 30, nowMs, {obstacles});
+      traffic.update(vehicle, SIMULATION_STEP_SECONDS, nowMs, {obstacles});
       traffic.observe(vehicle, nowMs, obstacles);
     }
     const diagnostics = traffic.diagnostics();
@@ -180,6 +196,15 @@ test('a streamed street population continues circulating through a one-minute so
     const diagnosticsByVehicle = new Map(diagnostics.map((entry) => [entry.vehicleId, entry]));
     for (let left = 0; left < vehicles.length; left++) {
       for (let right = left + 1; right < vehicles.length; right++) {
+        if (!world.actorsCanInteract(
+          vehicles[left].surfaceId,
+          vehicles[left].x,
+          vehicles[left].y,
+          vehicles[right].surfaceId,
+          vehicles[right].x,
+          vehicles[right].y,
+          'vehicle'
+        )) continue;
         if (!vehicleBoxesOverlap(vehicles[left], vehicles[right])) continue;
         overlapsThisTick++;
         const leftDiagnostic = diagnosticsByVehicle.get(vehicles[left].id);
@@ -232,7 +257,6 @@ test('a streamed street population continues circulating through a one-minute so
   const prolongedBlocks = traffic.diagnostics().filter((entry) => (
     entry.blockedSince > 0 && 60_000 - entry.blockedSince > 8_000
   ));
-
   if (process.env.TRAFFIC_SOAK_TRACE === '1') {
     console.log(JSON.stringify({
       vehicles: vehicles.length,
@@ -275,7 +299,7 @@ test('a streamed street population continues circulating through a one-minute so
     `${maximumConcurrentOverlaps} traffic vehicle pairs overlapped concurrently.`
   );
   assert.ok(
-    overlapPairTicks <= 60,
+    overlapPairTicks <= SIMULATION_HZ * 2,
     `Traffic vehicle boxes overlapped for ${overlapPairTicks} pair-ticks.`
   );
   assert.ok(

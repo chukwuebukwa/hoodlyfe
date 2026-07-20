@@ -50,3 +50,15 @@ test('remote timeline rejects hostile state and clears history across teleports 
   assert.equal(timeline.size(), 1);
   assert.equal(timeline.sample(500, 600)?.bufferUnderrun, true);
 });
+
+test('remote timeline snaps across authoritative surface transitions', () => {
+  const timeline = new RemoteMotionTimeline();
+  timeline.push({timeMs: 100, x: 10, y: 0, angle: 0, surfaceId: 'street-ground'});
+  timeline.push({timeMs: 200, x: 20, y: 0, angle: 0, surfaceId: 'bridge-ramp'});
+
+  assert.equal(timeline.size(), 1);
+  const sample = timeline.sample(150, 200)!;
+  assert.equal(sample.mode, 'teleported');
+  assert.equal(sample.surfaceId, 'bridge-ramp');
+  assert.equal(sample.x, 20);
+});

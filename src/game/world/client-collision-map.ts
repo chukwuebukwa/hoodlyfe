@@ -32,6 +32,22 @@ export class ClientCollisionMap {
     return new ClientCollisionMap(await response.json() as TiledCollisionMap);
   }
 
+  physicsGeometry(): {
+    width: number;
+    height: number;
+    tileWidth: number;
+    tileHeight: number;
+    collisions: readonly number[];
+  } {
+    return {
+      width: this.map.width,
+      height: this.map.height,
+      tileWidth: this.map.tilewidth,
+      tileHeight: this.map.tileheight,
+      collisions: this.collisions
+    };
+  }
+
   canOccupy(spaceId: string, x: number, y: number, radius: number): boolean {
     if (spaceId !== STREET_SPACE_ID) return this.canOccupyInterior(spaceId, x, y, radius);
     const diagonal = radius * 0.72;
@@ -42,7 +58,7 @@ export class ClientCollisionMap {
     ].every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY));
   }
 
-  private isBlockedAt(x: number, y: number): boolean {
+  isBlockedAt(x: number, y: number): boolean {
     const column = Math.floor(x / this.map.tilewidth);
     const row = Math.floor(y / this.map.tileheight);
     if (column < 0 || row < 0 || column >= this.map.width || row >= this.map.height) return true;

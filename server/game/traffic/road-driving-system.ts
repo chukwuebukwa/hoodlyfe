@@ -93,12 +93,26 @@ export class RoadDrivingSystem {
     const nextX = vehicle.x + Math.cos(routeAngle) * movement;
     const nextY = vehicle.y + Math.sin(routeAngle) * movement;
     const canRejoinRoad = input.allowRoadRejoin && !this.world.isRoadAt(vehicle.x, vehicle.y);
+    const moveSurface = this.world.surfaceAfterMove;
+    const surfaceId = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.world,
+        vehicle.surfaceId,
+        vehicle.x,
+        vehicle.y,
+        nextX,
+        nextY,
+        VEHICLE_RADIUS,
+        'vehicle'
+      )
+      : (this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) ? vehicle.surfaceId : undefined);
     if (
-      this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) &&
+      surfaceId &&
       (this.world.isRoadAt(nextX, nextY) || canRejoinRoad)
     ) {
       vehicle.x = nextX;
       vehicle.y = nextY;
+      vehicle.surfaceId = surfaceId;
       return {...base, moved: movement > 0, reached: false, blocked: false};
     }
 
@@ -137,12 +151,26 @@ export class RoadDrivingSystem {
     );
     const nextX = vehicle.x + Math.cos(vehicle.angle) * vehicle.speed * deltaSeconds;
     const nextY = vehicle.y + Math.sin(vehicle.angle) * vehicle.speed * deltaSeconds;
-    if (!this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) || !this.world.isRoadAt(nextX, nextY)) {
+    const moveSurface = this.world.surfaceAfterMove;
+    const surfaceId = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.world,
+        vehicle.surfaceId,
+        vehicle.x,
+        vehicle.y,
+        nextX,
+        nextY,
+        VEHICLE_RADIUS,
+        'vehicle'
+      )
+      : (this.world.canOccupy(nextX, nextY, VEHICLE_RADIUS) ? vehicle.surfaceId : undefined);
+    if (!surfaceId || !this.world.isRoadAt(nextX, nextY)) {
       vehicle.speed = 0;
       return false;
     }
     vehicle.x = nextX;
     vehicle.y = nextY;
+    vehicle.surfaceId = surfaceId;
     return true;
   }
 }

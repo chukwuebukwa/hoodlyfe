@@ -11,21 +11,12 @@ const REQUIRED_MARKUP = [
   'id="debug-junctions"',
   'id="debug-roads"',
   'id="debug-traffic-risk"',
-  'id="debug-interaction-island"',
-  'id="debug-interaction-replay"',
-  'id="debug-interaction-selection"',
+  'id="debug-player-reaction"',
+  'id="debug-surface"',
   'id="debug-simulation-phases"',
   'id="debug-netcode-rollout"',
   'class="traffic-deadlock"',
-  'class="traffic-recovery"',
-  'class="island-root"',
-  'class="island-contact"',
-  'class="island-retained"',
-  'class="island-imminent"',
-  'class="island-hysteresis"',
-  'class="island-closure"',
-  'class="island-overflow"',
-  'class="island-presented"'
+  'class="traffic-recovery"'
 ] as const;
 const REQUIRED_WIDE_ROWS = [
   'Police response',
@@ -34,9 +25,8 @@ const REQUIRED_WIDE_ROWS = [
   'Road graph',
   'Traffic risk',
   'Netcode rollout',
-  'Island budget',
-  'Island replay',
-  'Island selection',
+  'Player reaction',
+  'Physical surface',
   'Server phases'
 ] as const;
 

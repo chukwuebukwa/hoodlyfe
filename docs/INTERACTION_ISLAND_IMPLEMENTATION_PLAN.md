@@ -1,5 +1,9 @@
 # Interaction-Island Netcode Implementation Plan
 
+> Superseded on 2026-07-19. The client prediction, reconciliation, interaction-snapshot,
+> and replay implementation described here was removed in favor of pure server authority
+> plus snapshot interpolation. This remains historical design context only.
+
 ## Objective
 
 Build a bounded, per-client interaction-island system around the existing
@@ -278,12 +282,10 @@ and the real two-client Colyseus scenario passes in 18.8 seconds.
 Gate: a two-player vehicle contact predicted through 150 ms RTT reaches the same contact
 tick, position, and speed as authority without replaying damage or other side effects.
 
-The existing production vehicle collision semantics now live in
-`shared/simulation/vehicle-dynamic-contact.ts`: oriented SAT overlap, mass-weighted
-separation, restitution impulse, speed projection, impact-zone classification, and
-damage calculation. The server adapter and client replay use that exact kernel. Static
-world collision and damaged-engine limits continue through the shared swept vehicle
-step.
+This checkpoint originally used a shared oriented-box contact kernel. The completed
+Rapier migration supersedes that implementation: server authority and client replay now
+use `PhysicsWorld`, while server controllers alone apply damage and other outcomes. See
+`COLLISION_ARCHITECTURE.md` for the current ownership boundary.
 
 Authority now has explicit fixed-tick phases. Every vehicle first advances its body and
 updates its broad-phase record. `finishTick()` then traverses vehicle roots and nearby

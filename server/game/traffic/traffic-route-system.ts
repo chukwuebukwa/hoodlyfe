@@ -26,6 +26,7 @@ export interface TrafficRouteRuntime {
   closureRevision?: number;
   complete: boolean;
   visited: number;
+  surfaceId?: string;
 }
 
 export interface TrafficRouteDiagnostic {
@@ -108,12 +109,13 @@ export class TrafficRouteSystem {
       revision: 0,
       closureRevision: this.options.closures?.revision ?? 0,
       complete: false,
-      visited: 0
+      visited: 0,
+      surfaceId: spawn.surfaceId
     };
     const graph = this.options.laneGraph;
     if (!graph || !this.planner) return runtime;
     const edge = (spawn.laneEdgeId ? graph.edge(spawn.laneEdgeId) : undefined) ??
-      graph.project(spawn.x, spawn.y, spawn.angle)?.edge;
+      graph.project(spawn.x, spawn.y, spawn.angle, 320, spawn.surfaceId)?.edge;
     if (!edge) return runtime;
     runtime.source = 'lane-graph';
     runtime.currentLaneNodeId = edge.fromNodeId;
@@ -140,7 +142,7 @@ export class TrafficRouteSystem {
     if (advanced) return advanced;
     const authoredEdge = spawn.laneEdgeId
       ? graph.edge(spawn.laneEdgeId)
-      : graph.project(spawn.x, spawn.y, spawn.angle)?.edge;
+      : graph.project(spawn.x, spawn.y, spawn.angle, 320, spawn.surfaceId)?.edge;
     return authoredEdge ? {...spawn} : this.advanceLegacySpawn(spawn, seed);
   }
 
@@ -159,8 +161,12 @@ export class TrafficRouteSystem {
     if (currentTargetNodeId) this.plan(vehicleId, runtime, currentTargetNodeId, nowMs, true);
   }
 
-  captureVirtual(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'>): TrafficSpawn {
-    return this.options.laneGraph?.capture(vehicle.x, vehicle.y, vehicle.angle) ??
+  captureVirtual(
+    vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'> & {surfaceId?: string}
+  ): TrafficSpawn {
+    return this.options.laneGraph?.capture(
+      vehicle.x, vehicle.y, vehicle.angle, vehicle.surfaceId
+    ) ??
       this.captureLegacySpawn(vehicle);
   }
 
@@ -362,21 +368,28 @@ export class TrafficRouteSystem {
       }
       return;
     }
-    const current = {column: runtime.targetColumn, row: runtime.targetRow};
+    const current = {
+      column: runtime.targetColumn,
+      row: runtime.targetRow,
+      surfaceId: runtime.surfaceId
+    };
     const next = this.chooseNextRoadNode(current, runtime, nowMs + vehicleId.length * 37);
     runtime.previousColumn = current.column;
     runtime.previousRow = current.row;
     runtime.targetColumn = next.column;
     runtime.targetRow = next.row;
+    runtime.surfaceId = next.surfaceId ?? runtime.surfaceId;
   }
 
   recover(
-    vehicle: Pick<VehicleState, 'id' | 'x' | 'y' | 'angle'>,
+    vehicle: Pick<VehicleState, 'id' | 'x' | 'y' | 'angle'> & {surfaceId?: string},
     runtime: TrafficRouteRuntime,
     seed: number
   ): boolean {
     if (runtime.source === 'lane-graph') {
-      const projection = this.options.laneGraph?.project(vehicle.x, vehicle.y, vehicle.angle);
+      const projection = this.options.laneGraph?.project(
+        vehicle.x, vehicle.y, vehicle.angle, 320, vehicle.surfaceId
+      );
       if (!projection) return false;
       runtime.currentLaneNodeId = projection.edge.fromNodeId;
       this.plan(vehicle.id, runtime, projection.edge.toNodeId, seed, true);
@@ -384,13 +397,15 @@ export class TrafficRouteSystem {
     }
     const current = {
       column: Math.floor(vehicle.x / this.options.world.tileWidth),
-      row: Math.floor(vehicle.y / this.options.world.tileHeight)
+      row: Math.floor(vehicle.y / this.options.world.tileHeight),
+      surfaceId: vehicle.surfaceId
     };
     const next = this.chooseRecoveryRoadNode(current, runtime, seed);
     runtime.previousColumn = current.column;
     runtime.previousRow = current.row;
     runtime.targetColumn = next.column;
     runtime.targetRow = next.row;
+    runtime.surfaceId = next.surfaceId ?? runtime.surfaceId;
     return true;
   }
 
@@ -513,7 +528,9 @@ export class TrafficRouteSystem {
     runtime: TrafficRouteRuntime,
     seed: number
   ): RoadNode {
-    const neighbors = this.options.world.roadNeighbors(current.column, current.row);
+    const neighbors = this.options.world.roadNeighbors(
+      current.column, current.row, current.surfaceId
+    );
     const alternatives = neighbors.filter((node) => (
       node.column !== runtime.targetColumn || node.row !== runtime.targetRow
     ));
@@ -527,7 +544,9 @@ export class TrafficRouteSystem {
     runtime: TrafficRouteRuntime,
     seed: number
   ): RoadNode {
-    const neighbors = this.options.world.roadNeighbors(current.column, current.row);
+    const neighbors = this.options.world.roadNeighbors(
+      current.column, current.row, current.surfaceId
+    );
     if (neighbors.length === 0) return current;
     const forwardColumn = current.column + (current.column - runtime.previousColumn);
     const forwardRow = current.row + (current.row - runtime.previousRow);
@@ -544,8 +563,14 @@ export class TrafficRouteSystem {
 
   private advanceLegacySpawn(spawn: TrafficSpawn, seed: number): TrafficSpawn {
     const previous = {column: spawn.column, row: spawn.row};
-    const current = {column: spawn.targetColumn, row: spawn.targetRow};
-    const neighbors = this.options.world.roadNeighbors(current.column, current.row);
+    const current = {
+      column: spawn.targetColumn,
+      row: spawn.targetRow,
+      surfaceId: spawn.surfaceId
+    };
+    const neighbors = this.options.world.roadNeighbors(
+      current.column, current.row, current.surfaceId
+    );
     const forward = neighbors.filter((candidate) => (
       candidate.column !== previous.column || candidate.row !== previous.row
     ));
@@ -561,6 +586,7 @@ export class TrafficRouteSystem {
     return {
       x: point.x,
       y: point.y,
+      surfaceId: current.surfaceId,
       column: current.column,
       row: current.row,
       targetColumn: next.column,
@@ -569,15 +595,22 @@ export class TrafficRouteSystem {
     };
   }
 
-  private captureLegacySpawn(vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'>): TrafficSpawn {
-    const current = this.options.world.nearestRoadNode(vehicle.x, vehicle.y, 20);
+  private captureLegacySpawn(
+    vehicle: Pick<VehicleState, 'x' | 'y' | 'angle'> & {surfaceId?: string}
+  ): TrafficSpawn {
+    const current = this.options.world.nearestRoadNode(
+      vehicle.x, vehicle.y, 20, vehicle.surfaceId
+    );
     if (!current) return this.options.world.trafficSpawn(Math.round(vehicle.x + vehicle.y), 20);
-    const neighbors = this.options.world.roadNeighbors(current.column, current.row);
+    const neighbors = this.options.world.roadNeighbors(
+      current.column, current.row, current.surfaceId
+    );
     const next = nearestHeadingRoadNode(current, neighbors, vehicle.angle) ?? current;
     const point = this.options.world.roadPoint(current);
     return {
       x: point.x,
       y: point.y,
+      surfaceId: current.surfaceId,
       column: current.column,
       row: current.row,
       targetColumn: next.column,

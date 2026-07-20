@@ -51,6 +51,18 @@ test('phase pipeline rejects invalid definitions and aborts after a failed phase
   assert.equal(pipeline.diagnostics()[2].runs, 0);
 });
 
+test('phase pipeline reports active and failed phase identity', () => {
+  const changes: Array<{id: string; tick: number} | undefined> = [];
+  const pipeline = new SimulationPhasePipeline<Context>([{
+    id: 'contacts',
+    run: () => { throw new Error('contact failure'); }
+  }], {onPhaseChange: (phase) => changes.push(phase)});
+  assert.throws(() => pipeline.run({tick: 12, order: []}), /contact failure/);
+  assert.deepEqual(changes, [{id: 'contacts', tick: 12}, undefined]);
+  assert.equal(pipeline.activePhase(), undefined);
+  assert.deepEqual(pipeline.lastFailedPhase(), {id: 'contacts', tick: 12});
+});
+
 test('phase pipeline rejects reentrant execution and remains usable afterward', () => {
   let pipeline: SimulationPhasePipeline<Context>;
   let recurse = true;

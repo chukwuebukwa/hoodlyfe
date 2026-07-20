@@ -11,7 +11,9 @@ test('fire zones damage exposed actors on cadence and expire deterministically',
   const occupant = player('occupant', 10, 0);
   occupant.vehicleId = 'car';
   const safe = player('safe', 100, 0);
-  for (const value of [exposed, occupant, safe]) state.players.set(value.id, value);
+  const above = player('above', 0, 0);
+  above.surfaceId = 'bridge';
+  for (const value of [exposed, occupant, safe, above]) state.players.set(value.id, value);
   const npc = new NpcState();
   npc.id = 'civilian';
   npc.x = 30;
@@ -40,7 +42,7 @@ test('fire zones damage exposed actors on cadence and expire deterministically',
     queryVehicles: () => [...state.vehicles.values()]
   });
 
-  const id = controller.ignite(0, 0, 'thrower', 1000);
+  const id = controller.ignite(0, 0, 'thrower', 1000, exposed.surfaceId);
   assert.equal(events.drain()[0]?.type, 'fire.created');
   controller.update(1000);
   controller.update(1200);
@@ -65,10 +67,10 @@ test('fire zones evict the oldest owner zone when capacity is exceeded', () => {
     queryNpcs: () => [],
     queryVehicles: () => []
   });
-  const first = controller.ignite(0, 0, 'driver', 1);
-  controller.ignite(10, 0, 'driver', 2);
-  controller.ignite(20, 0, 'driver', 3);
-  controller.ignite(30, 0, 'driver', 4);
+  const first = controller.ignite(0, 0, 'driver', 1, 'street-ground');
+  controller.ignite(10, 0, 'driver', 2, 'street-ground');
+  controller.ignite(20, 0, 'driver', 3, 'street-ground');
+  controller.ignite(30, 0, 'driver', 4, 'street-ground');
   assert.equal(state.fires.size, 3);
   assert.equal(state.fires.has(first), false);
 });

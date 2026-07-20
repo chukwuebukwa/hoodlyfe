@@ -1,4 +1,12 @@
-import {type Client, Room} from '@colyseus/core';
+import {join} from 'node:path';
+import {
+  OnCreateException,
+  SimulationIntervalException,
+  TimedEventException,
+  type Client,
+  type RoomException,
+  Room
+} from '@colyseus/core';
 import {
   DEBUG_SUBSCRIBE_MESSAGE,
   DEBUG_UNSUBSCRIBE_MESSAGE
@@ -41,10 +49,8 @@ import {
   NETWORK_PONG_MESSAGE,
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
-import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-contracts.ts';
 import {
   COMBAT_FIRE_MESSAGE,
-  COMBAT_FIRE_RECEIPT_MESSAGE,
   type CombatFireCommand
 } from '../shared/protocol/combat-fire.ts';
 import {
@@ -55,11 +61,15 @@ import {
 } from '../shared/protocol/netcode-rollout.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
+import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
 import {verifyClientAuth} from './auth/client-auth.ts';
 import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts';
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {ProximityVoiceController} from './game/audio/proximity-voice-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
+import {FileJournalSink, type JournalSink} from './game/journal/journal-sink.ts';
+import {SimulationJournal} from './game/journal/simulation-journal.ts';
+import {hashDistrictState} from './game/journal/state-hash.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
@@ -93,9 +103,8 @@ import {RocketProjectileController} from './game/combat/rocket-projectile-contro
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
-import {InteractionCandidateSource} from './game/network/interaction-candidate-source.ts';
-import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
 import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
+import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -135,6 +144,7 @@ import {WorldStimulusAdapter} from './game/world/world-stimulus-adapter.ts';
 import {WorldStimulusRegistry} from './game/world/world-stimulus-registry.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from './state.ts';
 import {CollisionMap} from './world-map.ts';
+import {RuntimeHealthMonitor} from './runtime-health.ts';
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -143,7 +153,19 @@ interface CycleWeaponMessage {
 const RADIO_STATION_IDS = new Set(['station-0', 'station-1', 'station-3', 'radio-off']);
 
 interface DistrictRoomOptions {
-  seed?: number;
+  seed?: number | string;
+  epochMs?: number;
+  journalSink?: JournalSink;
+  journalHashIntervalTicks?: number;
+  // Skip the wall-clock simulation interval so a harness can call stepSimulationTick().
+  externalSimulation?: boolean;
+  runtimeHealth?: RuntimeHealthMonitor;
+  fatalShutdown?: (error: Error) => void;
+}
+
+interface JournaledCommandClient {
+  sessionId: string;
+  send(type: string, payload?: unknown): void;
 }
 
 interface DistrictJoinOptions {
@@ -173,6 +195,7 @@ export class DistrictRoom extends Room<DistrictState> {
       process.env.RAILWAY_DEPLOYMENT_ID ?? 'development'
   });
   private readonly netcodeRollout = resolveNetcodeRolloutManifest();
+  private physicsWorld!: PhysicsWorld;
   private simulation!: DistrictSimulation;
   private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
@@ -221,23 +244,41 @@ export class DistrictRoom extends Room<DistrictState> {
   private serviceController!: StreetServiceController;
   private interiorController!: InteriorController;
   private replicationController!: DistrictReplicationController;
-  private interactionCandidates!: InteractionCandidateSource;
-  private interactionSnapshots!: InteractionSnapshotProjector;
   private random = new DeterministicRandom('industrial-district:v1');
+  private journal?: SimulationJournal;
+  private epochMs = 0;
+  private readonly journaledCommands = new Map<
+    string,
+    (client: JournaledCommandClient, payload: unknown) => void
+  >();
   private world!: CollisionMap;
+  private runtimeHealth?: RuntimeHealthMonitor;
+  private fatalShutdown?: (error: Error) => void;
 
-  onCreate(options?: DistrictRoomOptions): void {
+  async onCreate(options?: DistrictRoomOptions): Promise<void> {
+    this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
+      ? options.runtimeHealth
+      : undefined;
+    this.fatalShutdown = typeof options?.fatalShutdown === 'function'
+      ? options.fatalShutdown
+      : undefined;
     this.simulationClock.reset();
     this.lifecycle.clear();
     this.events.clear();
     this.worldStimuli.clear();
     this.combatHistory.clear();
     this.debugSubscribers.clear();
-    const requestedSeed = Number(options?.seed);
-    this.random = new DeterministicRandom(
-      Number.isFinite(requestedSeed) ? requestedSeed : 'industrial-district:v1'
-    );
+    const seed = resolveSeed(options?.seed);
+    this.random = new DeterministicRandom(seed);
+    const requestedEpoch = Number(options?.epochMs);
+    this.epochMs = Number.isFinite(requestedEpoch) ? requestedEpoch : Date.now();
+    this.journal?.close();
+    this.journal = undefined;
+    this.journaledCommands.clear();
     this.world = CollisionMap.load();
+    this.physicsWorld?.free();
+    await initializePhysicsEngine();
+    this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
     this.laneGraph = LaneGraph.load(this.world);
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
@@ -248,11 +289,29 @@ export class DistrictRoom extends Room<DistrictState> {
         this.clients.find((client) => client.sessionId === playerId)?.send(type, payload);
       }
     });
+    const journalSink = options?.journalSink ?? environmentJournalSink(this.roomId);
+    if (journalSink) {
+      this.journal = new SimulationJournal({
+        sink: journalSink,
+        seed,
+        epochMs: this.epochMs,
+        stepMs: this.simulationClock.stepMs,
+        collisionRevision: WORLD_COLLISION_REVISION,
+        rolloutRevision: this.netcodeRollout.revision,
+        hashState: () => hashDistrictState(this.state),
+        hashIntervalTicks: options?.journalHashIntervalTicks,
+        onFailure: (error) => console.error('Simulation journal disabled after sink error:', error)
+      });
+    }
     this.worldStimulusAdapter = new WorldStimulusAdapter({
       state: this.state,
       registry: this.worldStimuli
     });
-    this.worldClock = new WorldClockController({state: this.state, now: Date.now});
+    this.worldClock = new WorldClockController({
+      state: this.state,
+      // Sim-derived time keeps the world clock reproducible under journal replay.
+      now: () => this.epochMs + this.simulationClock.nowMs
+    });
     this.worldClock.initialize();
     this.replicationController = new DistrictReplicationController(this.state, {
       queryStreetActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
@@ -363,7 +422,7 @@ export class DistrictRoom extends Room<DistrictState> {
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     this.debugProjection = new DebugSnapshotController({
-      enabled: process.env.GAME_DEBUG === '1' || process.env.NODE_ENV !== 'production',
+      enabled: () => this.debugSubscribers.size > 0,
       state: this.state,
       clock: () => ({
         tick: this.simulationClock.tick,
@@ -402,6 +461,7 @@ export class DistrictRoom extends Room<DistrictState> {
       replication: () => this.replicationController.diagnostics(),
       population: () => this.populationStreaming.diagnostics(),
       simulationPhases: () => this.simulation?.diagnostics() ?? [],
+      physics: () => this.vehicleSimulation?.physicsDiagnostics(),
       publish: (messageType, snapshot) => {
         for (const client of this.clients) {
           if (this.debugSubscribers.has(client.sessionId)) client.send(messageType, snapshot);
@@ -507,6 +567,7 @@ export class DistrictRoom extends Room<DistrictState> {
       traffic: this.trafficController,
       signals: this.trafficSignalController,
       policeVehicles: this.policeVehicleController,
+      physics: this.physicsWorld,
       clock: () => ({tick: this.simulationClock.tick}),
       inputFor: (playerId) => {
         const player = this.state.players.get(playerId);
@@ -536,7 +597,11 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs,
         crimeKind,
         impact
-      )
+      ),
+      retireStreamedVehicle: (vehicleId, nowMs) => (
+        this.populationStreaming?.retireDestroyedVehicle(vehicleId, nowMs) ?? false
+      ),
+      onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
     this.explosionController = new ExplosionController({
       state: this.state,
@@ -565,9 +630,14 @@ export class DistrictRoom extends Room<DistrictState> {
     this.thrownProjectileController = new ThrownProjectileController({
       state: this.state,
       world: this.world,
-      resolve: (kind, x, y, ownerId, nowMs) => {
-        if (kind === 'molotov') this.fireZoneController.ignite(x, y, ownerId, nowMs);
-        else this.explosionController.detonate('grenade', x, y, ownerId, 'player', nowMs);
+      resolve: (kind, x, y, ownerId, nowMs, surfaceId) => {
+        if (kind === 'molotov') {
+          this.fireZoneController.ignite(x, y, ownerId, nowMs, surfaceId);
+        } else {
+          this.explosionController.detonate(
+            'grenade', x, y, ownerId, 'player', nowMs, surfaceId
+          );
+        }
       },
       remove: (projectileId) => this.lifecycle.defer(
         `thrown.remove:${projectileId}`,
@@ -752,7 +822,7 @@ export class DistrictRoom extends Room<DistrictState> {
       random: this.random,
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
-      worldMinute: () => worldMinuteAt(this.state, Date.now()),
+      worldMinute: () => worldMinuteAt(this.state, this.epochMs + this.simulationClock.nowMs),
       onVehicleMaterialized: (vehicle) => this.indexVehicle(vehicle),
       onVehicleDematerialized: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
@@ -793,11 +863,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.combatFireCommands = new CombatFireCommandController({
       state: this.state,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      fire: (playerId, command) => this.fireControl.shoot(playerId, command),
-      send: (playerId, receipt) => this.clients
-        .find((client) => client.sessionId === playerId)
-        ?.send(COMBAT_FIRE_RECEIPT_MESSAGE, receipt)
+      fire: (playerId, command) => this.fireControl.shoot(playerId, command)
     });
     this.rocketProjectileController = new RocketProjectileController({
       state: this.state,
@@ -814,44 +880,14 @@ export class DistrictRoom extends Room<DistrictState> {
         minX, minY, maxX, maxY, {kinds: ['vehicle']}
       ).map((record) => this.state.vehicles.get(record.id))
         .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
-      detonate: (x, y, ownerId, nowMs) => {
-        this.explosionController.detonate('rocket', x, y, ownerId, 'player', nowMs);
+      detonate: (x, y, ownerId, nowMs, surfaceId) => {
+        this.explosionController.detonate(
+          'rocket', x, y, ownerId, 'player', nowMs, surfaceId
+        );
       },
       remove: (rocketId) => this.lifecycle.defer(`rocket.remove:${rocketId}`, () => {
         this.state.rockets.delete(rocketId);
       })
-    });
-    this.interactionCandidates = new InteractionCandidateSource(this.state, {
-      queryActors: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {
-        kinds: ['player', 'npc', 'vehicle'],
-        includeRecordRadius: true
-      })
-    });
-    this.interactionSnapshots = new InteractionSnapshotProjector({
-      state: this.state,
-      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
-      worldCollisionRevision: WORLD_COLLISION_REVISION,
-      playerIntentFor: (playerId) => {
-        const input = this.playerControl.inputFor(playerId);
-        return input ? {
-          inputX: input.inputX,
-          inputY: input.inputY,
-          sequence: input.lastSequence
-        } : undefined;
-      },
-      vehicleIntentFor: (playerId, vehicleId) => this.vehicleInput.inputFor(
-        playerId,
-        vehicleId
-      ),
-      projectileMotionFor: (projectileId) => (
-        this.rocketProjectileController.motionFor(projectileId) ??
-        this.thrownProjectileController.motionFor(projectileId)
-      ),
-      candidatesFor: (_playerId, anchor) => this.interactionCandidates.forAnchor(anchor),
-      publish: (playerId, snapshot) => {
-        this.clients.find((client) => client.sessionId === playerId)
-          ?.send(INTERACTION_SNAPSHOT_MESSAGE, snapshot);
-      }
     });
     this.missionController = new FreemodeMissionController({
       state: this.state,
@@ -917,12 +953,12 @@ export class DistrictRoom extends Room<DistrictState> {
       lifecycle: this.lifecycle,
       events: this.events,
       audio: this.audioEvents,
-      interactionSnapshots: this.interactionSnapshots,
-      interactionSnapshotsEnabled: () => this.netcodeRollout.stages.interactionSnapshots,
       debug: this.debugProjection,
+      journal: this.journal,
       indexPlayer: (player) => this.indexPlayer(player),
       indexNpc: (npc) => this.indexNpc(npc),
-      indexVehicle: (vehicle) => this.indexVehicle(vehicle)
+      indexVehicle: (vehicle) => this.indexVehicle(vehicle),
+      onPhaseChange: (phase) => this.runtimeHealth?.phaseChanged(phase)
     });
     this.serviceController.initialize();
     this.medicalController.initialize();
@@ -931,18 +967,22 @@ export class DistrictRoom extends Room<DistrictState> {
     this.population.populate();
     this.populationStreaming.initialize(this.simulationClock.nowMs);
     this.rebuildSpatialIndex();
-    this.setSimulationInterval((deltaTime) => {
-      this.simulation.advance(deltaTime);
-      this.voiceChat.synchronize();
-    }, 1000 / 30);
+    if (!options?.externalSimulation) {
+      this.setSimulationInterval(
+        (deltaTime) => {
+          this.completeSimulationTick(deltaTime);
+        },
+        this.simulationClock.stepMs
+      );
+    }
 
-    this.onMessage<PlayerMoveInput>('input', (client, message) => {
+    this.registerJournaledCommand<PlayerMoveInput>('input', (client, message) => {
       this.playerControl.setMove(client.sessionId, message);
     });
-    this.onMessage<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
       this.playerControl.acceptBatch(client.sessionId, message);
     });
-    this.onMessage<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
       this.vehicleInput.accept(client.sessionId, message);
     });
     this.onMessage<NetworkPingMessage>(NETWORK_PING_MESSAGE, (client, message) => {
@@ -962,11 +1002,11 @@ export class DistrictRoom extends Room<DistrictState> {
       void this.voiceChat.issueToken(client.sessionId);
     });
 
-    this.onMessage<PlayerAimInput>('aim', (client, message) => {
+    this.registerJournaledCommand<PlayerAimInput>('aim', (client, message) => {
       this.playerControl.setAim(client.sessionId, message);
     });
 
-    this.onMessage<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
       if (this.netcodeRollout.stages.combatRewind) {
         this.combatFireCommands.accept(client.sessionId, message);
       } else {
@@ -974,53 +1014,53 @@ export class DistrictRoom extends Room<DistrictState> {
         if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
       }
     });
-    this.onMessage('shoot', (client) => {
+    this.registerJournaledCommand('shoot', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
     });
-    this.onMessage<CycleWeaponMessage>('cycleWeapon', (client, message) => {
+    this.registerJournaledCommand<CycleWeaponMessage>('cycleWeapon', (client, message) => {
       this.fireControl.cycle(client.sessionId, message?.direction);
     });
-    this.onMessage<RadioStationMessage>(RADIO_STATION_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<RadioStationMessage>(RADIO_STATION_MESSAGE, (client, message) => {
       const player = this.state.players.get(client.sessionId);
       const vehicle = player?.vehicleId ? this.state.vehicles.get(player.vehicleId) : undefined;
       const stationId = message?.stationId ?? '';
       if (!player?.alive || !vehicle || !RADIO_STATION_IDS.has(stationId)) return;
       vehicle.radioStation = stationId;
     });
-    this.onMessage<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<AppearanceUpdateMessage>(APPEARANCE_UPDATE_MESSAGE, (client, message) => {
       const status = this.appearanceController.update(client.sessionId, message);
       client.send(APPEARANCE_RESULT_MESSAGE, {status});
     });
-    this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, (client, message) => {
-      void this.spawnPlayerWithAuth(client, {
+    this.onMessage<PlayerSpawnMessage>(PLAYER_SPAWN_MESSAGE, async (client, message) => {
+      await this.spawnPlayerWithAuth(client, {
         name: message?.name,
         appearance: message?.appearance,
         auth: message?.auth
       });
     });
     this.onMessage(WARDROBE_REQUEST_MESSAGE, (client) => sendWardrobeState(client.sessionId));
-    this.onMessage<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
       if (!isMedicalCareKind(message?.kind)) return;
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
-    this.onMessage('interact', (client) => {
+    this.registerJournaledCommand('interact', (client) => {
       this.interactionController.interact(
         client.sessionId,
         this.simulationClock.nowMs,
         this.simulationClock.tick
       );
     });
-    this.onMessage<MissionStartMessage>(MISSION_START_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<MissionStartMessage>(MISSION_START_MESSAGE, (client, message) => {
       this.missionController.start(client.sessionId, message?.templateId);
     });
-    this.onMessage<MissionIdMessage>(MISSION_JOIN_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<MissionIdMessage>(MISSION_JOIN_MESSAGE, (client, message) => {
       this.missionController.join(client.sessionId, message?.missionId);
     });
-    this.onMessage<MissionIdMessage>(MISSION_LAUNCH_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<MissionIdMessage>(MISSION_LAUNCH_MESSAGE, (client, message) => {
       this.missionController.launch(client.sessionId, message?.missionId);
     });
-    this.onMessage<MissionIdMessage>(MISSION_ABANDON_MESSAGE, (client, message) => {
+    this.registerJournaledCommand<MissionIdMessage>(MISSION_ABANDON_MESSAGE, (client, message) => {
       this.missionController.abandon(client.sessionId, message?.missionId);
     });
     this.onMessage(DEBUG_SUBSCRIBE_MESSAGE, (client) => {
@@ -1029,9 +1069,10 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage(DEBUG_UNSUBSCRIBE_MESSAGE, (client) => {
       this.debugSubscribers.delete(client.sessionId);
     });
+    this.runtimeHealth?.roomReady(this.roomId);
   }
 
-  onJoin(client: Client, options: DistrictJoinOptions = {}): void {
+  async onJoin(client: Client, options: DistrictJoinOptions = {}): Promise<void> {
     if (options.spectator) {
       client.view = this.replicationController.attach(client.sessionId, {
         ...this.world.spawnFor(this.state.players.size, PLAYER_RADIUS),
@@ -1039,7 +1080,7 @@ export class DistrictRoom extends Room<DistrictState> {
       });
       return;
     }
-    void this.spawnPlayerWithAuth(client, options);
+    await this.spawnPlayerWithAuth(client, options);
   }
 
   private async spawnPlayerWithAuth(
@@ -1061,6 +1102,7 @@ export class DistrictRoom extends Room<DistrictState> {
     player.name = sanitizeName(options?.name, this.state.players.size + 1);
     player.x = spawn.x;
     player.y = spawn.y;
+    player.surfaceId = spawn.surfaceId;
     player.angle = -Math.PI / 2;
     this.wardrobeController.initialize(client.sessionId);
     this.appearanceController.initialize(player, options?.appearance);
@@ -1068,9 +1110,19 @@ export class DistrictRoom extends Room<DistrictState> {
     client.view = this.replicationController.attach(client.sessionId);
     this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
+    this.journal?.recordSpawn(this.simulationClock.tick, client.sessionId, {
+      name: options?.name,
+      appearance: options?.appearance
+    });
   }
 
-  onLeave(client: Client): void {
+  onLeave(client: Client, consented = false): void {
+    if (!consented) {
+      console.warn(`[district] unexpected client disconnect: ${client.sessionId}`);
+    }
+    if (this.state.players.has(client.sessionId)) {
+      this.journal?.recordLeave(this.simulationClock.tick, client.sessionId);
+    }
     this.replicationController.detach(client.sessionId);
     this.debugSubscribers.delete(client.sessionId);
     this.networkProbe.clear(client.sessionId);
@@ -1092,8 +1144,86 @@ export class DistrictRoom extends Room<DistrictState> {
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
-    this.interactionSnapshots.clearPlayer(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
+  }
+
+  onDispose(): void {
+    this.journal?.close();
+    this.vehicleSimulation?.disposePhysics();
+    this.physicsWorld?.free();
+  }
+
+  onUncaughtException(
+    error: RoomException<this>,
+    methodName: 'onCreate' | 'onAuth' | 'onJoin' | 'onLeave' | 'onDispose' |
+      'onMessage' | 'setSimulationInterval' | 'setInterval' | 'setTimeout'
+  ): void {
+    const phase = this.simulation?.lastFailedPhase();
+    console.error('[district] uncaught room exception', {
+      methodName,
+      errorName: error.name,
+      message: error.message,
+      phase,
+      cause: error.cause
+    });
+    const fatal = error instanceof OnCreateException ||
+      error instanceof SimulationIntervalException ||
+      error instanceof TimedEventException;
+    if (!fatal) return;
+    const cause = error.cause instanceof Error ? error.cause : error;
+    this.runtimeHealth?.fail(cause, methodName, phase);
+    this.fatalShutdown?.(cause);
+  }
+
+  private registerJournaledCommand<Message = undefined>(
+    type: string,
+    handler: (client: JournaledCommandClient, message: Message) => void
+  ): void {
+    this.journaledCommands.set(type, (client, payload) => handler(client, payload as Message));
+    this.onMessage(type, (client, message) => this.receiveCommand(type, client, message));
+  }
+
+  private receiveCommand(type: string, client: JournaledCommandClient, payload: unknown): void {
+    this.journal?.recordCommand(this.simulationClock.tick, client.sessionId, type, payload);
+    this.journaledCommands.get(type)?.(client, payload);
+  }
+
+  applyJournaledCommand(sessionId: string, type: string, payload: unknown): void {
+    this.receiveCommand(type, replayClient(sessionId), payload);
+  }
+
+  applyJournaledSpawn(sessionId: string, options: {name?: string; appearance?: unknown} = {}): void {
+    this.spawnPlayer(replayClient(sessionId) as unknown as Client, options);
+  }
+
+  applyJournaledLeave(sessionId: string): void {
+    this.onLeave(replayClient(sessionId) as unknown as Client, true);
+  }
+
+  get simulationTick(): number {
+    return this.simulationClock.tick;
+  }
+
+  stepSimulationTick(): void {
+    this.completeSimulationTick(this.simulationClock.stepMs);
+  }
+
+  private completeSimulationTick(deltaTime: number): void {
+    const startedAt = Date.now();
+    this.simulation.advance(deltaTime);
+    this.runtimeHealth?.tickSucceeded(
+      this.simulationClock.tick,
+      this.simulationClock.tick % SIMULATION_HZ === 0
+        ? this.vehicleSimulation.physicsDiagnostics()
+        : undefined
+    );
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > 5_000) {
+      const error = new Error(`District simulation tick exceeded watchdog limit: ${durationMs}ms.`);
+      this.runtimeHealth?.fail(error, 'simulation-watchdog', this.simulation.lastFailedPhase());
+      this.fatalShutdown?.(error);
+    }
+    this.voiceChat.synchronize();
   }
 
   private noticePlayer(
@@ -1106,9 +1236,6 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   onBeforePatch(): void {
-    if (this.netcodeRollout.stages.interactionSnapshots) {
-      this.interactionSnapshots?.publishCurrent(this.state.players.keys());
-    }
     this.replicationController?.synchronize();
   }
 
@@ -1139,11 +1266,25 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   private playerSpatialRecord(player: PlayerState): SpatialRecord<WorldEntityKind> {
-    return {id: player.id, kind: 'player', x: player.x, y: player.y, radius: PLAYER_RADIUS};
+    return {
+      id: player.id,
+      kind: 'player',
+      x: player.x,
+      y: player.y,
+      radius: PLAYER_RADIUS,
+      layerId: player.surfaceId
+    };
   }
 
   private npcSpatialRecord(npc: NpcState): SpatialRecord<WorldEntityKind> {
-    return {id: npc.id, kind: 'npc', x: npc.x, y: npc.y, radius: PEDESTRIAN_RADIUS};
+    return {
+      id: npc.id,
+      kind: 'npc',
+      x: npc.x,
+      y: npc.y,
+      radius: PEDESTRIAN_RADIUS,
+      layerId: npc.surfaceId
+    };
   }
 
   private vehicleSpatialRecord(vehicle: VehicleState): SpatialRecord<WorldEntityKind> {
@@ -1152,10 +1293,31 @@ export class DistrictRoom extends Room<DistrictState> {
       kind: 'vehicle',
       x: vehicle.x,
       y: vehicle.y,
-      radius: VEHICLE_COLLISION_BOUNDING_RADIUS
+      radius: VEHICLE_COLLISION_BOUNDING_RADIUS,
+      layerId: vehicle.surfaceId
     };
   }
 
+}
+
+function resolveSeed(requested: number | string | undefined): number | string {
+  if (typeof requested === 'number' && Number.isFinite(requested)) return requested;
+  if (typeof requested === 'string' && requested.trim().length > 0) {
+    const numeric = Number(requested);
+    return Number.isFinite(numeric) ? numeric : requested.trim();
+  }
+  return 'industrial-district:v1';
+}
+
+function environmentJournalSink(roomId: string | undefined): JournalSink | undefined {
+  const directory = process.env.GAME_JOURNAL_DIR?.trim();
+  if (!directory) return undefined;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return new FileJournalSink(join(directory, `district-${roomId ?? 'room'}-${stamp}.jsonl`));
+}
+
+function replayClient(sessionId: string): JournaledCommandClient {
+  return {sessionId, send: () => {}};
 }
 
 function sanitizeName(value: unknown, fallbackNumber: number): string {

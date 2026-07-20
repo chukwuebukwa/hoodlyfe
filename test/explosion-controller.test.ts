@@ -11,9 +11,11 @@ test('grenade blast applies radial damage once and excludes players inside vehic
   const source = player('source', 0, 0);
   const nearby = player('nearby', 60, 0);
   const outer = player('outer', 97.5, 0);
+  const above = player('above', 0, 0);
+  above.surfaceId = 'bridge';
   const occupant = player('occupant', 10, 0);
   occupant.vehicleId = 'car';
-  for (const value of [source, nearby, outer, occupant]) state.players.set(value.id, value);
+  for (const value of [source, nearby, outer, above, occupant]) state.players.set(value.id, value);
   const npc = new NpcState();
   npc.id = 'civilian';
   npc.x = 65;
@@ -44,7 +46,7 @@ test('grenade blast applies radial damage once and excludes players inside vehic
     queryVehicles: () => [...state.vehicles.values()]
   });
 
-  controller.detonate('grenade', 0, 0, source.id, 'player', 1000);
+  controller.detonate('grenade', 0, 0, source.id, 'player', 1000, source.surfaceId);
   assert.deepEqual(playerDamage, [
     {id: 'source', amount: 120, attackerId: 'source'},
     {id: 'nearby', amount: 120, attackerId: 'source'},
@@ -116,7 +118,7 @@ test('rocket blasts use their own damage envelope and retain active-player attri
     queryNpcs: () => [],
     queryVehicles: () => []
   });
-  controller.detonate('rocket', 0, 0, source.id, 'player', 1200);
+  controller.detonate('rocket', 0, 0, source.id, 'player', 1200, source.surfaceId);
   assert.deepEqual(damage, [
     {id: 'source', amount: 165, sourceId: 'source'},
     {id: 'target', amount: 165, sourceId: 'source'}

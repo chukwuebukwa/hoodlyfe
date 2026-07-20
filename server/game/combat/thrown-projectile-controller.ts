@@ -21,7 +21,10 @@ interface ThrowExplosiveInput {
 interface ThrownProjectileControllerOptions {
   state: DistrictState;
   world: CollisionMap;
-  resolve: (kind: 'grenade' | 'molotov', x: number, y: number, ownerId: string, nowMs: number) => void;
+  resolve: (
+    kind: 'grenade' | 'molotov', x: number, y: number, ownerId: string,
+    nowMs: number, surfaceId: string
+  ) => void;
   remove: (projectileId: string) => void;
 }
 
@@ -49,6 +52,9 @@ export class ThrownProjectileController {
     projectile.id = `${input.kind}-${this.nextProjectileId++}`;
     projectile.ownerId = input.ownerId;
     projectile.kind = input.kind;
+    projectile.surfaceId = (
+      this.options.state.players.get(input.ownerId) ?? this.options.state.npcs.get(input.ownerId)
+    )?.surfaceId ?? projectile.surfaceId;
     projectile.x = input.x + Math.cos(input.angle) * 18;
     projectile.y = input.y + Math.sin(input.angle) * 18;
     projectile.height = config.initialHeight;
@@ -111,16 +117,43 @@ export class ThrownProjectileController {
   ): boolean {
     let collided = false;
     const nextX = projectile.x + motion.velocityX * deltaSeconds;
-    if (this.options.world.canOccupy(nextX, projectile.y, radius)) {
+    const moveSurface = this.options.world.surfaceAfterMove;
+    const xSurface = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.options.world,
+        projectile.surfaceId,
+        projectile.x,
+        projectile.y,
+        nextX,
+        projectile.y,
+        radius,
+        'projectile'
+      )
+      : (this.options.world.canOccupy(nextX, projectile.y, radius) ? projectile.surfaceId : undefined);
+    if (xSurface) {
       projectile.x = nextX;
+      projectile.surfaceId = xSurface;
     } else {
       collided = true;
       motion.velocityX *= -GRENADE_PROJECTILE.wallElasticity;
     }
 
     const nextY = projectile.y + motion.velocityY * deltaSeconds;
-    if (this.options.world.canOccupy(projectile.x, nextY, radius)) {
+    const ySurface = typeof moveSurface === 'function'
+      ? moveSurface.call(
+        this.options.world,
+        projectile.surfaceId,
+        projectile.x,
+        projectile.y,
+        projectile.x,
+        nextY,
+        radius,
+        'projectile'
+      )
+      : (this.options.world.canOccupy(projectile.x, nextY, radius) ? projectile.surfaceId : undefined);
+    if (ySurface) {
       projectile.y = nextY;
+      projectile.surfaceId = ySurface;
     } else {
       collided = true;
       motion.velocityY *= -GRENADE_PROJECTILE.wallElasticity;
@@ -143,7 +176,9 @@ export class ThrownProjectileController {
 
   private resolve(projectile: ThrownProjectileState, projectileId: string, nowMs: number): void {
     const kind = projectile.kind === 'molotov' ? 'molotov' : 'grenade';
-    this.options.resolve(kind, projectile.x, projectile.y, projectile.ownerId, nowMs);
+    this.options.resolve(
+      kind, projectile.x, projectile.y, projectile.ownerId, nowMs, projectile.surfaceId
+    );
     this.remove(projectileId);
   }
 }

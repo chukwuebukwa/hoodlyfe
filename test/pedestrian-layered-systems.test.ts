@@ -98,7 +98,7 @@ test('navigation detours police locomotion without altering target aim or fire c
   assert.equal(behavior.decide(npc, runtime, observation, 3250).fire, true);
 });
 
-test('navigation recovery is deterministic and locomotion resolves axes independently', () => {
+test('navigation recovery is deterministic and locomotion authors desired movement', () => {
   const firstRuntime = createPedestrianRuntime(0);
   const secondRuntime = createPedestrianRuntime(0);
   const first = new PedestrianNavigationSystem({
@@ -118,10 +118,10 @@ test('navigation recovery is deterministic and locomotion resolves axes independ
   const world = {
     canOccupy: (x: number) => x <= 0
   } as unknown as CollisionMap;
-  const locomotion = new PedestrianLocomotionSystem(world, 10);
+  const locomotion = new PedestrianLocomotionSystem(world);
   const npc = createNpc();
   assert.equal(locomotion.move(npc, Math.PI / 4, 60, 1), true);
-  assert.equal(npc.x, 0);
+  assert.ok(npc.x > 0);
   assert.ok(npc.y > 0);
 });
 

@@ -39,7 +39,7 @@ The companion [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) turns this directio
 ### Authoritative Game Server
 
 - One Colyseus `DistrictRoom`, currently capped at 32 clients.
-- 30 Hz simulation and 20 Hz state patching.
+- 60 Hz simulation and 20 Hz state patching.
 - Server-owned player movement, collision, aim, weapon selection, ammunition, cooldowns, projectile speed, spread, damage, and rewards.
 - Server-owned wanted heat, delayed decay, police targeting, line of sight, and police shooting.
 - Civilian wandering, panic, death, and respawn.
@@ -231,7 +231,7 @@ Required controls:
 - spawn and despawn policy based on player proximity;
 - pooled NPC identities or cleanup after a timeout;
 - precomputed road graph with lane direction and intersection metadata;
-- low-frequency AI thinking separated from 30 Hz movement integration;
+- low-frequency AI thinking separated from 60 Hz movement integration;
 - path requests queued with per-tick work limits;
 - deterministic fallback behavior when a path budget is exhausted.
 
@@ -419,7 +419,7 @@ Initial benchmark scenario, not a capacity promise:
 - 100 active pedestrians and police;
 - 40 traffic vehicles;
 - a bounded burst of 200 projectiles;
-- 30 Hz simulation with p99 tick work comfortably below the 33 ms tick budget;
+- 60 Hz simulation with p99 tick work comfortably below the 16.67 ms tick budget;
 - no unbounded growth during a multi-hour soak test.
 
 Colyseus provides a load-test client, but its own documentation notes that large tests need multiple load-generator processes. Reference: [load testing](https://0-15-x.docs.colyseus.io/tools/loadtest/).

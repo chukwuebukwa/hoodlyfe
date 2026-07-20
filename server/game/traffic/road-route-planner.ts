@@ -46,7 +46,7 @@ export class RoadRoutePlanner {
         return {nodes: reconstruct(goalKey, parents, nodes), complete: true, visited};
       }
 
-      const neighbors = this.world.roadNeighbors(current.column, current.row)
+      const neighbors = this.world.roadNeighbors(current.column, current.row, current.surfaceId)
         .sort(compareNodes);
       for (const neighbor of neighbors) {
         const key = nodeKey(neighbor);
@@ -127,7 +127,7 @@ function reconstruct(
 }
 
 function nodeKey(node: RoadNode): string {
-  return `${node.column},${node.row}`;
+  return `${node.surfaceId ?? ''}:${node.column},${node.row}`;
 }
 
 function manhattan(left: RoadNode, right: RoadNode): number {
@@ -135,7 +135,8 @@ function manhattan(left: RoadNode, right: RoadNode): number {
 }
 
 function compareNodes(left: RoadNode, right: RoadNode): number {
-  return left.row - right.row || left.column - right.column;
+  return left.row - right.row || left.column - right.column ||
+    (left.surfaceId ?? '').localeCompare(right.surfaceId ?? '');
 }
 
 function compareEntries(left: FrontierEntry, right: FrontierEntry): number {

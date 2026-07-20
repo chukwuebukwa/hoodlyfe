@@ -5,6 +5,7 @@ export interface RemoteMotionSnapshot {
   angle: number;
   velocityX?: number;
   velocityY?: number;
+  surfaceId?: string;
 }
 
 export type RemoteMotionSampleMode =
@@ -106,7 +107,8 @@ export class RemoteMotionTimeline {
         y: lerp(left.y, right.y, factor),
         angle: normalizeAngle(left.angle + normalizeAngle(right.angle - left.angle) * factor),
         velocityX: lerp(optionalFinite(left.velocityX), optionalFinite(right.velocityX), factor),
-        velocityY: lerp(optionalFinite(left.velocityY), optionalFinite(right.velocityY), factor)
+        velocityY: lerp(optionalFinite(left.velocityY), optionalFinite(right.velocityY), factor),
+        surfaceId: left.surfaceId
       }, 'interpolated', snapshotAgeMs, 0, false);
     }
     const extrapolationMs = Math.max(0, targetTime - last.timeMs);
@@ -139,6 +141,7 @@ export class RemoteMotionTimeline {
 
   private isDiscontinuity(left: RemoteMotionSnapshot, right: RemoteMotionSnapshot): boolean {
     return right.timeMs - left.timeMs > this.options.maximumSnapshotGapMs ||
+      left.surfaceId !== right.surfaceId ||
       Math.hypot(right.x - left.x, right.y - left.y) > this.options.teleportDistance;
   }
 
@@ -189,7 +192,8 @@ function extrapolate(
     y: latest.y + velocityY * seconds,
     angle: normalizeAngle(latest.angle + angularVelocity * seconds),
     velocityX,
-    velocityY
+    velocityY,
+    surfaceId: latest.surfaceId
   };
 }
 
@@ -205,7 +209,8 @@ function sanitizeSnapshot(snapshot: RemoteMotionSnapshot): RemoteMotionSnapshot 
     y: snapshot.y,
     angle: normalizeAngle(snapshot.angle),
     velocityX: Number.isFinite(snapshot.velocityX) ? snapshot.velocityX : undefined,
-    velocityY: Number.isFinite(snapshot.velocityY) ? snapshot.velocityY : undefined
+    velocityY: Number.isFinite(snapshot.velocityY) ? snapshot.velocityY : undefined,
+    surfaceId: typeof snapshot.surfaceId === 'string' ? snapshot.surfaceId : undefined
   };
 }
 
