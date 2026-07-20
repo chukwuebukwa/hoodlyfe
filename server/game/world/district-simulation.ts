@@ -10,6 +10,7 @@ import type {MeleeCombatController} from '../combat/melee-combat-controller.ts';
 import type {ProjectileController} from '../combat/projectile-controller.ts';
 import type {RocketProjectileController} from '../combat/rocket-projectile-controller.ts';
 import type {ThrownProjectileController} from '../combat/thrown-projectile-controller.ts';
+import type {WeaponRuntimeController} from '../combat/weapon-runtime-controller.ts';
 import type {DebugSnapshotController} from '../debug/debug-snapshot-controller.ts';
 import type {GameEvent, GameEventStream} from '../events/game-events.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
@@ -83,6 +84,7 @@ export interface DistrictSimulationOptions {
   vehicles: VehicleSimulationController;
   reactions: CombatReactionController;
   melee: MeleeCombatController;
+  weaponRuntime: WeaponRuntimeController;
   playerLifecycle: PlayerLifecycleController;
   playerControl: PlayerControlController;
   vehicleAccess: VehicleAccessController;
@@ -172,6 +174,7 @@ export class DistrictSimulation {
         });
       }),
       phase('player-motion', ({deltaSeconds, nowMs}) => {
+        this.options.weaponRuntime.update(nowMs);
         this.options.reactions.update(nowMs);
         this.options.melee.update(nowMs);
         this.options.state.players.forEach((player) => {

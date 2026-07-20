@@ -80,6 +80,8 @@ interface RenderedEntity {
   attackSequence?: number;
   attackWeapon?: NetworkPlayer['weapon'];
   attackCombo?: number;
+  shotSequence?: number;
+  shotStartedAt?: number;
   spriteKey?: string;
   vehicleActionKey?: string;
   vehicleActionStartedAt?: number;
@@ -157,6 +159,16 @@ export class ThreeDistrictEntities {
     private readonly playerVoiceActivity: (playerId: string) => number = () => 0
   ) {
     this.skidMarks = new ThreeSkidMarkRenderer(scene, surfaceHeightAt);
+  }
+
+  presentLocalShot(playerId: string): void {
+    const rendered = this.rendered.get(playerId);
+    if (rendered) rendered.shotStartedAt = performance.now();
+  }
+
+  cancelLocalShot(playerId: string): void {
+    const rendered = this.rendered.get(playerId);
+    if (rendered) rendered.shotStartedAt = undefined;
   }
 
   static async create(
@@ -483,6 +495,11 @@ export class ThreeDistrictEntities {
       });
     }
     rendered.mesh.userData.player = player;
+    const shotSequence = player.shotSequence ?? 0;
+    if (rendered.shotSequence !== shotSequence) {
+      rendered.shotSequence = shotSequence;
+      rendered.shotStartedAt = performance.now();
+    }
     const attackSequence = player.attackSequence ?? 0;
     if (rendered.attackSequence !== attackSequence) {
       rendered.attackSequence = attackSequence;
@@ -502,6 +519,7 @@ export class ThreeDistrictEntities {
       )
       : undefined;
     const localNow = performance.now();
+    const recoilActive = rendered.shotStartedAt !== undefined && localNow - rendered.shotStartedAt < 110;
     const vehicleActionKey = player.action === 'entering' || player.action === 'hijacking'
       ? `${player.action}:${player.actionVehicleId}`
       : '';
@@ -562,7 +580,7 @@ export class ThreeDistrictEntities {
       player.vehicleSeat,
       player.angle,
       localNow,
-      false
+      recoilActive
     );
     rendered.presentationPose = attachments.root;
     rendered.presentationAimOrigin = attachments.weaponBase;

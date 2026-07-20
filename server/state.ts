@@ -64,12 +64,21 @@ export class PlayerState extends Schema {
   reactionDirection = 'front';
   reactionProgress = 1;
   weapon = 'pistol';
-  ammoPistol = 120;
-  ammoSmg = 240;
-  ammoShotgun = 48;
-  ammoRocket = 4;
+  ammoPistol = 108;
+  ammoSmg = 210;
+  ammoShotgun = 42;
+  ammoRocket = 3;
   ammoGrenade = 2;
   ammoMolotov = 3;
+  magazinePistol = 12;
+  magazineSmg = 30;
+  magazineShotgun = 6;
+  magazineRocket = 1;
+  reloadWeapon = '';
+  reloadStartedAt = 0;
+  reloadEndsAt = 0;
+  reloadSequence = 0;
+  shotSequence = 0;
   onFire = false;
   fireStartedAt = 0;
   fireExpiresAt = 0;
@@ -113,6 +122,15 @@ defineTypes(PlayerState, {
   ammoRocket: 'number',
   ammoGrenade: 'number',
   ammoMolotov: 'number',
+  magazinePistol: 'number',
+  magazineSmg: 'number',
+  magazineShotgun: 'number',
+  magazineRocket: 'number',
+  reloadWeapon: 'string',
+  reloadStartedAt: 'number',
+  reloadEndsAt: 'number',
+  reloadSequence: 'number',
+  shotSequence: 'number',
   onFire: 'boolean',
   fireStartedAt: 'number',
   fireExpiresAt: 'number',

@@ -2634,6 +2634,16 @@ canvas {
   font-variant-numeric: tabular-nums;
 }
 
+#weapon-hud span.reloading {
+  color: #fff;
+  animation: reload-pulse 520ms ease-in-out infinite alternate;
+}
+
+@keyframes reload-pulse {
+  from { opacity: 0.48; }
+  to { opacity: 1; }
+}
+
 #vehicle-action-button {
   left: 50%;
   bottom: 22px;
@@ -2827,6 +2837,30 @@ canvas {
   background: #f2c94c;
 }
 
+#reload-button {
+  position: absolute;
+  right: max(146px, calc(env(safe-area-inset-right) + 122px));
+  bottom: max(158px, calc(env(safe-area-inset-bottom) + 132px));
+  width: 54px;
+  height: 54px;
+  border: 2px solid rgba(242, 201, 76, 0.82);
+  border-radius: 50%;
+  color: #f2c94c;
+  background: rgba(0, 0, 0, 0.62);
+  font: 950 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+#game-shell[data-driving="true"] #reload-button {
+  display: none;
+}
+
+#reload-button:active {
+  color: #080b0c;
+  background: #f2c94c;
+}
+
 #voice-touch-button {
   position: absolute;
   bottom: max(22px, env(safe-area-inset-bottom));
@@ -3010,7 +3044,7 @@ canvas {
   }
 
   #weapon-hud span {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   #health-track {

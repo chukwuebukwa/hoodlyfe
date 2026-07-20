@@ -187,7 +187,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'smg');
   const smgAmmo = first.state.players.get(first.sessionId)?.ammoSmg;
-  assert.equal(smgAmmo, 240);
+  assert.equal(smgAmmo, 210);
+  assert.equal(first.state.players.get(first.sessionId)?.magazineSmg, 30);
   const correlatedCommand = {
     protocolVersion: COMBAT_PROTOCOL_VERSION,
     sequence: 1,
@@ -196,14 +197,16 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     aimAngle: safeFireAngle(first, first.sessionId, world)
   };
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
-  await waitUntil(() => first.state.players.get(first.sessionId)?.ammoSmg === 239);
+  await waitUntil(() => first.state.players.get(first.sessionId)?.magazineSmg === 29);
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'shotgun');
-  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 239);
+  assert.equal(first.state.players.get(first.sessionId)?.ammoSmg, 210);
+  assert.equal(first.state.players.get(first.sessionId)?.magazineSmg, 29);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'rocket');
-  assert.equal(first.state.players.get(first.sessionId)?.ammoRocket, 4);
+  assert.equal(first.state.players.get(first.sessionId)?.ammoRocket, 3);
+  assert.equal(first.state.players.get(first.sessionId)?.magazineRocket, 1);
   first.send('cycleWeapon', {direction: 1});
   await waitUntil(() => first.state.players.get(first.sessionId)?.weapon === 'grenade');
   assert.equal(first.state.players.get(first.sessionId)?.ammoGrenade, 2);
@@ -255,7 +258,7 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     )
   ) < 0.05);
   second.send('shoot');
-  await waitUntil(() => second.state.players.get(second.sessionId)?.ammoSmg === 239);
+  await waitUntil(() => second.state.players.get(second.sessionId)?.magazineSmg === 29);
   second.send('cycleWeapon', {direction: -1});
   await waitUntil(() => second.state.players.get(second.sessionId)?.weapon === 'pistol');
   second.send('interact');

@@ -26,6 +26,7 @@ export class PlayerLifecycleController {
   constructor(private readonly options: PlayerLifecycleControllerOptions) {}
 
   kill(player: PlayerState, nowMs: number, attackerId: string): void {
+    this.options.clearCombatState?.(player.id);
     player.alive = false;
     player.health = 0;
     player.armor = 0;

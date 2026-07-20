@@ -9,6 +9,14 @@ import {
 import {TouchControls} from '../touch-controls.ts';
 import {threePointToServerAimAngle} from './three-prototype-policy.ts';
 import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
+import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
+import {
+  WEAPON_RELOAD_PROTOCOL_VERSION,
+  WEAPON_RELOAD_RECEIPT_MESSAGE,
+  WEAPON_RELOAD_REQUEST_MESSAGE,
+  type WeaponReloadReceipt,
+  type WeaponReloadRequest
+} from '../../../shared/protocol/weapon-reload.ts';
 
 const AIM_INTERVAL_MS = 50;
 const FIRE_INTERVAL_MS = 90;
@@ -24,6 +32,7 @@ interface ThreeInputControllerOptions {
   onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
   directAimAngle?: () => number | undefined;
+  onReloadReceipt?: (receipt: WeaponReloadReceipt) => void;
 }
 
 export interface ThreeMovementInput {
@@ -43,6 +52,7 @@ export class ThreeInputController {
   private lastAimAt = Number.NEGATIVE_INFINITY;
   private lastFireAt = Number.NEGATIVE_INFINITY;
   private aimAngle?: number;
+  private nextReloadSequence = 1;
 
   constructor(private readonly options: ThreeInputControllerOptions) {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -55,6 +65,16 @@ export class ThreeInputController {
     this.bindClick('#weapon-prev', () => this.cycleWeapon(-1));
     this.bindClick('#weapon-next', () => this.cycleWeapon(1));
     this.bindClick('#vehicle-action-button', () => this.options.room.send('interact'));
+    this.bindClick('#reload-button', () => this.requestReload());
+    const removeReloadReceipt = options.room.onMessage<WeaponReloadReceipt>(
+      WEAPON_RELOAD_RECEIPT_MESSAGE,
+      (receipt) => {
+        if (receipt.protocolVersion === WEAPON_RELOAD_PROTOCOL_VERSION) {
+          options.onReloadReceipt?.(receipt);
+        }
+      }
+    );
+    if (typeof removeReloadReceipt === 'function') this.cleanup.push(removeReloadReceipt);
   }
 
   update(nowMs: number): ThreeMovementInput {
@@ -106,9 +126,12 @@ export class ThreeInputController {
         this.lastAimAt = nowMs;
       }
     }
+    const definition = weaponDefinition(player.weapon);
+    const continuousFire = 'trigger' in definition && definition.trigger === 'automatic';
+    const firePressed = this.fireQueued || this.touch.consumeFirePress();
     if (
       canRequestPrimaryAttack(player) &&
-      (this.firing || this.fireQueued || this.touch.firing) &&
+      (firePressed || (continuousFire && (this.firing || this.touch.firing))) &&
       nowMs - this.lastFireAt >= FIRE_INTERVAL_MS
     ) {
       const fireAngle = this.aimAngle ?? player.angle;
@@ -147,6 +170,7 @@ export class ThreeInputController {
     }
     if (event.code === 'KeyQ') this.cycleWeapon(-1);
     if (event.code === 'KeyE') this.cycleWeapon(1);
+    if (event.code === 'KeyR') this.requestReload();
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
@@ -180,6 +204,17 @@ export class ThreeInputController {
   private cycleWeapon(direction: -1 | 1): void {
     if (this.options.isBlocked?.() || !this.options.player()?.alive) return;
     this.options.room.send('cycleWeapon', {direction});
+  }
+
+  private requestReload(): void {
+    const player = this.options.player();
+    if (this.options.isBlocked?.() || !player?.alive) return;
+    const request: WeaponReloadRequest = {
+      protocolVersion: WEAPON_RELOAD_PROTOCOL_VERSION,
+      sequence: this.nextReloadSequence++,
+      controlledEntityId: player.id
+    };
+    this.options.room.send(WEAPON_RELOAD_REQUEST_MESSAGE, request);
   }
 
   private bindClick(selector: string, action: () => void): void {

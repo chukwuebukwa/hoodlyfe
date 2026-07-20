@@ -13,7 +13,8 @@ export interface LocalHudProjection {
   showVehicleHud: boolean;
   showWeaponHud: boolean;
   weaponName: string;
-  weaponAmmo?: number;
+  weaponAmmo?: string;
+  reloading: boolean;
   weaponIcon: string;
   speed: string;
   vehicleCondition: number;
@@ -52,6 +53,7 @@ export function projectLocalHud(
     showWeaponHud: !isDriver && player.alive && (!player.action || player.action === 'melee'),
     weaponName: weapon.name.toUpperCase(),
     weaponAmmo: weaponAmmo(player),
+    reloading: Boolean(player.reloadWeapon && player.reloadWeapon === player.weapon),
     weaponIcon: `/assets/original/weapons/${weapon.presentation.assetId}.svg`,
     speed: String(Math.round(vehicleSpeed(vehicle) * 0.55)).padStart(3, '0'),
     vehicleCondition: clamp(
@@ -103,9 +105,14 @@ export function hudTransitionNotices(
   return notices;
 }
 
-function weaponAmmo(player: NetworkPlayer): number | undefined {
-  const field = weaponDefinition(player.weapon).ammunitionField;
-  return field ? player[field] : undefined;
+function weaponAmmo(player: NetworkPlayer): string | undefined {
+  const definition = weaponDefinition(player.weapon);
+  const field = definition.ammunitionField;
+  if (!field) return undefined;
+  const reserve = finite(player[field]);
+  if (!('magazineField' in definition)) return String(reserve);
+  const magazine = finite(player[definition.magazineField]);
+  return `${magazine} / ${reserve}`;
 }
 
 function finite(value: number | undefined, fallback = 0): number {

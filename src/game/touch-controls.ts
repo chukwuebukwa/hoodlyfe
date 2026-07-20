@@ -10,6 +10,7 @@ export class TouchControls {
   handbrake = false;
   active = false;
   private interactQueued = false;
+  private fireQueued = false;
   private readonly cleanup: Array<() => void> = [];
 
   constructor() {
@@ -67,6 +68,12 @@ export class TouchControls {
     return queued;
   }
 
+  consumeFirePress(): boolean {
+    const queued = this.fireQueued;
+    this.fireQueued = false;
+    return queued;
+  }
+
   destroy(): void {
     for (const remove of this.cleanup.splice(0)) remove();
     this.movement.x = 0;
@@ -76,6 +83,7 @@ export class TouchControls {
     this.firing = false;
     this.handbrake = false;
     this.interactQueued = false;
+    this.fireQueued = false;
   }
 
   private bindStick(
@@ -119,7 +127,10 @@ export class TouchControls {
       event.preventDefault();
       pointerId = event.pointerId;
       stick.setPointerCapture(pointerId);
-      if (fires) this.firing = true;
+      if (fires) {
+        this.firing = true;
+        this.fireQueued = true;
+      }
       update(event);
     };
     const move = (event: PointerEvent) => {

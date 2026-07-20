@@ -8,7 +8,8 @@ import {
 } from './protocol-validation.ts';
 
 export const COMBAT_FIRE_MESSAGE = 'combat.fire';
-export const COMBAT_PROTOCOL_VERSION = 7;
+export const COMBAT_FIRE_RECEIPT_MESSAGE = 'combat.fire.receipt';
+export const COMBAT_PROTOCOL_VERSION = 8;
 const MAX_INPUT_SEQUENCE_ADVANCE = 4_096;
 
 export interface CombatFireCommand {
@@ -17,6 +18,19 @@ export interface CombatFireCommand {
   readonly clientSampleTimeMs: number;
   readonly controlledEntityId: string;
   readonly aimAngle: number;
+}
+
+export interface CombatFireReceipt {
+  readonly protocolVersion: number;
+  readonly sequence: number;
+  readonly accepted: boolean;
+  readonly reason?: string;
+  readonly weapon?: string;
+  readonly magazine?: number;
+  readonly reserve?: number;
+  readonly shotSequence?: number;
+  readonly reloadSequence?: number;
+  readonly reloadEndsAt?: number;
 }
 
 export interface CombatFireValidationContext {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {FireControlController} from '../server/game/combat/fire-control-controller.ts';
+import {WeaponRuntimeController} from '../server/game/combat/weapon-runtime-controller.ts';
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {DeterministicRandom} from '../server/game/world/deterministic-random.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
@@ -18,11 +19,13 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   const events = new GameEventStream();
   const cancelledProtection: string[] = [];
   const meleeAttacks: string[] = [];
+  const weaponRuntime = new WeaponRuntimeController({state, clock: () => clock});
   const fire = new FireControlController({
     state,
     random: new DeterministicRandom('fire-control-test'),
     clock: () => clock,
     events,
+    weaponRuntime,
     cancelSpawnProtection: (playerId) => cancelledProtection.push(playerId),
     meleeAttack: ({weapon}) => {
       meleeAttacks.push(weapon);
@@ -31,7 +34,8 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   });
 
   fire.shoot(player.id);
-  assert.equal(player.ammoPistol, 119);
+  assert.equal(player.magazinePistol, 11);
+  assert.equal(player.ammoPistol, 108);
   assert.equal(state.bullets.size, 1);
   assert.deepEqual(cancelledProtection, ['shooter']);
   assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
@@ -44,7 +48,8 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
   clock.tick += 1;
   player.weapon = 'shotgun';
   fire.shoot(player.id);
-  assert.equal(player.ammoShotgun, 47);
+  assert.equal(player.magazineShotgun, 5);
+  assert.equal(player.ammoShotgun, 42);
   assert.equal(state.bullets.size, 7);
   assert.deepEqual(events.drain().map((event) => event.type), ['weapon.fired']);
 
@@ -148,6 +153,7 @@ test('fire control consumes rocket ammo only after an authoritative launch is ac
     state,
     random: new DeterministicRandom('rocket-fire-test'),
     clock: () => clock,
+    weaponRuntime: new WeaponRuntimeController({state, clock: () => clock}),
     launchRocket: ({ownerId}) => {
       launched.push(ownerId);
       return accept;
@@ -156,15 +162,17 @@ test('fire control consumes rocket ammo only after an authoritative launch is ac
 
   fire.shoot(player.id);
   assert.equal(player.ammoRocket, 2);
+  assert.equal(player.magazineRocket, 1);
   accept = true;
   fire.shoot(player.id);
-  assert.equal(player.ammoRocket, 1);
+  assert.equal(player.ammoRocket, 2);
+  assert.equal(player.magazineRocket, 0);
   assert.deepEqual(launched, ['rocketeer', 'rocketeer']);
   player.vehicleId = 'car';
   player.vehicleSeat = 1;
   clock.nowMs += 1000;
   fire.shoot(player.id);
-  assert.equal(player.ammoRocket, 1, 'Passengers cannot fire the launcher.');
+  assert.equal(player.ammoRocket, 2, 'Passengers cannot fire the launcher.');
 });
 
 test('fire control applies server rewind without client projectile prediction', () => {
@@ -173,10 +181,12 @@ test('fire control applies server rewind without client projectile prediction', 
   player.id = 'correlated-shooter';
   state.players.set(player.id, player);
   const compensations: string[] = [];
+  const clock = {tick: 10, nowMs: 2_000};
   const fire = new FireControlController({
     state,
     random: new DeterministicRandom('correlated-fire-test'),
-    clock: () => ({tick: 10, nowMs: 2_000}),
+    clock: () => clock,
+    weaponRuntime: new WeaponRuntimeController({state, clock: () => clock}),
     compensateBullet: ({bullet}) => {
       compensations.push(bullet.id);
       return {effectiveServerShotTimeMs: 1_875, rewindMs: 125, resolved: false};
@@ -192,5 +202,6 @@ test('fire control applies server rewind without client projectile prediction', 
   assert.equal(result.accepted, true);
   assert.deepEqual(compensations, [[...state.bullets.keys()][0]]);
   assert.ok(Math.abs([...state.bullets.values()][0].angle - Math.PI / 2) < 1e-12);
-  assert.equal(player.ammoPistol, 119);
+  assert.equal(player.magazinePistol, 11);
+  assert.equal(player.ammoPistol, 108);
 });

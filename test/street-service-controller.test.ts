@@ -9,6 +9,7 @@ import {StreetEconomyController} from '../server/game/economy/street-economy-con
 import {GameEventStream} from '../server/game/events/game-events.ts';
 import {StreetServiceController} from '../server/game/services/street-service-controller.ts';
 import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
+import {refillAmmo} from '../server/weapons.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {
   STREET_SPACE_ID,
@@ -97,6 +98,9 @@ test('combat supply atomically charges for ammunition and armor', () => {
   fixture.player.ammoPistol = 0;
   fixture.player.ammoSmg = 40;
   fixture.player.ammoShotgun = 8;
+  fixture.player.magazinePistol = 0;
+  fixture.player.magazineSmg = 0;
+  fixture.player.magazineShotgun = 0;
   const counter = fixture.state.services.get('ammunition-counter');
   assert.ok(counter);
   fixture.player.x = counter.x;
@@ -105,9 +109,12 @@ test('combat supply atomically charges for ammunition and armor', () => {
 
   assert.equal(fixture.services.interact(fixture.player.id, 3000), true);
   assert.equal(fixture.player.cash, 504);
-  assert.equal(fixture.player.ammoPistol, AMMUNITION_CAPACITY.ammoPistol);
-  assert.equal(fixture.player.ammoSmg, AMMUNITION_CAPACITY.ammoSmg);
-  assert.equal(fixture.player.ammoShotgun, AMMUNITION_CAPACITY.ammoShotgun);
+  assert.equal(fixture.player.ammoPistol, 108);
+  assert.equal(fixture.player.ammoSmg, 210);
+  assert.equal(fixture.player.ammoShotgun, 42);
+  assert.equal(fixture.player.magazinePistol, 12);
+  assert.equal(fixture.player.magazineSmg, 30);
+  assert.equal(fixture.player.magazineShotgun, 6);
   assert.equal(fixture.player.ammoGrenade, AMMUNITION_CAPACITY.ammoGrenade);
   assert.equal(fixture.player.ammoMolotov, AMMUNITION_CAPACITY.ammoMolotov);
   assert.equal(fixture.player.armor, ARMOR_CAPACITY);
@@ -192,12 +199,7 @@ function createFixture() {
       restocks += 1;
       const target = state.players.get(playerId);
       if (!target) return;
-      target.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
-      target.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
-      target.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
-      target.ammoRocket = AMMUNITION_CAPACITY.ammoRocket;
-      target.ammoGrenade = AMMUNITION_CAPACITY.ammoGrenade;
-      target.ammoMolotov = AMMUNITION_CAPACITY.ammoMolotov;
+      refillAmmo(target);
       target.armor = ARMOR_CAPACITY;
     },
     medical: {

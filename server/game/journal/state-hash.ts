@@ -8,6 +8,8 @@ const PLAYER_FIELDS = [
   'action', 'actionUntil', 'actionVehicleId', 'attackSequence', 'attackCombo',
   'reactionSequence', 'reactionKind', 'weapon', 'ammoPistol', 'ammoSmg', 'ammoShotgun',
   'ammoRocket', 'ammoGrenade', 'ammoMolotov', 'onFire', 'fireStartedAt', 'fireExpiresAt',
+  'magazinePistol', 'magazineSmg', 'magazineShotgun', 'magazineRocket', 'reloadWeapon',
+  'reloadStartedAt', 'reloadEndsAt', 'reloadSequence', 'shotSequence',
   'lastInputSequence', 'lastVehicleInputSequence'
 ] as const;
 
