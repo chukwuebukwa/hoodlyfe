@@ -25,6 +25,7 @@ interface LevelEditorToolbarProps {
   districtId: string;
   districts: Array<{id: string; label: string}>;
   canExplore: boolean;
+  playDraftBusy: boolean;
   canExportBundle: boolean;
   dirty: boolean;
   canUndo: boolean;
@@ -41,6 +42,7 @@ interface LevelEditorToolbarProps {
   onImport(): void;
   onExportProject(): void;
   onExportBundle(): void;
+  onPlayDraft(): void;
   onReset(): void;
   onToggleSidebar(): void;
   onToggleInspector(): void;
@@ -110,7 +112,14 @@ export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
         <button className="le-icon-button" type="button" onClick={props.onReset} title="Reset to repository source" aria-label="Reset to repository source">
           <RotateCcw size={17} />
         </button>
-        <Link href={props.canExplore ? `/explore?district=${props.districtId}` : '/'} className="le-icon-button" title={props.canExplore ? 'Walk this district' : 'Open game'} aria-label={props.canExplore ? 'Walk this district' : 'Open game'}><Gamepad2 size={17} /></Link>
+        <button
+          className="le-icon-button"
+          type="button"
+          onClick={props.onPlayDraft}
+          disabled={!props.canExplore || props.playDraftBusy}
+          title="Walk the current immutable editor draft"
+          aria-label="Play current draft"
+        ><Gamepad2 size={17} /></button>
         <button className="le-icon-button le-mobile-only" type="button" onClick={props.onToggleInspector} title="Toggle inspector" aria-label="Toggle inspector">
           <PanelRight size={17} />
         </button>

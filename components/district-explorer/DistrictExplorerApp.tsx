@@ -4,6 +4,8 @@ import Link from 'next/link';
 import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Map, Move} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {districtDefinition, type DistrictDefinition} from '../../shared/content/district-catalog.ts';
+import type {LocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision.ts';
+import {loadLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision-store.ts';
 import {
   DistrictExplorerController,
   type DistrictExplorerStatus
@@ -15,24 +17,41 @@ export function DistrictExplorerApp() {
   const [error, setError] = useState<string>();
   const [status, setStatus] = useState<DistrictExplorerStatus>();
   const [district, setDistrict] = useState<DistrictDefinition>();
+  const [revision, setRevision] = useState<LocalPlaytestRevision>();
+  const [sourceReady, setSourceReady] = useState(false);
 
   useEffect(() => {
-    setDistrict(districtDefinition(new URLSearchParams(location.search).get('district')));
+    const query = new URLSearchParams(location.search);
+    const selectedDistrict = districtDefinition(query.get('district'));
+    const revisionId = query.get('revision');
+    setDistrict(selectedDistrict);
+    if (!revisionId) {
+      setSourceReady(true);
+      return;
+    }
+    void loadLocalPlaytestRevision(revisionId).then((loaded) => {
+      if (!loaded) throw new Error('This local Play Draft revision is missing or expired. Return to the editor and create it again.');
+      setRevision(loaded);
+      setSourceReady(true);
+    }).catch((reason: unknown) => {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      setSourceReady(true);
+    });
   }, []);
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!host || !district) return;
-    const controller = new DistrictExplorerController(host, district, setStatus);
+    if (!host || !district || !sourceReady || error) return;
+    const controller = new DistrictExplorerController(host, district, setStatus, revision);
     controllerRef.current = controller;
     void controller.start().catch((reason: unknown) => {
       controller.destroy();
       setError(reason instanceof Error ? reason.message : String(reason));
     });
     return () => controller.destroy();
-  }, [district]);
+  }, [district, error, revision, sourceReady]);
 
-  if (!district) return <main id="district-explorer"><p className="district-explorer__loading">Loading district preview</p></main>;
+  if (!district || !sourceReady) return <main id="district-explorer"><p className="district-explorer__loading">Loading district preview</p></main>;
 
   function directionButton(direction: 'up' | 'down' | 'left' | 'right', Icon: typeof ArrowUp) {
     const release = () => controllerRef.current?.setDirection(direction, false);
@@ -52,7 +71,7 @@ export function DistrictExplorerApp() {
     <main id="district-explorer">
       <div ref={hostRef} className="district-explorer__viewport" />
       <header className="district-explorer__header">
-        <div><strong>{district.label}</strong><span>LOCAL WALK PREVIEW</span></div>
+        <div><strong>{district.label}</strong><span>{revision ? `PLAY DRAFT ${revision.revisionId.slice(0, 8)}` : 'LOCAL WALK PREVIEW'}</span></div>
         <Link href={`/editor?district=${district.id}`}><Map size={16} /> Editor</Link>
       </header>
       {status && (

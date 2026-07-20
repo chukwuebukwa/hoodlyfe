@@ -101,6 +101,17 @@ The editor autosaves the current versioned document to IndexedDB after 900 ms of
 Drafts are keyed by district ID and map fingerprint, so a draft from a different source map,
 tile size, or origin is not restored accidentally.
 
+Use the gamepad command to create **Play Draft**. It validates and snapshots the exact current
+in-memory document into an immutable, content-addressed IndexedDB revision, then opens the
+district explorer with that revision. The local preview currently applies draft collision and the
+enabled player spawn while streaming the existing Three.js presentation chunks. It does not apply
+files to the repository or join an authoritative multiplayer room. The status bar retains a link
+to the last revision if the browser blocks the new tab.
+
+Asset route IDs and authored world IDs are distinct. For example, the preview route uses
+`district=bil`, while the revision retains `industrial-district`. Revision IDs are looked up by
+their content hash and validated against the selected asset source before the preview starts.
+
 Use **Project** to download the editable document. Use **Game bundle** to download an
 artifact bundle containing the editor document and the three runtime files.
 
@@ -164,6 +175,8 @@ adapter. The level editor coordinates them; it does not absorb their simulation 
 - Deleting a corridor removes its junction references.
 - Validation issue selection frames the correct object.
 - Reload restores the latest compatible IndexedDB draft.
+- Play Draft opens in a fresh tab, displays its revision ID, and uses the authored spawn and
+  collision grid without browser errors.
 - Project and bundle imports reject incompatible dimensions.
 - Bundle `--check`, `map:validate`, tests, and production build pass before committing data.
 - Desktop and mobile widths expose the canvas without panel or toolbar overlap.

@@ -16,6 +16,17 @@ test('client collision map mirrors street radius samples and map boundaries', ()
   assert.equal(collision.canOccupy('street', -1, 64, 11), false);
 });
 
+test('client collision map builds directly from an editor collision grid', () => {
+  const collision = ClientCollisionMap.fromGrid({
+    width: 2,
+    height: 1,
+    tileSize: 64,
+    collisions: [0, 1]
+  });
+  assert.equal(collision.isBlockedAt(32, 32), false);
+  assert.equal(collision.isBlockedAt(96, 32), true);
+});
+
 test('client collision map enforces authored interior walls and fixtures', () => {
   const hospital = INTERIORS.find(({id}) => id === 'mercy-hospital');
   assert.ok(hospital?.recoveryAnchor);

@@ -13,6 +13,13 @@ interface TiledCollisionMap {
   layers: TiledLayer[];
 }
 
+export interface ClientCollisionGrid {
+  width: number;
+  height: number;
+  tileSize: number;
+  collisions: number[];
+}
+
 const INTERIOR_WALL_INSET = 14;
 
 export class ClientCollisionMap {
@@ -30,6 +37,16 @@ export class ClientCollisionMap {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Client collision map failed to load (${response.status}).`);
     return new ClientCollisionMap(await response.json() as TiledCollisionMap);
+  }
+
+  static fromGrid(grid: ClientCollisionGrid): ClientCollisionMap {
+    return new ClientCollisionMap({
+      width: grid.width,
+      height: grid.height,
+      tilewidth: grid.tileSize,
+      tileheight: grid.tileSize,
+      layers: [{name: 'collisions', data: [...grid.collisions]}]
+    });
   }
 
   physicsGeometry(): {

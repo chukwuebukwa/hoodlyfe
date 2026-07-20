@@ -809,6 +809,16 @@
   color: var(--le-text-muted);
 }
 
+.le-statusbar a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--le-accent);
+}
+
+.le-statusbar a:hover {
+  color: var(--le-text);
+}
+
 .le-statusbar__message {
   flex: 1;
   min-width: 80px;

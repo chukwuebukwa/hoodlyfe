@@ -6,11 +6,16 @@ import {
   type DistrictDefinition
 } from '../../../shared/content/district-catalog.ts';
 import {ClientCollisionMap} from '../../game/world/client-collision-map.ts';
+import type {LocalPlaytestRevision} from '../level-editor/playtest-revision.ts';
 import {ThreeMapChunkStreamer} from '../../game/three/three-map-chunk-streamer.ts';
 import type {ThreeMapManifest} from '../../game/three/three-map-format.ts';
 import {serverPedestrianAngleToThree, serverYToThree} from '../../game/three/three-prototype-policy.ts';
 
 interface DistrictMetadata {
+  source: string;
+  tileSize: number;
+  origin: {x: number; y: number};
+  size: {width: number; height: number};
   spawn: {x: number; y: number};
 }
 
@@ -52,7 +57,8 @@ export class DistrictExplorerController {
   constructor(
     private readonly parent: HTMLElement,
     private readonly district: DistrictDefinition,
-    private readonly onStatus: (status: DistrictExplorerStatus) => void
+    private readonly onStatus: (status: DistrictExplorerStatus) => void,
+    private readonly revision?: LocalPlaytestRevision
   ) {
     this.renderer = new THREE.WebGLRenderer({antialias: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -71,7 +77,14 @@ export class DistrictExplorerController {
         districtThreeAsset(this.district, 'world.json')
       ),
       loadJson<DistrictMetadata>(districtMapAsset(this.district, 'district-map.metadata.json')),
-      ClientCollisionMap.load(districtMapAsset(this.district, 'district-map.json')),
+      this.revision
+        ? Promise.resolve(ClientCollisionMap.fromGrid({
+          width: this.revision.document.map.width,
+          height: this.revision.document.map.height,
+          tileSize: this.revision.document.map.tileSize,
+          collisions: this.revision.document.layers.collision
+        }))
+        : ClientCollisionMap.load(districtMapAsset(this.district, 'district-map.json')),
       new THREE.TextureLoader().loadAsync('/assets/original/sprites/player-base.png')
     ]);
     if (this.destroyed) {
@@ -82,7 +95,15 @@ export class DistrictExplorerController {
     this.mapStreamer = mapStreamer;
     this.manifest = mapStreamer.manifest;
     this.collision = collision;
-    const spawn = chooseExplorerSpawn(metadata.spawn, collision, mapStreamer.manifest.blockSize);
+    if (this.revision) assertRevisionMatchesSource(this.revision, metadata);
+    const authoredSpawn = this.revision?.document.spawns.find((spawn) => (
+      spawn.kind === 'player' && spawn.enabled
+    ));
+    const spawn = chooseExplorerSpawn(
+      authoredSpawn ? {x: authoredSpawn.x, y: authoredSpawn.y} : metadata.spawn,
+      collision,
+      mapStreamer.manifest.blockSize
+    );
     this.x = spawn.x;
     this.y = spawn.y;
     this.playerTexture = texture;
@@ -243,6 +264,23 @@ export class DistrictExplorerController {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.keyDown);
     window.removeEventListener('keyup', this.keyUp);
+  }
+}
+
+function assertRevisionMatchesSource(
+  revision: LocalPlaytestRevision,
+  metadata: DistrictMetadata
+): void {
+  const map = revision.document.map;
+  if (
+    map.source !== metadata.source ||
+    map.width !== metadata.size.width ||
+    map.height !== metadata.size.height ||
+    map.tileSize !== metadata.tileSize ||
+    map.origin.x !== metadata.origin.x ||
+    map.origin.y !== metadata.origin.y
+  ) {
+    throw new Error('Play Draft was created from a different district source. Return to the editor and create a new revision.');
   }
 }
 

@@ -23,6 +23,8 @@ import {
   type TiledMapDocument
 } from '../../src/tools/level-editor/level-document.ts';
 import {clearLevelDraft, loadLevelDraft, saveLevelDraft} from '../../src/tools/level-editor/level-draft-store.ts';
+import {createLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision.ts';
+import {saveLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision-store.ts';
 import {
   DEFAULT_EDITOR_PREFERENCES,
   reconcileSelection,
@@ -98,6 +100,8 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
   const [autosaveLabel, setAutosaveLabel] = useState(loaded.restoredAt ? `Restored ${formatTime(loaded.restoredAt)}` : 'Autosave ready');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [playDraftBusy, setPlayDraftBusy] = useState(false);
+  const [lastPlayDraftUrl, setLastPlayDraftUrl] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
   const documentRef = useRef(document);
   const historyRef = useRef(history);
@@ -232,6 +236,36 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     setStatus('Downloaded game artifact bundle. Apply it with npm run level:apply.');
   }
 
+  async function onPlayDraft(): Promise<void> {
+    const currentReport = validateLevelDocument(documentRef.current);
+    if (currentReport.counts.error > 0) {
+      setValidationOpen(true);
+      setStatus(`Play Draft blocked by ${currentReport.counts.error} validation error${currentReport.counts.error === 1 ? '' : 's'}.`);
+      return;
+    }
+    const previewWindow = window.open('', '_blank');
+    setPlayDraftBusy(true);
+    setStatus('Creating immutable play draft...');
+    try {
+      const revision = await createLocalPlaytestRevision(documentRef.current);
+      await saveLocalPlaytestRevision(revision);
+      const target = `/explore?district=${encodeURIComponent(loaded.district.id)}&revision=${encodeURIComponent(revision.revisionId)}`;
+      setLastPlayDraftUrl(target);
+      if (previewWindow) {
+        previewWindow.location.assign(new URL(target, location.origin).href);
+        previewWindow.opener = null;
+      } else {
+        location.assign(target);
+      }
+      setStatus(`Play Draft ${revision.revisionId.slice(0, 8)} created.`);
+    } catch (error) {
+      previewWindow?.close();
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPlayDraftBusy(false);
+    }
+  }
+
   async function onImportFile(file: File | undefined): Promise<void> {
     if (!file) return;
     try {
@@ -260,6 +294,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         districtId={loaded.district.id}
         districts={loaded.availableDistricts}
         canExplore={true}
+        playDraftBusy={playDraftBusy}
         canExportBundle={loaded.district.activeRuntime}
         dirty={dirty}
         canUndo={history.past.length > 0}
@@ -276,6 +311,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         onImport={() => importInputRef.current?.click()}
         onExportProject={onExportProject}
         onExportBundle={onExportBundle}
+        onPlayDraft={() => void onPlayDraft()}
         onReset={onReset}
         onToggleSidebar={() => setSidebarOpen((value) => !value)}
         onToggleInspector={() => setInspectorOpen((value) => !value)}
@@ -320,7 +356,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         onDelete={onDelete}
       />
       <LevelEditorValidationPanel report={report} open={validationOpen} onOpenChange={setValidationOpen} onSelectIssue={onSelectIssue} />
-      <LevelEditorStatusBar status={status} pointer={pointer} viewport={viewport} />
+      <LevelEditorStatusBar status={status} playDraftUrl={lastPlayDraftUrl} pointer={pointer} viewport={viewport} />
       {(sidebarOpen || inspectorOpen) && <button className="le-mobile-scrim le-mobile-only" type="button" aria-label="Close panels" onClick={() => { setSidebarOpen(false); setInspectorOpen(false); }} />}
     </main>
   );
