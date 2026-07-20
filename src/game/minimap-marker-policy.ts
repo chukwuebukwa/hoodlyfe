@@ -30,6 +30,8 @@ export interface MinimapVehicleInput {
   y: number;
   angle: number;
   speed: number;
+  linvelX?: number;
+  linvelY?: number;
   destroyed: boolean;
 }
 
@@ -93,7 +95,7 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
   const localVehicle = local.vehicleId ? vehicles.get(local.vehicleId) : undefined;
   const localPosition = input.localPose ?? effectivePosition(local, localVehicle);
   const range = localVehicle && !localVehicle.destroyed
-    ? drivingRange(localVehicle.speed)
+    ? drivingRange(vehicleMotionSpeed(localVehicle))
     : ON_FOOT_RANGE;
   const markers: MinimapMarker[] = [];
 
@@ -180,6 +182,12 @@ function isPermanentLocation(kind: MinimapPointInput['kind']): boolean {
 export function drivingRange(speed: number): number {
   const ratio = Math.max(0, Math.min(1, Math.abs(speed) / RANGE_SPEED));
   return MIN_DRIVING_RANGE + (MAX_DRIVING_RANGE - MIN_DRIVING_RANGE) * ratio;
+}
+
+function vehicleMotionSpeed(vehicle: MinimapVehicleInput): number {
+  return Number.isFinite(vehicle.linvelX) && Number.isFinite(vehicle.linvelY)
+    ? Math.hypot(vehicle.linvelX!, vehicle.linvelY!)
+    : Math.abs(vehicle.speed);
 }
 
 function effectivePosition(

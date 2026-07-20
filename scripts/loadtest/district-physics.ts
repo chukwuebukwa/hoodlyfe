@@ -14,6 +14,7 @@ import {
 const DURATION_MS = Number(process.env.LOADTEST_DURATION_MS ?? 10 * 60_000);
 const RECONNECT_INTERVAL_MS = Number(process.env.LOADTEST_RECONNECT_INTERVAL_MS ?? 2 * 60_000);
 const MAP_TRAVERSAL = process.env.LOADTEST_MAP_TRAVERSAL === '1';
+const DRIFT_INPUTS = process.env.LOADTEST_DRIFT === '1';
 const MINIMUM_MAP_COVERAGE = Number(process.env.LOADTEST_MIN_MAP_COVERAGE ?? 0.65);
 const INPUT_INTERVAL_MS = 50;
 const INTERACTION_INTERVAL_MS = Number(process.env.LOADTEST_INTERACTION_INTERVAL_MS ?? (
@@ -183,7 +184,12 @@ function driveClient(room: Room<DistrictNetworkState>, options: Options): void {
     if (previousVehicleId && !vehicleId) vehicleExits++;
     previousVehicleId = vehicleId;
     if (vehicleId && player?.vehicleSeat === 0) {
-      room.send(VEHICLE_INPUT_MESSAGE, {vehicleId, moves: [{sequence: ++sequence, x, y}]});
+      const handbrake = DRIFT_INPUTS && Math.abs(vehicle?.speed ?? 0) >= 80 &&
+        (elapsed + clientId * 271) % 5_000 < 700;
+      room.send(VEHICLE_INPUT_MESSAGE, {
+        vehicleId,
+        moves: [{sequence: ++sequence, x, y, ...(handbrake ? {handbrake: true} : {})}]
+      });
     } else {
       room.send(ON_FOOT_INPUT_MESSAGE, {moves: [{sequence: ++sequence, x, y}]});
     }

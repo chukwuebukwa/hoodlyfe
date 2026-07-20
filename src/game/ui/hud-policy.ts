@@ -53,7 +53,7 @@ export function projectLocalHud(
     weaponName: weapon.name.toUpperCase(),
     weaponAmmo: weaponAmmo(player),
     weaponIcon: `/assets/original/weapons/${weapon.presentation.assetId}.svg`,
-    speed: String(Math.round(Math.abs(finite(vehicle?.speed)) * 0.55)).padStart(3, '0'),
+    speed: String(Math.round(vehicleSpeed(vehicle) * 0.55)).padStart(3, '0'),
     vehicleCondition: clamp(
       finite(vehicle?.health) / Math.max(1, finite(vehicle?.maxHealth, 1)) * 100,
       0,
@@ -63,6 +63,13 @@ export function projectLocalHud(
     mode: player.alive ? (player.vehicleId ? 'vehicle' : 'foot') : 'dead',
     action: player.action
   };
+}
+
+function vehicleSpeed(vehicle?: NetworkVehicle): number {
+  if (Number.isFinite(vehicle?.linvelX) && Number.isFinite(vehicle?.linvelY)) {
+    return Math.hypot(vehicle!.linvelX!, vehicle!.linvelY!);
+  }
+  return Math.abs(finite(vehicle?.speed));
 }
 
 export function hudTransitionState(player: NetworkPlayer): HudTransitionState {

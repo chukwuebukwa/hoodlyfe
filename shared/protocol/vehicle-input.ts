@@ -4,6 +4,7 @@ export interface VehicleInputMoveMessage {
   sequence: number;
   x: number;
   y: number;
+  handbrake?: boolean;
 }
 
 export interface VehicleInputBatchMessage {

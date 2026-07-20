@@ -47,7 +47,12 @@ export class PlayerLifecycleController {
     this.options.resetInput(player.id);
     const vehicle = player.vehicleId ? this.options.state.vehicles.get(player.vehicleId) : undefined;
     this.options.access.removePlayer(player);
-    if (vehicle) vehicle.speed *= 0.45;
+    if (vehicle) {
+      vehicle.speed *= 0.45;
+      vehicle.linvelX *= 0.45;
+      vehicle.linvelY *= 0.45;
+      vehicle.angvel *= 0.45;
+    }
   }
 
   tryRespawn(player: PlayerState, nowMs: number): boolean {

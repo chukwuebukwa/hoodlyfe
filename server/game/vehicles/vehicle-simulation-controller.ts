@@ -1,6 +1,12 @@
 import type {CrimeKind} from '../incidents/crime-policy.ts';
 import type {GameEventStream, VehicleDamageSource} from '../events/game-events.ts';
-import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
+import type {
+  DistrictState,
+  NpcState,
+  PlayerState,
+  SoccerBallState,
+  VehicleState
+} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {TrafficController} from '../traffic/traffic-controller.ts';
 import type {TrafficObstacle} from '../traffic/traffic-awareness-system.ts';
@@ -18,10 +24,11 @@ import {
   captureVehicleBody,
   planVehicleBodyDrive
 } from '../../../shared/simulation/vehicle-body-drive.ts';
-import type {VehicleWorldPose} from '../../../shared/simulation/vehicle-step.ts';
+import type {VehicleMotionState} from '../../../shared/simulation/vehicle-step.ts';
 import type {PhysicsBodyState, PhysicsContact, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
 import {physicsBodyKey} from '../../../shared/simulation/humanoid-body-drive.ts';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
+import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import {
   PhysicsBodyRegistry,
   type PhysicsActorDescriptor,
@@ -48,6 +55,7 @@ interface DriverInput {
   inputX: number;
   inputY: number;
   sequence?: number;
+  handbrake?: boolean;
 }
 
 interface SimulationClock {
@@ -58,7 +66,8 @@ interface PendingPhysicsDrive {
   vehicle: VehicleState;
   driverId: string;
   sequence?: number;
-  desired: VehicleWorldPose;
+  desired: VehicleMotionState;
+  state: PhysicsBodyState;
 }
 
 interface PhysicsAttempt extends PhysicsBodyState {
@@ -123,6 +132,7 @@ export class VehicleSimulationController {
   private readonly damageSystem = new VehicleDamageSystem();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly pendingPhysicsDrives: PendingPhysicsDrive[] = [];
+  private readonly pendingSoccerBallImpulses = new Map<string, {x: number; y: number}>();
   private readonly physicsStepCostSamples: number[] = [];
   private readonly previousBodies = new Map<
     string,
@@ -167,6 +177,14 @@ export class VehicleSimulationController {
           surfaceId: npc.surfaceId
         });
       }
+    }
+    for (const ball of this.options.state.soccerBalls.values()) {
+      this.previousBodies.set(physicsBodyKey('prop', ball.id), {
+        x: ball.x,
+        y: ball.y,
+        angle: ball.angle,
+        surfaceId: ball.surfaceId
+      });
     }
     this.options.traffic.beginTick(nowMs);
   }
@@ -226,11 +244,12 @@ export class VehicleSimulationController {
       vehicles: VehicleState[];
       players: PlayerState[];
       npcs: NpcState[];
+      soccerBalls: SoccerBallState[];
     }>();
     const actorsFor = (surfaceId: string) => {
       let actors = actorsBySurface.get(surfaceId);
       if (!actors) {
-        actors = {vehicles: [], players: [], npcs: []};
+        actors = {vehicles: [], players: [], npcs: [], soccerBalls: []};
         actorsBySurface.set(surfaceId, actors);
       }
       return actors;
@@ -247,6 +266,9 @@ export class VehicleSimulationController {
       if (npc.alive) {
         actorsFor(npc.surfaceId).npcs.push(npc);
       }
+    }
+    for (const ball of this.options.state.soccerBalls.values()) {
+      actorsFor(ball.surfaceId).soccerBalls.push(ball);
     }
     this.pruneImpactRecords(nowMs);
     const pending = new Map(this.pendingPhysicsDrives.map((drive) => [drive.vehicle.id, drive]));
@@ -269,10 +291,12 @@ export class VehicleSimulationController {
     }
     this.latestContactCount = results.reduce((sum, result) => sum + result.physicsContacts, 0);
     this.pendingPhysicsDrives.length = 0;
+    this.pendingSoccerBallImpulses.clear();
     return Object.freeze({
       vehicles: Object.freeze(results.flatMap((result) => result.vehicles)),
       players: Object.freeze(results.flatMap((result) => result.players)),
       npcs: Object.freeze(results.flatMap((result) => result.npcs)),
+      soccerBalls: Object.freeze(results.flatMap((result) => result.soccerBalls)),
       contacts: results.reduce((sum, result) => sum + result.contacts, 0),
       damagingContacts: results.reduce((sum, result) => sum + result.damagingContacts, 0)
     });
@@ -280,7 +304,12 @@ export class VehicleSimulationController {
 
   private stepSurfacePhysics(
     surfaceId: string,
-    actors: {vehicles: VehicleState[]; players: PlayerState[]; npcs: NpcState[]},
+    actors: {
+      vehicles: VehicleState[];
+      players: PlayerState[];
+      npcs: NpcState[];
+      soccerBalls: SoccerBallState[];
+    },
     pending: ReadonlyMap<string, PendingPhysicsDrive>,
     attempts: ReadonlyMap<string, PhysicsAttempt>,
     nowMs: number
@@ -289,6 +318,12 @@ export class VehicleSimulationController {
     const vehicles = actors.vehicles.sort((left, right) => left.id.localeCompare(right.id));
     const players = actors.players.sort((left, right) => left.id.localeCompare(right.id));
     const npcs = actors.npcs.sort((left, right) => left.id.localeCompare(right.id));
+    const soccerBalls = actors.soccerBalls.sort((left, right) => left.id.localeCompare(right.id));
+
+    for (const ball of soccerBalls) {
+      const impulse = this.pendingSoccerBallImpulses.get(ball.id);
+      if (impulse) physics.applyImpulse(physicsBodyKey('prop', ball.id), impulse.x, impulse.y);
+    }
 
     physics.step();
 
@@ -300,7 +335,10 @@ export class VehicleSimulationController {
         x: vehicle.x,
         y: vehicle.y,
         angle: vehicle.angle,
-        speed: vehicle.destroyed ? 0 : vehicle.speed
+        speed: vehicle.destroyed ? 0 : vehicle.speed,
+        linvelX: vehicle.destroyed ? 0 : vehicle.linvelX,
+        linvelY: vehicle.destroyed ? 0 : vehicle.linvelY,
+        angvel: vehicle.destroyed ? 0 : vehicle.angvel
       };
       const captured = captureVehicleBody(
         physics,
@@ -322,9 +360,21 @@ export class VehicleSimulationController {
         )
         : vehicle.surfaceId;
       if (!capturedSurfaceId) {
+        physics.teleport(physicsBodyKey('vehicle', vehicle.id), {
+          x: previous.x,
+          y: previous.y,
+          rotation: previous.angle,
+          linvelX: 0,
+          linvelY: 0,
+          angvel: 0
+        });
         vehicle.x = previous.x;
         vehicle.y = previous.y;
+        vehicle.angle = previous.angle;
         vehicle.speed = 0;
+        vehicle.linvelX = 0;
+        vehicle.linvelY = 0;
+        vehicle.angvel = 0;
         continue;
       }
       vehicle.x = captured.pose.x;
@@ -332,6 +382,9 @@ export class VehicleSimulationController {
       vehicle.surfaceId = capturedSurfaceId;
       vehicle.angle = captured.pose.angle;
       vehicle.speed = captured.pose.speed;
+      vehicle.linvelX = captured.pose.linvelX;
+      vehicle.linvelY = captured.pose.linvelY;
+      vehicle.angvel = captured.pose.angvel;
       if (drive && captured.collidedWithWorld) {
         this.damage(
           vehicle,
@@ -339,7 +392,11 @@ export class VehicleSimulationController {
           '',
           'world',
           nowMs,
-          captured.impactSpeed >= 0 ? 'front' : 'rear'
+          classifyImpactZone(
+            vehicle.angle,
+            captured.impactVelocityX,
+            captured.impactVelocityY
+          )
         );
       }
       if (drive?.sequence !== undefined) {
@@ -363,6 +420,46 @@ export class VehicleSimulationController {
         npc.y = state.y;
       }
     }
+    for (const ball of soccerBalls) {
+      const key = physicsBodyKey('prop', ball.id);
+      const state = physics.capture(key);
+      if (!state) continue;
+      const previous = this.previousBodies.get(key) ?? ball;
+      const nextSurfaceId = this.options.world.surfaceAfterMove(
+        previous.surfaceId,
+        previous.x,
+        previous.y,
+        state.x,
+        state.y,
+        SOCCER_BALL_RADIUS,
+        'prop'
+      );
+      if (!nextSurfaceId) {
+        const reset = {
+          x: previous.x,
+          y: previous.y,
+          rotation: previous.angle,
+          linvelX: 0,
+          linvelY: 0,
+          angvel: 0
+        };
+        physics.teleport(key, reset);
+        ball.x = reset.x;
+        ball.y = reset.y;
+        ball.angle = reset.rotation;
+        ball.linvelX = 0;
+        ball.linvelY = 0;
+        ball.angvel = 0;
+        continue;
+      }
+      ball.x = state.x;
+      ball.y = state.y;
+      ball.angle = state.rotation;
+      ball.linvelX = state.linvelX;
+      ball.linvelY = state.linvelY;
+      ball.angvel = state.angvel;
+      ball.surfaceId = nextSurfaceId;
+    }
 
     let contacts = 0;
     let damagingContacts = 0;
@@ -382,6 +479,7 @@ export class VehicleSimulationController {
       vehicles: Object.freeze(movedVehicles),
       players: Object.freeze(players),
       npcs: Object.freeze(npcs),
+      soccerBalls: Object.freeze(soccerBalls),
       contacts,
       damagingContacts,
       physicsContacts: physicsContacts.length
@@ -393,6 +491,7 @@ export class VehicleSimulationController {
       vehicles: VehicleState[];
       players: PlayerState[];
       npcs: NpcState[];
+      soccerBalls: SoccerBallState[];
     }>,
     pending: ReadonlyMap<string, PendingPhysicsDrive>,
     deltaSeconds: number
@@ -411,22 +510,28 @@ export class VehicleSimulationController {
       for (const vehicle of [...actors.vehicles].sort((left, right) => left.id.localeCompare(right.id))) {
         const key = physicsBodyKey('vehicle', vehicle.id);
         const previous = this.previousBodies.get(key) ?? vehicle;
-        const desired = pending.get(vehicle.id)?.desired ?? {
+        const drive = pending.get(vehicle.id);
+        const desired = drive?.desired ?? {
           x: vehicle.x,
           y: vehicle.y,
           angle: vehicle.angle,
-          speed: vehicle.destroyed ? 0 : vehicle.speed
+          speed: vehicle.destroyed ? 0 : vehicle.speed,
+          linvelX: vehicle.destroyed ? 0 : vehicle.linvelX,
+          linvelY: vehicle.destroyed ? 0 : vehicle.linvelY,
+          angvel: vehicle.destroyed ? 0 : vehicle.angvel
         };
         const attempt: PhysicsAttempt = {
           key,
           kind: 'vehicle',
           id: vehicle.id,
-          x: previous.x,
-          y: previous.y,
-          rotation: desired.angle,
-          linvelX: (desired.x - previous.x) / delta,
-          linvelY: (desired.y - previous.y) / delta,
-          angvel: 0
+          ...(drive?.state ?? {
+            x: previous.x,
+            y: previous.y,
+            rotation: desired.angle,
+            linvelX: (desired.x - previous.x) / delta,
+            linvelY: (desired.y - previous.y) / delta,
+            angvel: 0
+          })
         };
         attempts.set(key, attempt);
         descriptors.push({
@@ -486,6 +591,24 @@ export class VehicleSimulationController {
           state: attempt
         });
       }
+      for (const ball of [...actors.soccerBalls].sort((left, right) => left.id.localeCompare(right.id))) {
+        descriptors.push({
+          key: physicsBodyKey('prop', ball.id),
+          actorType: 'prop',
+          entityId: ball.id,
+          surfaceId,
+          shapeKey: `soccer-ball:${SOCCER_BALL_RADIUS}`,
+          control: 'simulated',
+          state: {
+            x: ball.x,
+            y: ball.y,
+            rotation: ball.angle,
+            linvelX: ball.linvelX,
+            linvelY: ball.linvelY,
+            angvel: ball.angvel
+          }
+        });
+      }
     }
     return {descriptors, attemptsBySurface};
   }
@@ -543,9 +666,20 @@ export class VehicleSimulationController {
     return this.bodyRegistry.bodyIdentity(key);
   }
 
+  queueSoccerBallImpulse(ballId: string, impulseX: number, impulseY: number): boolean {
+    if (!this.options.state.soccerBalls.has(ballId)) return false;
+    if (!Number.isFinite(impulseX) || !Number.isFinite(impulseY)) return false;
+    const pending = this.pendingSoccerBallImpulses.get(ballId) ?? {x: 0, y: 0};
+    pending.x += impulseX;
+    pending.y += impulseY;
+    this.pendingSoccerBallImpulses.set(ballId, pending);
+    return true;
+  }
+
   disposePhysics(): void {
     this.bodyRegistry.clear();
     this.physicsBySurface.clear();
+    this.pendingSoccerBallImpulses.clear();
   }
 
   private applyVehicleContact(
@@ -658,6 +792,9 @@ export class VehicleSimulationController {
     vehicle.surfaceId = spawn.surfaceId ?? STREET_GROUND_SURFACE_ID;
     vehicle.angle = spawn.angle;
     vehicle.speed = 90;
+    vehicle.linvelX = Math.cos(spawn.angle) * vehicle.speed;
+    vehicle.linvelY = Math.sin(spawn.angle) * vehicle.speed;
+    vehicle.angvel = 0;
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
     vehicle.driverId = '';
@@ -734,9 +871,17 @@ export class VehicleSimulationController {
     deltaSeconds: number
   ): void {
     if (deltaSeconds <= 0) return;
-    const {desired} = planVehicleBodyDrive(
-      {x: vehicle.x, y: vehicle.y, angle: vehicle.angle, speed: vehicle.speed},
-      {steering: input.inputX, throttle: -input.inputY},
+    const {desired, state} = planVehicleBodyDrive(
+      {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        speed: vehicle.speed,
+        linvelX: vehicle.linvelX,
+        linvelY: vehicle.linvelY,
+        angvel: vehicle.angvel
+      },
+      {steering: input.inputX, throttle: -input.inputY, handbrake: input.handbrake},
       vehicle.kind,
       deltaSeconds,
       this.damageSystem.stepModifiers(
@@ -746,7 +891,7 @@ export class VehicleSimulationController {
       )
     );
     vehicle.siren = false;
-    this.pendingPhysicsDrives.push({vehicle, driverId, sequence: input.sequence, desired});
+    this.pendingPhysicsDrives.push({vehicle, driverId, sequence: input.sequence, desired, state});
   }
 
   private trafficObstacles(
@@ -850,6 +995,9 @@ export class VehicleSimulationController {
     vehicle.destroyed = true;
     vehicle.respawnAt = nowMs + WRECK_LIFETIME_MS;
     vehicle.speed = 0;
+    vehicle.linvelX = 0;
+    vehicle.linvelY = 0;
+    vehicle.angvel = 0;
     vehicle.traffic = false;
     vehicle.hijackBy = '';
     vehicle.onFire = false;
@@ -895,6 +1043,9 @@ export class VehicleSimulationController {
 
   private updateDestroyed(vehicle: VehicleState, nowMs: number): void {
     vehicle.speed = 0;
+    vehicle.linvelX = 0;
+    vehicle.linvelY = 0;
+    vehicle.angvel = 0;
     if (nowMs < vehicle.respawnAt) return;
     if (this.options.retireStreamedVehicle?.(vehicle.id, nowMs)) {
       this.previousBodies.delete(physicsBodyKey('vehicle', vehicle.id));

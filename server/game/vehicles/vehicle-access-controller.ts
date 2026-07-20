@@ -74,6 +74,9 @@ export class VehicleAccessController {
       vehicle.traffic = false;
       vehicle.hijackBy = '';
       vehicle.speed = 0;
+      vehicle.linvelX = 0;
+      vehicle.linvelY = 0;
+      vehicle.angvel = 0;
       this.options.releaseTrafficControl(vehicle.id);
       const victimId = this.options.createEjectedDriver(vehicle, player, nowMs);
       this.options.recordTheft(player.id, victimId, vehicle.x, vehicle.y, nowMs);
@@ -194,6 +197,9 @@ export class VehicleAccessController {
       player.surfaceId = surfaceId;
       this.removePlayer(player);
       vehicle.speed *= 0.4;
+      vehicle.linvelX *= 0.4;
+      vehicle.linvelY *= 0.4;
+      vehicle.angvel *= 0.4;
       return;
     }
   }

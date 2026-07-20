@@ -4,7 +4,7 @@ import {DistrictRoom} from '../server/district-room.ts';
 import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
 import {VEHICLE_KINDS, vehicleDefinition} from '../shared/content/vehicle-catalog.ts';
 import {
-  integrateVehiclePose,
+  integrateVehicleMotion,
   VEHICLE_SIMULATION_STEP_SECONDS,
   type VehicleControlCommand
 } from '../shared/simulation/vehicle-step.ts';
@@ -13,7 +13,7 @@ import {
   PhysicsWorld,
   type PhysicsWorldGeometry
 } from '../shared/physics/physics-world.ts';
-import type {VehicleWorldPose} from '../shared/simulation/vehicle-step.ts';
+import type {VehicleMotionState} from '../shared/simulation/vehicle-step.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
 const DT = VEHICLE_SIMULATION_STEP_SECONDS;
@@ -31,12 +31,20 @@ test('driven vehicles reproduce kernel trajectories through the engine per kind'
   for (const kind of VEHICLE_KINDS) {
     const physics = PhysicsWorld.create(geometry());
     const {room, car} = fixture(kind, physics, {x: 2048, y: 2048});
-    let reference: VehicleWorldPose = {x: car.x, y: car.y, angle: 0, speed: 0};
+    let reference: VehicleMotionState = {
+      x: car.x,
+      y: car.y,
+      angle: 0,
+      speed: 0,
+      linvelX: 0,
+      linvelY: 0,
+      angvel: 0
+    };
     let maxPositionError = 0;
     let maxAngleError = 0;
     for (let tick = 0; tick < PARITY_TICKS; tick++) {
       const command = maneuverAt(tick);
-      reference = integrateVehiclePose(reference, command, kind, DT);
+      reference = integrateVehicleMotion(reference, command, kind, DT);
       driveTick(room, car, command, tick);
       maxPositionError = Math.max(
         maxPositionError,
@@ -54,6 +62,31 @@ test('driven vehicles reproduce kernel trajectories through the engine per kind'
       `${kind} heading diverged ${maxAngleError.toFixed(4)}rad from the handling kernel`
     );
   }
+});
+
+test('handbrake preserves lateral momentum and counter-steering recovers the car', () => {
+  const physics = PhysicsWorld.create(geometry());
+  const {room, car} = fixture('s15', physics, {x: 2048, y: 2048});
+  for (let tick = 0; tick < 75; tick++) {
+    driveTick(room, car, {throttle: 1, steering: 0}, tick);
+  }
+  const bodyIdentity = room.vehicleSimulation.physicsBodyIdentity(`vehicle:${car.id}`);
+  for (let tick = 75; tick < 95; tick++) {
+    driveTick(room, car, {throttle: 0.75, steering: 0.8, handbrake: true}, tick);
+  }
+  const driftSlip = Math.abs(vehicleSlipAngle(car));
+  assert.ok(driftSlip > 0.3, `handbrake slip ${driftSlip.toFixed(3)}rad was not a drift`);
+  assert.equal(room.vehicleSimulation.physicsBodyIdentity(`vehicle:${car.id}`), bodyIdentity);
+
+  for (let tick = 95; tick < 125; tick++) {
+    driveTick(room, car, {throttle: 0.35, steering: -0.65}, tick);
+  }
+  const recoveredSlip = Math.abs(vehicleSlipAngle(car));
+  physics.free();
+  assert.ok(
+    recoveredSlip < driftSlip * 0.5,
+    `counter-steering left ${recoveredSlip.toFixed(3)}rad from ${driftSlip.toFixed(3)}rad`
+  );
 });
 
 test('world contact stops the vehicle at the wall and applies impact damage', () => {
@@ -343,10 +376,20 @@ function fixture(
 }
 
 function driveTick(room: any, car: VehicleState, command: VehicleControlCommand, tick: number): void {
-  room.playerControl.setMove(car.driverId, {x: command.steering, y: -command.throttle});
+  room.playerControl.setMove(car.driverId, {
+    x: command.steering,
+    y: -command.throttle,
+    handbrake: command.handbrake
+  });
   room.vehicleSimulation.beginTick();
   room.vehicleSimulation.update(car, DT, tick * 33);
   room.vehicleSimulation.stepPhysics(DT, tick * 33);
+}
+
+function vehicleSlipAngle(vehicle: VehicleState): number {
+  const forwardSpeed = vehicle.linvelX * Math.cos(vehicle.angle) + vehicle.linvelY * Math.sin(vehicle.angle);
+  const lateralSpeed = vehicle.linvelX * -Math.sin(vehicle.angle) + vehicle.linvelY * Math.cos(vehicle.angle);
+  return Math.atan2(lateralSpeed, Math.max(1, Math.abs(forwardSpeed)));
 }
 
 function normalizeAngle(angle: number): number {

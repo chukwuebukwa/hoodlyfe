@@ -1,6 +1,7 @@
 import type {PhysicsBodyState, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
 
-export type PhysicsActorType = 'vehicle' | 'player' | 'pedestrian';
+export type PhysicsActorType = 'vehicle' | 'player' | 'pedestrian' | 'prop';
+export type PhysicsBodyControl = 'authored' | 'simulated';
 
 export interface PhysicsActorDescriptor {
   key: string;
@@ -9,6 +10,7 @@ export interface PhysicsActorDescriptor {
   surfaceId: string;
   shapeKey: string;
   state: PhysicsBodyState;
+  control?: PhysicsBodyControl;
 }
 
 export interface PhysicsLifecycleOperations {
@@ -30,7 +32,8 @@ interface PhysicsBodyRecord {
 const ACTOR_ORDER: Readonly<Record<PhysicsActorType, number>> = Object.freeze({
   vehicle: 0,
   player: 1,
-  pedestrian: 2
+  pedestrian: 2,
+  prop: 3
 });
 
 export class PhysicsBodyRegistry {
@@ -98,7 +101,7 @@ export class PhysicsBodyRegistry {
       if (record.world.shouldTeleport(descriptor.key, descriptor.state, 0.001)) {
         record.world.teleport(descriptor.key, descriptor.state);
         this.increment('teleported');
-      } else {
+      } else if ((descriptor.control ?? 'authored') === 'authored') {
         record.world.synchronizeVelocity(descriptor.key, descriptor.state);
       }
     }
@@ -132,6 +135,8 @@ export class PhysicsBodyRegistry {
     const world = this.worldForSurface(descriptor.surfaceId);
     if (descriptor.actorType === 'vehicle') {
       world.registerVehicle(descriptor.key, vehicleKind(descriptor.shapeKey), descriptor.state);
+    } else if (descriptor.actorType === 'prop') {
+      world.registerSoccerBall(descriptor.key, soccerBallRadius(descriptor.shapeKey), descriptor.state);
     } else {
       world.registerHumanoid(descriptor.key, humanoidRadius(descriptor.shapeKey), descriptor.state);
     }
@@ -174,6 +179,17 @@ function humanoidRadius(shapeKey: string): number {
   const radius = Number(shapeKey.slice('humanoid:'.length));
   if (!Number.isFinite(radius) || radius <= 0) {
     throw new Error(`Invalid humanoid radius in shape key: ${shapeKey}`);
+  }
+  return radius;
+}
+
+function soccerBallRadius(shapeKey: string): number {
+  if (!shapeKey.startsWith('soccer-ball:')) {
+    throw new Error(`Invalid soccer ball shape key: ${shapeKey}`);
+  }
+  const radius = Number(shapeKey.slice('soccer-ball:'.length));
+  if (!Number.isFinite(radius) || radius <= 0) {
+    throw new Error(`Invalid soccer ball radius in shape key: ${shapeKey}`);
   }
   return radius;
 }

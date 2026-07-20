@@ -3,7 +3,7 @@ import {
   type RemoteMotionTimelineOptions
 } from './remote-motion-timeline.ts';
 
-export type RemoteActorFamily = 'player' | 'npc' | 'vehicle';
+export type RemoteActorFamily = 'player' | 'npc' | 'vehicle' | 'prop';
 
 export const REMOTE_TIMELINE_OPTIONS: Readonly<
   Record<RemoteActorFamily, Readonly<RemoteMotionTimelineOptions>>
@@ -19,6 +19,11 @@ export const REMOTE_TIMELINE_OPTIONS: Readonly<
   vehicle: Object.freeze({
     teleportDistance: 320,
     maximumExtrapolationSpeed: 1_100
+  }),
+  prop: Object.freeze({
+    teleportDistance: 220,
+    maximumExtrapolationSpeed: 900,
+    maximumAngularSpeed: Math.PI * 12
   })
 });
 

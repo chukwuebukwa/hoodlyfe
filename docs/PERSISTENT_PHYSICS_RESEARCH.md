@@ -196,6 +196,9 @@ npm run physics:loadtest
 # Ten drivers follow the authored road graph and must visit at least 65% of road sectors
 npm run bots:map
 
+# Add brief handbrake pulses to moving bot-driven cars during a load run
+LOADTEST_DRIFT=1 npm run physics:loadtest
+
 # Existing server/browser deterministic trace
 npx tsx scripts/spike/browser-determinism.ts
 ```
@@ -205,6 +208,8 @@ input, interacts every 15 seconds, reconnects with consent every two minutes, sa
 `/health` every five seconds, and requires actual vehicle entry/exit and successful
 reconnects. It fails on decoder, room, reconnect, unexpected-disconnect, or health errors,
 and on physics p95, event-loop p99, or RSS rollback thresholds sustained for five minutes.
+Set `LOADTEST_DRIFT=1` to add staggered 700 ms handbrake pulses to moving cars and cover
+the drift handling path under concurrent load.
 
 With `LOADTEST_MAP_TRAVERSAL=1`, bots compile `district-lanes.json` into connected,
 steerable road waypoints, acquire and hold vehicles, recover from bounded stuck states,

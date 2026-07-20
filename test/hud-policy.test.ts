@@ -44,6 +44,10 @@ test('local HUD projection covers foot, driver, passenger, damage, and death mod
   assert.equal(driver.showWeaponHud, false);
   assert.equal(driver.speed, '055');
   assert.equal(driver.vehicleCondition, 50);
+  assert.equal(projectLocalHud(
+    createPlayer({vehicleId: 'car', vehicleSeat: 0}),
+    createVehicle({speed: 20, linvelX: 180, linvelY: 240})
+  ).speed, '165');
 
   const passenger = projectLocalHud(createPlayer({vehicleId: 'car', vehicleSeat: 1}), createVehicle());
   assert.equal(passenger.showVehicleHud, false);

@@ -49,7 +49,7 @@ export class ThreePrototypeViewer {
   private readonly clock = new THREE.Clock();
   private readonly keys = new Set<string>();
   private lastAuthorityInputAt = Number.NEGATIVE_INFINITY;
-  private lastAuthorityInput = {x: Number.NaN, y: Number.NaN};
+  private lastAuthorityInput = {x: Number.NaN, y: Number.NaN, handbrake: false};
   private frame = 0;
   private zoom = 1.65;
   private baseHeight = 1;
@@ -153,7 +153,8 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt,
         () => this.networkQuality?.snapshot(),
         () => this.netcodeRollout?.snapshot(),
-        () => this.mapStreamer?.snapshot()
+        () => this.mapStreamer?.snapshot(),
+        (vehicleId) => this.entities?.vehiclePose(vehicleId)
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
         this.qa = new ThreeQaDriver(this.room);
@@ -275,7 +276,7 @@ export class ThreePrototypeViewer {
         quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
       this.world?.synchronize(this.room.state, now, localSpaceId);
-      const movement = this.input?.update(now) ?? {x: 0, y: 0};
+      const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
       const local = this.room.state.players.get(this.room.sessionId);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
@@ -284,7 +285,8 @@ export class ThreePrototypeViewer {
         if (
           now - this.lastAuthorityInputAt >= 50 ||
           movement.x !== this.lastAuthorityInput.x ||
-          movement.y !== this.lastAuthorityInput.y
+          movement.y !== this.lastAuthorityInput.y ||
+          movement.handbrake !== this.lastAuthorityInput.handbrake
         ) {
           this.room.send('input', movement);
           this.lastAuthorityInputAt = now;

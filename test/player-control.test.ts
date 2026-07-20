@@ -41,6 +41,23 @@ test('player control acknowledges accepted input and rejects stale or implausibl
   assert.equal(player.lastInputSequence, 12);
 });
 
+test('legacy vehicle input holds and releases the handbrake state', () => {
+  const {controller, state} = createController();
+  const player = addPlayer(state, 'driver', 100, 100);
+  player.vehicleId = 'car';
+  controller.register(player.id);
+
+  controller.setMove(player.id, {x: 0.5, y: -1, handbrake: true});
+  assert.deepEqual(controller.inputFor(player.id), {
+    inputX: 0.5,
+    inputY: -1,
+    lastSequence: 1,
+    handbrake: true
+  });
+  controller.setMove(player.id, {x: 0.5, y: -1, handbrake: false});
+  assert.deepEqual(controller.inputFor(player.id), {inputX: 0.5, inputY: -1, lastSequence: 2});
+});
+
 test('on-foot input batches are bounded, ordered, and acknowledged only when applied', () => {
   const {controller, state} = createController();
   const player = addPlayer(state, 'player', 100, 100);

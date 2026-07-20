@@ -5,7 +5,8 @@ import {
   npcActionSprite,
   playerActionSprite,
   vehicleDoorAtlasFrame,
-  vehicleDoorPresentation
+  vehicleDoorPresentation,
+  vehicleDoorSpriteOffset
 } from '../src/game/rendering/action-sprite-policy.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../src/game/types.ts';
 
@@ -67,6 +68,16 @@ test('vehicle kinds select their own row in the door atlas', () => {
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'taxi'}), 4), 14);
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 'r33'}), 2), 17);
   assert.equal(vehicleDoorAtlasFrame(vehicle({kind: 's15'}), 2), 22);
+});
+
+test('vehicle door frames preserve the chassis origin', () => {
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'sedan'}), 0), {x: -19.5, y: 7.5});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'sedan'}), 4), {x: 15.5, y: 8});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'taxi'}), 0), {x: -7.5, y: -11.5});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'police'}), 0), {x: 0.5, y: 0});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'r33'}), 2), {x: 0.5, y: 1});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 's15'}), 2), {x: 0.5, y: 0.5});
+  assert.deepEqual(vehicleDoorSpriteOffset(vehicle({kind: 'sedan'}), 99), {x: -19.5, y: 7.5});
 });
 
 test('ejected drivers fall, settle, and recover before panic locomotion', () => {

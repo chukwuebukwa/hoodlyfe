@@ -18,7 +18,8 @@ const NPC_FIELDS = [
 ] as const;
 
 const VEHICLE_FIELDS = [
-  'id', 'kind', 'surfaceId', 'x', 'y', 'angle', 'speed', 'health', 'maxHealth',
+  'id', 'kind', 'surfaceId', 'x', 'y', 'angle', 'speed', 'linvelX', 'linvelY', 'angvel',
+  'health', 'maxHealth',
   'engineDamage', 'damageFront', 'damageRear', 'damageLeft', 'damageRight', 'onFire',
   'fireStartedAt', 'destroyed', 'respawnAt', 'driverId', 'traffic', 'hijackBy', 'siren',
   'radioStation', 'tyreDamageMask'
@@ -55,6 +56,10 @@ const TRAFFIC_SIGNAL_FIELDS = [
   'id', 'x', 'y', 'northSouth', 'eastWest', 'nextChangeAt'
 ] as const;
 
+const SOCCER_BALL_FIELDS = [
+  'id', 'surfaceId', 'x', 'y', 'angle', 'linvelX', 'linvelY', 'angvel'
+] as const;
+
 export function hashDistrictState(state: DistrictState): number {
   const stream = new HashStream();
   stream.number(state.worldTimeStartedAt);
@@ -70,6 +75,7 @@ export function hashDistrictState(state: DistrictState): number {
   hashCollection(stream, state.weaponPickups, WEAPON_PICKUP_FIELDS);
   hashCollection(stream, state.cashPickups, CASH_PICKUP_FIELDS);
   hashCollection(stream, state.trafficSignals, TRAFFIC_SIGNAL_FIELDS);
+  hashCollection(stream, state.soccerBalls, SOCCER_BALL_FIELDS);
   stream.number(state.missions.size);
   stream.number(state.services.size);
   stream.number(state.stingers.size);

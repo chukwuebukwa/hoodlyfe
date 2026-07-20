@@ -136,6 +136,7 @@ export class ThreeDistrictUiController {
       shell.dataset.players = String(state.players?.size ?? 0);
       shell.dataset.npcs = String(state.npcs?.size ?? 0);
       shell.dataset.vehicles = String(state.vehicles?.size ?? 0);
+      shell.dataset.driving = String(Boolean(local?.vehicleId && local.vehicleSeat === 0));
       shell.dataset.explosives = String(
         (state.thrownProjectiles?.size ?? 0) + (state.explosions?.size ?? 0)
       );

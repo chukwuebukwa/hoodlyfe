@@ -10,6 +10,8 @@ import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
 import type {ThreeMapStreamingSnapshot} from './three-map-chunk-streamer.ts';
+import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
+import type {VehicleRenderPose} from '../rendering/render-types.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -68,7 +70,8 @@ export class ThreeDebugController {
     private readonly surfaceHeightAt: (x: number, y: number) => number,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
-    private readonly mapStreaming: () => ThreeMapStreamingSnapshot | undefined = () => undefined
+    private readonly mapStreaming: () => ThreeMapStreamingSnapshot | undefined = () => undefined,
+    private readonly vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -167,12 +170,25 @@ export class ThreeDebugController {
       this.group.add(entityGlyph(npc.x, npc.y, npc.angle, 10, color, this.surfaceHeightAt));
     }
     for (const vehicle of state.vehicles.values()) {
+      const pose = this.vehiclePose(vehicle.id) ?? vehicle;
       this.group.add(vehicleGlyph(
-        vehicle.x,
-        vehicle.y,
-        vehicle.angle,
+        pose.x,
+        pose.y,
+        pose.angle,
         vehicle.kind,
         0x9d8bff,
+        this.surfaceHeightAt,
+        vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
+        vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed
+      ));
+    }
+    for (const ball of state.soccerBalls?.values() ?? []) {
+      this.group.add(entityGlyph(
+        ball.x,
+        ball.y,
+        ball.angle,
+        SOCCER_BALL_RADIUS,
+        0x60f28b,
         this.surfaceHeightAt
       ));
     }
@@ -520,7 +536,9 @@ function vehicleGlyph(
   angle: number,
   kind: string,
   color: number,
-  surface: (x: number, y: number) => number
+  surface: (x: number, y: number) => number,
+  velocityX = 0,
+  velocityY = 0
 ): THREE.Group {
   const collision = vehicleDefinition(kind).collision;
   const halfLength = collision.length / 2;
@@ -544,6 +562,12 @@ function vehicleGlyph(
     new THREE.Vector3(),
     new THREE.Vector3(forward.x * (halfLength + 9), forward.y * (halfLength + 9), 0)
   ], color));
+  if (Math.hypot(velocityX, velocityY) > 1) {
+    group.add(debugLine([
+      new THREE.Vector3(),
+      new THREE.Vector3(velocityX * 0.14, -velocityY * 0.14, 0)
+    ], 0x48e2ff));
+  }
   group.position.set(x, serverYToThree(y), surface(x, y) + 24);
   return group;
 }

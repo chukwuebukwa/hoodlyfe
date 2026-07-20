@@ -3,6 +3,13 @@
 // same geometry then produce bit-identical states.
 
 import RAPIER from '@dimforge/rapier2d-compat';
+import {
+  SOCCER_BALL_ANGULAR_DAMPING,
+  SOCCER_BALL_FRICTION,
+  SOCCER_BALL_LINEAR_DAMPING,
+  SOCCER_BALL_MASS,
+  SOCCER_BALL_RESTITUTION
+} from '../content/soccer-ball.ts';
 import {vehicleDefinition} from '../content/vehicle-catalog.ts';
 import {SIMULATION_STEP_SECONDS} from '../simulation/timing.ts';
 
@@ -13,6 +20,14 @@ const HUMANOID_DENSITY = 0.4;
 const STATIC_MEMBERSHIP = 0x0001;
 const VEHICLE_MEMBERSHIP = 0x0002;
 const HUMANOID_MEMBERSHIP = 0x0004;
+const PROP_MEMBERSHIP = 0x0008;
+
+interface DynamicBodyOptions {
+  lockRotation?: boolean;
+  softCcdPrediction?: number;
+  linearDamping?: number;
+  angularDamping?: number;
+}
 
 let engineReady: Promise<void> | undefined;
 
@@ -101,9 +116,9 @@ export class PhysicsWorld {
         .setFriction(VEHICLE_FRICTION)
         .setCollisionGroups(groups(
           VEHICLE_MEMBERSHIP,
-          STATIC_MEMBERSHIP | VEHICLE_MEMBERSHIP | HUMANOID_MEMBERSHIP
+          STATIC_MEMBERSHIP | VEHICLE_MEMBERSHIP | HUMANOID_MEMBERSHIP | PROP_MEMBERSHIP
         )),
-      true
+      {}
     );
     this.bodies.get(key)!.setDominanceGroup(1);
   }
@@ -117,10 +132,29 @@ export class PhysicsWorld {
         .setFriction(VEHICLE_FRICTION)
         .setCollisionGroups(groups(
           HUMANOID_MEMBERSHIP,
-          STATIC_MEMBERSHIP | VEHICLE_MEMBERSHIP
+          STATIC_MEMBERSHIP | VEHICLE_MEMBERSHIP | PROP_MEMBERSHIP
         )),
-      false,
-      radius
+      {softCcdPrediction: radius}
+    );
+  }
+
+  registerSoccerBall(key: string, radius: number, state: PhysicsBodyState): void {
+    this.register(
+      key,
+      state,
+      RAPIER.ColliderDesc.ball(radius)
+        .setMass(SOCCER_BALL_MASS)
+        .setRestitution(SOCCER_BALL_RESTITUTION)
+        .setFriction(SOCCER_BALL_FRICTION)
+        .setCollisionGroups(groups(
+          PROP_MEMBERSHIP,
+          STATIC_MEMBERSHIP | VEHICLE_MEMBERSHIP | HUMANOID_MEMBERSHIP | PROP_MEMBERSHIP
+        )),
+      {
+        softCcdPrediction: radius,
+        linearDamping: SOCCER_BALL_LINEAR_DAMPING,
+        angularDamping: SOCCER_BALL_ANGULAR_DAMPING
+      }
     );
   }
 
@@ -151,6 +185,12 @@ export class PhysicsWorld {
     if (!body) return;
     body.setLinvel({x: finiteOrZero(linvelX), y: finiteOrZero(linvelY)}, true);
     body.setAngvel(finiteOrZero(angvel), true);
+  }
+
+  applyImpulse(key: string, impulseX: number, impulseY: number): void {
+    const body = this.bodies.get(key);
+    if (!body) return;
+    body.applyImpulse({x: finiteOrZero(impulseX), y: finiteOrZero(impulseY)}, true);
   }
 
   shouldTeleport(key: string, state: PhysicsBodyState, teleportTolerance = 0.001): boolean {
@@ -291,8 +331,7 @@ export class PhysicsWorld {
     key: string,
     state: PhysicsBodyState,
     collider: RAPIER.ColliderDesc,
-    lockRotation = false,
-    softCcdPrediction = 0
+    options: DynamicBodyOptions = {}
   ): void {
     if (this.bodies.has(key)) {
       throw new Error(`Physics body already registered for key "${key}".`);
@@ -302,9 +341,11 @@ export class PhysicsWorld {
         .setRotation(finiteOrZero(state.rotation))
         .setLinvel(finiteOrZero(state.linvelX), finiteOrZero(state.linvelY))
         .setAngvel(finiteOrZero(state.angvel))
-        .setSoftCcdPrediction(softCcdPrediction)
+        .setSoftCcdPrediction(options.softCcdPrediction ?? 0)
+        .setLinearDamping(options.linearDamping ?? 0)
+        .setAngularDamping(options.angularDamping ?? 0)
         .setCcdEnabled(true);
-    if (lockRotation) bodyDescription.lockRotations();
+    if (options.lockRotation) bodyDescription.lockRotations();
     const body = this.world.createRigidBody(bodyDescription);
     const createdCollider = this.world.createCollider(collider, body);
     this.bodies.set(key, body);

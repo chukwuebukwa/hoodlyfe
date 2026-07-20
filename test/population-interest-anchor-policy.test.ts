@@ -39,6 +39,20 @@ test('reverse motion projects behind the authoritative vehicle heading', () => {
   assert.equal(anchors[1]?.y, -100);
 });
 
+test('drifting vehicles project population along their velocity instead of chassis heading', () => {
+  const anchors = populationInterestAnchorsFor({
+    x: 100,
+    y: 200,
+    angle: 0,
+    speed: 180,
+    linvelX: 0,
+    linvelY: 200
+  });
+  assert.equal(anchors.length, 2);
+  assert.equal(anchors[1]?.x, 100);
+  assert.equal(anchors[1]?.y, 500);
+});
+
 test('invalid observers cannot create population interest', () => {
   assert.deepEqual(populationInterestAnchorsFor({x: Number.NaN, y: 0, angle: 0, speed: 200}), []);
 });

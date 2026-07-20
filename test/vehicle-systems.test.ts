@@ -44,7 +44,7 @@ test('player driving consumes distinct model acceleration from the shared catalo
     drivenSpeed('sedan'),
     drivenSpeed('police')
   ];
-  assert.deepEqual(speeds.map(Math.round), [357, 388, 438]);
+  assert.deepEqual(speeds.map(Math.round), [360, 390, 440]);
   assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
 });
 
@@ -115,6 +115,8 @@ function drivingFixture(kind: string) {
   vehicle.id = player.vehicleId;
   vehicle.kind = kind;
   vehicle.driverId = player.id;
+  vehicle.x = 1000;
+  vehicle.y = 1000;
   room.state.vehicles.set(vehicle.id, vehicle);
   attachTestVehicleSimulation(room);
   room.playerControl.register(player.id);

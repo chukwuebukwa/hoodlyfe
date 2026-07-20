@@ -11,6 +11,8 @@ export interface PopulationInterestObserver {
   y: number;
   angle: number;
   speed: number;
+  linvelX?: number;
+  linvelY?: number;
 }
 
 export interface PopulationPlayerObserver {
@@ -57,16 +59,20 @@ export function populationInterestAnchorsFor(
     protectsVisibility: true,
     ...(ownerId ? {ownerId} : {})
   }];
-  if (Math.abs(observer.speed) < POPULATION_LOOKAHEAD.minimumVehicleSpeed) return anchors;
+  const hasVelocity = Number.isFinite(observer.linvelX) && Number.isFinite(observer.linvelY);
+  const velocityX = hasVelocity ? observer.linvelX! : Math.cos(observer.angle) * observer.speed;
+  const velocityY = hasVelocity ? observer.linvelY! : Math.sin(observer.angle) * observer.speed;
+  const motionSpeed = Math.hypot(velocityX, velocityY);
+  if (motionSpeed < POPULATION_LOOKAHEAD.minimumVehicleSpeed) return anchors;
 
   const projectedDistance = clamp(
-    observer.speed * POPULATION_LOOKAHEAD.projectionSeconds,
-    -POPULATION_LOOKAHEAD.maximumDistance,
+    motionSpeed * POPULATION_LOOKAHEAD.projectionSeconds,
+    0,
     POPULATION_LOOKAHEAD.maximumDistance
   );
   anchors.push({
-    x: observer.x + Math.cos(observer.angle) * projectedDistance,
-    y: observer.y + Math.sin(observer.angle) * projectedDistance,
+    x: observer.x + velocityX / motionSpeed * projectedDistance,
+    y: observer.y + velocityY / motionSpeed * projectedDistance,
     kind: 'lookahead',
     protectsVisibility: false,
     ...(ownerId ? {ownerId} : {})

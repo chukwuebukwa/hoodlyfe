@@ -179,6 +179,7 @@ const GAME_SHELL_HTML = `
       <i id="move-thumb"></i>
     </div>
     <button id="interact-button" type="button" aria-label="Enter or exit vehicle">CAR</button>
+    <button id="handbrake-button" type="button" aria-label="Hold handbrake">HB</button>
     <button id="voice-touch-button" type="button" aria-label="Hold to talk">PTT</button>
     <div id="aim-stick" class="touch-stick" aria-label="Aim and fire">
       <i id="aim-thumb"></i>

@@ -15,6 +15,7 @@ export interface PlayerMoveInput {
   x?: number;
   y?: number;
   sequence?: number;
+  handbrake?: boolean;
 }
 
 export interface PlayerAimInput {
@@ -25,6 +26,7 @@ export interface PlayerControlState {
   inputX: number;
   inputY: number;
   lastSequence: number;
+  handbrake?: boolean;
 }
 
 interface PlayerControlRuntime {
@@ -171,7 +173,8 @@ export class PlayerControlController {
     runtime.pending.push({
       inputX: Number.isFinite(x) ? clamp(x, -1, 1) : 0,
       inputY: Number.isFinite(y) ? clamp(y, -1, 1) : 0,
-      lastSequence: sequence
+      lastSequence: sequence,
+      ...(input?.handbrake === true ? {handbrake: true} : {})
     });
     runtime.receivedSequence = sequence;
     return true;

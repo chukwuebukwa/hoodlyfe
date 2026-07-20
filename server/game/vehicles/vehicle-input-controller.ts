@@ -8,6 +8,7 @@ export interface AppliedVehicleInput {
   inputX: number;
   inputY: number;
   sequence: number;
+  handbrake?: boolean;
 }
 
 interface VehicleInputQueue {
@@ -100,7 +101,8 @@ function parseMove(
   return {
     inputX: Number.isFinite(x) ? clamp(x, -1, 1) : 0,
     inputY: Number.isFinite(y) ? clamp(y, -1, 1) : 0,
-    sequence
+    sequence,
+    ...(move?.handbrake === true ? {handbrake: true} : {})
   };
 }
 

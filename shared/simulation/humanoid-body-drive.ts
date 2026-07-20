@@ -2,7 +2,7 @@ import type {PhysicsWorld} from '../physics/physics-world.ts';
 import type {OnFootPose} from './on-foot-step.ts';
 
 export function physicsBodyKey(
-  kind: 'vehicle' | 'player' | 'pedestrian',
+  kind: 'vehicle' | 'player' | 'pedestrian' | 'prop',
   id: string
 ): string {
   return `${kind}:${id}`;

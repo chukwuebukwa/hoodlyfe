@@ -2802,6 +2802,31 @@ canvas {
   background: rgba(242, 201, 76, 0.35);
 }
 
+#handbrake-button {
+  position: absolute;
+  right: max(84px, calc(env(safe-area-inset-right) + 60px));
+  bottom: max(158px, calc(env(safe-area-inset-bottom) + 132px));
+  display: none;
+  width: 54px;
+  height: 54px;
+  border: 2px solid rgba(242, 201, 76, 0.82);
+  border-radius: 50%;
+  color: #f2c94c;
+  background: rgba(0, 0, 0, 0.62);
+  font: 950 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#game-shell[data-driving="true"] #touch-controls.active #handbrake-button {
+  display: block;
+}
+
+#handbrake-button:active {
+  color: #080b0c;
+  background: #f2c94c;
+}
+
 #voice-touch-button {
   position: absolute;
   bottom: max(22px, env(safe-area-inset-bottom));

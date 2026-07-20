@@ -11,6 +11,11 @@ export interface VehicleHandlingDefinition {
   readonly steeringRate: number;
   readonly steeringGripFloor: number;
   readonly steeringGripSpeed: number;
+  readonly lateralGrip: number;
+  readonly handbrakeLateralGrip: number;
+  readonly yawResponse: number;
+  readonly handbrakeTurnMultiplier: number;
+  readonly powerOversteer: number;
 }
 
 export interface VehicleTrafficDefinition {
@@ -70,7 +75,12 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       maximumReverseSpeed: 115,
       steeringRate: 2.35,
       steeringGripFloor: 0.22,
-      steeringGripSpeed: 120
+      steeringGripSpeed: 120,
+      lateralGrip: 18,
+      handbrakeLateralGrip: 1.4,
+      yawResponse: 12,
+      handbrakeTurnMultiplier: 1.35,
+      powerOversteer: 0.05
     },
     traffic: {
       cruiseSpeed: 118,
@@ -102,7 +112,12 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       maximumReverseSpeed: 125,
       steeringRate: 2.55,
       steeringGripFloor: 0.24,
-      steeringGripSpeed: 115
+      steeringGripSpeed: 115,
+      lateralGrip: 20,
+      handbrakeLateralGrip: 1.8,
+      yawResponse: 13,
+      handbrakeTurnMultiplier: 1.25,
+      powerOversteer: 0.03
     },
     traffic: {
       cruiseSpeed: 142,
@@ -134,7 +149,12 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       maximumReverseSpeed: 105,
       steeringRate: 2.5,
       steeringGripFloor: 0.25,
-      steeringGripSpeed: 110
+      steeringGripSpeed: 110,
+      lateralGrip: 17,
+      handbrakeLateralGrip: 1.3,
+      yawResponse: 11,
+      handbrakeTurnMultiplier: 1.38,
+      powerOversteer: 0.06
     },
     traffic: {
       cruiseSpeed: 108,
@@ -166,7 +186,12 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       maximumReverseSpeed: 120,
       steeringRate: 2.86,
       steeringGripFloor: 0.3,
-      steeringGripSpeed: 152
+      steeringGripSpeed: 152,
+      lateralGrip: 17,
+      handbrakeLateralGrip: 0.95,
+      yawResponse: 10,
+      handbrakeTurnMultiplier: 1.5,
+      powerOversteer: 0.05
     },
     traffic: {
       cruiseSpeed: 150,
@@ -198,7 +223,12 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
       maximumReverseSpeed: 122,
       steeringRate: 3.05,
       steeringGripFloor: 0.33,
-      steeringGripSpeed: 158
+      steeringGripSpeed: 158,
+      lateralGrip: 16.5,
+      handbrakeLateralGrip: 0.85,
+      yawResponse: 9.5,
+      handbrakeTurnMultiplier: 1.55,
+      powerOversteer: 0.07
     },
     traffic: {
       cruiseSpeed: 156,

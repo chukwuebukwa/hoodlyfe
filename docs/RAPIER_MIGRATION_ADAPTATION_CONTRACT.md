@@ -26,9 +26,10 @@ snapshot interpolation; client prediction is deferred.
   registration, stepping, capture/writeback, and contact facts.
 - `shared/simulation/vehicle-body-drive.ts` is the only vehicle-to-body drive recipe.
   Authoritative vehicle motion must use it unchanged.
-- Vehicle heading remains authored by `integrateVehiclePose`; vehicle bodies have
-  locked rotation and zero angular velocity. Rapier's angular integration produced a
-  deterministic bias of about 5e-6 rad/tick during the spike.
+- `integrateVehicleMotion` authors engine acceleration, braking, steering torque,
+  lateral tyre grip, handbrake grip loss, and power oversteer. Vehicle bodies retain
+  world-space linear and angular velocity between ticks, and Rapier owns contact
+  separation and collision-induced yaw.
 - Street vehicles, players, and pedestrians share one Rapier step. Vehicles collide
   with statics, vehicles, and humanoids. Humanoids collide with statics and vehicles,
   but not each other, preserving pedestrian pass-through.
@@ -49,9 +50,10 @@ static mesh, and border walls landed dark.
 
 ### Stage 1 — authoritative vehicles
 
-All vehicle motion moved through the shared body-drive recipe. Heading stayed
-control-policy-authored. The 40-vehicle physics-step test remains below the 1 ms p95
-budget.
+All vehicle motion moved through the shared body-drive recipe. Chassis heading and
+travel direction may diverge under handbrake or power oversteer, while lateral grip
+pulls ordinary driving back into line. The 40-vehicle physics-step test remains below
+the 1 ms p95 budget.
 
 ### Stage 2 — vehicle prediction spike (superseded)
 
@@ -59,8 +61,8 @@ Client prediction and interaction-island replay moved to Rapier. Server/client t
 are bit-identical through wall contact when damage modifiers are mirrored tick-aligned.
 The proposed 12-tick replay cap and engine snapshot fallback were dropped: restoring
 body state measured about 3e-4 px divergence at 30 ticks, so reconstruction added
-complexity without useful accuracy. Angular/lateral velocity protocol fields were
-deferred until force-based handling needs them.
+complexity without useful accuracy. Linear and angular velocity are now replicated for
+authoritative drift presentation, without restoring client-side prediction.
 
 The prediction, reconciliation, interaction-snapshot, and replay stack was subsequently
 removed. It duplicated the authoritative simulation and increased client and server

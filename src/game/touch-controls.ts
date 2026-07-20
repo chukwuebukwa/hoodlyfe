@@ -7,6 +7,7 @@ export class TouchControls {
   readonly movement: StickState = {x: 0, y: 0};
   readonly aim: StickState = {x: 0, y: -1};
   firing = false;
+  handbrake = false;
   active = false;
   private interactQueued = false;
   private readonly cleanup: Array<() => void> = [];
@@ -37,6 +38,27 @@ export class TouchControls {
     if (interactButton) {
       this.cleanup.push(() => interactButton.removeEventListener('click', queueInteraction));
     }
+    const handbrakeButton = document.querySelector('#handbrake-button');
+    const pressHandbrake = (event: Event) => {
+      event.preventDefault();
+      this.handbrake = true;
+    };
+    const releaseHandbrake = (event: Event) => {
+      event.preventDefault();
+      this.handbrake = false;
+    };
+    handbrakeButton?.addEventListener('pointerdown', pressHandbrake);
+    handbrakeButton?.addEventListener('pointerup', releaseHandbrake);
+    handbrakeButton?.addEventListener('pointercancel', releaseHandbrake);
+    handbrakeButton?.addEventListener('lostpointercapture', releaseHandbrake);
+    if (handbrakeButton) {
+      this.cleanup.push(
+        () => handbrakeButton.removeEventListener('pointerdown', pressHandbrake),
+        () => handbrakeButton.removeEventListener('pointerup', releaseHandbrake),
+        () => handbrakeButton.removeEventListener('pointercancel', releaseHandbrake),
+        () => handbrakeButton.removeEventListener('lostpointercapture', releaseHandbrake)
+      );
+    }
   }
 
   consumeInteract(): boolean {
@@ -52,6 +74,7 @@ export class TouchControls {
     this.aim.x = 0;
     this.aim.y = -1;
     this.firing = false;
+    this.handbrake = false;
     this.interactQueued = false;
   }
 

@@ -22,13 +22,13 @@ test('vehicle input queue consumes fixed moves in order and acknowledges only ap
   assert.equal(controller.accept(player.id, {
     vehicleId: 'car',
     moves: [
-      {sequence: 1, x: 1, y: -1},
+      {sequence: 1, x: 1, y: -1, handbrake: true},
       {sequence: 2, x: 0.5, y: -1}
     ]
   }), 2);
   assert.equal(player.lastVehicleInputSequence, 0, 'Receipt is not an applied-state acknowledgement.');
   const first = controller.consume(player.id, 'car');
-  assert.deepEqual(first, {inputX: 1, inputY: -1, sequence: 1});
+  assert.deepEqual(first, {inputX: 1, inputY: -1, sequence: 1, handbrake: true});
   controller.acknowledge(player.id, 'car', first?.sequence ?? 0);
   assert.equal(player.lastVehicleInputSequence, 1);
   assert.deepEqual(controller.consume(player.id, 'car'), {inputX: 0.5, inputY: -1, sequence: 2});

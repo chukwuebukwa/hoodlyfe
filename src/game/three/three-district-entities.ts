@@ -4,6 +4,7 @@ import type {
   DistrictNetworkState,
   NetworkNpc,
   NetworkPlayer,
+  NetworkSoccerBall,
   NetworkStinger,
   NetworkVehicle
 } from '../types.ts';
@@ -43,7 +44,9 @@ import {
   VEHICLE_DOOR_COLUMNS,
   VEHICLE_DOOR_ROWS,
   vehicleDoorAtlasFrame,
-  vehicleDoorPresentation
+  vehicleDoorPresentation,
+  vehicleDoorSpriteOffset,
+  type VehicleSpriteOffset
 } from '../rendering/action-sprite-policy.ts';
 import {
   serverAngleToThree,
@@ -59,6 +62,7 @@ import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
 import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
 import {voiceIndicatorPresentation} from '../rendering/voice-indicator-policy.ts';
+import {ThreeSkidMarkRenderer} from './three-skid-mark-renderer.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -140,6 +144,7 @@ const LPC_SPIKE_ATLASES: Readonly<PlayerCharacterSources> = Object.freeze({
 export class ThreeDistrictEntities {
   private readonly rendered = new Map<string, RenderedEntity>();
   private readonly appearances = new Map<string, CompiledAppearanceTextures>();
+  private readonly skidMarks: ThreeSkidMarkRenderer;
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly textures: EntityTextures,
@@ -150,7 +155,9 @@ export class ThreeDistrictEntities {
     ) => void,
     private readonly remoteTimelinesEnabled: () => boolean = () => true,
     private readonly playerVoiceActivity: (playerId: string) => number = () => 0
-  ) {}
+  ) {
+    this.skidMarks = new ThreeSkidMarkRenderer(scene, surfaceHeightAt);
+  }
 
   static async create(
     scene: THREE.Scene,
@@ -221,6 +228,8 @@ export class ThreeDistrictEntities {
     renderServerTimeMs = state.serverTimeMs ?? 0,
     estimatedServerTimeMs = state.serverTimeMs ?? renderServerTimeMs
   ): void {
+    const presentationNowMs = performance.now();
+    this.skidMarks.beginFrame(localSpaceId === 'street');
     const present = new Set<string>();
     state.players.forEach((player, id) => {
       if ((player.spaceId || 'street') !== localSpaceId) return;
@@ -253,6 +262,18 @@ export class ThreeDistrictEntities {
         state.players.values(),
         state.serverTimeMs ?? 0,
         renderServerTimeMs,
+        estimatedServerTimeMs,
+        presentationNowMs
+      );
+    });
+    state.soccerBalls?.forEach((ball, id) => {
+      if (localSpaceId !== 'street') return;
+      present.add(`soccer-ball:${id}`);
+      this.synchronizeSoccerBall(
+        `soccer-ball:${id}`,
+        ball,
+        state.serverTimeMs ?? 0,
+        renderServerTimeMs,
         estimatedServerTimeMs
       );
     });
@@ -265,6 +286,7 @@ export class ThreeDistrictEntities {
       if (present.has(id)) continue;
       this.remove(id, rendered);
     }
+    this.skidMarks.endFrame(presentationNowMs);
   }
 
   private synchronizeStinger(id: string, stinger: NetworkStinger): void {
@@ -287,6 +309,52 @@ export class ThreeDistrictEntities {
     rendered.mesh.rotation.z = serverAngleToThree(stinger.angle);
     rendered.mesh.visible = segmentCount > 0;
     rendered.mesh.userData.stinger = stinger;
+  }
+
+  private synchronizeSoccerBall(
+    id: string,
+    ball: NetworkSoccerBall,
+    serverTimeMs: number,
+    renderServerTimeMs: number,
+    estimatedServerTimeMs: number
+  ): void {
+    const rendered = this.obtain(id, () => ({
+      mesh: soccerBallMesh(),
+      motion: createRemoteMotionTimeline('prop')
+    }));
+    if (serverTimeMs > 0) {
+      rendered.motion?.push({
+        timeMs: serverTimeMs,
+        x: ball.x,
+        y: ball.y,
+        angle: ball.angle,
+        velocityX: ball.linvelX,
+        velocityY: ball.linvelY,
+        surfaceId: ball.surfaceId ?? STREET_GROUND_SURFACE_ID
+      });
+    }
+    const buffered = this.remoteTimelinesEnabled()
+      ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
+      : undefined;
+    if (buffered) this.onRemoteTimeline?.(buffered);
+    const x = buffered?.x ?? ball.x;
+    const y = buffered?.y ?? ball.y;
+    const angle = buffered?.angle ?? ball.angle;
+    positionEntity(
+      rendered.mesh,
+      x,
+      y,
+      this.surfaceHeightAt(
+        x,
+        y,
+        buffered?.surfaceId ?? ball.surfaceId ?? STREET_GROUND_SURFACE_ID
+      ) + 7,
+      buffered ? 1 : 0.45
+    );
+    rendered.mesh.rotation.z = serverAngleToThree(angle);
+    rendered.mesh.userData.worldX = x;
+    rendered.mesh.userData.worldY = y;
+    rendered.mesh.userData.soccerBall = ball;
   }
 
   vehiclePose(vehicleId: string): VehicleRenderPose | undefined {
@@ -342,6 +410,7 @@ export class ThreeDistrictEntities {
   }
 
   destroy(): void {
+    this.skidMarks.destroy();
     for (const [id, rendered] of this.rendered) this.remove(id, rendered);
     for (const texture of [
       this.textures.player,
@@ -733,7 +802,8 @@ export class ThreeDistrictEntities {
     players: Iterable<NetworkPlayer>,
     serverTimeMs: number,
     renderServerTimeMs: number,
-    estimatedServerTimeMs: number
+    estimatedServerTimeMs: number,
+    presentationNowMs: number
   ): void {
     const definition = vehicleDefinition(vehicle.kind);
     const playerList = [...players];
@@ -745,7 +815,8 @@ export class ThreeDistrictEntities {
         VEHICLE_DOOR_ROWS,
         vehicleDoorAtlasFrame(vehicle, 0),
         definition.presentation.width,
-        definition.presentation.height
+        definition.presentation.height,
+        vehicleDoorSpriteOffset(vehicle, 0)
       ),
       smoke: createFireSmokeEffect({
         radius: Math.max(16, definition.presentation.width * 0.22),
@@ -774,8 +845,8 @@ export class ThreeDistrictEntities {
         x: vehicle.x,
         y: vehicle.y,
         angle: vehicle.angle,
-        velocityX: Math.cos(vehicle.angle) * vehicle.speed,
-        velocityY: Math.sin(vehicle.angle) * vehicle.speed,
+        velocityX: vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
+        velocityY: vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
         surfaceId: vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
       });
     }
@@ -784,7 +855,8 @@ export class ThreeDistrictEntities {
       rendered.mesh,
       VEHICLE_DOOR_COLUMNS,
       VEHICLE_DOOR_ROWS,
-      vehicleDoorAtlasFrame(vehicle, door.frame)
+      vehicleDoorAtlasFrame(vehicle, door.frame),
+      vehicleDoorSpriteOffset(vehicle, door.frame)
     );
     const buffered = this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
@@ -811,6 +883,16 @@ export class ThreeDistrictEntities {
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
     rendered.mesh.userData.vehicle = vehicle;
+    this.skidMarks.observe(vehicle.id, {
+      x,
+      y,
+      angle,
+      linvelX: buffered?.velocityX ?? vehicle.linvelX ?? Math.cos(angle) * vehicle.speed,
+      linvelY: buffered?.velocityY ?? vehicle.linvelY ?? Math.sin(angle) * vehicle.speed,
+      kind: vehicle.kind,
+      surfaceId: buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID,
+      destroyed: vehicle.destroyed
+    }, presentationNowMs);
     this.positionVehicleEffects(rendered, vehicle);
   }
 
@@ -1043,7 +1125,8 @@ function spriteMesh(
   rows: number,
   frame: number,
   width: number,
-  height: number
+  height: number,
+  offset: VehicleSpriteOffset = {x: 0, y: 0}
 ): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
   const texture = source.clone();
   texture.needsUpdate = true;
@@ -1058,7 +1141,11 @@ function spriteMesh(
     depthWrite: false,
     side: THREE.DoubleSide
   });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  const geometry = new THREE.PlaneGeometry(width, height);
+  geometry.translate(offset.x, offset.y, 0);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.spriteOffsetX = offset.x;
+  mesh.userData.spriteOffsetY = offset.y;
   mesh.renderOrder = 10;
   return mesh;
 }
@@ -1081,6 +1168,90 @@ function policeStingerMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMat
   mesh.renderOrder = 13;
   paintPoliceStinger(mesh, 0, 'preparing');
   return mesh;
+}
+
+function soccerBallMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  if (context) paintSoccerBall(context, canvas.width / 2, canvas.height / 2, 52);
+  const texture = new THREE.CanvasTexture(canvas);
+  configureTexture(texture);
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    alphaTest: 0.08,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), material);
+  mesh.renderOrder = 14;
+  return mesh;
+}
+
+function paintSoccerBall(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  radius: number
+): void {
+  context.save();
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.clip();
+  context.fillStyle = '#f4f4ed';
+  context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+  context.strokeStyle = '#202522';
+  context.lineWidth = 5;
+  context.beginPath();
+  context.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
+  context.stroke();
+  const centerPatch = polygonPoints(centerX, centerY, 17, 5, -Math.PI / 2);
+  fillPolygon(context, centerPatch, '#1d2421');
+  for (let index = 0; index < 5; index++) {
+    const angle = -Math.PI / 2 + index * Math.PI * 2 / 5;
+    const patchX = centerX + Math.cos(angle) * 43;
+    const patchY = centerY + Math.sin(angle) * 43;
+    const patch = polygonPoints(patchX, patchY, 15, 5, angle + Math.PI);
+    fillPolygon(context, patch, '#1d2421');
+    context.beginPath();
+    context.moveTo(centerPatch[index].x, centerPatch[index].y);
+    context.lineTo(patchX, patchY);
+    context.strokeStyle = '#49504c';
+    context.lineWidth = 3;
+    context.stroke();
+  }
+  context.restore();
+}
+
+function polygonPoints(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  sides: number,
+  rotation: number
+): Array<{x: number; y: number}> {
+  return Array.from({length: sides}, (_, index) => {
+    const angle = rotation + index * Math.PI * 2 / sides;
+    return {x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius};
+  });
+}
+
+function fillPolygon(
+  context: CanvasRenderingContext2D,
+  points: readonly {x: number; y: number}[],
+  color: string
+): void {
+  const first = points[0];
+  if (!first) return;
+  context.beginPath();
+  context.moveTo(first.x, first.y);
+  for (const point of points.slice(1)) context.lineTo(point.x, point.y);
+  context.closePath();
+  context.fillStyle = color;
+  context.fill();
 }
 
 function paintPoliceStinger(
@@ -1241,8 +1412,18 @@ function setSpriteFrame(
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>,
   columns: number,
   rows: number,
-  frame: number
+  frame: number,
+  offset?: VehicleSpriteOffset
 ): void {
+  if (offset) {
+    const previousX = Number(mesh.userData.spriteOffsetX ?? 0);
+    const previousY = Number(mesh.userData.spriteOffsetY ?? 0);
+    if (offset.x !== previousX || offset.y !== previousY) {
+      mesh.geometry.translate(offset.x - previousX, offset.y - previousY, 0);
+      mesh.userData.spriteOffsetX = offset.x;
+      mesh.userData.spriteOffsetY = offset.y;
+    }
+  }
   if (mesh.userData.frame === frame &&
     mesh.userData.columns === columns && mesh.userData.rows === rows) return;
   const texture = mesh.material.map;

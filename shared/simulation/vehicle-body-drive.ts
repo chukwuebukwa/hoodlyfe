@@ -1,16 +1,16 @@
 // The single recipe both sides of the wire use to move a vehicle through the
-// physics world: the handling kernel computes desired motion, the body follows by
-// velocity writeback with kernel-authored heading (zero spin - the engine's angvel
-// integration drifts microradians per tick, which compounds through sustained
-// turns), and the engine owns translation contact. This remains the authoritative
+// physics world: the handling kernel computes desired velocity and yaw, the body
+// follows by velocity writeback, and the engine owns contact and pose integration.
+// This remains the authoritative
 // vehicle-motion boundary; presentation clients consume its replicated result.
 
 import type {PhysicsBodyState, PhysicsWorld} from '../physics/physics-world.ts';
 import {
-  integrateVehiclePose,
+  integrateVehicleMotion,
   type VehicleControlCommand,
-  type VehicleStepModifiers,
-  type VehicleWorldPose
+  type VehicleMotionInput,
+  type VehicleMotionState,
+  type VehicleStepModifiers
 } from './vehicle-step.ts';
 
 // Attempted-vs-achieved gaps under this are unobstructed motion; above it, a world
@@ -18,33 +18,35 @@ import {
 const WORLD_CONTACT_SHORTFALL = 1;
 
 export interface VehicleBodyCapture {
-  pose: VehicleWorldPose;
+  pose: VehicleMotionState;
   collidedWithWorld: boolean;
   impactSpeed: number;
+  impactVelocityX: number;
+  impactVelocityY: number;
 }
 
 export interface VehicleBodyDrive {
-  readonly desired: VehicleWorldPose;
+  readonly desired: VehicleMotionState;
   readonly state: PhysicsBodyState;
 }
 
 export function planVehicleBodyDrive(
-  pose: VehicleWorldPose,
+  pose: VehicleMotionInput,
   command: VehicleControlCommand,
   kind: string,
   deltaSeconds: number,
   modifiers: VehicleStepModifiers = {}
 ): VehicleBodyDrive {
-  const desired = integrateVehiclePose(pose, command, kind, deltaSeconds, modifiers);
+  const desired = integrateVehicleMotion(pose, command, kind, deltaSeconds, modifiers);
   return {
     desired,
     state: {
       x: pose.x,
       y: pose.y,
-      rotation: desired.angle,
-      linvelX: (desired.x - pose.x) / deltaSeconds,
-      linvelY: (desired.y - pose.y) / deltaSeconds,
-      angvel: 0
+      rotation: pose.angle,
+      linvelX: desired.linvelX,
+      linvelY: desired.linvelY,
+      angvel: desired.angvel
     }
   };
 }
@@ -53,11 +55,11 @@ export function driveVehicleBody(
   world: PhysicsWorld,
   key: string,
   kind: string,
-  pose: VehicleWorldPose,
+  pose: VehicleMotionInput,
   command: VehicleControlCommand,
   deltaSeconds: number,
   modifiers: VehicleStepModifiers = {}
-): VehicleWorldPose {
+): VehicleMotionState {
   const {desired, state} = planVehicleBodyDrive(
     pose,
     command,
@@ -73,15 +75,15 @@ export function driveVehicleBody(
 export function captureVehicleBody(
   world: PhysicsWorld,
   key: string,
-  desired: VehicleWorldPose
+  desired: VehicleMotionState
 ): VehicleBodyCapture | undefined {
   const state = world.capture(key);
   if (!state) return undefined;
   const angle = normalizeAngle(state.rotation);
   const collidedWithWorld = world.hasStaticImpact(
     key,
-    desired.speed * Math.cos(desired.angle),
-    desired.speed * Math.sin(desired.angle)
+    desired.linvelX,
+    desired.linvelY
   ) &&
     Math.hypot(desired.x - state.x, desired.y - state.y) > WORLD_CONTACT_SHORTFALL;
   return {
@@ -89,10 +91,15 @@ export function captureVehicleBody(
       x: state.x,
       y: state.y,
       angle,
-      speed: state.linvelX * Math.cos(angle) + state.linvelY * Math.sin(angle)
+      speed: state.linvelX * Math.cos(angle) + state.linvelY * Math.sin(angle),
+      linvelX: state.linvelX,
+      linvelY: state.linvelY,
+      angvel: state.angvel
     },
     collidedWithWorld,
-    impactSpeed: collidedWithWorld ? desired.speed : 0
+    impactSpeed: collidedWithWorld ? Math.hypot(desired.linvelX, desired.linvelY) : 0,
+    impactVelocityX: collidedWithWorld ? desired.linvelX : 0,
+    impactVelocityY: collidedWithWorld ? desired.linvelY : 0
   };
 }
 

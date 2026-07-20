@@ -20,7 +20,7 @@ The client, HUD, movement, combat, AI, wanted system, and vehicle handling are p
 - Four-seat multiplayer cars with occupant nameplates, automatic driver promotion, and passenger shooting.
 - Passengers visibly lean out with their equipped weapon and recoil when firing.
 - Timed car entry and carjacking with door-side animation and a fleeing ejected driver.
-- Acceleration, reversing, steering, wall collision, exiting, and vehicle impact damage.
+- Acceleration, reversing, progressive tyre grip, sustained handbrake drifting, fading rear-tyre skid marks, collision yaw, exiting, and vehicle impact damage.
 - Desktop controls and responsive dual-stick touch controls.
 - Optional spatial proximity voice with desktop and touch push-to-talk.
 
@@ -68,6 +68,8 @@ apply workflow.
 | Action | Desktop | Touch |
 | --- | --- | --- |
 | Move / drive | WASD or arrow keys | Left stick |
+| Handbrake while driving | Space | HB button |
+| Kick soccer ball while on foot | Space | - |
 | Aim | Mouse | Right stick |
 | Fire | Hold primary mouse button | Hold right stick |
 | Previous / next weapon | Q / E, mouse wheel, or HUD arrows | HUD arrows |

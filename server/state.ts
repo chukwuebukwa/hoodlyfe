@@ -351,6 +351,9 @@ export class VehicleState extends Schema {
   y = 0;
   angle = 0;
   speed = 0;
+  linvelX = 0;
+  linvelY = 0;
+  angvel = 0;
   health = 1000;
   maxHealth = 1000;
   engineDamage = 0;
@@ -378,6 +381,9 @@ defineTypes(VehicleState, {
   y: 'number',
   angle: 'number',
   speed: 'number',
+  linvelX: 'number',
+  linvelY: 'number',
+  angvel: 'number',
   health: 'number',
   maxHealth: 'number',
   engineDamage: 'number',
@@ -395,6 +401,28 @@ defineTypes(VehicleState, {
   siren: 'boolean',
   radioStation: 'string',
   tyreDamageMask: 'number'
+});
+
+export class SoccerBallState extends Schema {
+  id = '';
+  surfaceId = STREET_GROUND_SURFACE_ID;
+  x = 0;
+  y = 0;
+  angle = 0;
+  linvelX = 0;
+  linvelY = 0;
+  angvel = 0;
+}
+
+defineTypes(SoccerBallState, {
+  id: 'string',
+  surfaceId: 'string',
+  x: 'number',
+  y: 'number',
+  angle: 'number',
+  linvelX: 'number',
+  linvelY: 'number',
+  angvel: 'number'
 });
 
 export class StingerState extends Schema {
@@ -557,6 +585,7 @@ export class DistrictState extends Schema {
   trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
+  soccerBalls = new MapSchema<SoccerBallState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
   worldTimeStartedAt = 0;
@@ -581,6 +610,7 @@ defineTypes(DistrictState, {
   trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
+  soccerBalls: {map: SoccerBallState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
   worldTimeStartedAt: 'number',
@@ -604,6 +634,7 @@ for (const field of [
   'trafficSignals',
   'npcs',
   'vehicles',
+  'soccerBalls',
   'missions',
   'services',
   'stingers'

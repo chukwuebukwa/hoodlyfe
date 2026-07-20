@@ -8,6 +8,7 @@ import {
 } from '../input/client-input-policy.ts';
 import {TouchControls} from '../touch-controls.ts';
 import {threePointToServerAimAngle} from './three-prototype-policy.ts';
+import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
 
 const AIM_INTERVAL_MS = 50;
 const FIRE_INTERVAL_MS = 90;
@@ -23,6 +24,12 @@ interface ThreeInputControllerOptions {
   onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
   directAimAngle?: () => number | undefined;
+}
+
+export interface ThreeMovementInput {
+  x: number;
+  y: number;
+  handbrake: boolean;
 }
 
 export class ThreeInputController {
@@ -50,13 +57,15 @@ export class ThreeInputController {
     this.bindClick('#vehicle-action-button', () => this.options.room.send('interact'));
   }
 
-  update(nowMs: number): {x: number; y: number} {
+  update(nowMs: number): ThreeMovementInput {
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) {
       this.fireQueued = false;
-      return {x: 0, y: 0};
+      return {x: 0, y: 0, handbrake: false};
     }
-    const touchMovement = player.vehicleId && player.vehicleSeat === 0
+    const driving = Boolean(player.vehicleId && player.vehicleSeat === 0);
+    if (!driving) this.touch.handbrake = false;
+    const touchMovement = driving
       ? directionalVehicleMovement(
           this.touch.movement.x,
           this.touch.movement.y,
@@ -71,7 +80,11 @@ export class ThreeInputController {
         (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0) -
         (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0)
     );
-    if (!player.alive) return movement;
+    const input = {
+      ...movement,
+      handbrake: driving && (this.keys.has('Space') || this.touch.handbrake)
+    };
+    if (!player.alive) return input;
     let angle = this.options.directAimAngle?.();
     if (angle !== undefined) {
       // Explorer cameras own yaw directly instead of raycasting an overhead ground plane.
@@ -105,7 +118,7 @@ export class ThreeInputController {
       this.lastFireAt = nowMs;
     }
     if (this.touch.consumeInteract()) this.options.room.send('interact');
-    return movement;
+    return input;
   }
 
   destroy(): void {
@@ -123,8 +136,15 @@ export class ThreeInputController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
     this.keys.add(event.code);
-    if (this.options.isBlocked?.() || !this.options.player()) return;
+    const player = this.options.player();
+    if (this.options.isBlocked?.() || !player) return;
     if (event.code === 'KeyF') this.options.room.send('interact');
+    if (event.code === 'Space') {
+      event.preventDefault();
+      if (!player.vehicleId || player.vehicleSeat !== 0) {
+        this.options.room.send(SOCCER_BALL_KICK_MESSAGE);
+      }
+    }
     if (event.code === 'KeyQ') this.cycleWeapon(-1);
     if (event.code === 'KeyE') this.cycleWeapon(1);
   };
