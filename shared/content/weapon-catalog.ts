@@ -22,9 +22,11 @@ export type MagazineField =
 
 export interface WeaponPresentationDefinition {
   assetId: string;
+  assetPath?: string;
   heldWidth: number;
   heldHeight: number;
   heldVisible: boolean;
+  heldOriginX?: number;
 }
 
 interface WeaponDefinitionBase {
@@ -183,7 +185,14 @@ export const WEAPONS = Object.freeze({
     lifetimeMs: 1100,
     pellets: 1,
     spread: 0,
-    presentation: Object.freeze({assetId: 'pistol', heldWidth: 25, heldHeight: 9, heldVisible: true})
+    presentation: Object.freeze({
+      assetId: 'pistol',
+      assetPath: '/assets/custom/weapons/datdev-demo/pistol.png',
+      heldWidth: 24,
+      heldHeight: 17,
+      heldVisible: true,
+      heldOriginX: 0.3
+    })
   } satisfies BulletWeaponDefinition),
   smg: Object.freeze({
     id: 'smg',
@@ -202,7 +211,14 @@ export const WEAPONS = Object.freeze({
     lifetimeMs: 900,
     pellets: 1,
     spread: 0.045,
-    presentation: Object.freeze({assetId: 'smg', heldWidth: 33, heldHeight: 11, heldVisible: true})
+    presentation: Object.freeze({
+      assetId: 'smg',
+      assetPath: '/assets/custom/weapons/datdev-demo/smg.png',
+      heldWidth: 38,
+      heldHeight: 21,
+      heldVisible: true,
+      heldOriginX: 0.45
+    })
   } satisfies BulletWeaponDefinition),
   shotgun: Object.freeze({
     id: 'shotgun',
@@ -221,7 +237,14 @@ export const WEAPONS = Object.freeze({
     lifetimeMs: 550,
     pellets: 6,
     spread: 0.3,
-    presentation: Object.freeze({assetId: 'shotgun', heldWidth: 42, heldHeight: 10, heldVisible: true})
+    presentation: Object.freeze({
+      assetId: 'shotgun',
+      assetPath: '/assets/custom/weapons/datdev-demo/shotgun.png',
+      heldWidth: 46,
+      heldHeight: 11,
+      heldVisible: true,
+      heldOriginX: 0.48
+    })
   } satisfies BulletWeaponDefinition),
   rocket: Object.freeze({
     id: 'rocket',
@@ -265,6 +288,13 @@ export const WEAPONS = Object.freeze({
 
 export function isWeaponId(value: string): value is WeaponId {
   return value in WEAPONS;
+}
+
+export function weaponAssetPath(id: WeaponId): string {
+  const presentation = WEAPONS[id].presentation;
+  return 'assetPath' in presentation
+    ? presentation.assetPath
+    : `/assets/original/weapons/${presentation.assetId}.svg`;
 }
 
 export function isBulletWeaponId(value: string): value is BulletWeaponId {

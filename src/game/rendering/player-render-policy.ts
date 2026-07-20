@@ -48,7 +48,7 @@ export function weaponPresentation(weapon: NetworkPlayer['weapon']): WeaponPrese
     width: presentation.heldWidth,
     height: presentation.heldHeight,
     visible: presentation.heldVisible,
-    originX: 0.16
+    originX: presentation.heldOriginX ?? 0.16
   };
 }
 

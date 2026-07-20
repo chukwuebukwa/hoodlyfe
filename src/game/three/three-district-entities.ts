@@ -9,6 +9,7 @@ import type {
   NetworkVehicle
 } from '../types.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
+import {weaponAssetPath} from '../../../shared/content/weapon-catalog.ts';
 import {
   appearanceSpritePresentation,
 } from '../appearance/appearance-render-policy.ts';
@@ -199,14 +200,14 @@ export class ThreeDistrictEntities {
       loader.loadAsync('/assets/custom/actions/police-actions.png'),
       loader.loadAsync('/assets/custom/actions/vehicle-doors.png'),
       loader.loadAsync('/assets/custom/actions/bloodstain.png'),
-      loader.loadAsync('/assets/original/weapons/fists.svg'),
-      loader.loadAsync('/assets/original/weapons/bat.svg'),
-      loader.loadAsync('/assets/original/weapons/pistol.svg'),
-      loader.loadAsync('/assets/original/weapons/smg.svg'),
-      loader.loadAsync('/assets/original/weapons/shotgun.svg'),
-      loader.loadAsync('/assets/original/weapons/rocket.svg'),
-      loader.loadAsync('/assets/original/weapons/grenade.svg'),
-      loader.loadAsync('/assets/original/weapons/molotov.svg')
+      loader.loadAsync(weaponAssetPath('fists')),
+      loader.loadAsync(weaponAssetPath('bat')),
+      loader.loadAsync(weaponAssetPath('pistol')),
+      loader.loadAsync(weaponAssetPath('smg')),
+      loader.loadAsync(weaponAssetPath('shotgun')),
+      loader.loadAsync(weaponAssetPath('rocket')),
+      loader.loadAsync(weaponAssetPath('grenade')),
+      loader.loadAsync(weaponAssetPath('molotov'))
     ]);
     for (const texture of [
       player, civilian, police, vehicles, playerActions, playerWalkMask, playerActionMask,

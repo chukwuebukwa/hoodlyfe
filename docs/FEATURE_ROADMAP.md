@@ -150,6 +150,11 @@ These are ordered by how much of the city loop they improve and by their depende
   validates lead/front/rear/path clearance, and executes bounded change-out/pass/return
   phases. Multi-lane and terminal conflict bounds own fixed braking-distance stop lines,
   and the dense one-minute traffic soak records zero overlap pair-ticks.
+- **Planned foundation**: authored corridors need an explicit direction mode
+  (`bidirectional`, `forward-only`, or `reverse-only`). The authoritative compiler,
+  connectivity validation, junction movement generation, route planning, traffic spawning,
+  editor inspector, and compiled-edge preview must all consume that one shared field so
+  divided roads and true one-way streets do not generate illegal opposing lanes.
 - **Delivered playable**: an authored cruiser plus bounded dynamic reinforcements consume reported suspect facts without traffic/wanted coupling, use bounded deterministic A*, search last-known positions, intercept visible targets, scale speed and unit count with heat, and permit occupied-vehicle ramming only at heat 3+.
 - **Delivered foundation**: road steering/awareness is shared below ambient and police strategy; F3 exposes off-camera cruiser state plus route/last-known overlays.
 - Add original-art compact, sports, van, truck, bus, motorcycle, ambulance, and special profiles only when each has a validated frame, footprint, seat layout, and road compatibility.

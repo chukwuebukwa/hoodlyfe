@@ -18,6 +18,7 @@ test('local HUD projection covers foot, driver, passenger, damage, and death mod
   assert.equal(foot.weaponName, 'PISTOL');
   assert.equal(foot.weaponAmmo, '12 / 108');
   assert.equal(foot.reloading, false);
+  assert.equal(foot.weaponIcon, '/assets/custom/weapons/datdev-demo/pistol.png');
   const grenade = projectLocalHud(createPlayer({weapon: 'grenade', ammoGrenade: 4}), undefined);
   assert.equal(grenade.weaponName, 'GRENADE');
   assert.equal(grenade.weaponAmmo, '4');

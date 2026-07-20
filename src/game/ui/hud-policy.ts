@@ -1,5 +1,5 @@
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
-import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
+import {weaponAssetPath, weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 
 export interface LocalHudProjection {
@@ -54,7 +54,7 @@ export function projectLocalHud(
     weaponName: weapon.name.toUpperCase(),
     weaponAmmo: weaponAmmo(player),
     reloading: Boolean(player.reloadWeapon && player.reloadWeapon === player.weapon),
-    weaponIcon: `/assets/original/weapons/${weapon.presentation.assetId}.svg`,
+    weaponIcon: weaponAssetPath(player.weapon),
     speed: String(Math.round(vehicleSpeed(vehicle) * 0.55)).padStart(3, '0'),
     vehicleCondition: clamp(
       finite(vehicle?.health) / Math.max(1, finite(vehicle?.maxHealth, 1)) * 100,

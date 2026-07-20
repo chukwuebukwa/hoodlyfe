@@ -69,13 +69,13 @@ test('projectile presentation preserves weapon style and police override', () =>
 
 test('player weapon models and passenger seats preserve stable presentation anchors', () => {
   assert.deepEqual(weaponPresentation('pistol'), {
-    texture: 'weapon-pistol', width: 25, height: 9, visible: true, originX: 0.16
+    texture: 'weapon-pistol', width: 24, height: 17, visible: true, originX: 0.3
   });
   assert.deepEqual(weaponPresentation('smg'), {
-    texture: 'weapon-smg', width: 33, height: 11, visible: true, originX: 0.16
+    texture: 'weapon-smg', width: 38, height: 21, visible: true, originX: 0.45
   });
   assert.deepEqual(weaponPresentation('shotgun'), {
-    texture: 'weapon-shotgun', width: 42, height: 10, visible: true, originX: 0.16
+    texture: 'weapon-shotgun', width: 46, height: 11, visible: true, originX: 0.48
   });
   assert.deepEqual(weaponPresentation('rocket'), {
     texture: 'weapon-rocket', width: 48, height: 14, visible: true, originX: 0.16
