@@ -5,7 +5,11 @@ import type {
   MissionTemplateId
 } from '../../shared/content/mission-catalog.ts';
 import type {PlayerAppearance} from '../../shared/content/appearance-catalog.ts';
-import type {BulletWeaponId, WeaponId} from '../../shared/content/weapon-catalog.ts';
+import type {
+  BulletWeaponId,
+  MagazineWeaponId,
+  WeaponId
+} from '../../shared/content/weapon-catalog.ts';
 
 export type CombatReactionKind = '' | 'flinch' | 'stagger' | 'knockdown';
 export type CombatReactionDirection = 'front' | 'left' | 'back' | 'right';
@@ -45,6 +49,15 @@ export interface NetworkPlayer {
   ammoRocket?: number;
   ammoGrenade: number;
   ammoMolotov?: number;
+  magazinePistol?: number;
+  magazineSmg?: number;
+  magazineShotgun?: number;
+  magazineRocket?: number;
+  reloadWeapon?: '' | MagazineWeaponId;
+  reloadStartedAt?: number;
+  reloadEndsAt?: number;
+  reloadSequence?: number;
+  shotSequence?: number;
   onFire?: boolean;
   fireStartedAt?: number;
   fireExpiresAt?: number;

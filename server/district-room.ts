@@ -50,9 +50,17 @@ import {
   type NetworkPingMessage
 } from '../shared/protocol/network-quality.ts';
 import {
+  COMBAT_FIRE_RECEIPT_MESSAGE,
   COMBAT_FIRE_MESSAGE,
+  COMBAT_PROTOCOL_VERSION,
   type CombatFireCommand
 } from '../shared/protocol/combat-fire.ts';
+import {
+  WEAPON_RELOAD_PROTOCOL_VERSION,
+  WEAPON_RELOAD_RECEIPT_MESSAGE,
+  WEAPON_RELOAD_REQUEST_MESSAGE,
+  type WeaponReloadRequest
+} from '../shared/protocol/weapon-reload.ts';
 import {
   NETCODE_ROLLOUT_MANIFEST_MESSAGE,
   NETCODE_ROLLOUT_REQUEST_MESSAGE,
@@ -97,6 +105,8 @@ import {CombatReactionController} from './game/combat/combat-reaction-controller
 import {FireControlController} from './game/combat/fire-control-controller.ts';
 import {CombatHitboxHistory} from './game/combat/combat-hitbox-history.ts';
 import {CombatFireCommandController} from './game/combat/combat-fire-command-controller.ts';
+import {WeaponRuntimeController} from './game/combat/weapon-runtime-controller.ts';
+import {WeaponReloadCommandController} from './game/combat/weapon-reload-command-controller.ts';
 import {MeleeCombatController} from './game/combat/melee-combat-controller.ts';
 import {ProjectileController} from './game/combat/projectile-controller.ts';
 import {ExplosionController} from './game/combat/explosion-controller.ts';
@@ -226,6 +236,8 @@ export class DistrictRoom extends Room<DistrictState> {
   private damageController!: DamageController;
   private combatReactions!: CombatReactionController;
   private fireControl!: FireControlController;
+  private weaponRuntime!: WeaponRuntimeController;
+  private weaponReloadCommands!: WeaponReloadCommandController;
   private readonly combatHistory = new CombatHitboxHistory();
   private combatFireCommands!: CombatFireCommandController;
   private meleeCombat!: MeleeCombatController;
@@ -512,11 +524,13 @@ export class DistrictRoom extends Room<DistrictState> {
       clearCombatState: (playerId) => {
         this.meleeCombat?.clearPlayer(playerId);
         this.combatReactions?.clearPlayer(playerId);
+        this.weaponRuntime?.cancelReload(playerId);
       }
     });
     this.combatReactions = new CombatReactionController({
       state: this.state,
       interruptPlayer: (player) => {
+        this.weaponRuntime?.cancelReload(player);
         if (player.action === 'melee') this.meleeCombat?.clearPlayer(player.id);
         this.vehicleAccess.cancelAction(player);
         this.playerControl.reset(player.id);
@@ -694,11 +708,17 @@ export class DistrictRoom extends Room<DistrictState> {
         zone
       )
     });
+    this.weaponRuntime = new WeaponRuntimeController({
+      state: this.state,
+      clock: () => ({nowMs: this.simulationClock.nowMs})
+    });
+    this.weaponReloadCommands = new WeaponReloadCommandController(this.weaponRuntime);
     this.fireControl = new FireControlController({
       state: this.state,
       random: this.random,
       clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
       events: this.events,
+      weaponRuntime: this.weaponRuntime,
       cancelSpawnProtection: (playerId) => this.playerLifecycle.cancelProtection(playerId),
       throwExplosive: (input) => this.thrownProjectileController.throw(input),
       launchRocket: (input) => this.rocketProjectileController.launch(input),
@@ -948,6 +968,7 @@ export class DistrictRoom extends Room<DistrictState> {
       vehicles: this.vehicleSimulation,
       reactions: this.combatReactions,
       melee: this.meleeCombat,
+      weaponRuntime: this.weaponRuntime,
       playerLifecycle: this.playerLifecycle,
       playerControl: this.playerControl,
       vehicleAccess: this.vehicleAccess,
@@ -1023,13 +1044,31 @@ export class DistrictRoom extends Room<DistrictState> {
     });
 
     this.registerJournaledCommand<CombatFireCommand>(COMBAT_FIRE_MESSAGE, (client, message) => {
+      let result;
       if (this.netcodeRollout.stages.combatRewind) {
-        this.combatFireCommands.accept(client.sessionId, message);
+        result = this.combatFireCommands.accept(client.sessionId, message);
       } else {
         const player = this.state.players.get(client.sessionId);
-        if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
+        result = player?.spaceId === 'street'
+          ? this.fireControl.shoot(client.sessionId)
+          : {accepted: false, reason: 'invalid-controlled-entity'};
       }
+      client.send(COMBAT_FIRE_RECEIPT_MESSAGE, {
+        protocolVersion: COMBAT_PROTOCOL_VERSION,
+        sequence: Number.isSafeInteger(message?.sequence) ? message.sequence : 0,
+        ...result
+      });
     });
+    this.registerJournaledCommand<WeaponReloadRequest>(
+      WEAPON_RELOAD_REQUEST_MESSAGE,
+      (client, message) => {
+        const result = this.weaponReloadCommands.accept(client.sessionId, message);
+        client.send(WEAPON_RELOAD_RECEIPT_MESSAGE, {
+          protocolVersion: WEAPON_RELOAD_PROTOCOL_VERSION,
+          ...result
+        });
+      }
+    );
     this.registerJournaledCommand('shoot', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player?.spaceId === 'street') this.fireControl.shoot(client.sessionId);
@@ -1161,6 +1200,8 @@ export class DistrictRoom extends Room<DistrictState> {
     this.soccerBallController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.combatFireCommands.clearPlayer(client.sessionId);
+    this.weaponRuntime.cancelReload(client.sessionId);
+    this.weaponReloadCommands.clearPlayer(client.sessionId);
     this.meleeCombat.clearPlayer(client.sessionId);
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);

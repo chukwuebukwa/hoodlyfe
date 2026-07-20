@@ -32,9 +32,12 @@ test('trauma medical respawn restores ammunition and offensive action cancels pr
   fixture.player.ammoShotgun = 3;
   fixture.lifecycle.kill(fixture.player, 1000, 'hostile');
   fixture.lifecycle.tryRespawn(fixture.player, 2000);
-  assert.equal(fixture.player.ammoPistol, 120);
-  assert.equal(fixture.player.ammoSmg, 240);
-  assert.equal(fixture.player.ammoShotgun, 48);
+  assert.equal(fixture.player.ammoPistol, 108);
+  assert.equal(fixture.player.ammoSmg, 210);
+  assert.equal(fixture.player.ammoShotgun, 42);
+  assert.equal(fixture.player.magazinePistol, 12);
+  assert.equal(fixture.player.magazineSmg, 30);
+  assert.equal(fixture.player.magazineShotgun, 6);
   fixture.lifecycle.cancelProtection(fixture.player.id);
   assert.equal(fixture.lifecycle.isProtected(fixture.player.id, 2001), false);
   assert.equal(fixture.player.spawnProtected, false);

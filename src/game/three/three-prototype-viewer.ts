@@ -145,7 +145,10 @@ export class ThreePrototypeViewer {
             ? quality.estimatedServerTimeMs
             : this.room?.state.serverTimeMs ?? 0;
         },
-        combatRewindEnabled: () => this.rolloutEnabled('combatRewind')
+        combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
+        onReceipt: (receipt) => {
+          if (!receipt.accepted) this.entities?.cancelLocalShot(this.room?.sessionId ?? '');
+        }
       });
       this.debug = new ThreeDebugController(
         this.scene,
@@ -178,7 +181,10 @@ export class ThreePrototypeViewer {
         ),
         surfaceZ: () => this.center.z,
         isBlocked: () => this.settingsOpen || (this.ui?.isInputBlocked() ?? false),
-        onFire: (angle) => this.combatFire?.send(angle),
+        onFire: (angle) => {
+          this.entities?.presentLocalShot(this.room?.sessionId ?? '');
+          this.combatFire?.send(angle);
+        },
         directAimAngle: () => this.cameraMode === 'explorer' ? this.explorerYaw : undefined
       });
       this.followLocalPlayer();
@@ -193,6 +199,7 @@ export class ThreePrototypeViewer {
     cancelAnimationFrame(this.frame);
     this.unbind();
     this.input?.destroy();
+    this.combatFire?.destroy();
     this.ui?.destroy();
     this.entities?.destroy();
     this.world?.destroy();

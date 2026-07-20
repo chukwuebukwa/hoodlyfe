@@ -3,7 +3,9 @@ import {
   WEAPON_ORDER,
   WEAPONS,
   ammoFor,
+  isMagazineWeaponId,
   isWeaponId,
+  refillAmmo,
   setAmmo,
   type BulletWeaponId,
   type MeleeWeaponId,
@@ -11,12 +13,18 @@ import {
 } from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {GameEventStream} from '../events/game-events.ts';
-import {AMMUNITION_CAPACITY} from '../../../shared/content/street-services.ts';
 import type {CombatFireCommand} from '../../../shared/protocol/combat-fire.ts';
+import type {WeaponRuntimeController} from './weapon-runtime-controller.ts';
 
 export interface FireControlResult {
   readonly accepted: boolean;
   readonly reason?: string;
+  readonly weapon?: WeaponId;
+  readonly magazine?: number;
+  readonly reserve?: number;
+  readonly shotSequence?: number;
+  readonly reloadSequence?: number;
+  readonly reloadEndsAt?: number;
 }
 
 interface FireControlControllerOptions {
@@ -24,6 +32,7 @@ interface FireControlControllerOptions {
   random: DeterministicRandom;
   clock: () => {tick: number; nowMs: number};
   events?: GameEventStream;
+  weaponRuntime?: WeaponRuntimeController;
   cancelSpawnProtection?: (playerId: string) => void;
   throwExplosive?: (input: {
     kind: 'grenade' | 'molotov';
@@ -81,11 +90,11 @@ export class FireControlController {
       return rejected('action-blocked');
     }
     if (player.vehicleId && !weapon.passengerAllowed) return rejected('not-allowed');
-    if (
-      clock.nowMs - (this.lastAttackAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs ||
-      ammoFor(player, weaponId) <= 0
-    ) {
-      return rejected('cooldown-or-empty');
+    if (clock.nowMs - (this.lastAttackAt.get(playerId) ?? Number.NEGATIVE_INFINITY) < weapon.cooldownMs) {
+      return rejected('cooldown', weaponId);
+    }
+    if (!isMagazineWeaponId(weaponId) && ammoFor(player, weaponId) <= 0) {
+      return rejected('empty-ammo', weaponId);
     }
 
     const origin = this.shotOrigin(player);
@@ -117,6 +126,8 @@ export class FireControlController {
       return accepted();
     }
     if (weapon.fireMode === 'rocket') {
+      const ready = this.options.weaponRuntime?.canFire(player, weapon.id);
+      if (ready && !ready.accepted) return {...ready, shotSequence: player.shotSequence};
       const created = this.options.launchRocket?.({
         ownerId: playerId,
         x: origin.x,
@@ -125,16 +136,20 @@ export class FireControlController {
         nowMs: clock.nowMs
       }) ?? false;
       if (!created) return rejected('capacity-exceeded');
+      const consumed = this.options.weaponRuntime?.consumeShot(player, weapon.id);
+      if (consumed && !consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
+      if (!this.options.weaponRuntime) setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
-      setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
-      return accepted();
+      return accepted(player, weaponId, consumed);
     }
 
+    const consumed = this.options.weaponRuntime?.consumeShot(player, weapon.id);
+    if (consumed && !consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
     this.lastAttackAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
-    setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
+    if (!this.options.weaponRuntime) setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
     const excludedIds = new Set([playerId]);
     if (player.vehicleId) excludedIds.add(player.vehicleId);
@@ -160,7 +175,7 @@ export class FireControlController {
         });
       }
     }
-    return accepted();
+    return accepted(player, weaponId, consumed);
   }
 
   cycle(playerId: string, rawDirection: unknown): void {
@@ -168,6 +183,7 @@ export class FireControlController {
     if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
     const current = isWeaponId(player.weapon) ? WEAPON_ORDER.indexOf(player.weapon) : 0;
     const direction = Number(rawDirection) < 0 ? -1 : 1;
+    this.options.weaponRuntime?.cancelReload(player);
     player.weapon = WEAPON_ORDER[(current + direction + WEAPON_ORDER.length) % WEAPON_ORDER.length];
   }
 
@@ -204,12 +220,7 @@ export class FireControlController {
   restock(playerId: string): void {
     const player = this.options.state.players.get(playerId);
     if (!player) return;
-    player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
-    player.ammoSmg = AMMUNITION_CAPACITY.ammoSmg;
-    player.ammoShotgun = AMMUNITION_CAPACITY.ammoShotgun;
-    player.ammoRocket = AMMUNITION_CAPACITY.ammoRocket;
-    player.ammoGrenade = AMMUNITION_CAPACITY.ammoGrenade;
-    player.ammoMolotov = AMMUNITION_CAPACITY.ammoMolotov;
+    refillAmmo(player);
   }
 
   private publishWeaponFired(
@@ -271,10 +282,19 @@ export class FireControlController {
   }
 }
 
-function accepted(): FireControlResult {
-  return Object.freeze({accepted: true});
+function accepted(
+  player?: PlayerState,
+  weapon?: WeaponId,
+  runtime?: {magazine?: number; reserve?: number; reloadSequence?: number; reloadEndsAt?: number}
+): FireControlResult {
+  return Object.freeze({
+    accepted: true,
+    ...(weapon ? {weapon} : {}),
+    ...(runtime ?? {}),
+    ...(player ? {shotSequence: player.shotSequence} : {})
+  });
 }
 
-function rejected(reason: string): FireControlResult {
-  return Object.freeze({accepted: false, reason});
+function rejected(reason: string, weapon?: WeaponId): FireControlResult {
+  return Object.freeze({accepted: false, reason, ...(weapon ? {weapon} : {})});
 }

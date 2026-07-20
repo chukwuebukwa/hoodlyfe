@@ -5,6 +5,7 @@ export const WEAPON_ORDER = [
 export type WeaponId = typeof WEAPON_ORDER[number];
 export type BulletWeaponId = Extract<WeaponId, 'pistol' | 'smg' | 'shotgun'>;
 export type RocketWeaponId = Extract<WeaponId, 'rocket'>;
+export type MagazineWeaponId = BulletWeaponId | RocketWeaponId;
 export type MeleeWeaponId = Extract<WeaponId, 'fists' | 'bat'>;
 export type AmmunitionField =
   | 'ammoPistol'
@@ -13,6 +14,11 @@ export type AmmunitionField =
   | 'ammoRocket'
   | 'ammoGrenade'
   | 'ammoMolotov';
+export type MagazineField =
+  | 'magazinePistol'
+  | 'magazineSmg'
+  | 'magazineShotgun'
+  | 'magazineRocket';
 
 export interface WeaponPresentationDefinition {
   assetId: string;
@@ -30,7 +36,15 @@ interface WeaponDefinitionBase {
   presentation: WeaponPresentationDefinition;
 }
 
-export interface BulletWeaponDefinition extends WeaponDefinitionBase {
+interface MagazineWeaponDefinitionBase {
+  magazineField: MagazineField;
+  magazineSize: number;
+  reloadMs: number;
+  reloadStyle: 'magazine' | 'per-shell';
+  trigger: 'semi' | 'automatic';
+}
+
+export interface BulletWeaponDefinition extends WeaponDefinitionBase, MagazineWeaponDefinitionBase {
   id: BulletWeaponId;
   fireMode: 'bullet';
   ammunitionField: Extract<AmmunitionField, 'ammoPistol' | 'ammoSmg' | 'ammoShotgun'>;
@@ -49,7 +63,7 @@ export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
   impactTriggered: boolean;
 }
 
-export interface RocketWeaponDefinition extends WeaponDefinitionBase {
+export interface RocketWeaponDefinition extends WeaponDefinitionBase, MagazineWeaponDefinitionBase {
   id: RocketWeaponId;
   fireMode: 'rocket';
   ammunitionField: 'ammoRocket';
@@ -159,6 +173,11 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 170,
     ammunitionField: 'ammoPistol',
+    magazineField: 'magazinePistol',
+    magazineSize: 12,
+    reloadMs: 1100,
+    reloadStyle: 'magazine',
+    trigger: 'semi',
     damage: 25,
     projectileSpeed: 720,
     lifetimeMs: 1100,
@@ -173,6 +192,11 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 85,
     ammunitionField: 'ammoSmg',
+    magazineField: 'magazineSmg',
+    magazineSize: 30,
+    reloadMs: 1500,
+    reloadStyle: 'magazine',
+    trigger: 'automatic',
     damage: 12,
     projectileSpeed: 820,
     lifetimeMs: 900,
@@ -187,6 +211,11 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 650,
     ammunitionField: 'ammoShotgun',
+    magazineField: 'magazineShotgun',
+    magazineSize: 6,
+    reloadMs: 480,
+    reloadStyle: 'per-shell',
+    trigger: 'semi',
     damage: 18,
     projectileSpeed: 650,
     lifetimeMs: 550,
@@ -201,6 +230,11 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: false,
     cooldownMs: 950,
     ammunitionField: 'ammoRocket',
+    magazineField: 'magazineRocket',
+    magazineSize: 1,
+    reloadMs: 1800,
+    reloadStyle: 'magazine',
+    trigger: 'semi',
     projectileSpeed: 430,
     lifetimeMs: 1400,
     presentation: Object.freeze({assetId: 'rocket', heldWidth: 48, heldHeight: 14, heldVisible: true})
@@ -235,6 +269,10 @@ export function isWeaponId(value: string): value is WeaponId {
 
 export function isBulletWeaponId(value: string): value is BulletWeaponId {
   return value === 'pistol' || value === 'smg' || value === 'shotgun';
+}
+
+export function isMagazineWeaponId(value: string): value is MagazineWeaponId {
+  return value === 'pistol' || value === 'smg' || value === 'shotgun' || value === 'rocket';
 }
 
 export function isMeleeWeaponId(value: string): value is MeleeWeaponId {

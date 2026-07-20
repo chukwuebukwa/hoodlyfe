@@ -78,8 +78,9 @@ export class LocalHudController {
     if (this.weaponAmmo) {
       this.weaponAmmo.textContent = projection.weaponAmmo === undefined
         ? ''
-        : String(projection.weaponAmmo);
+        : projection.weaponAmmo;
       this.weaponAmmo.classList.toggle('hidden', projection.weaponAmmo === undefined);
+      this.weaponAmmo.classList.toggle('reloading', projection.reloading);
     }
     if (this.weaponIcon) {
       this.weaponIcon.src = projection.weaponIcon;
@@ -99,6 +100,7 @@ export class LocalHudController {
       this.shell.dataset.armor = String(projection.armor);
       this.shell.dataset.wanted = String(projection.wanted);
       this.shell.dataset.action = projection.action;
+      this.shell.dataset.reloading = String(projection.reloading);
     }
     const current = hudTransitionState(player);
     for (const notice of hudTransitionNotices(this.previous, current)) this.showNotice(notice);

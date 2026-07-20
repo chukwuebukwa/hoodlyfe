@@ -7,6 +7,10 @@ export interface AmmunitionState {
   ammoRocket?: number;
   ammoGrenade?: number;
   ammoMolotov?: number;
+  magazinePistol?: number;
+  magazineSmg?: number;
+  magazineShotgun?: number;
+  magazineRocket?: number;
 }
 
 export interface CombatResupplyState extends AmmunitionState {
@@ -25,7 +29,10 @@ export interface VehicleRepairState {
   damageRight: number;
 }
 
-export const AMMUNITION_CAPACITY: Readonly<Required<AmmunitionState>> = Object.freeze({
+export const AMMUNITION_CAPACITY: Readonly<Required<Pick<
+  AmmunitionState,
+  'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoRocket' | 'ammoGrenade' | 'ammoMolotov'
+>>> = Object.freeze({
   ammoPistol: 120,
   ammoSmg: 240,
   ammoShotgun: 48,
@@ -42,11 +49,20 @@ export const STREET_SERVICE_RADIUS: Readonly<Record<StreetServiceKind, number>> 
 });
 
 export function ammunitionRestockQuote(state: AmmunitionState): number {
-  const pistol = missingRounds(state.ammoPistol, AMMUNITION_CAPACITY.ammoPistol);
-  const smg = missingRounds(state.ammoSmg, AMMUNITION_CAPACITY.ammoSmg);
-  const shotgun = missingRounds(state.ammoShotgun, AMMUNITION_CAPACITY.ammoShotgun);
+  const pistol = missingRounds(
+    state.ammoPistol + (state.magazinePistol ?? 0),
+    AMMUNITION_CAPACITY.ammoPistol
+  );
+  const smg = missingRounds(
+    state.ammoSmg + (state.magazineSmg ?? 0),
+    AMMUNITION_CAPACITY.ammoSmg
+  );
+  const shotgun = missingRounds(
+    state.ammoShotgun + (state.magazineShotgun ?? 0),
+    AMMUNITION_CAPACITY.ammoShotgun
+  );
   const rocket = missingRounds(
-    state.ammoRocket ?? AMMUNITION_CAPACITY.ammoRocket,
+    (state.ammoRocket ?? AMMUNITION_CAPACITY.ammoRocket) + (state.magazineRocket ?? 0),
     AMMUNITION_CAPACITY.ammoRocket
   );
   const grenade = missingRounds(

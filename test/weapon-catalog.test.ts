@@ -24,11 +24,15 @@ test('weapon catalog exposes complete unique discriminated definitions', () => {
       assert.ok(weapon.projectileSpeed > 0);
       assert.ok(weapon.lifetimeMs > 0);
       assert.ok(weapon.pellets > 0);
+      assert.ok(weapon.magazineSize > 0);
+      assert.ok(weapon.reloadMs > 0);
     } else if (weapon.fireMode === 'rocket') {
       assert.equal(weapon.ammunitionField, 'ammoRocket');
       assert.ok(weapon.projectileSpeed > 0);
       assert.ok(weapon.lifetimeMs > 0);
       assert.equal(weapon.passengerAllowed, false);
+      assert.equal(weapon.magazineSize, 1);
+      assert.ok(weapon.reloadMs > 0);
     } else if (weapon.fireMode === 'thrown') {
       assert.equal(
         weapon.ammunitionField,
