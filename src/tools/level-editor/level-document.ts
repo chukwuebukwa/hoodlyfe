@@ -3,6 +3,7 @@ export const LEVEL_EDITOR_SCHEMA_VERSION = 1;
 export type EditableTileLayer = 'collision' | 'roads';
 export type SpawnKind = 'player' | 'pedestrian' | 'traffic' | 'police' | 'mission';
 export type LaneVehicleClass = 'civilian' | 'service' | 'emergency';
+export type LaneCorridorDirection = 'both' | 'forward' | 'reverse';
 
 export interface Point2D {
   x: number;
@@ -13,14 +14,24 @@ export interface LaneCorridor {
   id: string;
   speedLimit: number;
   points: Point2D[];
+  direction?: LaneCorridorDirection;
   vehicleClasses?: LaneVehicleClass[];
   lanesPerDirection?: number;
+}
+
+export function corridorSupportsDirection(
+  corridor: Pick<LaneCorridor, 'direction'>,
+  direction: Exclude<LaneCorridorDirection, 'both'>
+): boolean {
+  const configured = corridor.direction ?? 'both';
+  return configured === 'both' || configured === direction;
 }
 
 export interface LaneJunction extends Point2D {
   id: string;
   corridors: string[];
   allowedTurns?: Array<'left' | 'right' | 'straight'>;
+  terminalTransfer?: boolean;
 }
 
 export interface RoadblockVehiclePose extends Point2D {

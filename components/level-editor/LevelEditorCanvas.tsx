@@ -9,6 +9,7 @@ import {
 } from '../../src/tools/level-editor/editor-history.ts';
 import {
   documentWorldSize,
+  corridorSupportsDirection,
   tileIndex,
   tileToWorldCenter,
   worldToTile,
@@ -30,6 +31,10 @@ import {
   nearestCorridorIntersection,
   repairJunctionIntersections
 } from '../../src/tools/level-editor/lane-authoring-geometry.ts';
+import {
+  compiledLaneEdgeLabel,
+  type CompiledLaneEdgeDiagnostic
+} from '../../src/tools/level-editor/compiled-lane-diagnostic.ts';
 
 export interface CanvasViewCommand {
   id: number;
@@ -44,6 +49,7 @@ interface LevelEditorCanvasProps {
   selection: EditorSelection;
   preferences: EditorPreferences;
   viewCommand: CanvasViewCommand;
+  highlightedLaneEdge?: CompiledLaneEdgeDiagnostic;
   onExecute(command: EditorCommand): void;
   onSelectionChange(selection: EditorSelection): void;
   onPointerChange(readout: PointerReadout): void;
@@ -82,6 +88,7 @@ export function LevelEditorCanvas({
   selection,
   preferences,
   viewCommand,
+  highlightedLaneEdge,
   onExecute,
   onSelectionChange,
   onPointerChange,
@@ -92,6 +99,7 @@ export function LevelEditorCanvas({
   const documentRef = useRef(document);
   const selectionRef = useRef(selection);
   const preferencesRef = useRef(preferences);
+  const highlightedLaneEdgeRef = useRef(highlightedLaneEdge);
   const toolRef = useRef(tool);
   const callbacksRef = useRef({onExecute, onSelectionChange, onPointerChange, onViewportChange, onStatus});
   const viewportRef = useRef<Viewport>({scale: 0.08, offsetX: 0, offsetY: 0});
@@ -104,6 +112,7 @@ export function LevelEditorCanvas({
   documentRef.current = document;
   selectionRef.current = selection;
   preferencesRef.current = preferences;
+  highlightedLaneEdgeRef.current = highlightedLaneEdge;
   toolRef.current = tool;
   callbacksRef.current = {onExecute, onSelectionChange, onPointerChange, onViewportChange, onStatus};
 
@@ -133,7 +142,7 @@ export function LevelEditorCanvas({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(draw, [document, selection, preferences, tool]);
+  useEffect(draw, [document, highlightedLaneEdge, selection, preferences, tool]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -214,6 +223,7 @@ export function LevelEditorCanvas({
     drawTileLayers(context, activeDocument, view, viewport.scale, preferencesRef.current);
     if (preferencesRef.current.layers.corridors) drawCorridors(context, activeDocument, viewport.scale, selectionRef.current);
     if (preferencesRef.current.layers.junctions) drawJunctions(context, activeDocument, viewport.scale, selectionRef.current);
+    if (highlightedLaneEdgeRef.current) drawCompiledLaneEdge(context, highlightedLaneEdgeRef.current, viewport.scale);
     if (preferencesRef.current.layers.spawns) drawSpawns(context, activeDocument, viewport.scale, selectionRef.current);
     if (preferencesRef.current.layers.roadblocks) drawRoadblocks(context, activeDocument, viewport.scale, selectionRef.current);
     drawDraftCorridor(context, draftCorridorRef.current, cursorWorldRef.current, viewport.scale);
@@ -399,6 +409,7 @@ export function LevelEditorCanvas({
     const corridor: LaneCorridor = {
       id,
       speedLimit: 104,
+      direction: 'both',
       lanesPerDirection: 1,
       points: draftCorridorRef.current.map((point) => ({...point}))
     };
@@ -570,6 +581,7 @@ function drawCorridors(context: CanvasRenderingContext2D, document: LevelEditorD
     context.moveTo(corridor.points[0].x, corridor.points[0].y);
     corridor.points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
     context.stroke();
+    drawCorridorDirectionArrows(context, corridor, scale, selected ? '#ffd44d' : '#40d9ef');
     corridor.points.forEach((point, index) => {
       context.beginPath();
       context.arc(point.x, point.y, (selected && selection.pointIndex === index ? 8 : 5) / scale, 0, Math.PI * 2);
@@ -578,6 +590,116 @@ function drawCorridors(context: CanvasRenderingContext2D, document: LevelEditorD
     if (scale >= 0.12) drawLabel(context, corridor.id, corridor.points[0], scale, selected ? '#ffd44d' : '#b9eff7');
     context.restore();
   }
+}
+
+function drawCorridorDirectionArrows(
+  context: CanvasRenderingContext2D,
+  corridor: LaneCorridor,
+  scale: number,
+  color: string
+): void {
+  const forward = corridorSupportsDirection(corridor, 'forward');
+  const reverse = corridorSupportsDirection(corridor, 'reverse');
+  for (let segmentIndex = 0; segmentIndex < corridor.points.length - 1; segmentIndex++) {
+    const from = corridor.points[segmentIndex];
+    const to = corridor.points[segmentIndex + 1];
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const length = Math.hypot(deltaX, deltaY);
+    if (length <= 0) continue;
+    const angle = Math.atan2(deltaY, deltaX);
+    const arrowCount = Math.max(1, Math.min(6, Math.ceil(length * scale / 180)));
+    for (let arrowIndex = 0; arrowIndex < arrowCount; arrowIndex++) {
+      const progress = (arrowIndex + 1) / (arrowCount + 1);
+      const x = from.x + deltaX * progress;
+      const y = from.y + deltaY * progress;
+      if (forward) drawTravelArrow(context, x, y, angle, reverse ? -7 / scale : 0, scale, color);
+      if (reverse) drawTravelArrow(context, x, y, angle + Math.PI, forward ? -7 / scale : 0, scale, color);
+    }
+  }
+}
+
+function drawTravelArrow(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  lateralOffset: number,
+  scale: number,
+  color: string
+): void {
+  const centerX = x - Math.sin(angle) * lateralOffset;
+  const centerY = y + Math.cos(angle) * lateralOffset;
+  const shaft = 20 / scale;
+  const head = 8 / scale;
+  context.save();
+  context.translate(centerX, centerY);
+  context.rotate(angle);
+  context.strokeStyle = 'rgba(0,0,0,0.8)';
+  context.fillStyle = color;
+  context.lineWidth = 5 / scale;
+  context.beginPath();
+  context.moveTo(-shaft / 2, 0);
+  context.lineTo(shaft / 2, 0);
+  context.stroke();
+  context.strokeStyle = color;
+  context.lineWidth = 2 / scale;
+  context.stroke();
+  context.beginPath();
+  context.moveTo(shaft / 2 + head, 0);
+  context.lineTo(shaft / 2 - head / 2, -head);
+  context.lineTo(shaft / 2 - head / 2, head);
+  context.closePath();
+  context.fill();
+  context.restore();
+}
+
+function drawCompiledLaneEdge(
+  context: CanvasRenderingContext2D,
+  diagnostic: CompiledLaneEdgeDiagnostic,
+  scale: number
+): void {
+  const {from, to, midpoint} = diagnostic;
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  const arrowLength = 15 / scale;
+  const arrowWidth = 8 / scale;
+  context.save();
+  context.lineCap = 'round';
+  context.strokeStyle = 'rgba(0,0,0,0.9)';
+  context.lineWidth = 12 / scale;
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  context.strokeStyle = '#ff5a5f';
+  context.lineWidth = 7 / scale;
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  context.fillStyle = '#ff5a5f';
+  for (const point of [from, to]) {
+    context.beginPath();
+    context.arc(point.x, point.y, 8 / scale, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.translate(midpoint.x, midpoint.y);
+  context.rotate(angle);
+  context.beginPath();
+  context.moveTo(arrowLength, 0);
+  context.lineTo(-arrowLength * 0.35, -arrowWidth);
+  context.lineTo(-arrowLength * 0.35, arrowWidth);
+  context.closePath();
+  context.fillStyle = '#fff4f4';
+  context.fill();
+  context.restore();
+  drawLabel(
+    context,
+    `${diagnostic.corridorId}: ${compiledLaneEdgeLabel(diagnostic)}`,
+    {x: midpoint.x, y: midpoint.y - 14 / scale},
+    scale,
+    '#ff8f92'
+  );
 }
 
 function drawJunctions(context: CanvasRenderingContext2D, document: LevelEditorDocument, scale: number, selection: EditorSelection): void {

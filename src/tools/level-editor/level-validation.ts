@@ -1,10 +1,17 @@
 import {
+  corridorSupportsDirection,
   documentWorldSize,
   tileIndex,
   worldToTile,
   type LevelEditorDocument,
   type Point2D
 } from './level-document.ts';
+import {
+  compiledLaneEdgeDiagnostic,
+  compiledLaneEdgeIdFromMessage,
+  compiledLaneEdgeLabel,
+  type CompiledLaneEdgeDiagnostic
+} from './compiled-lane-diagnostic.ts';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationEntityKind = 'map' | 'spawn' | 'corridor' | 'junction' | 'roadblock';
@@ -17,6 +24,39 @@ export interface ValidationIssue {
   entityKind: ValidationEntityKind;
   entityId?: string;
   point?: Point2D;
+  compiledLaneEdge?: CompiledLaneEdgeDiagnostic;
+}
+
+export function withRuntimeLaneIssues(
+  report: ValidationReport,
+  document: LevelEditorDocument,
+  messages: readonly string[]
+): ValidationReport {
+  const runtimeIssues = messages.map((message, index): ValidationIssue => {
+    const edgeId = compiledLaneEdgeIdFromMessage(message);
+    const diagnostic = edgeId ? compiledLaneEdgeDiagnostic(document.lanes, edgeId) : undefined;
+    return {
+      id: `runtime-lane-${index}-${edgeId ?? 'unknown'}`,
+      severity: 'error',
+      code: diagnostic ? 'compiled-lane-blocked' : 'compiled-lane-invalid',
+      message: diagnostic
+        ? `${diagnostic.corridorId}, ${compiledLaneEdgeLabel(diagnostic)} crosses blocked or non-road space.`
+        : message,
+      entityKind: diagnostic ? 'corridor' : 'map',
+      entityId: diagnostic?.corridorId,
+      point: diagnostic?.midpoint,
+      compiledLaneEdge: diagnostic
+    };
+  });
+  const issues = [...report.issues, ...runtimeIssues];
+  return {
+    issues,
+    counts: {
+      error: issues.filter((issue) => issue.severity === 'error').length,
+      warning: issues.filter((issue) => issue.severity === 'warning').length,
+      info: issues.filter((issue) => issue.severity === 'info').length
+    }
+  };
 }
 
 export interface ValidationReport {
@@ -94,6 +134,9 @@ function validateCorridors(document: LevelEditorDocument, issues: ValidationIssu
     if (corridor.lanesPerDirection !== undefined && (!Number.isInteger(corridor.lanesPerDirection) || corridor.lanesPerDirection < 1 || corridor.lanesPerDirection > 4)) {
       add(issues, 'error', 'corridor-lanes', `${corridor.id} lanes per direction must be between 1 and 4.`, 'corridor', corridor.id, corridor.points[0]);
     }
+    if (!['both', 'forward', 'reverse'].includes(corridor.direction ?? 'both')) {
+      add(issues, 'error', 'corridor-direction', `${corridor.id} has an invalid traffic direction.`, 'corridor', corridor.id, corridor.points[0]);
+    }
     corridor.points.forEach((point, pointIndex) => {
       if (!insideWorld(document, point)) {
         add(issues, 'error', 'corridor-point-outside', `${corridor.id} point ${pointIndex + 1} is outside the map.`, 'corridor', corridor.id, point);
@@ -119,6 +162,9 @@ function validateJunctions(document: LevelEditorDocument, issues: ValidationIssu
     if (ids.has(junction.id)) add(issues, 'error', 'junction-id-duplicate', `Duplicate junction id: ${junction.id}.`, 'junction', junction.id, junction);
     ids.add(junction.id);
     if (!insideWorld(document, junction)) add(issues, 'error', 'junction-outside-map', `${junction.id} is outside the map.`, 'junction', junction.id, junction);
+    if (junction.terminalTransfer !== undefined && typeof junction.terminalTransfer !== 'boolean') {
+      add(issues, 'error', 'junction-terminal-transfer', `${junction.id} terminal lane transfer must be enabled or disabled.`, 'junction', junction.id, junction);
+    }
     if (junction.corridors.length < 2) add(issues, 'warning', 'junction-connections', `${junction.id} connects fewer than two corridors.`, 'junction', junction.id, junction);
     for (const corridorId of junction.corridors) {
       const corridor = corridorsById.get(corridorId);
@@ -204,6 +250,7 @@ function validateCorridorConnectivity(document: LevelEditorDocument, issues: Val
 
 function validateRoadblocks(document: LevelEditorDocument, issues: ValidationIssue[]): void {
   const ids = new Set<string>();
+  const corridorsById = new Map(document.lanes.corridors.map((corridor) => [corridor.id, corridor]));
   for (const roadblock of document.lanes.roadblocks ?? []) {
     if (roadblock.id.trim().length === 0) add(issues, 'error', 'roadblock-id-empty', 'Roadblock ids cannot be empty.', 'roadblock', roadblock.id, roadblock);
     if (ids.has(roadblock.id)) add(issues, 'error', 'roadblock-id-duplicate', `Duplicate roadblock id: ${roadblock.id}.`, 'roadblock', roadblock.id, roadblock);
@@ -211,6 +258,23 @@ function validateRoadblocks(document: LevelEditorDocument, issues: ValidationIss
     if (!insideWorld(document, roadblock)) add(issues, 'error', 'roadblock-outside-map', `${roadblock.id} is outside the map.`, 'roadblock', roadblock.id, roadblock);
     if (roadblock.vehiclePoses.length === 0) add(issues, 'warning', 'roadblock-vehicles', `${roadblock.id} has no vehicle poses.`, 'roadblock', roadblock.id, roadblock);
     if (roadblock.blockedEdgeIds.length === 0) add(issues, 'warning', 'roadblock-edges', `${roadblock.id} does not block any compiled lane edges.`, 'roadblock', roadblock.id, roadblock);
+    for (const edgeId of roadblock.blockedEdgeIds) {
+      const match = /^(.+):(forward|reverse)(?::lane-\d+)?:edge:\d+$/.exec(edgeId);
+      if (!match) continue;
+      const corridor = corridorsById.get(match[1]);
+      const direction = match[2] as 'forward' | 'reverse';
+      if (corridor && !corridorSupportsDirection(corridor, direction)) {
+        add(
+          issues,
+          'error',
+          'roadblock-direction-omitted',
+          `${roadblock.id} references omitted ${direction} traffic on ${corridor.id}.`,
+          'roadblock',
+          roadblock.id,
+          roadblock
+        );
+      }
+    }
     for (const [index, pose] of roadblock.vehiclePoses.entries()) {
       if (!insideWorld(document, pose)) add(issues, 'error', 'roadblock-pose-outside', `${roadblock.id} vehicle pose ${index + 1} is outside the map.`, 'roadblock', roadblock.id, pose);
     }

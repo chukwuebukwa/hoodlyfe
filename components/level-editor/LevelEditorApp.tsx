@@ -39,8 +39,10 @@ import {
 import {
   playtestBlockingValidationIssues,
   validateLevelDocument,
+  withRuntimeLaneIssues,
   type ValidationIssue
 } from '../../src/tools/level-editor/level-validation.ts';
+import type {CompiledLaneEdgeDiagnostic} from '../../src/tools/level-editor/compiled-lane-diagnostic.ts';
 import {LevelEditorCanvas, type CanvasViewCommand} from './LevelEditorCanvas';
 import {LevelEditorInspector} from './LevelEditorInspector';
 import {LevelEditorSidebar} from './LevelEditorSidebar';
@@ -108,12 +110,18 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [playDraftBusy, setPlayDraftBusy] = useState(false);
   const [lastPlayDraftUrl, setLastPlayDraftUrl] = useState<string>();
+  const [runtimeLaneIssues, setRuntimeLaneIssues] = useState<readonly string[]>([]);
+  const [highlightedLaneEdge, setHighlightedLaneEdge] = useState<CompiledLaneEdgeDiagnostic>();
   const importInputRef = useRef<HTMLInputElement>(null);
   const documentRef = useRef(document);
   const historyRef = useRef(history);
   documentRef.current = document;
   historyRef.current = history;
-  const report = useMemo(() => validateLevelDocument(document), [document]);
+  const structuralReport = useMemo(() => validateLevelDocument(document), [document]);
+  const report = useMemo(
+    () => withRuntimeLaneIssues(structuralReport, document, runtimeLaneIssues),
+    [document, runtimeLaneIssues, structuralReport]
+  );
 
   const applyHistoryResult = useCallback((result: HistoryResult, message?: string): void => {
     documentRef.current = result.document;
@@ -121,6 +129,8 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     setDocument(result.document);
     setHistory(result.history);
     setDirty(true);
+    setRuntimeLaneIssues([]);
+    setHighlightedLaneEdge(undefined);
     if (message ?? result.label) setStatus(message ?? `${result.label}.`);
   }, []);
 
@@ -214,6 +224,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
   }
 
   function onSelectIssue(issue: ValidationIssue): void {
+    setHighlightedLaneEdge(issue.compiledLaneEdge);
     if (issue.entityId) {
       if (issue.entityKind === 'spawn') setSelection({kind: 'spawn', id: issue.entityId});
       if (issue.entityKind === 'corridor') setSelection({kind: 'corridor', id: issue.entityId});
@@ -287,10 +298,23 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(documentRef.current)
       });
-      const payload = await response.json() as EditorPlaytestResponse | {error?: string};
+      const payload = await response.json() as EditorPlaytestResponse | {error?: string; issues?: string[]};
       if (!response.ok || !('playUrl' in payload)) {
+        if ('issues' in payload && payload.issues?.length) {
+          const runtimeReport = withRuntimeLaneIssues(
+            validateLevelDocument(documentRef.current),
+            documentRef.current,
+            payload.issues
+          );
+          const firstRuntimeIssue = runtimeReport.issues.find((issue) => issue.compiledLaneEdge) ?? runtimeReport.issues.at(-1);
+          setRuntimeLaneIssues(payload.issues);
+          setValidationOpen(true);
+          if (firstRuntimeIssue) onSelectIssue(firstRuntimeIssue);
+        }
         throw new Error('error' in payload && payload.error ? payload.error : `Play Draft failed (HTTP ${response.status}).`);
       }
+      setRuntimeLaneIssues([]);
+      setHighlightedLaneEdge(undefined);
       const target = payload.playUrl;
       setLastPlayDraftUrl(target);
       if (previewWindow) {
@@ -373,7 +397,11 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         preferences={preferences}
         open={sidebarOpen}
         onToolChange={setTool}
-        onSelectionChange={(next) => { setSelection(next); if (next && next.kind !== 'cell') setInspectorOpen(true); }}
+        onSelectionChange={(next) => {
+          setSelection(next);
+          setHighlightedLaneEdge(undefined);
+          if (next && next.kind !== 'cell') setInspectorOpen(true);
+        }}
         onPreferencesChange={setPreferences}
       />
       <section className="le-stage">
@@ -384,8 +412,9 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
           selection={selection}
           preferences={preferences}
           viewCommand={viewCommand}
+          highlightedLaneEdge={highlightedLaneEdge}
           onExecute={onExecute}
-          onSelectionChange={setSelection}
+          onSelectionChange={(next) => { setSelection(next); setHighlightedLaneEdge(undefined); }}
           onPointerChange={setPointer}
           onViewportChange={setViewport}
           onStatus={setStatus}

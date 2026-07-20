@@ -120,6 +120,29 @@ test('validation rejects empty entity ids before export', () => {
   assert.ok(codes.has('corridor-id-empty'));
 });
 
+test('validation blocks roadblocks that reference an omitted corridor direction', () => {
+  const document = fixture();
+  document.layers.collision.fill(0);
+  document.layers.roads.fill(1);
+  document.lanes.junctions = [];
+  document.lanes.corridors[0].direction = 'forward';
+  document.lanes.roadblocks = [{
+    id: 'invalid-reverse-roadblock',
+    x: 64,
+    y: 32,
+    angle: 0,
+    blockedEdgeIds: ['main:reverse:edge:0'],
+    vehiclePoses: [{x: 64, y: 32, angle: 0}],
+    stinger: {x: 64, y: 32, angle: 0, officerPose: {x: 64, y: 32, angle: 0}}
+  }];
+
+  const report = validateLevelDocument(document);
+  const issue = report.issues.find((candidate) => candidate.code === 'roadblock-direction-omitted');
+  assert.ok(issue);
+  assert.equal(issue.severity, 'error');
+  assert.equal(playtestBlockingValidationIssues(report).includes(issue), true);
+});
+
 function fixture(): LevelEditorDocument {
   return {
     schemaVersion: LEVEL_EDITOR_SCHEMA_VERSION,

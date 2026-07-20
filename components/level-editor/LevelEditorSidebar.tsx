@@ -144,7 +144,7 @@ function ObjectList({document, selection, onSelectionChange, filter}: Pick<Level
         {document.spawns.filter((spawn) => matches(spawn.id, spawn.label, spawn.kind)).map((spawn) => <ObjectButton key={spawn.id} active={selection?.kind === 'spawn' && selection.id === spawn.id} label={spawn.label} meta={spawn.kind} onClick={() => onSelectionChange({kind: 'spawn', id: spawn.id})} />)}
       </ObjectGroup>
       <ObjectGroup label="Corridors" icon={Route}>
-        {document.lanes.corridors.filter((corridor) => matches(corridor.id)).map((corridor) => <ObjectButton key={corridor.id} active={selection?.kind === 'corridor' && selection.id === corridor.id} label={corridor.id} meta={`${corridor.points.length} pts`} onClick={() => onSelectionChange({kind: 'corridor', id: corridor.id})} />)}
+        {document.lanes.corridors.filter((corridor) => matches(corridor.id)).map((corridor) => <ObjectButton key={corridor.id} active={selection?.kind === 'corridor' && selection.id === corridor.id} label={corridor.id} meta={`${corridor.points.length} pts · ${(corridor.direction ?? 'both').toUpperCase()}`} onClick={() => onSelectionChange({kind: 'corridor', id: corridor.id})} />)}
       </ObjectGroup>
       <ObjectGroup label="Junctions" icon={GitFork}>
         {document.lanes.junctions.filter((junction) => matches(junction.id, ...junction.corridors)).map((junction) => <ObjectButton key={junction.id} active={selection?.kind === 'junction' && selection.id === junction.id} label={junction.id} meta={`${junction.corridors.length} links`} onClick={() => onSelectionChange({kind: 'junction', id: junction.id})} />)}

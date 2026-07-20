@@ -43,6 +43,23 @@ test('playtest revisions retain immutable snapshots and reject another map sourc
   }), false);
 });
 
+test('playtest revision hashes and snapshots preserve one-way corridor direction', async () => {
+  const document = fixture();
+  document.lanes.corridors = [{
+    id: 'one-way',
+    speedLimit: 80,
+    direction: 'reverse',
+    lanesPerDirection: 2,
+    points: [{x: 0, y: 32}, {x: 128, y: 32}]
+  }];
+  const bothDirections = structuredClone(document);
+  bothDirections.lanes.corridors[0].direction = 'both';
+
+  const revision = await createLocalPlaytestRevision(document, '2026-07-20T00:00:00.000Z');
+  assert.equal(revision.document.lanes.corridors[0].direction, 'reverse');
+  assert.notEqual(await hashLevelDocument(document), await hashLevelDocument(bothDirections));
+});
+
 function fixture(): LevelEditorDocument {
   return {
     schemaVersion: LEVEL_EDITOR_SCHEMA_VERSION,

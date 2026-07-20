@@ -4,6 +4,7 @@ import {Plus, Trash2} from 'lucide-react';
 import type {
   EditorSpawn,
   LaneCorridor,
+  LaneCorridorDirection,
   LaneJunction,
   LaneRoadblock,
   LevelEditorDocument,
@@ -151,6 +152,16 @@ function CorridorInspector(props: LevelEditorInspectorProps & {corridor: LaneCor
     <>
       <InspectorSection title="Corridor">
         <TextField label="ID" value={corridor.id} onCommit={(value) => update('Rename corridor', {id: value}, value)} />
+        <label className="le-field"><span>Traffic direction</span>
+          <select
+            value={corridor.direction ?? 'both'}
+            onChange={(event) => update('Change traffic direction', {direction: event.target.value as LaneCorridorDirection})}
+          >
+            <option value="both">Both directions (legacy)</option>
+            <option value="forward">Forward only</option>
+            <option value="reverse">Reverse only</option>
+          </select>
+        </label>
         <div className="le-field-grid">
           <NumberField label="Speed limit" value={corridor.speedLimit} min={1} onCommit={(speedLimit) => update('Change speed limit', {speedLimit})} />
           <NumberField label="Lanes / direction" value={corridor.lanesPerDirection ?? 1} min={1} max={4} onCommit={(lanesPerDirection) => update('Change lane count', {lanesPerDirection})} />
@@ -192,6 +203,7 @@ function JunctionInspector(props: LevelEditorInspectorProps & {junction: LaneJun
         </div>
         <TextAreaField label="Corridor ids (one per line)" value={junction.corridors.join('\n')} onCommit={(value) => update('Change junction corridors', {corridors: lines(value)})} />
         <TextAreaField label="Allowed turns" value={(junction.allowedTurns ?? ['straight', 'left', 'right']).join('\n')} onCommit={(value) => update('Change allowed turns', {allowedTurns: lines(value).filter(isAllowedTurn)})} />
+        <CheckField label="Terminal lane transfer" checked={junction.terminalTransfer ?? false} onCommit={(terminalTransfer) => update('Change terminal transfer', {terminalTransfer})} />
       </InspectorSection>
     </>
   );

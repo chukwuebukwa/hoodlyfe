@@ -85,7 +85,7 @@
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 6176,
+          "x": 5968,
           "y": 7648
         },
         {
@@ -104,7 +104,7 @@
           "y": 8288
         },
         {
-          "x": 10208,
+          "x": 9728,
           "y": 8288
         }
       ]
@@ -126,14 +126,15 @@
     {
       "id": "south-boulevard-north",
       "speedLimit": 126,
+      "direction": "forward",
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 6176,
+          "x": 5968,
           "y": 9696
         },
         {
-          "x": 10208,
+          "x": 9728,
           "y": 9696
         }
       ]
@@ -141,14 +142,45 @@
     {
       "id": "south-boulevard-south",
       "speedLimit": 126,
+      "direction": "reverse",
       "lanesPerDirection": 2,
       "points": [
         {
-          "x": 6176,
+          "x": 5968,
           "y": 9952
         },
         {
-          "x": 10208,
+          "x": 9728,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "south-boulevard-west-return",
+      "speedLimit": 52,
+      "direction": "forward",
+      "points": [
+        {
+          "x": 5968,
+          "y": 9952
+        },
+        {
+          "x": 5968,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "south-boulevard-east-return",
+      "speedLimit": 52,
+      "direction": "forward",
+      "points": [
+        {
+          "x": 9728,
+          "y": 9696
+        },
+        {
+          "x": 9728,
           "y": 9952
         }
       ]
@@ -262,6 +294,46 @@
         "central-avenue",
         "south-boulevard-south"
       ]
+    },
+    {
+      "id": "south-boulevard-west-south-return",
+      "x": 5968,
+      "y": 9952,
+      "corridors": [
+        "south-boulevard-south",
+        "south-boulevard-west-return"
+      ],
+      "terminalTransfer": true
+    },
+    {
+      "id": "south-boulevard-west-north-return",
+      "x": 5968,
+      "y": 9696,
+      "corridors": [
+        "south-boulevard-west-return",
+        "south-boulevard-north"
+      ],
+      "terminalTransfer": true
+    },
+    {
+      "id": "south-boulevard-east-north-return",
+      "x": 9728,
+      "y": 9696,
+      "corridors": [
+        "south-boulevard-north",
+        "south-boulevard-east-return"
+      ],
+      "terminalTransfer": true
+    },
+    {
+      "id": "south-boulevard-east-south-return",
+      "x": 9728,
+      "y": 9952,
+      "corridors": [
+        "south-boulevard-east-return",
+        "south-boulevard-south"
+      ],
+      "terminalTransfer": true
     }
   ],
   "roadblocks": [
@@ -333,9 +405,7 @@
       "angle": 0,
       "blockedEdgeIds": [
         "south-boulevard-north:forward:edge:2",
-        "south-boulevard-north:forward:lane-1:edge:2",
-        "south-boulevard-north:reverse:edge:0",
-        "south-boulevard-north:reverse:lane-1:edge:0"
+        "south-boulevard-north:forward:lane-1:edge:2"
       ],
       "vehiclePoses": [
         {

@@ -22,8 +22,8 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   assert.equal(graph.junctions().length, 32);
   assert.equal(graph.schemaVersion, 2);
   assert.equal(graph.districtId, 'industrial-district');
-  assert.equal(graph.nodes().length, 150);
-  assert.equal(graph.edges().length, 246);
+  assert.equal(graph.nodes().length, 138);
+  assert.equal(graph.edges().length, 220);
   assert.deepEqual(graph.roadblocks().map((roadblock) => roadblock.id), [
     'north-boulevard-east',
     'central-avenue-mid',
@@ -38,6 +38,12 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   assert.ok(graph.edges().some((edge) => (
     edge.kind === 'turnaround' && edge.junctionId === 'terminal:west-avenue:end'
   )));
+  assert.equal(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-north').length, 8);
+  assert.equal(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-south').length, 8);
+  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-north').every((node) => node.direction === 'forward'));
+  assert.ok(graph.nodes().filter((node) => node.corridorId === 'south-boulevard-south').every((node) => node.direction === 'reverse'));
+  assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.junctionId === 'south-boulevard-east-north-return'));
+  assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.junctionId === 'south-boulevard-west-south-return'));
   assert.ok(graph.nodes().every((node) => graph.outgoing(node.id).length > 0));
   assert.ok(graph.nodes().every((node) => Boolean(node.surfaceId)));
   assert.ok(graph.edges().every((edge) => Boolean(edge.fromSurfaceId && edge.toSurfaceId)));
@@ -84,6 +90,62 @@ test('right-hand lane compilation offsets opposing directions to opposite sides'
   assert.ok(outerSouthbound.x < southbound.x);
   assert.ok(northbound.x > centerX);
   assert.ok(outerNorthbound.x > northbound.x);
+});
+
+test('legacy corridors still compile both directions', () => {
+  const graph = LaneGraph.fromDocument({
+    schemaVersion: 2,
+    districtId: 'legacy-two-way',
+    driveSide: 'right',
+    laneOffset: 4,
+    laneSpacing: 7,
+    allowTerminalTurnarounds: true,
+    corridors: [{id: 'main', speedLimit: 80, points: [{x: 0, y: 0}, {x: 100, y: 0}]}],
+    junctions: []
+  }, openLaneWorld());
+
+  assert.ok(graph.edges().some((edge) => edge.id.startsWith('main:forward:')));
+  assert.ok(graph.edges().some((edge) => edge.id.startsWith('main:reverse:')));
+});
+
+test('one-way corridors compile only their configured direction and valid junction movements', () => {
+  const forward = LaneGraph.fromDocument(oneWayLoopDocument('forward'), openLaneWorld());
+  assert.ok(forward.edges().some((edge) => edge.id.startsWith('north:forward:')));
+  assert.equal(forward.edges().some((edge) => edge.id.includes(':reverse:')), false);
+  assertDirectionalConnectors(forward, 'forward');
+
+  const reverse = LaneGraph.fromDocument(oneWayLoopDocument('reverse'), openLaneWorld());
+  assert.ok(reverse.edges().some((edge) => edge.id.startsWith('north:reverse:')));
+  assert.equal(reverse.edges().some((edge) => edge.id.includes(':forward:')), false);
+  assertDirectionalConnectors(reverse, 'reverse');
+});
+
+test('one-way networks remain strongly connected through authored return routes', () => {
+  const graph = LaneGraph.fromDocument(oneWayLoopDocument('forward'), openLaneWorld());
+  const planner = new TrafficRoutePlanner(graph);
+  const origin = graph.nodes()[0].id;
+  for (const node of graph.nodes()) {
+    assert.equal(planner.plan(origin, node.id).complete, true, `Expected route to ${node.id}.`);
+    assert.equal(planner.plan(node.id, origin).complete, true, `Expected return route from ${node.id}.`);
+  }
+});
+
+test('roadblocks cannot reference lane directions omitted by a corridor', () => {
+  const document = oneWayLoopDocument('forward');
+  document.roadblocks = [{
+    id: 'invalid-reverse-closure',
+    x: 50,
+    y: 0,
+    angle: 0,
+    blockedEdgeIds: ['north:reverse:edge:0'],
+    vehiclePoses: [{x: 45, y: 0, angle: 0}],
+    stinger: {x: 50, y: 0, angle: 0, officerPose: {x: 50, y: 10, angle: 0}}
+  }];
+  assert.throws(
+    () => LaneGraph.fromDocument(document, openLaneWorld()),
+    (error: unknown) => error instanceof LaneGraphValidationError &&
+      error.issues.some((issue) => issue.includes('unknown edge north:reverse:edge:0'))
+  );
 });
 
 test('lane route planner crosses corridors deterministically without violating direction', () => {
@@ -202,3 +264,44 @@ test('lane spawning, advancement, and planning honor dynamic edge closures', () 
   assert.ok(plan.edgeIds.length > 1, 'the closure should force a detour');
   assert.equal(plan.edgeIds.some((edgeId) => blocked.has(edgeId)), false);
 });
+
+function openLaneWorld() {
+  return {
+    tileWidth: 64,
+    tileHeight: 64,
+    isRoadAt: () => true,
+    canOccupy: () => true
+  };
+}
+
+function oneWayLoopDocument(direction: 'forward' | 'reverse'): LaneGraphDocument {
+  return {
+    schemaVersion: 2,
+    districtId: `one-way-${direction}`,
+    driveSide: 'right',
+    laneOffset: 4,
+    laneSpacing: 7,
+    allowTerminalTurnarounds: true,
+    corridors: [
+      {id: 'north', speedLimit: 80, direction, points: [{x: 0, y: 0}, {x: 100, y: 0}]},
+      {id: 'east', speedLimit: 80, direction, points: [{x: 100, y: 0}, {x: 100, y: 100}]},
+      {id: 'south', speedLimit: 80, direction, points: [{x: 100, y: 100}, {x: 0, y: 100}]},
+      {id: 'west', speedLimit: 80, direction, points: [{x: 0, y: 100}, {x: 0, y: 0}]}
+    ],
+    junctions: [
+      {id: 'north-east', x: 100, y: 0, corridors: ['north', 'east']},
+      {id: 'south-east', x: 100, y: 100, corridors: ['east', 'south']},
+      {id: 'south-west', x: 0, y: 100, corridors: ['south', 'west']},
+      {id: 'north-west', x: 0, y: 0, corridors: ['west', 'north']}
+    ]
+  };
+}
+
+function assertDirectionalConnectors(graph: LaneGraph, direction: 'forward' | 'reverse'): void {
+  const connectors = graph.edges().filter((edge) => edge.kind === 'connector');
+  assert.ok(connectors.length > 0);
+  for (const edge of connectors) {
+    assert.equal(graph.node(edge.fromNodeId)?.direction, direction);
+    assert.equal(graph.node(edge.toNodeId)?.direction, direction);
+  }
+}

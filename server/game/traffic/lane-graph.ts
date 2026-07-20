@@ -4,6 +4,7 @@ import type {TrafficSpawn} from '../../world-map.ts';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 
 export type LaneDirection = 'forward' | 'reverse';
+export type LaneCorridorDirection = 'both' | LaneDirection;
 export type LaneEdgeKind = 'lane' | 'connector' | 'turnaround';
 export type LaneTurn = 'none' | 'left' | 'right' | 'straight' | 'uturn';
 export type LaneVehicleClass = 'civilian' | 'service' | 'emergency';
@@ -17,6 +18,7 @@ export interface LaneCorridorDefinition {
   id: string;
   speedLimit: number;
   points: LanePointDefinition[];
+  direction?: LaneCorridorDirection;
   vehicleClasses?: LaneVehicleClass[];
   lanesPerDirection?: number;
   surfaceId?: string;
@@ -26,6 +28,7 @@ export interface LaneJunctionDefinition extends LanePointDefinition {
   id: string;
   corridors: string[];
   allowedTurns?: Array<Exclude<LaneTurn, 'none' | 'uturn'>>;
+  terminalTransfer?: boolean;
 }
 
 export interface LaneRoadblockVehiclePose extends LanePointDefinition {
@@ -412,6 +415,9 @@ function validateDocument(document: LaneGraphDocument): string[] {
     if (!Number.isInteger(laneCount) || laneCount < 1 || laneCount > 3) {
       issues.push(`Corridor ${corridor.id} lanesPerDirection must be an integer from 1 to 3.`);
     }
+    if (!['both', 'forward', 'reverse'].includes(corridor.direction ?? 'both')) {
+      issues.push(`Corridor ${corridor.id} has invalid direction ${corridor.direction}.`);
+    }
     if (!Array.isArray(corridor.points) || corridor.points.length < 2) {
       issues.push(`Corridor ${corridor.id} requires at least two points.`);
       continue;
@@ -437,6 +443,9 @@ function validateDocument(document: LaneGraphDocument): string[] {
     if (junctionIds.has(junction.id)) issues.push(`Duplicate junction id ${junction.id}.`);
     junctionIds.add(junction.id);
     if (!finitePoint(junction)) issues.push(`Junction ${junction.id} is not finite.`);
+    if (junction.terminalTransfer !== undefined && typeof junction.terminalTransfer !== 'boolean') {
+      issues.push(`Junction ${junction.id} terminalTransfer must be a boolean.`);
+    }
     if (!Array.isArray(junction.corridors) || junction.corridors.length < 2) {
       issues.push(`Junction ${junction.id} must own at least two corridors.`);
     }
@@ -494,25 +503,30 @@ function compileDocument(document: LaneGraphDocument): {
   for (const corridor of [...document.corridors].sort((left, right) => left.id.localeCompare(right.id))) {
     const samples = centerlineSamples(corridor, document.junctions);
     const laneCount = corridor.lanesPerDirection ?? 1;
-    const forward = Array.from({length: laneCount}, (_, laneIndex) => compileLane(
-      corridor,
-      'forward',
-      samples,
-      document.laneOffset + document.laneSpacing * laneIndex,
-      laneIndex,
-      laneCount,
-      corridor.surfaceId ?? ''
-    ));
-    const reverse = Array.from({length: laneCount}, (_, laneIndex) => compileLane(
-      corridor,
-      'reverse',
-      [...samples].reverse(),
-      document.laneOffset + document.laneSpacing * laneIndex,
-      laneIndex,
-      laneCount,
-      corridor.surfaceId ?? ''
-    ));
-    if (document.allowTerminalTurnarounds) {
+    const forward = corridorSupportsDirection(corridor, 'forward')
+      ? Array.from({length: laneCount}, (_, laneIndex) => compileLane(
+          corridor,
+          'forward',
+          samples,
+          document.laneOffset + document.laneSpacing * laneIndex,
+          laneIndex,
+          laneCount,
+          corridor.surfaceId ?? ''
+        ))
+      : [];
+    const reverse = corridorSupportsDirection(corridor, 'reverse')
+      ? Array.from({length: laneCount}, (_, laneIndex) => compileLane(
+          corridor,
+          'reverse',
+          [...samples].reverse(),
+          document.laneOffset + document.laneSpacing * laneIndex,
+          laneIndex,
+          laneCount,
+          corridor.surfaceId ?? ''
+        ))
+      : [];
+    const supportsTurnarounds = Boolean(document.allowTerminalTurnarounds && forward.length && reverse.length);
+    if (supportsTurnarounds) {
       markTerminalJunctions(corridor.id, forward, reverse);
     }
     lanes.push(...forward, ...reverse);
@@ -521,7 +535,7 @@ function compileDocument(document: LaneGraphDocument): {
       ...forward.flatMap(laneEdges),
       ...reverse.flatMap(laneEdges)
     );
-    if (document.allowTerminalTurnarounds) {
+    if (supportsTurnarounds) {
       const startJunctionId = terminalJunctionId(corridor.id, 'start');
       const endJunctionId = terminalJunctionId(corridor.id, 'end');
       for (let laneIndex = 0; laneIndex < laneCount; laneIndex++) {
@@ -563,7 +577,16 @@ function compileDocument(document: LaneGraphDocument): {
         const turn = classifyTurn(incoming, leaving);
         if (turn === 'uturn') continue;
         if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) continue;
-        if (!legalLaneConnection(inbound.node, outbound.node, turn)) continue;
+        if (!legalLaneConnection(
+          inbound.node,
+          outbound.node,
+          turn,
+          Boolean(
+            junction.terminalTransfer &&
+            inbound.node.index === inbound.lane.nodes.length - 1 &&
+            outbound.node.index === 0
+          )
+        )) continue;
         edges.push(connectorEdge(
           inbound.node,
           outbound.node,
@@ -575,6 +598,14 @@ function compileDocument(document: LaneGraphDocument): {
     }
   }
   return {nodes, edges};
+}
+
+function corridorSupportsDirection(
+  corridor: Pick<LaneCorridorDefinition, 'direction'>,
+  direction: LaneDirection
+): boolean {
+  const configured = corridor.direction ?? 'both';
+  return configured === 'both' || configured === direction;
 }
 
 function markTerminalJunctions(
@@ -714,8 +745,12 @@ function laneEdges(lane: CompiledLane): LaneGraphEdge[] {
 function legalLaneConnection(
   inbound: LaneGraphNode,
   outbound: LaneGraphNode,
-  turn: Exclude<LaneTurn, 'none' | 'uturn'>
+  turn: Exclude<LaneTurn, 'none' | 'uturn'>,
+  terminalTransfer: boolean
 ): boolean {
+  // An explicit terminal transfer fans every inbound lane into every outbound
+  // lane because there is no downstream segment on which to merge.
+  if (terminalTransfer) return true;
   if (turn === 'left' && inbound.laneIndex !== 0) return false;
   if (turn === 'right' && inbound.laneIndex !== inbound.laneCount - 1) return false;
   const targetLane = turn === 'left'
