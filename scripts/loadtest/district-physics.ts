@@ -2,6 +2,7 @@ import {cli, type Options} from '@colyseus/loadtest';
 import {Client, type Room} from 'colyseus.js';
 import {readFileSync} from 'node:fs';
 import {ON_FOOT_INPUT_MESSAGE} from '../../shared/protocol/on-foot-input.ts';
+import {VOICE_PEERS_MESSAGE} from '../../shared/protocol/proximity-voice.ts';
 import {VEHICLE_INPUT_MESSAGE} from '../../shared/protocol/vehicle-input.ts';
 import type {DistrictNetworkState} from '../../src/game/types.ts';
 import {
@@ -196,6 +197,7 @@ function driveClient(room: Room<DistrictNetworkState>, options: Options): void {
   }, INTERACTION_INTERVAL_MS);
   room.onMessage('game.notice', () => undefined);
   room.onMessage('audio.events', () => undefined);
+  room.onMessage(VOICE_PEERS_MESSAGE, () => undefined);
   room.onError((code, message) => {
     roomErrors++;
     console.error(`[loadtest:${clientId}] room error ${code}: ${message}`);
