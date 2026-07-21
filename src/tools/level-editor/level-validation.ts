@@ -12,6 +12,7 @@ import {
   compiledLaneEdgeLabel,
   type CompiledLaneEdgeDiagnostic
 } from './compiled-lane-diagnostic.ts';
+import {compileLaneNetwork} from '../../../shared/traffic/lane-network-compiler.ts';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationEntityKind = 'map' | 'spawn' | 'corridor' | 'junction' | 'roadblock';
@@ -79,6 +80,7 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
   validateSpawns(document, issues);
   validateCorridors(document, issues);
   validateJunctions(document, issues);
+  validateCompiledIntersections(document, issues);
   validateCorridorConnectivity(document, issues);
   validateRoadblocks(document, issues);
 
@@ -90,6 +92,27 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
       info: issues.filter((issue) => issue.severity === 'info').length
     }
   };
+}
+
+function validateCompiledIntersections(document: LevelEditorDocument, issues: ValidationIssue[]): void {
+  const corridorIds = new Set(document.lanes.corridors.map((corridor) => corridor.id));
+  const junctionById = new Map(document.lanes.junctions.map((junction) => [junction.id, junction]));
+  for (const diagnostic of compileLaneNetwork(document.lanes).diagnostics) {
+    if (!diagnostic.junctionId) continue;
+    const junction = junctionById.get(diagnostic.junctionId);
+    if (!junction || junction.corridors.length < 2 || junction.corridors.some((id) => !corridorIds.has(id))) {
+      continue;
+    }
+    add(
+      issues,
+      diagnostic.severity,
+      `compiled-${diagnostic.code}`,
+      diagnostic.message,
+      'junction',
+      diagnostic.junctionId,
+      junction
+    );
+  }
 }
 
 export function playtestBlockingValidationIssues(report: ValidationReport): ValidationIssue[] {

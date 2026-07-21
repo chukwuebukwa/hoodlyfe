@@ -89,7 +89,7 @@ export class TrafficRouteSystem {
     this.planner = options.laneGraph
       ? new TrafficRoutePlanner(
           options.laneGraph,
-          512,
+          undefined,
           (edge) => !options.closures?.isClosed(edge.id)
         )
       : undefined;
@@ -252,6 +252,23 @@ export class TrafficRouteSystem {
     }
     if (traversalEdge.kind === 'turnaround' || traversalEdge.turn === 'uturn') {
       return exclusiveJunctionMovement(target.id, traversalEdge.id);
+    }
+
+    const compiledMovement = graph.movementForTraversalEdge(traversalEdge.id);
+    if (
+      compiledMovement?.junctionId === target.id &&
+      compiledMovement.entryLaneId === entryEdge.id
+    ) {
+      return {
+        id: compiledMovement.id,
+        junctionId: compiledMovement.junctionId,
+        turn: compiledMovement.turn,
+        entryLaneId: compiledMovement.entryLaneId,
+        exitLaneId: compiledMovement.exitLaneId,
+        path: compiledMovement.path,
+        sweptHalfWidth: Math.max(1, vehicleHalfWidth + JUNCTION_MOVEMENT_WIDTH_MARGIN),
+        exclusive: false
+      };
     }
 
     let turn: TrafficJunctionMovement['turn'];

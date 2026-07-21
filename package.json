@@ -13,6 +13,7 @@
     "district:export": "tsx scripts/export-local-district.ts",
     "assets:original-map": "python3 scripts/render-original-district.py",
     "map:expand": "tsx scripts/expand-district-map.ts",
+    "map:generate-roads": "tsx scripts/generate-full-road-network.ts",
     "map:validate": "tsx scripts/validate-district-map.ts",
     "level:apply": "tsx scripts/apply-level-editor-bundle.ts",
     "physics:soak": "tsx scripts/bench/persistent-physics-soak.ts",

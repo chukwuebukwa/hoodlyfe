@@ -11,7 +11,28 @@ export interface CorridorIntersection {
 export interface JunctionRepairResult {
   junctions: LaneJunction[];
   repaired: number;
+  removed: number;
   unresolved: number;
+}
+
+export interface JunctionSynchronizationResult extends JunctionRepairResult {
+  added: number;
+}
+
+export function corridorIntersections(corridors: readonly LaneCorridor[]): CorridorIntersection[] {
+  const candidates: Point2D[] = [];
+  for (let leftIndex = 0; leftIndex < corridors.length; leftIndex++) {
+    for (let rightIndex = leftIndex + 1; rightIndex < corridors.length; rightIndex++) {
+      collectPolylineIntersections(corridors[leftIndex].points, corridors[rightIndex].points, candidates);
+    }
+  }
+  return candidates.map((point) => ({
+    point,
+    corridorIds: corridors
+      .filter((corridor) => pointOnPolyline(point, corridor.points))
+      .map((corridor) => corridor.id),
+    distance: 0
+  })).filter((candidate) => candidate.corridorIds.length >= 2);
 }
 
 export function nearestCorridorIntersection(
@@ -37,15 +58,16 @@ export function repairJunctionIntersections(
 ): JunctionRepairResult {
   const corridorsById = new Map(corridors.map((corridor) => [corridor.id, corridor]));
   let repaired = 0;
+  let removed = 0;
   let unresolved = 0;
-  const nextJunctions = junctions.map((junction) => {
+  const nextJunctions = junctions.flatMap((junction) => {
     if (changedCorridorId && !junction.corridors.includes(changedCorridorId)) return junction;
     const connected = junction.corridors
       .map((id) => corridorsById.get(id))
       .filter((corridor): corridor is LaneCorridor => Boolean(corridor));
     if (connected.length !== junction.corridors.length || connected.length < 2) {
-      unresolved++;
-      return junction;
+      removed++;
+      return [];
     }
     const intersection = nearestSharedCorridorIntersection(connected, junction);
     if (!intersection) {
@@ -56,7 +78,32 @@ export function repairJunctionIntersections(
     repaired++;
     return {...junction, ...intersection.point};
   });
-  return {junctions: nextJunctions, repaired, unresolved};
+  return {junctions: nextJunctions, repaired, removed, unresolved};
+}
+
+export function synchronizeJunctionIntersections(
+  corridors: readonly LaneCorridor[],
+  junctions: readonly LaneJunction[]
+): JunctionSynchronizationResult {
+  const repaired = repairJunctionIntersections(corridors, junctions);
+  const nextJunctions = repaired.junctions.map((junction) => ({
+    ...junction,
+    corridors: [...junction.corridors]
+  }));
+  const ids = new Set(nextJunctions.map((junction) => junction.id));
+  let added = 0;
+  for (const intersection of corridorIntersections(corridors)) {
+    const existing = nextJunctions.find((junction) => samePoint(junction, intersection.point));
+    if (existing) {
+      existing.corridors = [...intersection.corridorIds];
+      continue;
+    }
+    const id = uniqueJunctionId(ids);
+    ids.add(id);
+    nextJunctions.push({id, ...intersection.point, corridors: [...intersection.corridorIds]});
+    added++;
+  }
+  return {...repaired, junctions: nextJunctions, added};
 }
 
 function findNearestCorridorIntersection(
@@ -65,20 +112,10 @@ function findNearestCorridorIntersection(
   maximumDistance: number,
   requireAllCorridors: boolean
 ): CorridorIntersection | undefined {
-  const candidates: Point2D[] = [];
-  for (let leftIndex = 0; leftIndex < corridors.length; leftIndex++) {
-    for (let rightIndex = leftIndex + 1; rightIndex < corridors.length; rightIndex++) {
-      collectPolylineIntersections(corridors[leftIndex].points, corridors[rightIndex].points, candidates);
-    }
-  }
-
-  return candidates
-    .map((point) => ({
-      point,
-      corridorIds: corridors
-        .filter((corridor) => pointOnPolyline(point, corridor.points))
-        .map((corridor) => corridor.id),
-      distance: Math.hypot(point.x - target.x, point.y - target.y)
+  return corridorIntersections(corridors)
+    .map((candidate) => ({
+      ...candidate,
+      distance: Math.hypot(candidate.point.x - target.x, candidate.point.y - target.y)
     }))
     .filter((candidate) => (
       candidate.corridorIds.length >= 2 &&
@@ -86,6 +123,12 @@ function findNearestCorridorIntersection(
       candidate.distance <= maximumDistance
     ))
     .sort((left, right) => left.distance - right.distance)[0];
+}
+
+function uniqueJunctionId(ids: ReadonlySet<string>): string {
+  let index = 1;
+  while (ids.has(`junction-${index}`)) index++;
+  return `junction-${index}`;
 }
 
 function collectPolylineIntersections(left: readonly Point2D[], right: readonly Point2D[], output: Point2D[]): void {

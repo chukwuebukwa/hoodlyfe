@@ -25,6 +25,8 @@ interface LevelEditorSidebarProps {
   onToolChange(tool: EditorTool): void;
   onSelectionChange(selection: EditorSelection): void;
   onPreferencesChange(preferences: EditorPreferences): void;
+  onGenerateRoadNetwork(): void;
+  onSynchronizeJunctions(): void;
 }
 
 const TOOLS: Array<{tool: EditorTool; label: string; shortcut: string; icon: typeof MousePointer2}> = [
@@ -84,6 +86,12 @@ function LayerPanel(props: LevelEditorSidebarProps) {
         <LayerToggle label={`Roadblocks (${props.document.lanes.roadblocks?.length ?? 0})`} color="#ff6f61" checked={props.preferences.layers.roadblocks} onChange={(value) => setLayer('roadblocks', value)} />
         <LayerToggle label="Tile grid" color="#d7dcde" checked={props.preferences.layers.grid} onChange={(value) => setLayer('grid', value)} />
       </div>
+      <button className="le-wide-command" type="button" onClick={props.onSynchronizeJunctions}>
+        <GitFork size={15} /> Sync corridor crossings
+      </button>
+      <button className="le-wide-command" type="button" onClick={props.onGenerateRoadNetwork}>
+        <Route size={15} /> Generate full road network
+      </button>
 
       <div className="le-control-grid">
         <label>Snap

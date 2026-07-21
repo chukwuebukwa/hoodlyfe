@@ -2,338 +2,9033 @@
   "schemaVersion": 2,
   "districtId": "industrial-district",
   "driveSide": "right",
-  "laneOffset": 24,
+  "laneOffset": 8,
   "laneSpacing": 40,
   "allowTerminalTurnarounds": true,
   "corridors": [
     {
-      "id": "west-avenue",
-      "speedLimit": 104,
-      "lanesPerDirection": 2,
+      "id": "road-001",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 6368,
-          "y": 6560
+          "x": 14816,
+          "y": 928
         },
         {
-          "x": 6368,
-          "y": 7904
+          "x": 14816,
+          "y": 1632
         }
       ]
     },
     {
-      "id": "inner-avenue",
-      "speedLimit": 112,
+      "id": "road-002",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6944,
+          "y": 1376
+        },
+        {
+          "x": 8288,
+          "y": 1376
+        },
+        {
+          "x": 8288,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-003",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6944,
+          "y": 1376
+        },
+        {
+          "x": 6944,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-004",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6944,
+          "y": 1376
+        },
+        {
+          "x": 5152,
+          "y": 1376
+        },
+        {
+          "x": 5152,
+          "y": 1440
+        },
+        {
+          "x": 5088,
+          "y": 1440
+        },
+        {
+          "x": 5088,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-005",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11296,
+          "y": 1504
+        },
+        {
+          "x": 11296,
+          "y": 2144
+        }
+      ]
+    },
+    {
+      "id": "road-006",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 13600,
+          "y": 1632
+        },
+        {
+          "x": 14816,
+          "y": 1632
+        }
+      ]
+    },
+    {
+      "id": "road-007",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14816,
+          "y": 1632
+        },
+        {
+          "x": 15456,
+          "y": 1632
+        },
+        {
+          "x": 15456,
+          "y": 3040
+        },
+        {
+          "x": 15136,
+          "y": 3040
+        }
+      ]
+    },
+    {
+      "id": "road-008",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 12768,
+          "y": 1696
+        },
+        {
+          "x": 12704,
+          "y": 1632
+        },
+        {
+          "x": 12640,
+          "y": 1632
+        },
+        {
+          "x": 12640,
+          "y": 1696
+        },
+        {
+          "x": 12576,
+          "y": 1696
+        },
+        {
+          "x": 12576,
+          "y": 2144
+        },
+        {
+          "x": 12448,
+          "y": 2144
+        }
+      ]
+    },
+    {
+      "id": "road-009",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11296,
+          "y": 2144
+        },
+        {
+          "x": 12448,
+          "y": 2144
+        }
+      ]
+    },
+    {
+      "id": "road-010",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11296,
+          "y": 2144
+        },
+        {
+          "x": 11296,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-011",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11296,
+          "y": 2144
+        },
+        {
+          "x": 10144,
+          "y": 2144
+        },
+        {
+          "x": 10144,
+          "y": 2208
+        },
+        {
+          "x": 10080,
+          "y": 2208
+        },
+        {
+          "x": 10080,
+          "y": 3424
+        },
+        {
+          "x": 10112,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-012",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 12448,
+          "y": 2144
+        },
+        {
+          "x": 12448,
+          "y": 2400
+        },
+        {
+          "x": 13088,
+          "y": 2400
+        }
+      ]
+    },
+    {
+      "id": "road-013",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 2592
+        },
+        {
+          "x": 6944,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-014",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 2592
+        },
+        {
+          "x": 5088,
+          "y": 3424
+        },
+        {
+          "x": 5120,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-015",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6944,
+          "y": 2592
+        },
+        {
+          "x": 8288,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-016",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8288,
+          "y": 2592
+        },
+        {
+          "x": 8288,
+          "y": 3424
+        },
+        {
+          "x": 8320,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-017",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 2592
+        },
+        {
+          "x": 14496,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-018",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14496,
+          "y": 2592
+        },
+        {
+          "x": 14752,
+          "y": 2592
+        }
+      ]
+    },
+    {
+      "id": "road-019",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14496,
+          "y": 2592
+        },
+        {
+          "x": 14496,
+          "y": 3040
+        }
+      ]
+    },
+    {
+      "id": "road-020",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9056,
+          "y": 3040
+        },
+        {
+          "x": 9248,
+          "y": 3040
+        },
+        {
+          "x": 9248,
+          "y": 3424
+        },
+        {
+          "x": 9280,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-021",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14496,
+          "y": 3040
+        },
+        {
+          "x": 15136,
+          "y": 3040
+        }
+      ]
+    },
+    {
+      "id": "road-022",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14496,
+          "y": 3040
+        },
+        {
+          "x": 13792,
+          "y": 3040
+        },
+        {
+          "x": 13792,
+          "y": 3104
+        },
+        {
+          "x": 13728,
+          "y": 3104
+        },
+        {
+          "x": 13728,
+          "y": 3424
+        },
+        {
+          "x": 13760,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-023",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15136,
+          "y": 3040
+        },
+        {
+          "x": 15136,
+          "y": 3360
+        },
+        {
+          "x": 15008,
+          "y": 3360
+        }
+      ]
+    },
+    {
+      "id": "road-024",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 3360
+        },
+        {
+          "x": 1312,
+          "y": 2144
+        },
+        {
+          "x": 544,
+          "y": 2144
+        },
+        {
+          "x": 544,
+          "y": 1248
+        },
+        {
+          "x": 608,
+          "y": 1248
+        },
+        {
+          "x": 608,
+          "y": 1184
+        },
+        {
+          "x": 800,
+          "y": 1184
+        },
+        {
+          "x": 800,
+          "y": 352
+        },
+        {
+          "x": 864,
+          "y": 352
+        },
+        {
+          "x": 864,
+          "y": 288
+        },
+        {
+          "x": 1888,
+          "y": 288
+        },
+        {
+          "x": 1888,
+          "y": 608
+        },
+        {
+          "x": 2784,
+          "y": 608
+        },
+        {
+          "x": 2784,
+          "y": 1184
+        },
+        {
+          "x": 2016,
+          "y": 1184
+        },
+        {
+          "x": 2016,
+          "y": 1248
+        },
+        {
+          "x": 1952,
+          "y": 1248
+        },
+        {
+          "x": 1952,
+          "y": 1888
+        },
+        {
+          "x": 1632,
+          "y": 1888
+        },
+        {
+          "x": 1632,
+          "y": 1952
+        },
+        {
+          "x": 1568,
+          "y": 1952
+        },
+        {
+          "x": 1568,
+          "y": 5216
+        }
+      ]
+    },
+    {
+      "id": "road-025",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 3360
+        },
+        {
+          "x": 1312,
+          "y": 5216
+        },
+        {
+          "x": 1491.2,
+          "y": 5395.2
+        }
+      ]
+    },
+    {
+      "id": "road-026",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 3360
+        },
+        {
+          "x": 800,
+          "y": 3360
+        },
+        {
+          "x": 800,
+          "y": 3424
+        },
+        {
+          "x": 736,
+          "y": 3424
+        },
+        {
+          "x": 736,
+          "y": 4192
+        },
+        {
+          "x": 800,
+          "y": 4256
+        }
+      ]
+    },
+    {
+      "id": "road-027",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5120,
+          "y": 3488
+        },
+        {
+          "x": 4256,
+          "y": 3488
+        },
+        {
+          "x": 4256,
+          "y": 4192
+        }
+      ]
+    },
+    {
+      "id": "road-028",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5120,
+          "y": 3488
+        },
+        {
+          "x": 5856,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-029",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5120,
+          "y": 3488
+        },
+        {
+          "x": 5152,
+          "y": 3552
+        },
+        {
+          "x": 5152,
+          "y": 3680
+        }
+      ]
+    },
+    {
+      "id": "road-030",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5856,
+          "y": 3488
+        },
+        {
+          "x": 8320,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-031",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5856,
+          "y": 3488
+        },
+        {
+          "x": 5856,
+          "y": 3680
+        },
+        {
+          "x": 5824,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-032",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8320,
+          "y": 3488
+        },
+        {
+          "x": 9280,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-033",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8320,
+          "y": 3488
+        },
+        {
+          "x": 8352,
+          "y": 3552
+        },
+        {
+          "x": 8352,
+          "y": 3680
+        }
+      ]
+    },
+    {
+      "id": "road-034",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9280,
+          "y": 3488
+        },
+        {
+          "x": 9888,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-035",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9280,
+          "y": 3488
+        },
+        {
+          "x": 9312,
+          "y": 3552
+        },
+        {
+          "x": 9312,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-036",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9888,
+          "y": 3488
+        },
+        {
+          "x": 10112,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-037",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9888,
+          "y": 3488
+        },
+        {
+          "x": 9888,
+          "y": 3680
+        },
+        {
+          "x": 9856,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-038",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10112,
+          "y": 3488
+        },
+        {
+          "x": 13760,
+          "y": 3488
+        }
+      ]
+    },
+    {
+      "id": "road-039",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10112,
+          "y": 3488
+        },
+        {
+          "x": 10144,
+          "y": 3552
+        },
+        {
+          "x": 10144,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-040",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 13760,
+          "y": 3488
+        },
+        {
+          "x": 14304,
+          "y": 3488
+        },
+        {
+          "x": 14304,
+          "y": 5728
+        }
+      ]
+    },
+    {
+      "id": "road-041",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 13760,
+          "y": 3488
+        },
+        {
+          "x": 13792,
+          "y": 3552
+        },
+        {
+          "x": 13792,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-042",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3232,
+          "y": 3616
+        },
+        {
+          "x": 3232,
+          "y": 4192
+        }
+      ]
+    },
+    {
+      "id": "road-043",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5152,
+          "y": 3680
+        },
+        {
+          "x": 5216,
+          "y": 3744
+        },
+        {
+          "x": 5824,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-044",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5152,
+          "y": 3680
+        },
+        {
+          "x": 5088,
+          "y": 3680
+        },
+        {
+          "x": 5024,
+          "y": 3744
+        },
+        {
+          "x": 4512,
+          "y": 3744
+        },
+        {
+          "x": 4512,
+          "y": 5408
+        },
+        {
+          "x": 4448,
+          "y": 5408
+        },
+        {
+          "x": 4448,
+          "y": 5472
+        },
+        {
+          "x": 4384,
+          "y": 5472
+        },
+        {
+          "x": 4384,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-045",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8352,
+          "y": 3680
+        },
+        {
+          "x": 8416,
+          "y": 3744
+        },
+        {
+          "x": 9312,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-046",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8352,
+          "y": 3680
+        },
+        {
+          "x": 8288,
+          "y": 3680
+        },
+        {
+          "x": 8224,
+          "y": 3744
+        },
+        {
+          "x": 5824,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-047",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5824,
+          "y": 3744
+        },
+        {
+          "x": 5792,
+          "y": 3808
+        },
+        {
+          "x": 5792,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-048",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9312,
+          "y": 3744
+        },
+        {
+          "x": 9856,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-049",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9856,
+          "y": 3744
+        },
+        {
+          "x": 9824,
+          "y": 3808
+        },
+        {
+          "x": 9824,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-050",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9856,
+          "y": 3744
+        },
+        {
+          "x": 10144,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-051",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10144,
+          "y": 3744
+        },
+        {
+          "x": 13792,
+          "y": 3744
+        }
+      ]
+    },
+    {
+      "id": "road-052",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 13792,
+          "y": 3744
+        },
+        {
+          "x": 14048,
+          "y": 3744
+        },
+        {
+          "x": 14048,
+          "y": 5696
+        }
+      ]
+    },
+    {
+      "id": "road-053",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
           "x": 7392,
-          "y": 7584
-        },
-        {
-          "x": 7392,
-          "y": 10272
-        }
-      ]
-    },
-    {
-      "id": "central-avenue",
-      "speedLimit": 122,
-      "lanesPerDirection": 2,
-      "points": [
-        {
-          "x": 8480,
-          "y": 6240
-        },
-        {
-          "x": 8480,
-          "y": 10016
-        }
-      ]
-    },
-    {
-      "id": "north-service-road",
-      "speedLimit": 104,
-      "lanesPerDirection": 2,
-      "points": [
-        {
-          "x": 6304,
-          "y": 6624
+          "y": 4128
         },
         {
           "x": 8608,
+          "y": 4128
+        },
+        {
+          "x": 8608,
+          "y": 4832
+        },
+        {
+          "x": 8032,
+          "y": 4832
+        }
+      ]
+    },
+    {
+      "id": "road-054",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7392,
+          "y": 4128
+        },
+        {
+          "x": 7392,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-055",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7392,
+          "y": 4128
+        },
+        {
+          "x": 6560,
+          "y": 4128
+        },
+        {
+          "x": 6560,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-056",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3232,
+          "y": 4192
+        },
+        {
+          "x": 4256,
+          "y": 4192
+        }
+      ]
+    },
+    {
+      "id": "road-057",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3232,
+          "y": 4192
+        },
+        {
+          "x": 2784,
+          "y": 4192
+        },
+        {
+          "x": 2784,
+          "y": 4256
+        },
+        {
+          "x": 2720,
+          "y": 4256
+        },
+        {
+          "x": 2720,
+          "y": 4512
+        },
+        {
+          "x": 2528,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-058",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4256,
+          "y": 4192
+        },
+        {
+          "x": 4256,
+          "y": 5152
+        },
+        {
+          "x": 4192,
+          "y": 5152
+        },
+        {
+          "x": 4192,
+          "y": 5216
+        },
+        {
+          "x": 3360,
+          "y": 5216
+        }
+      ]
+    },
+    {
+      "id": "road-059",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5280,
+          "y": 4320
+        },
+        {
+          "x": 5408,
+          "y": 4320
+        },
+        {
+          "x": 5408,
+          "y": 4512
+        },
+        {
+          "x": 5792,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-060",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5792,
+          "y": 4512
+        },
+        {
+          "x": 6560,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-061",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6560,
+          "y": 4512
+        },
+        {
+          "x": 7392,
+          "y": 4512
+        }
+      ]
+    },
+    {
+      "id": "road-062",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7392,
+          "y": 4512
+        },
+        {
+          "x": 8032,
+          "y": 4512
+        },
+        {
+          "x": 8032,
+          "y": 4832
+        }
+      ]
+    },
+    {
+      "id": "road-063",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 4832
+        },
+        {
+          "x": 8032,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-064",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 5216
+        },
+        {
+          "x": 3360,
+          "y": 5216
+        }
+      ]
+    },
+    {
+      "id": "road-065",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 5216
+        },
+        {
+          "x": 1568,
+          "y": 5280
+        },
+        {
+          "x": 1504,
+          "y": 5280
+        },
+        {
+          "x": 1491.2,
+          "y": 5395.2
+        }
+      ]
+    },
+    {
+      "id": "road-066",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3360,
+          "y": 5216
+        },
+        {
+          "x": 3360,
+          "y": 5408
+        },
+        {
+          "x": 3328,
+          "y": 5472
+        }
+      ]
+    },
+    {
+      "id": "road-067",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6240,
+          "y": 5280
+        },
+        {
+          "x": 6880,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-068",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6240,
+          "y": 5280
+        },
+        {
+          "x": 6240,
+          "y": 5856
+        }
+      ]
+    },
+    {
+      "id": "road-069",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6240,
+          "y": 5280
+        },
+        {
+          "x": 5152,
+          "y": 5280
+        },
+        {
+          "x": 5152,
+          "y": 5344
+        },
+        {
+          "x": 5088,
+          "y": 5344
+        },
+        {
+          "x": 5088,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-070",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 5280
+        },
+        {
+          "x": 7648,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-071",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 5280
+        },
+        {
+          "x": 6880,
+          "y": 6048
+        }
+      ]
+    },
+    {
+      "id": "road-072",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 5280
+        },
+        {
+          "x": 8032,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-073",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 5280
+        },
+        {
+          "x": 7648,
+          "y": 5792
+        }
+      ]
+    },
+    {
+      "id": "road-074",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 5280
+        },
+        {
+          "x": 8416,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-075",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8416,
+          "y": 5280
+        },
+        {
+          "x": 9248,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-076",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8416,
+          "y": 5280
+        },
+        {
+          "x": 8416,
+          "y": 5792
+        },
+        {
+          "x": 7648,
+          "y": 5792
+        }
+      ]
+    },
+    {
+      "id": "road-077",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9248,
+          "y": 5280
+        },
+        {
+          "x": 9824,
+          "y": 5280
+        }
+      ]
+    },
+    {
+      "id": "road-078",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9248,
+          "y": 5280
+        },
+        {
+          "x": 9248,
+          "y": 6240
+        },
+        {
+          "x": 8544,
+          "y": 6240
+        },
+        {
+          "x": 8544,
+          "y": 6304
+        },
+        {
+          "x": 8480,
+          "y": 6304
+        },
+        {
+          "x": 8480,
           "y": 6624
         }
       ]
     },
     {
-      "id": "north-boulevard",
+      "id": "road-079",
       "speedLimit": 118,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 6816,
-          "y": 7136
+          "x": 9824,
+          "y": 5280
         },
         {
-          "x": 10208,
-          "y": 7136
+          "x": 10976,
+          "y": 5280
+        },
+        {
+          "x": 10976,
+          "y": 5664
         }
       ]
     },
     {
-      "id": "west-market-road",
-      "speedLimit": 96,
-      "lanesPerDirection": 2,
+      "id": "road-080",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 5968,
+          "x": 9824,
+          "y": 5280
+        },
+        {
+          "x": 9824,
+          "y": 6176
+        }
+      ]
+    },
+    {
+      "id": "road-081",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 5395.2
+        },
+        {
+          "x": 1376,
+          "y": 5408
+        },
+        {
+          "x": 1376,
+          "y": 5472
+        },
+        {
+          "x": 1312,
+          "y": 5472
+        },
+        {
+          "x": 1312,
           "y": 7648
+        },
+        {
+          "x": 1376,
+          "y": 7712
+        },
+        {
+          "x": 1376,
+          "y": 7776
+        }
+      ]
+    },
+    {
+      "id": "road-082",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 5395.2
+        },
+        {
+          "x": 1632,
+          "y": 5472
+        },
+        {
+          "x": 3328,
+          "y": 5472
+        }
+      ]
+    },
+    {
+      "id": "road-083",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 5395.2
+        },
+        {
+          "x": 1568,
+          "y": 5536
+        },
+        {
+          "x": 1568,
+          "y": 7744
+        }
+      ]
+    },
+    {
+      "id": "road-084",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3328,
+          "y": 5472
+        },
+        {
+          "x": 3296,
+          "y": 5536
+        },
+        {
+          "x": 3296,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-085",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3328,
+          "y": 5472
+        },
+        {
+          "x": 3872,
+          "y": 5472
+        },
+        {
+          "x": 3872,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-086",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3872,
+          "y": 5536
+        },
+        {
+          "x": 4000,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-087",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3872,
+          "y": 5536
+        },
+        {
+          "x": 3872,
+          "y": 5984
+        },
+        {
+          "x": 4000,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-088",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4000,
+          "y": 5536
+        },
+        {
+          "x": 4128,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-089",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4000,
+          "y": 5536
+        },
+        {
+          "x": 4000,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-090",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4128,
+          "y": 5536
+        },
+        {
+          "x": 4256,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-091",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4128,
+          "y": 5536
+        },
+        {
+          "x": 4128,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-092",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4256,
+          "y": 5536
+        },
+        {
+          "x": 4384,
+          "y": 5536
+        }
+      ]
+    },
+    {
+      "id": "road-093",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4256,
+          "y": 5536
+        },
+        {
+          "x": 4256,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-094",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4384,
+          "y": 5536
+        },
+        {
+          "x": 4384,
+          "y": 5984
+        },
+        {
+          "x": 4256,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-095",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 5664
+        },
+        {
+          "x": 13984,
+          "y": 5664
+        },
+        {
+          "x": 14048,
+          "y": 5696
+        }
+      ]
+    },
+    {
+      "id": "road-096",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 5664
+        },
+        {
+          "x": 10976,
+          "y": 6688
+        }
+      ]
+    },
+    {
+      "id": "road-097",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 5696
+        },
+        {
+          "x": 14112,
+          "y": 5728
+        },
+        {
+          "x": 14304,
+          "y": 5728
+        }
+      ]
+    },
+    {
+      "id": "road-098",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 5696
+        },
+        {
+          "x": 14048,
+          "y": 6176
+        }
+      ]
+    },
+    {
+      "id": "road-099",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 5728
+        },
+        {
+          "x": 14304,
+          "y": 6144
+        }
+      ]
+    },
+    {
+      "id": "road-100",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1952,
+          "y": 5792
+        },
+        {
+          "x": 2400,
+          "y": 5792
+        }
+      ]
+    },
+    {
+      "id": "road-101",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 5792
+        },
+        {
+          "x": 2912,
+          "y": 5792
+        }
+      ]
+    },
+    {
+      "id": "road-102",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 5792
+        },
+        {
+          "x": 2400,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-103",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 5792
         },
         {
           "x": 7648,
+          "y": 6048
+        }
+      ]
+    },
+    {
+      "id": "road-104",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6240,
+          "y": 5856
+        },
+        {
+          "x": 6240,
+          "y": 6304
+        },
+        {
+          "x": 5728,
+          "y": 6304
+        }
+      ]
+    },
+    {
+      "id": "road-105",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6240,
+          "y": 5856
+        },
+        {
+          "x": 5792,
+          "y": 5856
+        },
+        {
+          "x": 5792,
+          "y": 5920
+        },
+        {
+          "x": 5728,
+          "y": 5920
+        },
+        {
+          "x": 5728,
+          "y": 6304
+        }
+      ]
+    },
+    {
+      "id": "road-106",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4000,
+          "y": 5984
+        },
+        {
+          "x": 4128,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-107",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4128,
+          "y": 5984
+        },
+        {
+          "x": 4256,
+          "y": 5984
+        }
+      ]
+    },
+    {
+      "id": "road-108",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 6048
+        },
+        {
+          "x": 7648,
+          "y": 6048
+        }
+      ]
+    },
+    {
+      "id": "road-109",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 6048
+        },
+        {
+          "x": 6880,
+          "y": 6624
+        }
+      ]
+    },
+    {
+      "id": "road-110",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 6048
+        },
+        {
+          "x": 7648,
+          "y": 6624
+        }
+      ]
+    },
+    {
+      "id": "road-111",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1824,
+          "y": 6112
+        },
+        {
+          "x": 2400,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-112",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 6112
+        },
+        {
+          "x": 3040,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-113",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 6112
+        },
+        {
+          "x": 2400,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-114",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3296,
+          "y": 6112
+        },
+        {
+          "x": 4128,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-115",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3296,
+          "y": 6112
+        },
+        {
+          "x": 3296,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-116",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4128,
+          "y": 6112
+        },
+        {
+          "x": 5088,
+          "y": 6112
+        }
+      ]
+    },
+    {
+      "id": "road-117",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4128,
+          "y": 6112
+        },
+        {
+          "x": 4128,
+          "y": 6880
+        },
+        {
+          "x": 3296,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-118",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 6112
+        },
+        {
+          "x": 5088,
+          "y": 6304
+        }
+      ]
+    },
+    {
+      "id": "road-119",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 6144
+        },
+        {
+          "x": 14368,
+          "y": 6112
+        },
+        {
+          "x": 14944,
+          "y": 6112
+        },
+        {
+          "x": 14944,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-120",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 6144
+        },
+        {
+          "x": 14304,
+          "y": 6944
+        }
+      ]
+    },
+    {
+      "id": "road-121",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 6144
+        },
+        {
+          "x": 14240,
+          "y": 6176
+        },
+        {
+          "x": 14048,
+          "y": 6176
+        }
+      ]
+    },
+    {
+      "id": "road-122",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 6176
+        },
+        {
+          "x": 10336,
+          "y": 6176
+        },
+        {
+          "x": 10336,
+          "y": 6688
+        }
+      ]
+    },
+    {
+      "id": "road-123",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 6176
+        },
+        {
+          "x": 9824,
+          "y": 6688
+        }
+      ]
+    },
+    {
+      "id": "road-124",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 6176
+        },
+        {
+          "x": 14048,
+          "y": 6912
+        }
+      ]
+    },
+    {
+      "id": "road-125",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 6304
+        },
+        {
+          "x": 5728,
+          "y": 6304
+        }
+      ]
+    },
+    {
+      "id": "road-126",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 6304
+        },
+        {
+          "x": 5088,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-127",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5728,
+          "y": 6304
+        },
+        {
+          "x": 5728,
+          "y": 7072
+        }
+      ]
+    },
+    {
+      "id": "road-128",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 6624
+        },
+        {
+          "x": 7648,
+          "y": 6624
+        }
+      ]
+    },
+    {
+      "id": "road-129",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6880,
+          "y": 6624
+        },
+        {
+          "x": 6432,
+          "y": 6624
+        },
+        {
+          "x": 6432,
+          "y": 6688
+        },
+        {
+          "x": 6368,
+          "y": 6688
+        },
+        {
+          "x": 6368,
+          "y": 7072
+        }
+      ]
+    },
+    {
+      "id": "road-130",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 6624
+        },
+        {
+          "x": 8480,
+          "y": 6624
+        }
+      ]
+    },
+    {
+      "id": "road-131",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 6624
+        },
+        {
+          "x": 7648,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-132",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 6624
+        },
+        {
+          "x": 8480,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-133",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 6688
+        },
+        {
+          "x": 10336,
+          "y": 6688
+        }
+      ]
+    },
+    {
+      "id": "road-134",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 6688
+        },
+        {
+          "x": 9824,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-135",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 6688
+        },
+        {
+          "x": 9248,
+          "y": 6688
+        },
+        {
+          "x": 9248,
+          "y": 6752
+        },
+        {
+          "x": 9184,
+          "y": 6752
+        },
+        {
+          "x": 9184,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-136",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10336,
+          "y": 6688
+        },
+        {
+          "x": 10976,
+          "y": 6688
+        }
+      ]
+    },
+    {
+      "id": "road-137",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 6688
+        },
+        {
+          "x": 10976,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-138",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 6880
+        },
+        {
+          "x": 3296,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-139",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 6880
+        },
+        {
+          "x": 2400,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-140",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3296,
+          "y": 6880
+        },
+        {
+          "x": 3296,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-141",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 6880
+        },
+        {
+          "x": 11936,
+          "y": 6880
+        }
+      ]
+    },
+    {
+      "id": "road-142",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 6880
+        },
+        {
+          "x": 10976,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-143",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11936,
+          "y": 6880
+        },
+        {
+          "x": 13344,
+          "y": 6880
+        },
+        {
+          "x": 13408,
+          "y": 6944
+        },
+        {
+          "x": 13472,
+          "y": 6944
+        },
+        {
+          "x": 13536,
+          "y": 6880
+        },
+        {
+          "x": 13984,
+          "y": 6880
+        },
+        {
+          "x": 14048,
+          "y": 6912
+        }
+      ]
+    },
+    {
+      "id": "road-144",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11936,
+          "y": 6880
+        },
+        {
+          "x": 11936,
+          "y": 8480
+        },
+        {
+          "x": 13984,
+          "y": 8480
+        },
+        {
+          "x": 14048,
+          "y": 8512
+        }
+      ]
+    },
+    {
+      "id": "road-145",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 6912
+        },
+        {
+          "x": 14112,
+          "y": 6944
+        },
+        {
+          "x": 14304,
+          "y": 6944
+        }
+      ]
+    },
+    {
+      "id": "road-146",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 6912
+        },
+        {
+          "x": 14048,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-147",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 6944
+        },
+        {
+          "x": 14304,
+          "y": 8544
+        }
+      ]
+    },
+    {
+      "id": "road-148",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5728,
+          "y": 7072
+        },
+        {
+          "x": 6368,
+          "y": 7072
+        }
+      ]
+    },
+    {
+      "id": "road-149",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5728,
+          "y": 7072
+        },
+        {
+          "x": 5728,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-150",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6368,
+          "y": 7072
+        },
+        {
+          "x": 6368,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-151",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 7136
+        },
+        {
+          "x": 8480,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-152",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7648,
+          "y": 7136
+        },
+        {
+          "x": 6880,
+          "y": 7136
+        },
+        {
+          "x": 6880,
+          "y": 7200
+        },
+        {
+          "x": 6816,
+          "y": 7200
+        },
+        {
+          "x": 6816,
+          "y": 7392
+        }
+      ]
+    },
+    {
+      "id": "road-153",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 7136
+        },
+        {
+          "x": 9184,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-154",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 7136
+        },
+        {
+          "x": 8480,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-155",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9184,
+          "y": 7136
+        },
+        {
+          "x": 9824,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-156",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9184,
+          "y": 7136
+        },
+        {
+          "x": 9184,
+          "y": 7648
+        },
+        {
+          "x": 9824,
           "y": 7648
         }
       ]
     },
     {
-      "id": "east-market-road",
-      "speedLimit": 104,
-      "lanesPerDirection": 2,
+      "id": "road-157",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 8416,
-          "y": 8288
+          "x": 9824,
+          "y": 7136
         },
         {
-          "x": 9728,
+          "x": 10336,
+          "y": 7136
+        },
+        {
+          "x": 10336,
+          "y": 7648
+        },
+        {
+          "x": 9824,
+          "y": 7648
+        }
+      ]
+    },
+    {
+      "id": "road-158",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 7136
+        },
+        {
+          "x": 9824,
+          "y": 7648
+        }
+      ]
+    },
+    {
+      "id": "road-159",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14944,
+          "y": 7136
+        },
+        {
+          "x": 15136,
+          "y": 7136
+        }
+      ]
+    },
+    {
+      "id": "road-160",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14944,
+          "y": 7136
+        },
+        {
+          "x": 14944,
+          "y": 7584
+        },
+        {
+          "x": 15584,
+          "y": 7584
+        },
+        {
+          "x": 15584,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-161",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 7648
+        },
+        {
+          "x": 9824,
           "y": 8288
         }
       ]
     },
     {
-      "id": "center-boulevard",
+      "id": "road-162",
       "speedLimit": 118,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 7328,
+          "x": 1568,
+          "y": 7744
+        },
+        {
+          "x": 1632,
+          "y": 7712
+        },
+        {
+          "x": 2400,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-163",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 7744
+        },
+        {
+          "x": 1568,
+          "y": 8768
+        }
+      ]
+    },
+    {
+      "id": "road-164",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 7744
+        },
+        {
+          "x": 1504,
+          "y": 7776
+        },
+        {
+          "x": 1376,
+          "y": 7776
+        }
+      ]
+    },
+    {
+      "id": "road-165",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 7712
+        },
+        {
+          "x": 3296,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-166",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 7712
+        },
+        {
+          "x": 2400,
+          "y": 8736
+        }
+      ]
+    },
+    {
+      "id": "road-167",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3296,
+          "y": 7712
+        },
+        {
+          "x": 5088,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-168",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3296,
+          "y": 7712
+        },
+        {
+          "x": 3296,
+          "y": 8800
+        },
+        {
+          "x": 3552,
+          "y": 8800
+        }
+      ]
+    },
+    {
+      "id": "road-169",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5088,
+          "y": 7712
+        },
+        {
+          "x": 5472,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-170",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5472,
+          "y": 7712
+        },
+        {
+          "x": 5728,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-171",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5472,
+          "y": 7712
+        },
+        {
+          "x": 5472,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-172",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5728,
+          "y": 7712
+        },
+        {
+          "x": 6368,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-173",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6368,
+          "y": 7712
+        },
+        {
+          "x": 7456,
+          "y": 7712
+        },
+        {
+          "x": 7456,
           "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-174",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 13728,
+          "y": 7712
+        },
+        {
+          "x": 14048,
+          "y": 7712
+        }
+      ]
+    },
+    {
+      "id": "road-175",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 7712
+        },
+        {
+          "x": 14048,
+          "y": 8512
+        }
+      ]
+    },
+    {
+      "id": "road-176",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1376,
+          "y": 7776
+        },
+        {
+          "x": 1376,
+          "y": 7840
+        },
+        {
+          "x": 1312,
+          "y": 7840
+        },
+        {
+          "x": 1312,
+          "y": 8768
+        }
+      ]
+    },
+    {
+      "id": "road-177",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 800,
+          "y": 8224
+        },
+        {
+          "x": 480,
+          "y": 8224
+        },
+        {
+          "x": 480,
+          "y": 8288
+        },
+        {
+          "x": 416,
+          "y": 8352
+        },
+        {
+          "x": 416,
+          "y": 8736
+        }
+      ]
+    },
+    {
+      "id": "road-178",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5152,
+          "y": 8288
+        },
+        {
+          "x": 5472,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-179",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5472,
+          "y": 8288
+        },
+        {
+          "x": 5472,
+          "y": 8800
+        }
+      ]
+    },
+    {
+      "id": "road-180",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 8288
+        },
+        {
+          "x": 9440,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-181",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 8288
+        },
+        {
+          "x": 8480,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-182",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9440,
+          "y": 8288
+        },
+        {
+          "x": 9824,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-183",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9440,
+          "y": 8288
+        },
+        {
+          "x": 9440,
+          "y": 8800
+        },
+        {
+          "x": 9472,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-184",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9824,
+          "y": 8288
+        },
+        {
+          "x": 10272,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-185",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 8288
+        },
+        {
+          "x": 10976,
+          "y": 8288
+        }
+      ]
+    },
+    {
+      "id": "road-186",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 8288
+        },
+        {
+          "x": 10272,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-187",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 8288
+        },
+        {
+          "x": 10976,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-188",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 8512
+        },
+        {
+          "x": 14112,
+          "y": 8544
+        },
+        {
+          "x": 14304,
+          "y": 8544
+        }
+      ]
+    },
+    {
+      "id": "road-189",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14048,
+          "y": 8512
+        },
+        {
+          "x": 14048,
+          "y": 9632
+        },
+        {
+          "x": 13984,
+          "y": 9632
+        },
+        {
+          "x": 13984,
+          "y": 9696
+        },
+        {
+          "x": 12896,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-190",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 8544
+        },
+        {
+          "x": 14304,
+          "y": 9632
+        }
+      ]
+    },
+    {
+      "id": "road-191",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 416,
+          "y": 8736
+        },
+        {
+          "x": 1248,
+          "y": 8736
+        },
+        {
+          "x": 1312,
+          "y": 8768
+        }
+      ]
+    },
+    {
+      "id": "road-192",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 416,
+          "y": 8736
+        },
+        {
+          "x": 416,
+          "y": 9760
+        }
+      ]
+    },
+    {
+      "id": "road-193",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 8768
+        },
+        {
+          "x": 1376,
+          "y": 8800
+        },
+        {
+          "x": 1504,
+          "y": 8800
+        },
+        {
+          "x": 1568,
+          "y": 8768
+        }
+      ]
+    },
+    {
+      "id": "road-194",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 8768
+        },
+        {
+          "x": 1312,
+          "y": 9696
+        },
+        {
+          "x": 1376,
+          "y": 9760
+        },
+        {
+          "x": 1491.2,
+          "y": 9875.2
+        }
+      ]
+    },
+    {
+      "id": "road-195",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 8768
+        },
+        {
+          "x": 1632,
+          "y": 8736
+        },
+        {
+          "x": 2400,
+          "y": 8736
+        }
+      ]
+    },
+    {
+      "id": "road-196",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 8768
+        },
+        {
+          "x": 1568,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-197",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2400,
+          "y": 8736
+        },
+        {
+          "x": 2400,
+          "y": 9632
+        },
+        {
+          "x": 2432,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-198",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3552,
+          "y": 8800
+        },
+        {
+          "x": 5472,
+          "y": 8800
+        }
+      ]
+    },
+    {
+      "id": "road-199",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3552,
+          "y": 8800
+        },
+        {
+          "x": 3552,
+          "y": 9440
+        }
+      ]
+    },
+    {
+      "id": "road-200",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5472,
+          "y": 8800
+        },
+        {
+          "x": 5856,
+          "y": 8800
+        },
+        {
+          "x": 5856,
+          "y": 9632
+        },
+        {
+          "x": 5888,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-201",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7456,
+          "y": 8864
+        },
+        {
+          "x": 8480,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-202",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7456,
+          "y": 8864
+        },
+        {
+          "x": 7456,
+          "y": 9312
+        },
+        {
+          "x": 7520,
+          "y": 9376
+        },
+        {
+          "x": 7520,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-203",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 8864
+        },
+        {
+          "x": 9472,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-204",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8480,
+          "y": 8864
+        },
+        {
+          "x": 8480,
+          "y": 9632
+        },
+        {
+          "x": 8512,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-205",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9472,
+          "y": 8864
+        },
+        {
+          "x": 10272,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-206",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9472,
+          "y": 8864
+        },
+        {
+          "x": 9504,
+          "y": 8928
+        },
+        {
+          "x": 9504,
+          "y": 9440
+        },
+        {
+          "x": 9312,
+          "y": 9440
+        },
+        {
+          "x": 9120,
+          "y": 9248
+        },
+        {
+          "x": 8992,
+          "y": 9248
+        }
+      ]
+    },
+    {
+      "id": "road-207",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 8864
+        },
+        {
+          "x": 10976,
+          "y": 8864
+        }
+      ]
+    },
+    {
+      "id": "road-208",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 8864
+        },
+        {
+          "x": 10272,
+          "y": 9440
+        }
+      ]
+    },
+    {
+      "id": "road-209",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 8864
+        },
+        {
+          "x": 10976,
+          "y": 9632
+        }
+      ]
+    },
+    {
+      "id": "road-210",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15584,
+          "y": 8864
+        },
+        {
+          "x": 15584,
+          "y": 9632
+        },
+        {
+          "x": 15264,
+          "y": 9632
+        },
+        {
+          "x": 15264,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-211",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15584,
+          "y": 8864
+        },
+        {
+          "x": 15328,
+          "y": 8864
+        },
+        {
+          "x": 15328,
+          "y": 8928
+        },
+        {
+          "x": 15264,
+          "y": 8928
+        },
+        {
+          "x": 15264,
+          "y": 9056
+        }
+      ]
+    },
+    {
+      "id": "road-212",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 9632
+        },
+        {
+          "x": 11040,
+          "y": 9632
+        },
+        {
+          "x": 11104,
+          "y": 9696
+        },
+        {
+          "x": 12896,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-213",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10976,
+          "y": 9632
+        },
+        {
+          "x": 10912,
+          "y": 9632
+        },
+        {
+          "x": 10848,
+          "y": 9696
+        },
+        {
+          "x": 9760,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-214",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 9632
+        },
+        {
+          "x": 14752,
+          "y": 9632
+        },
+        {
+          "x": 14752,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-215",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14304,
+          "y": 9632
+        },
+        {
+          "x": 14304,
+          "y": 9888
+        },
+        {
+          "x": 14240,
+          "y": 9888
+        },
+        {
+          "x": 14240,
+          "y": 9952
+        },
+        {
+          "x": 12864,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-216",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 9696
+        },
+        {
+          "x": 2208,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-217",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 9696
+        },
+        {
+          "x": 1568,
+          "y": 9760
+        },
+        {
+          "x": 1504,
+          "y": 9760
+        },
+        {
+          "x": 1491.2,
+          "y": 9875.2
+        }
+      ]
+    },
+    {
+      "id": "road-218",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2208,
+          "y": 9696
+        },
+        {
+          "x": 2432,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-219",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2208,
+          "y": 9696
+        },
+        {
+          "x": 2208,
+          "y": 9888
+        },
+        {
+          "x": 2176,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-220",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2432,
+          "y": 9696
+        },
+        {
+          "x": 4512,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-221",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2432,
+          "y": 9696
+        },
+        {
+          "x": 2464,
+          "y": 9760
+        },
+        {
+          "x": 2464,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-222",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4512,
+          "y": 9696
+        },
+        {
+          "x": 5888,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-223",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4512,
+          "y": 9696
+        },
+        {
+          "x": 4512,
+          "y": 9888
+        },
+        {
+          "x": 4480,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-224",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5888,
+          "y": 9696
+        },
+        {
+          "x": 7520,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-225",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5888,
+          "y": 9696
+        },
+        {
+          "x": 5920,
+          "y": 9760
+        },
+        {
+          "x": 5920,
+          "y": 9888
+        }
+      ]
+    },
+    {
+      "id": "road-226",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 9696
+        },
+        {
+          "x": 8512,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-227",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 9696
+        },
+        {
+          "x": 7520,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-228",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8512,
+          "y": 9696
+        },
+        {
+          "x": 9760,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-229",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8512,
+          "y": 9696
+        },
+        {
+          "x": 8544,
+          "y": 9760
+        },
+        {
+          "x": 8544,
+          "y": 9888
+        }
+      ]
+    },
+    {
+      "id": "road-230",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9760,
+          "y": 9696
+        },
+        {
+          "x": 9760,
+          "y": 9888
+        },
+        {
+          "x": 9728,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-231",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 12896,
+          "y": 9696
+        },
+        {
+          "x": 12896,
+          "y": 9888
+        },
+        {
+          "x": 12864,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-232",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14752,
+          "y": 9696
+        },
+        {
+          "x": 14880,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-233",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14752,
+          "y": 9696
+        },
+        {
+          "x": 14752,
+          "y": 10080
+        },
+        {
+          "x": 14880,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-234",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14880,
+          "y": 9696
+        },
+        {
+          "x": 15008,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-235",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14880,
+          "y": 9696
+        },
+        {
+          "x": 14880,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-236",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15008,
+          "y": 9696
+        },
+        {
+          "x": 15136,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-237",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15008,
+          "y": 9696
+        },
+        {
+          "x": 15008,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-238",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15136,
+          "y": 9696
+        },
+        {
+          "x": 15264,
+          "y": 9696
+        }
+      ]
+    },
+    {
+      "id": "road-239",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15136,
+          "y": 9696
+        },
+        {
+          "x": 15136,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-240",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15264,
+          "y": 9696
+        },
+        {
+          "x": 15264,
+          "y": 10080
+        },
+        {
+          "x": 15136,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-241",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 9875.2
+        },
+        {
+          "x": 1376,
+          "y": 9888
+        },
+        {
+          "x": 1376,
+          "y": 9952
+        },
+        {
+          "x": 1312,
+          "y": 9952
+        },
+        {
+          "x": 1312,
+          "y": 11808
+        }
+      ]
+    },
+    {
+      "id": "road-242",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 9875.2
+        },
+        {
+          "x": 1632,
+          "y": 9952
+        },
+        {
+          "x": 2176,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-243",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1491.2,
+          "y": 9875.2
+        },
+        {
+          "x": 1568,
+          "y": 10016
+        },
+        {
+          "x": 1568,
+          "y": 11776
+        }
+      ]
+    },
+    {
+      "id": "road-244",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5920,
+          "y": 9888
+        },
+        {
+          "x": 5984,
+          "y": 9952
+        },
+        {
+          "x": 7520,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-245",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5920,
+          "y": 9888
+        },
+        {
+          "x": 5856,
+          "y": 9888
+        },
+        {
+          "x": 5792,
+          "y": 9952
+        },
+        {
+          "x": 4480,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-246",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8544,
+          "y": 9888
+        },
+        {
+          "x": 8608,
+          "y": 9952
+        },
+        {
+          "x": 9728,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-247",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8544,
+          "y": 9888
+        },
+        {
+          "x": 8480,
+          "y": 9888
+        },
+        {
+          "x": 8416,
+          "y": 9952
+        },
+        {
+          "x": 8032,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-248",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2176,
+          "y": 9952
+        },
+        {
+          "x": 2144,
+          "y": 10016
+        },
+        {
+          "x": 2144,
+          "y": 11488
+        }
+      ]
+    },
+    {
+      "id": "road-249",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2176,
+          "y": 9952
+        },
+        {
+          "x": 2464,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-250",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2464,
+          "y": 9952
+        },
+        {
+          "x": 4480,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-251",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4480,
+          "y": 9952
+        },
+        {
+          "x": 4448,
+          "y": 10016
+        },
+        {
+          "x": 4448,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-252",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 9952
+        },
+        {
+          "x": 8032,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-253",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 9952
+        },
+        {
+          "x": 7520,
+          "y": 10272
+        },
+        {
+          "x": 7456,
+          "y": 10336
+        },
+        {
+          "x": 7456,
+          "y": 10784
+        }
+      ]
+    },
+    {
+      "id": "road-254",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 9952
+        },
+        {
+          "x": 8032,
+          "y": 10784
+        }
+      ]
+    },
+    {
+      "id": "road-255",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9728,
+          "y": 9952
+        },
+        {
+          "x": 9696,
+          "y": 10016
+        },
+        {
+          "x": 9696,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-256",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9728,
+          "y": 9952
+        },
+        {
+          "x": 10912,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-257",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 9952
+        },
+        {
+          "x": 11168,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-258",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 9952
+        },
+        {
+          "x": 10912,
+          "y": 10880
+        }
+      ]
+    },
+    {
+      "id": "road-259",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 9952
+        },
+        {
+          "x": 12864,
+          "y": 9952
+        }
+      ]
+    },
+    {
+      "id": "road-260",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 9952
+        },
+        {
+          "x": 11168,
+          "y": 10912
+        }
+      ]
+    },
+    {
+      "id": "road-261",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 12864,
+          "y": 9952
+        },
+        {
+          "x": 12832,
+          "y": 10016
+        },
+        {
+          "x": 12832,
+          "y": 10976
+        },
+        {
+          "x": 14112,
+          "y": 10976
+        },
+        {
+          "x": 14112,
+          "y": 12000
+        },
+        {
+          "x": 12768,
+          "y": 12000
+        }
+      ]
+    },
+    {
+      "id": "road-262",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 14880,
+          "y": 10080
+        },
+        {
+          "x": 15008,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-263",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 15008,
+          "y": 10080
+        },
+        {
+          "x": 15136,
+          "y": 10080
+        }
+      ]
+    },
+    {
+      "id": "road-264",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3552,
+          "y": 10208
+        },
+        {
+          "x": 3552,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-265",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 10208
+        },
+        {
+          "x": 10272,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-266",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7072,
+          "y": 10784
+        },
+        {
+          "x": 6496,
+          "y": 10784
+        },
+        {
+          "x": 6496,
+          "y": 10848
+        },
+        {
+          "x": 6432,
+          "y": 10848
+        },
+        {
+          "x": 6432,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-267",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7456,
+          "y": 10784
+        },
+        {
+          "x": 8032,
+          "y": 10784
+        }
+      ]
+    },
+    {
+      "id": "road-268",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7456,
+          "y": 10784
+        },
+        {
+          "x": 7456,
+          "y": 11040
+        },
+        {
+          "x": 7520,
+          "y": 11104
+        },
+        {
+          "x": 7520,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-269",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 10784
+        },
+        {
+          "x": 9120,
+          "y": 10784
+        },
+        {
+          "x": 9120,
+          "y": 11168
+        }
+      ]
+    },
+    {
+      "id": "road-270",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3552,
+          "y": 10848
+        },
+        {
+          "x": 4448,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-271",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3552,
+          "y": 10848
+        },
+        {
+          "x": 2976,
+          "y": 10848
+        },
+        {
+          "x": 2976,
+          "y": 10912
+        },
+        {
+          "x": 2912,
+          "y": 10912
+        },
+        {
+          "x": 2912,
+          "y": 11744
+        }
+      ]
+    },
+    {
+      "id": "road-272",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4448,
+          "y": 10848
+        },
+        {
+          "x": 5920,
+          "y": 10848
+        },
+        {
+          "x": 5920,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-273",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9696,
+          "y": 10848
+        },
+        {
+          "x": 10272,
+          "y": 10848
+        }
+      ]
+    },
+    {
+      "id": "road-274",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9696,
+          "y": 10848
+        },
+        {
+          "x": 9696,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-275",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10272,
+          "y": 10848
+        },
+        {
+          "x": 10848,
+          "y": 10848
+        },
+        {
+          "x": 10912,
+          "y": 10880
+        }
+      ]
+    },
+    {
+      "id": "road-276",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 10880
+        },
+        {
+          "x": 10976,
+          "y": 10912
+        },
+        {
+          "x": 11168,
+          "y": 10912
+        }
+      ]
+    },
+    {
+      "id": "road-277",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 10880
+        },
+        {
+          "x": 10912,
+          "y": 11456
+        }
+      ]
+    },
+    {
+      "id": "road-278",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 10912
+        },
+        {
+          "x": 11168,
+          "y": 11360
+        },
+        {
+          "x": 11104,
+          "y": 11424
+        },
+        {
+          "x": 11104,
+          "y": 11488
+        }
+      ]
+    },
+    {
+      "id": "road-279",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5216,
+          "y": 11296
+        },
+        {
+          "x": 5216,
+          "y": 12512
+        }
+      ]
+    },
+    {
+      "id": "road-280",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5920,
+          "y": 11424
+        },
+        {
+          "x": 6432,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-281",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5920,
+          "y": 11424
+        },
+        {
+          "x": 5920,
+          "y": 12512
+        }
+      ]
+    },
+    {
+      "id": "road-282",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6432,
+          "y": 11424
+        },
+        {
+          "x": 7520,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-283",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 6432,
+          "y": 11424
+        },
+        {
+          "x": 6432,
+          "y": 12128
+        },
+        {
+          "x": 7520,
+          "y": 12128
+        }
+      ]
+    },
+    {
+      "id": "road-284",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 11424
+        },
+        {
+          "x": 8544,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-285",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 11424
+        },
+        {
+          "x": 7520,
+          "y": 12128
+        }
+      ]
+    },
+    {
+      "id": "road-286",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8544,
+          "y": 11424
+        },
+        {
+          "x": 9696,
+          "y": 11424
+        }
+      ]
+    },
+    {
+      "id": "road-287",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8544,
+          "y": 11424
+        },
+        {
+          "x": 8544,
+          "y": 12128
+        }
+      ]
+    },
+    {
+      "id": "road-288",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9696,
+          "y": 11424
         },
         {
           "x": 10208,
-          "y": 8864
+          "y": 11424
         }
       ]
     },
     {
-      "id": "south-boulevard-north",
-      "speedLimit": 126,
-      "direction": "reverse",
-      "lanesPerDirection": 2,
+      "id": "road-289",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 5968,
-          "y": 9696
+          "x": 10208,
+          "y": 11424
         },
         {
-          "x": 9728,
-          "y": 9696
+          "x": 10848,
+          "y": 11424
+        },
+        {
+          "x": 10912,
+          "y": 11456
         }
       ]
     },
     {
-      "id": "south-boulevard-south",
-      "speedLimit": 126,
-      "direction": "forward",
-      "lanesPerDirection": 2,
+      "id": "road-290",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 5968,
-          "y": 9952
+          "x": 10208,
+          "y": 11424
         },
         {
-          "x": 9728,
-          "y": 9952
+          "x": 10208,
+          "y": 12320
+        },
+        {
+          "x": 9696,
+          "y": 12320
         }
       ]
     },
     {
-      "id": "south-boulevard-west-return",
-      "speedLimit": 52,
-      "direction": "reverse",
+      "id": "road-291",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 5968,
-          "y": 9952
+          "x": 10912,
+          "y": 11456
         },
         {
-          "x": 5968,
-          "y": 9696
+          "x": 10976,
+          "y": 11488
+        },
+        {
+          "x": 11104,
+          "y": 11488
         }
       ]
     },
     {
-      "id": "south-boulevard-east-return",
-      "speedLimit": 52,
-      "direction": "reverse",
+      "id": "road-292",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
       "points": [
         {
-          "x": 9728,
-          "y": 9696
+          "x": 10912,
+          "y": 11456
         },
         {
-          "x": 9728,
-          "y": 9952
+          "x": 10912,
+          "y": 12064
+        }
+      ]
+    },
+    {
+      "id": "road-293",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11104,
+          "y": 11488
+        },
+        {
+          "x": 11168,
+          "y": 11552
+        },
+        {
+          "x": 11168,
+          "y": 12032
+        }
+      ]
+    },
+    {
+      "id": "road-294",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 11776
+        },
+        {
+          "x": 1632,
+          "y": 11744
+        },
+        {
+          "x": 2912,
+          "y": 11744
+        }
+      ]
+    },
+    {
+      "id": "road-295",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 11776
+        },
+        {
+          "x": 1568,
+          "y": 12960
+        }
+      ]
+    },
+    {
+      "id": "road-296",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 11776
+        },
+        {
+          "x": 1504,
+          "y": 11808
+        },
+        {
+          "x": 1312,
+          "y": 11808
+        }
+      ]
+    },
+    {
+      "id": "road-297",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2912,
+          "y": 11744
+        },
+        {
+          "x": 3616,
+          "y": 11744
+        }
+      ]
+    },
+    {
+      "id": "road-298",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3616,
+          "y": 11744
+        },
+        {
+          "x": 4576,
+          "y": 11744
+        },
+        {
+          "x": 4576,
+          "y": 12512
+        },
+        {
+          "x": 5216,
+          "y": 12512
+        }
+      ]
+    },
+    {
+      "id": "road-299",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3616,
+          "y": 11744
+        },
+        {
+          "x": 3616,
+          "y": 12640
+        }
+      ]
+    },
+    {
+      "id": "road-300",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9120,
+          "y": 11744
+        },
+        {
+          "x": 9120,
+          "y": 12320
+        },
+        {
+          "x": 9696,
+          "y": 12320
+        }
+      ]
+    },
+    {
+      "id": "road-301",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 11808
+        },
+        {
+          "x": 1312,
+          "y": 12928
+        }
+      ]
+    },
+    {
+      "id": "road-302",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 12032
+        },
+        {
+          "x": 11232,
+          "y": 12000
+        },
+        {
+          "x": 12768,
+          "y": 12000
+        }
+      ]
+    },
+    {
+      "id": "road-303",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 12032
+        },
+        {
+          "x": 11168,
+          "y": 12896
+        }
+      ]
+    },
+    {
+      "id": "road-304",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 12032
+        },
+        {
+          "x": 11104,
+          "y": 12064
+        },
+        {
+          "x": 10912,
+          "y": 12064
+        }
+      ]
+    },
+    {
+      "id": "road-305",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 12768,
+          "y": 12000
+        },
+        {
+          "x": 12768,
+          "y": 13024
+        },
+        {
+          "x": 12192,
+          "y": 13024
+        },
+        {
+          "x": 12192,
+          "y": 13088
+        },
+        {
+          "x": 12128,
+          "y": 13088
+        },
+        {
+          "x": 12128,
+          "y": 15072
+        },
+        {
+          "x": 11040,
+          "y": 15072
+        }
+      ]
+    },
+    {
+      "id": "road-306",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2144,
+          "y": 12064
+        },
+        {
+          "x": 2144,
+          "y": 12640
+        }
+      ]
+    },
+    {
+      "id": "road-307",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 12064
+        },
+        {
+          "x": 10912,
+          "y": 12864
+        }
+      ]
+    },
+    {
+      "id": "road-308",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 608,
+          "y": 12128
+        },
+        {
+          "x": 480,
+          "y": 12128
+        },
+        {
+          "x": 480,
+          "y": 12192
+        },
+        {
+          "x": 416,
+          "y": 12192
+        },
+        {
+          "x": 416,
+          "y": 12896
+        }
+      ]
+    },
+    {
+      "id": "road-309",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 12128
+        },
+        {
+          "x": 8032,
+          "y": 12128
+        }
+      ]
+    },
+    {
+      "id": "road-310",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 12128
+        },
+        {
+          "x": 7520,
+          "y": 12448
+        },
+        {
+          "x": 7456,
+          "y": 12512
+        },
+        {
+          "x": 7456,
+          "y": 13280
+        },
+        {
+          "x": 7488,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-311",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 12128
+        },
+        {
+          "x": 8544,
+          "y": 12128
+        }
+      ]
+    },
+    {
+      "id": "road-312",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8032,
+          "y": 12128
+        },
+        {
+          "x": 8032,
+          "y": 13280
+        },
+        {
+          "x": 8064,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-313",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8544,
+          "y": 12128
+        },
+        {
+          "x": 8544,
+          "y": 12640
+        },
+        {
+          "x": 8992,
+          "y": 12640
+        },
+        {
+          "x": 8992,
+          "y": 13280
+        },
+        {
+          "x": 9024,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-314",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2848,
+          "y": 12320
+        },
+        {
+          "x": 2848,
+          "y": 12384
+        },
+        {
+          "x": 2784,
+          "y": 12448
+        },
+        {
+          "x": 2784,
+          "y": 12640
+        }
+      ]
+    },
+    {
+      "id": "road-315",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9696,
+          "y": 12320
+        },
+        {
+          "x": 9696,
+          "y": 12832
+        },
+        {
+          "x": 10016,
+          "y": 12832
+        }
+      ]
+    },
+    {
+      "id": "road-316",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5216,
+          "y": 12512
+        },
+        {
+          "x": 5920,
+          "y": 12512
+        }
+      ]
+    },
+    {
+      "id": "road-317",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5920,
+          "y": 12512
+        },
+        {
+          "x": 5920,
+          "y": 13280
+        },
+        {
+          "x": 5952,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-318",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2144,
+          "y": 12640
+        },
+        {
+          "x": 2784,
+          "y": 12640
+        }
+      ]
+    },
+    {
+      "id": "road-319",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2144,
+          "y": 12640
+        },
+        {
+          "x": 2144,
+          "y": 13280
+        },
+        {
+          "x": 2176,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-320",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2784,
+          "y": 12640
+        },
+        {
+          "x": 3616,
+          "y": 12640
+        }
+      ]
+    },
+    {
+      "id": "road-321",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3616,
+          "y": 12640
+        },
+        {
+          "x": 3616,
+          "y": 13280
+        },
+        {
+          "x": 3648,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-322",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10016,
+          "y": 12832
+        },
+        {
+          "x": 10848,
+          "y": 12832
+        },
+        {
+          "x": 10912,
+          "y": 12864
+        }
+      ]
+    },
+    {
+      "id": "road-323",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10016,
+          "y": 12832
+        },
+        {
+          "x": 10016,
+          "y": 13280
+        },
+        {
+          "x": 10048,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-324",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 12864
+        },
+        {
+          "x": 10976,
+          "y": 12896
+        },
+        {
+          "x": 11168,
+          "y": 12896
+        }
+      ]
+    },
+    {
+      "id": "road-325",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10912,
+          "y": 12864
+        },
+        {
+          "x": 10912,
+          "y": 13280
+        },
+        {
+          "x": 10848,
+          "y": 13280
+        },
+        {
+          "x": 10848,
+          "y": 13344
+        },
+        {
+          "x": 10048,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-326",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 416,
+          "y": 12896
+        },
+        {
+          "x": 1248,
+          "y": 12896
+        },
+        {
+          "x": 1312,
+          "y": 12928
+        }
+      ]
+    },
+    {
+      "id": "road-327",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 416,
+          "y": 12896
+        },
+        {
+          "x": 416,
+          "y": 14176
+        },
+        {
+          "x": 1696,
+          "y": 14176
+        }
+      ]
+    },
+    {
+      "id": "road-328",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 12928
+        },
+        {
+          "x": 1376,
+          "y": 12960
+        },
+        {
+          "x": 1568,
+          "y": 12960
+        }
+      ]
+    },
+    {
+      "id": "road-329",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1312,
+          "y": 12928
+        },
+        {
+          "x": 1312,
+          "y": 13600
+        },
+        {
+          "x": 1696,
+          "y": 13600
+        },
+        {
+          "x": 1696,
+          "y": 13664
+        }
+      ]
+    },
+    {
+      "id": "road-330",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11168,
+          "y": 12896
+        },
+        {
+          "x": 11168,
+          "y": 13536
+        },
+        {
+          "x": 11104,
+          "y": 13536
+        },
+        {
+          "x": 11104,
+          "y": 13600
+        },
+        {
+          "x": 10080,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-331",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1568,
+          "y": 12960
+        },
+        {
+          "x": 1568,
+          "y": 13344
+        },
+        {
+          "x": 2176,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-332",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2176,
+          "y": 13344
+        },
+        {
+          "x": 3648,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-333",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2176,
+          "y": 13344
+        },
+        {
+          "x": 2208,
+          "y": 13408
+        },
+        {
+          "x": 2208,
+          "y": 13632
+        }
+      ]
+    },
+    {
+      "id": "road-334",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3648,
+          "y": 13344
+        },
+        {
+          "x": 5024,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-335",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3648,
+          "y": 13344
+        },
+        {
+          "x": 3680,
+          "y": 13408
+        },
+        {
+          "x": 3680,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-336",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5024,
+          "y": 13344
+        },
+        {
+          "x": 5952,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-337",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5024,
+          "y": 13344
+        },
+        {
+          "x": 5024,
+          "y": 13536
+        },
+        {
+          "x": 4992,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-338",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5952,
+          "y": 13344
+        },
+        {
+          "x": 7488,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-339",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5952,
+          "y": 13344
+        },
+        {
+          "x": 5984,
+          "y": 13408
+        },
+        {
+          "x": 5984,
+          "y": 13536
+        }
+      ]
+    },
+    {
+      "id": "road-340",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7488,
+          "y": 13344
+        },
+        {
+          "x": 8064,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-341",
+      "speedLimit": 118,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7488,
+          "y": 13344
+        },
+        {
+          "x": 7520,
+          "y": 13408
+        },
+        {
+          "x": 7520,
+          "y": 13472
+        }
+      ]
+    },
+    {
+      "id": "road-342",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8064,
+          "y": 13344
+        },
+        {
+          "x": 9024,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-343",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8064,
+          "y": 13344
+        },
+        {
+          "x": 8096,
+          "y": 13408
+        },
+        {
+          "x": 8096,
+          "y": 13536
+        },
+        {
+          "x": 8064,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-344",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9024,
+          "y": 13344
+        },
+        {
+          "x": 10048,
+          "y": 13344
+        }
+      ]
+    },
+    {
+      "id": "road-345",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9024,
+          "y": 13344
+        },
+        {
+          "x": 9056,
+          "y": 13408
+        },
+        {
+          "x": 9056,
+          "y": 13536
+        },
+        {
+          "x": 9024,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-346",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 10048,
+          "y": 13344
+        },
+        {
+          "x": 10080,
+          "y": 13408
+        },
+        {
+          "x": 10080,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-347",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 13472
+        },
+        {
+          "x": 7648,
+          "y": 13600
+        },
+        {
+          "x": 8064,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-348",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 7520,
+          "y": 13472
+        },
+        {
+          "x": 7456,
+          "y": 13472
+        },
+        {
+          "x": 7456,
+          "y": 13536
+        },
+        {
+          "x": 7392,
+          "y": 13536
+        },
+        {
+          "x": 7328,
+          "y": 13600
+        },
+        {
+          "x": 6048,
+          "y": 13600
+        },
+        {
+          "x": 5984,
+          "y": 13536
+        }
+      ]
+    },
+    {
+      "id": "road-349",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 5984,
+          "y": 13536
+        },
+        {
+          "x": 5920,
+          "y": 13536
+        },
+        {
+          "x": 5856,
+          "y": 13600
+        },
+        {
+          "x": 4992,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-350",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2208,
+          "y": 13632
+        },
+        {
+          "x": 2272,
+          "y": 13600
+        },
+        {
+          "x": 3680,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-351",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2208,
+          "y": 13632
+        },
+        {
+          "x": 2208,
+          "y": 14048
+        },
+        {
+          "x": 2080,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-352",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2208,
+          "y": 13632
+        },
+        {
+          "x": 2144,
+          "y": 13664
+        },
+        {
+          "x": 2080,
+          "y": 13664
+        }
+      ]
+    },
+    {
+      "id": "road-353",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 3680,
+          "y": 13600
+        },
+        {
+          "x": 4992,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-354",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4992,
+          "y": 13600
+        },
+        {
+          "x": 4960,
+          "y": 13664
+        },
+        {
+          "x": 4960,
+          "y": 14368
+        },
+        {
+          "x": 4256,
+          "y": 14368
+        },
+        {
+          "x": 4256,
+          "y": 14432
+        },
+        {
+          "x": 4192,
+          "y": 14432
+        },
+        {
+          "x": 4192,
+          "y": 14944
+        }
+      ]
+    },
+    {
+      "id": "road-355",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8064,
+          "y": 13600
+        },
+        {
+          "x": 8032,
+          "y": 13664
+        },
+        {
+          "x": 8032,
+          "y": 14048
+        },
+        {
+          "x": 8992,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-356",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8064,
+          "y": 13600
+        },
+        {
+          "x": 9024,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-357",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9024,
+          "y": 13600
+        },
+        {
+          "x": 8992,
+          "y": 13664
+        },
+        {
+          "x": 8992,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-358",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 9024,
+          "y": 13600
+        },
+        {
+          "x": 10080,
+          "y": 13600
+        }
+      ]
+    },
+    {
+      "id": "road-359",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1696,
+          "y": 13664
+        },
+        {
+          "x": 1824,
+          "y": 13664
+        }
+      ]
+    },
+    {
+      "id": "road-360",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1696,
+          "y": 13664
+        },
+        {
+          "x": 1696,
+          "y": 14048
+        },
+        {
+          "x": 1824,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-361",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1824,
+          "y": 13664
+        },
+        {
+          "x": 1952,
+          "y": 13664
+        }
+      ]
+    },
+    {
+      "id": "road-362",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1824,
+          "y": 13664
+        },
+        {
+          "x": 1824,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-363",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1952,
+          "y": 13664
+        },
+        {
+          "x": 2080,
+          "y": 13664
+        }
+      ]
+    },
+    {
+      "id": "road-364",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1952,
+          "y": 13664
+        },
+        {
+          "x": 1952,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-365",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 2080,
+          "y": 13664
+        },
+        {
+          "x": 2080,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-366",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1824,
+          "y": 14048
+        },
+        {
+          "x": 1952,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-367",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1952,
+          "y": 14048
+        },
+        {
+          "x": 2080,
+          "y": 14048
+        }
+      ]
+    },
+    {
+      "id": "road-368",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 8992,
+          "y": 14048
+        },
+        {
+          "x": 8992,
+          "y": 15072
+        },
+        {
+          "x": 11040,
+          "y": 15072
+        }
+      ]
+    },
+    {
+      "id": "road-369",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1696,
+          "y": 14176
+        },
+        {
+          "x": 3424,
+          "y": 14176
+        },
+        {
+          "x": 3424,
+          "y": 14944
+        },
+        {
+          "x": 4192,
+          "y": 14944
+        }
+      ]
+    },
+    {
+      "id": "road-370",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 1696,
+          "y": 14176
+        },
+        {
+          "x": 1696,
+          "y": 14880
+        }
+      ]
+    },
+    {
+      "id": "road-371",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 4192,
+          "y": 14944
+        },
+        {
+          "x": 4320,
+          "y": 14944
+        }
+      ]
+    },
+    {
+      "id": "road-372",
+      "speedLimit": 96,
+      "lanesPerDirection": 1,
+      "points": [
+        {
+          "x": 11040,
+          "y": 15072
+        },
+        {
+          "x": 11040,
+          "y": 15904
+        },
+        {
+          "x": 10976,
+          "y": 15968
         }
       ]
     }
   ],
   "junctions": [
     {
-      "id": "west-north-service",
-      "x": 6368,
-      "y": 6624,
+      "id": "road-junction-001",
+      "x": 6944,
+      "y": 1376,
       "corridors": [
-        "west-avenue",
-        "north-service-road"
+        "road-002",
+        "road-003",
+        "road-004"
       ]
     },
     {
-      "id": "central-north-service",
+      "id": "road-junction-002",
+      "x": 14816,
+      "y": 1632,
+      "corridors": [
+        "road-001",
+        "road-006",
+        "road-007"
+      ]
+    },
+    {
+      "id": "road-junction-003",
+      "x": 11296,
+      "y": 2144,
+      "corridors": [
+        "road-005",
+        "road-009",
+        "road-010",
+        "road-011"
+      ]
+    },
+    {
+      "id": "road-junction-004",
+      "x": 12448,
+      "y": 2144,
+      "corridors": [
+        "road-008",
+        "road-009",
+        "road-012"
+      ]
+    },
+    {
+      "id": "road-junction-005",
+      "x": 5088,
+      "y": 2592,
+      "corridors": [
+        "road-004",
+        "road-013",
+        "road-014"
+      ]
+    },
+    {
+      "id": "road-junction-006",
+      "x": 6944,
+      "y": 2592,
+      "corridors": [
+        "road-003",
+        "road-013",
+        "road-015"
+      ]
+    },
+    {
+      "id": "road-junction-007",
+      "x": 8288,
+      "y": 2592,
+      "corridors": [
+        "road-002",
+        "road-015",
+        "road-016"
+      ]
+    },
+    {
+      "id": "road-junction-008",
+      "x": 14496,
+      "y": 2592,
+      "corridors": [
+        "road-017",
+        "road-018",
+        "road-019"
+      ]
+    },
+    {
+      "id": "road-junction-009",
+      "x": 14496,
+      "y": 3040,
+      "corridors": [
+        "road-019",
+        "road-021",
+        "road-022"
+      ]
+    },
+    {
+      "id": "road-junction-010",
+      "x": 15136,
+      "y": 3040,
+      "corridors": [
+        "road-007",
+        "road-021",
+        "road-023"
+      ]
+    },
+    {
+      "id": "road-junction-011",
+      "x": 1312,
+      "y": 3360,
+      "corridors": [
+        "road-024",
+        "road-025",
+        "road-026"
+      ]
+    },
+    {
+      "id": "road-junction-012",
+      "x": 5120,
+      "y": 3488,
+      "corridors": [
+        "road-014",
+        "road-027",
+        "road-028",
+        "road-029"
+      ]
+    },
+    {
+      "id": "road-junction-013",
+      "x": 5856,
+      "y": 3488,
+      "corridors": [
+        "road-028",
+        "road-030",
+        "road-031"
+      ]
+    },
+    {
+      "id": "road-junction-014",
+      "x": 8320,
+      "y": 3488,
+      "corridors": [
+        "road-016",
+        "road-030",
+        "road-032",
+        "road-033"
+      ]
+    },
+    {
+      "id": "road-junction-015",
+      "x": 9280,
+      "y": 3488,
+      "corridors": [
+        "road-020",
+        "road-032",
+        "road-034",
+        "road-035"
+      ]
+    },
+    {
+      "id": "road-junction-016",
+      "x": 9888,
+      "y": 3488,
+      "corridors": [
+        "road-034",
+        "road-036",
+        "road-037"
+      ]
+    },
+    {
+      "id": "road-junction-017",
+      "x": 10112,
+      "y": 3488,
+      "corridors": [
+        "road-011",
+        "road-036",
+        "road-038",
+        "road-039"
+      ]
+    },
+    {
+      "id": "road-junction-018",
+      "x": 13760,
+      "y": 3488,
+      "corridors": [
+        "road-022",
+        "road-038",
+        "road-040",
+        "road-041"
+      ]
+    },
+    {
+      "id": "road-junction-019",
+      "x": 5152,
+      "y": 3680,
+      "corridors": [
+        "road-029",
+        "road-043",
+        "road-044"
+      ]
+    },
+    {
+      "id": "road-junction-020",
+      "x": 8352,
+      "y": 3680,
+      "corridors": [
+        "road-033",
+        "road-045",
+        "road-046"
+      ]
+    },
+    {
+      "id": "road-junction-021",
+      "x": 5824,
+      "y": 3744,
+      "corridors": [
+        "road-031",
+        "road-043",
+        "road-046",
+        "road-047"
+      ]
+    },
+    {
+      "id": "road-junction-022",
+      "x": 9312,
+      "y": 3744,
+      "corridors": [
+        "road-035",
+        "road-045",
+        "road-048"
+      ]
+    },
+    {
+      "id": "road-junction-023",
+      "x": 9856,
+      "y": 3744,
+      "corridors": [
+        "road-037",
+        "road-048",
+        "road-049",
+        "road-050"
+      ]
+    },
+    {
+      "id": "road-junction-024",
+      "x": 10144,
+      "y": 3744,
+      "corridors": [
+        "road-039",
+        "road-050",
+        "road-051"
+      ]
+    },
+    {
+      "id": "road-junction-025",
+      "x": 13792,
+      "y": 3744,
+      "corridors": [
+        "road-041",
+        "road-051",
+        "road-052"
+      ]
+    },
+    {
+      "id": "road-junction-026",
+      "x": 7392,
+      "y": 4128,
+      "corridors": [
+        "road-053",
+        "road-054",
+        "road-055"
+      ]
+    },
+    {
+      "id": "road-junction-027",
+      "x": 3232,
+      "y": 4192,
+      "corridors": [
+        "road-042",
+        "road-056",
+        "road-057"
+      ]
+    },
+    {
+      "id": "road-junction-028",
+      "x": 4256,
+      "y": 4192,
+      "corridors": [
+        "road-027",
+        "road-056",
+        "road-058"
+      ]
+    },
+    {
+      "id": "road-junction-029",
+      "x": 5792,
+      "y": 4512,
+      "corridors": [
+        "road-047",
+        "road-059",
+        "road-060"
+      ]
+    },
+    {
+      "id": "road-junction-030",
+      "x": 6560,
+      "y": 4512,
+      "corridors": [
+        "road-055",
+        "road-060",
+        "road-061"
+      ]
+    },
+    {
+      "id": "road-junction-031",
+      "x": 7392,
+      "y": 4512,
+      "corridors": [
+        "road-054",
+        "road-061",
+        "road-062"
+      ]
+    },
+    {
+      "id": "road-junction-032",
+      "x": 8032,
+      "y": 4832,
+      "corridors": [
+        "road-053",
+        "road-062",
+        "road-063"
+      ]
+    },
+    {
+      "id": "road-junction-033",
+      "x": 1568,
+      "y": 5216,
+      "corridors": [
+        "road-024",
+        "road-064",
+        "road-065"
+      ]
+    },
+    {
+      "id": "road-junction-034",
+      "x": 3360,
+      "y": 5216,
+      "corridors": [
+        "road-058",
+        "road-064",
+        "road-066"
+      ]
+    },
+    {
+      "id": "road-junction-035",
+      "x": 6240,
+      "y": 5280,
+      "corridors": [
+        "road-067",
+        "road-068",
+        "road-069"
+      ]
+    },
+    {
+      "id": "road-junction-036",
+      "x": 6880,
+      "y": 5280,
+      "corridors": [
+        "road-067",
+        "road-070",
+        "road-071"
+      ]
+    },
+    {
+      "id": "road-junction-037",
+      "x": 7648,
+      "y": 5280,
+      "corridors": [
+        "road-070",
+        "road-072",
+        "road-073"
+      ]
+    },
+    {
+      "id": "road-junction-038",
+      "x": 8032,
+      "y": 5280,
+      "corridors": [
+        "road-063",
+        "road-072",
+        "road-074"
+      ]
+    },
+    {
+      "id": "road-junction-039",
+      "x": 8416,
+      "y": 5280,
+      "corridors": [
+        "road-074",
+        "road-075",
+        "road-076"
+      ]
+    },
+    {
+      "id": "road-junction-040",
+      "x": 9248,
+      "y": 5280,
+      "corridors": [
+        "road-075",
+        "road-077",
+        "road-078"
+      ]
+    },
+    {
+      "id": "road-junction-041",
+      "x": 9824,
+      "y": 5280,
+      "corridors": [
+        "road-049",
+        "road-077",
+        "road-079",
+        "road-080"
+      ]
+    },
+    {
+      "id": "road-junction-042",
+      "x": 1491.2,
+      "y": 5395.2,
+      "corridors": [
+        "road-025",
+        "road-065",
+        "road-081",
+        "road-082",
+        "road-083"
+      ]
+    },
+    {
+      "id": "road-junction-043",
+      "x": 3328,
+      "y": 5472,
+      "corridors": [
+        "road-066",
+        "road-082",
+        "road-084",
+        "road-085"
+      ]
+    },
+    {
+      "id": "road-junction-044",
+      "x": 3872,
+      "y": 5536,
+      "corridors": [
+        "road-085",
+        "road-086",
+        "road-087"
+      ]
+    },
+    {
+      "id": "road-junction-045",
+      "x": 4000,
+      "y": 5536,
+      "corridors": [
+        "road-086",
+        "road-088",
+        "road-089"
+      ]
+    },
+    {
+      "id": "road-junction-046",
+      "x": 4128,
+      "y": 5536,
+      "corridors": [
+        "road-088",
+        "road-090",
+        "road-091"
+      ]
+    },
+    {
+      "id": "road-junction-047",
+      "x": 4256,
+      "y": 5536,
+      "corridors": [
+        "road-090",
+        "road-092",
+        "road-093"
+      ]
+    },
+    {
+      "id": "road-junction-048",
+      "x": 4384,
+      "y": 5536,
+      "corridors": [
+        "road-044",
+        "road-092",
+        "road-094"
+      ]
+    },
+    {
+      "id": "road-junction-049",
+      "x": 10976,
+      "y": 5664,
+      "corridors": [
+        "road-079",
+        "road-095",
+        "road-096"
+      ]
+    },
+    {
+      "id": "road-junction-050",
+      "x": 14048,
+      "y": 5696,
+      "corridors": [
+        "road-052",
+        "road-095",
+        "road-097",
+        "road-098"
+      ]
+    },
+    {
+      "id": "road-junction-051",
+      "x": 14304,
+      "y": 5728,
+      "corridors": [
+        "road-040",
+        "road-097",
+        "road-099"
+      ]
+    },
+    {
+      "id": "road-junction-052",
+      "x": 2400,
+      "y": 5792,
+      "corridors": [
+        "road-100",
+        "road-101",
+        "road-102"
+      ]
+    },
+    {
+      "id": "road-junction-053",
+      "x": 7648,
+      "y": 5792,
+      "corridors": [
+        "road-073",
+        "road-076",
+        "road-103"
+      ]
+    },
+    {
+      "id": "road-junction-054",
+      "x": 6240,
+      "y": 5856,
+      "corridors": [
+        "road-068",
+        "road-104",
+        "road-105"
+      ]
+    },
+    {
+      "id": "road-junction-055",
+      "x": 4000,
+      "y": 5984,
+      "corridors": [
+        "road-087",
+        "road-089",
+        "road-106"
+      ]
+    },
+    {
+      "id": "road-junction-056",
+      "x": 4128,
+      "y": 5984,
+      "corridors": [
+        "road-091",
+        "road-106",
+        "road-107"
+      ]
+    },
+    {
+      "id": "road-junction-057",
+      "x": 4256,
+      "y": 5984,
+      "corridors": [
+        "road-093",
+        "road-094",
+        "road-107"
+      ]
+    },
+    {
+      "id": "road-junction-058",
+      "x": 6880,
+      "y": 6048,
+      "corridors": [
+        "road-071",
+        "road-108",
+        "road-109"
+      ]
+    },
+    {
+      "id": "road-junction-059",
+      "x": 7648,
+      "y": 6048,
+      "corridors": [
+        "road-103",
+        "road-108",
+        "road-110"
+      ]
+    },
+    {
+      "id": "road-junction-060",
+      "x": 2400,
+      "y": 6112,
+      "corridors": [
+        "road-102",
+        "road-111",
+        "road-112",
+        "road-113"
+      ]
+    },
+    {
+      "id": "road-junction-061",
+      "x": 3296,
+      "y": 6112,
+      "corridors": [
+        "road-084",
+        "road-114",
+        "road-115"
+      ]
+    },
+    {
+      "id": "road-junction-062",
+      "x": 4128,
+      "y": 6112,
+      "corridors": [
+        "road-114",
+        "road-116",
+        "road-117"
+      ]
+    },
+    {
+      "id": "road-junction-063",
+      "x": 5088,
+      "y": 6112,
+      "corridors": [
+        "road-069",
+        "road-116",
+        "road-118"
+      ]
+    },
+    {
+      "id": "road-junction-064",
+      "x": 14304,
+      "y": 6144,
+      "corridors": [
+        "road-099",
+        "road-119",
+        "road-120",
+        "road-121"
+      ]
+    },
+    {
+      "id": "road-junction-065",
+      "x": 9824,
+      "y": 6176,
+      "corridors": [
+        "road-080",
+        "road-122",
+        "road-123"
+      ]
+    },
+    {
+      "id": "road-junction-066",
+      "x": 14048,
+      "y": 6176,
+      "corridors": [
+        "road-098",
+        "road-121",
+        "road-124"
+      ]
+    },
+    {
+      "id": "road-junction-067",
+      "x": 5088,
+      "y": 6304,
+      "corridors": [
+        "road-118",
+        "road-125",
+        "road-126"
+      ]
+    },
+    {
+      "id": "road-junction-068",
+      "x": 5728,
+      "y": 6304,
+      "corridors": [
+        "road-104",
+        "road-105",
+        "road-125",
+        "road-127"
+      ]
+    },
+    {
+      "id": "road-junction-069",
+      "x": 6880,
+      "y": 6624,
+      "corridors": [
+        "road-109",
+        "road-128",
+        "road-129"
+      ]
+    },
+    {
+      "id": "road-junction-070",
+      "x": 7648,
+      "y": 6624,
+      "corridors": [
+        "road-110",
+        "road-128",
+        "road-130",
+        "road-131"
+      ]
+    },
+    {
+      "id": "road-junction-071",
       "x": 8480,
       "y": 6624,
       "corridors": [
-        "central-avenue",
-        "north-service-road"
+        "road-078",
+        "road-130",
+        "road-132"
       ]
     },
     {
-      "id": "central-north",
+      "id": "road-junction-072",
+      "x": 9824,
+      "y": 6688,
+      "corridors": [
+        "road-123",
+        "road-133",
+        "road-134",
+        "road-135"
+      ]
+    },
+    {
+      "id": "road-junction-073",
+      "x": 10336,
+      "y": 6688,
+      "corridors": [
+        "road-122",
+        "road-133",
+        "road-136"
+      ]
+    },
+    {
+      "id": "road-junction-074",
+      "x": 10976,
+      "y": 6688,
+      "corridors": [
+        "road-096",
+        "road-136",
+        "road-137"
+      ]
+    },
+    {
+      "id": "road-junction-075",
+      "x": 2400,
+      "y": 6880,
+      "corridors": [
+        "road-113",
+        "road-138",
+        "road-139"
+      ]
+    },
+    {
+      "id": "road-junction-076",
+      "x": 3296,
+      "y": 6880,
+      "corridors": [
+        "road-115",
+        "road-117",
+        "road-138",
+        "road-140"
+      ]
+    },
+    {
+      "id": "road-junction-077",
+      "x": 10976,
+      "y": 6880,
+      "corridors": [
+        "road-137",
+        "road-141",
+        "road-142"
+      ]
+    },
+    {
+      "id": "road-junction-078",
+      "x": 11936,
+      "y": 6880,
+      "corridors": [
+        "road-141",
+        "road-143",
+        "road-144"
+      ]
+    },
+    {
+      "id": "road-junction-079",
+      "x": 14048,
+      "y": 6912,
+      "corridors": [
+        "road-124",
+        "road-143",
+        "road-145",
+        "road-146"
+      ]
+    },
+    {
+      "id": "road-junction-080",
+      "x": 14304,
+      "y": 6944,
+      "corridors": [
+        "road-120",
+        "road-145",
+        "road-147"
+      ]
+    },
+    {
+      "id": "road-junction-081",
+      "x": 5728,
+      "y": 7072,
+      "corridors": [
+        "road-127",
+        "road-148",
+        "road-149"
+      ]
+    },
+    {
+      "id": "road-junction-082",
+      "x": 6368,
+      "y": 7072,
+      "corridors": [
+        "road-129",
+        "road-148",
+        "road-150"
+      ]
+    },
+    {
+      "id": "road-junction-083",
+      "x": 7648,
+      "y": 7136,
+      "corridors": [
+        "road-131",
+        "road-151",
+        "road-152"
+      ]
+    },
+    {
+      "id": "road-junction-084",
       "x": 8480,
       "y": 7136,
       "corridors": [
-        "central-avenue",
-        "north-boulevard"
+        "road-132",
+        "road-151",
+        "road-153",
+        "road-154"
       ]
     },
     {
-      "id": "west-market",
+      "id": "road-junction-085",
+      "x": 9184,
+      "y": 7136,
+      "corridors": [
+        "road-135",
+        "road-153",
+        "road-155",
+        "road-156"
+      ]
+    },
+    {
+      "id": "road-junction-086",
+      "x": 9824,
+      "y": 7136,
+      "corridors": [
+        "road-134",
+        "road-155",
+        "road-157",
+        "road-158"
+      ]
+    },
+    {
+      "id": "road-junction-087",
+      "x": 14944,
+      "y": 7136,
+      "corridors": [
+        "road-119",
+        "road-159",
+        "road-160"
+      ]
+    },
+    {
+      "id": "road-junction-088",
+      "x": 9824,
+      "y": 7648,
+      "corridors": [
+        "road-156",
+        "road-157",
+        "road-158",
+        "road-161"
+      ]
+    },
+    {
+      "id": "road-junction-089",
+      "x": 1568,
+      "y": 7744,
+      "corridors": [
+        "road-083",
+        "road-162",
+        "road-163",
+        "road-164"
+      ]
+    },
+    {
+      "id": "road-junction-090",
+      "x": 2400,
+      "y": 7712,
+      "corridors": [
+        "road-139",
+        "road-162",
+        "road-165",
+        "road-166"
+      ]
+    },
+    {
+      "id": "road-junction-091",
+      "x": 3296,
+      "y": 7712,
+      "corridors": [
+        "road-140",
+        "road-165",
+        "road-167",
+        "road-168"
+      ]
+    },
+    {
+      "id": "road-junction-092",
+      "x": 5088,
+      "y": 7712,
+      "corridors": [
+        "road-126",
+        "road-167",
+        "road-169"
+      ]
+    },
+    {
+      "id": "road-junction-093",
+      "x": 5472,
+      "y": 7712,
+      "corridors": [
+        "road-169",
+        "road-170",
+        "road-171"
+      ]
+    },
+    {
+      "id": "road-junction-094",
+      "x": 5728,
+      "y": 7712,
+      "corridors": [
+        "road-149",
+        "road-170",
+        "road-172"
+      ]
+    },
+    {
+      "id": "road-junction-095",
       "x": 6368,
-      "y": 7648,
+      "y": 7712,
       "corridors": [
-        "west-avenue",
-        "west-market-road"
+        "road-150",
+        "road-172",
+        "road-173"
       ]
     },
     {
-      "id": "inner-market",
-      "x": 7392,
-      "y": 7648,
+      "id": "road-junction-096",
+      "x": 14048,
+      "y": 7712,
       "corridors": [
-        "inner-avenue",
-        "west-market-road"
+        "road-146",
+        "road-174",
+        "road-175"
       ]
     },
     {
-      "id": "central-east-market",
+      "id": "road-junction-097",
+      "x": 1376,
+      "y": 7776,
+      "corridors": [
+        "road-081",
+        "road-164",
+        "road-176"
+      ]
+    },
+    {
+      "id": "road-junction-098",
+      "x": 5472,
+      "y": 8288,
+      "corridors": [
+        "road-171",
+        "road-178",
+        "road-179"
+      ]
+    },
+    {
+      "id": "road-junction-099",
       "x": 8480,
       "y": 8288,
       "corridors": [
-        "central-avenue",
-        "east-market-road"
+        "road-154",
+        "road-180",
+        "road-181"
       ]
     },
     {
-      "id": "inner-center",
-      "x": 7392,
+      "id": "road-junction-100",
+      "x": 9440,
+      "y": 8288,
+      "corridors": [
+        "road-180",
+        "road-182",
+        "road-183"
+      ]
+    },
+    {
+      "id": "road-junction-101",
+      "x": 9824,
+      "y": 8288,
+      "corridors": [
+        "road-161",
+        "road-182",
+        "road-184"
+      ]
+    },
+    {
+      "id": "road-junction-102",
+      "x": 10272,
+      "y": 8288,
+      "corridors": [
+        "road-184",
+        "road-185",
+        "road-186"
+      ]
+    },
+    {
+      "id": "road-junction-103",
+      "x": 10976,
+      "y": 8288,
+      "corridors": [
+        "road-142",
+        "road-185",
+        "road-187"
+      ]
+    },
+    {
+      "id": "road-junction-104",
+      "x": 14048,
+      "y": 8512,
+      "corridors": [
+        "road-144",
+        "road-175",
+        "road-188",
+        "road-189"
+      ]
+    },
+    {
+      "id": "road-junction-105",
+      "x": 14304,
+      "y": 8544,
+      "corridors": [
+        "road-147",
+        "road-188",
+        "road-190"
+      ]
+    },
+    {
+      "id": "road-junction-106",
+      "x": 416,
+      "y": 8736,
+      "corridors": [
+        "road-177",
+        "road-191",
+        "road-192"
+      ]
+    },
+    {
+      "id": "road-junction-107",
+      "x": 1312,
+      "y": 8768,
+      "corridors": [
+        "road-176",
+        "road-191",
+        "road-193",
+        "road-194"
+      ]
+    },
+    {
+      "id": "road-junction-108",
+      "x": 1568,
+      "y": 8768,
+      "corridors": [
+        "road-163",
+        "road-193",
+        "road-195",
+        "road-196"
+      ]
+    },
+    {
+      "id": "road-junction-109",
+      "x": 2400,
+      "y": 8736,
+      "corridors": [
+        "road-166",
+        "road-195",
+        "road-197"
+      ]
+    },
+    {
+      "id": "road-junction-110",
+      "x": 3552,
+      "y": 8800,
+      "corridors": [
+        "road-168",
+        "road-198",
+        "road-199"
+      ]
+    },
+    {
+      "id": "road-junction-111",
+      "x": 5472,
+      "y": 8800,
+      "corridors": [
+        "road-179",
+        "road-198",
+        "road-200"
+      ]
+    },
+    {
+      "id": "road-junction-112",
+      "x": 7456,
       "y": 8864,
       "corridors": [
-        "inner-avenue",
-        "center-boulevard"
+        "road-173",
+        "road-201",
+        "road-202"
       ]
     },
     {
-      "id": "central-center",
+      "id": "road-junction-113",
       "x": 8480,
       "y": 8864,
       "corridors": [
-        "central-avenue",
-        "center-boulevard"
+        "road-181",
+        "road-201",
+        "road-203",
+        "road-204"
       ]
     },
     {
-      "id": "inner-south-north",
-      "x": 7392,
+      "id": "road-junction-114",
+      "x": 9472,
+      "y": 8864,
+      "corridors": [
+        "road-183",
+        "road-203",
+        "road-205",
+        "road-206"
+      ]
+    },
+    {
+      "id": "road-junction-115",
+      "x": 10272,
+      "y": 8864,
+      "corridors": [
+        "road-186",
+        "road-205",
+        "road-207",
+        "road-208"
+      ]
+    },
+    {
+      "id": "road-junction-116",
+      "x": 10976,
+      "y": 8864,
+      "corridors": [
+        "road-187",
+        "road-207",
+        "road-209"
+      ]
+    },
+    {
+      "id": "road-junction-117",
+      "x": 15584,
+      "y": 8864,
+      "corridors": [
+        "road-160",
+        "road-210",
+        "road-211"
+      ]
+    },
+    {
+      "id": "road-junction-118",
+      "x": 10976,
+      "y": 9632,
+      "corridors": [
+        "road-209",
+        "road-212",
+        "road-213"
+      ]
+    },
+    {
+      "id": "road-junction-119",
+      "x": 14304,
+      "y": 9632,
+      "corridors": [
+        "road-190",
+        "road-214",
+        "road-215"
+      ]
+    },
+    {
+      "id": "road-junction-120",
+      "x": 1568,
       "y": 9696,
       "corridors": [
-        "inner-avenue",
-        "south-boulevard-north"
+        "road-196",
+        "road-216",
+        "road-217"
       ]
     },
     {
-      "id": "central-south-north",
-      "x": 8480,
+      "id": "road-junction-121",
+      "x": 2208,
       "y": 9696,
       "corridors": [
-        "central-avenue",
-        "south-boulevard-north"
+        "road-216",
+        "road-218",
+        "road-219"
       ]
     },
     {
-      "id": "inner-south-south",
-      "x": 7392,
-      "y": 9952,
-      "corridors": [
-        "inner-avenue",
-        "south-boulevard-south"
-      ]
-    },
-    {
-      "id": "central-south-south",
-      "x": 8480,
-      "y": 9952,
-      "corridors": [
-        "central-avenue",
-        "south-boulevard-south"
-      ]
-    },
-    {
-      "id": "south-boulevard-west-south-return",
-      "x": 5968,
-      "y": 9952,
-      "corridors": [
-        "south-boulevard-south",
-        "south-boulevard-west-return"
-      ],
-      "terminalTransfer": true
-    },
-    {
-      "id": "south-boulevard-west-north-return",
-      "x": 5968,
+      "id": "road-junction-122",
+      "x": 2432,
       "y": 9696,
       "corridors": [
-        "south-boulevard-west-return",
-        "south-boulevard-north"
-      ],
-      "terminalTransfer": true
+        "road-197",
+        "road-218",
+        "road-220",
+        "road-221"
+      ]
     },
     {
-      "id": "south-boulevard-east-north-return",
+      "id": "road-junction-123",
+      "x": 4512,
+      "y": 9696,
+      "corridors": [
+        "road-220",
+        "road-222",
+        "road-223"
+      ]
+    },
+    {
+      "id": "road-junction-124",
+      "x": 5888,
+      "y": 9696,
+      "corridors": [
+        "road-200",
+        "road-222",
+        "road-224",
+        "road-225"
+      ]
+    },
+    {
+      "id": "road-junction-125",
+      "x": 7520,
+      "y": 9696,
+      "corridors": [
+        "road-202",
+        "road-224",
+        "road-226",
+        "road-227"
+      ]
+    },
+    {
+      "id": "road-junction-126",
+      "x": 8512,
+      "y": 9696,
+      "corridors": [
+        "road-204",
+        "road-226",
+        "road-228",
+        "road-229"
+      ]
+    },
+    {
+      "id": "road-junction-127",
+      "x": 9760,
+      "y": 9696,
+      "corridors": [
+        "road-213",
+        "road-228",
+        "road-230"
+      ]
+    },
+    {
+      "id": "road-junction-128",
+      "x": 12896,
+      "y": 9696,
+      "corridors": [
+        "road-189",
+        "road-212",
+        "road-231"
+      ]
+    },
+    {
+      "id": "road-junction-129",
+      "x": 14752,
+      "y": 9696,
+      "corridors": [
+        "road-214",
+        "road-232",
+        "road-233"
+      ]
+    },
+    {
+      "id": "road-junction-130",
+      "x": 14880,
+      "y": 9696,
+      "corridors": [
+        "road-232",
+        "road-234",
+        "road-235"
+      ]
+    },
+    {
+      "id": "road-junction-131",
+      "x": 15008,
+      "y": 9696,
+      "corridors": [
+        "road-234",
+        "road-236",
+        "road-237"
+      ]
+    },
+    {
+      "id": "road-junction-132",
+      "x": 15136,
+      "y": 9696,
+      "corridors": [
+        "road-236",
+        "road-238",
+        "road-239"
+      ]
+    },
+    {
+      "id": "road-junction-133",
+      "x": 15264,
+      "y": 9696,
+      "corridors": [
+        "road-210",
+        "road-238",
+        "road-240"
+      ]
+    },
+    {
+      "id": "road-junction-134",
+      "x": 1491.2,
+      "y": 9875.2,
+      "corridors": [
+        "road-194",
+        "road-217",
+        "road-241",
+        "road-242",
+        "road-243"
+      ]
+    },
+    {
+      "id": "road-junction-135",
+      "x": 5920,
+      "y": 9888,
+      "corridors": [
+        "road-225",
+        "road-244",
+        "road-245"
+      ]
+    },
+    {
+      "id": "road-junction-136",
+      "x": 8544,
+      "y": 9888,
+      "corridors": [
+        "road-229",
+        "road-246",
+        "road-247"
+      ]
+    },
+    {
+      "id": "road-junction-137",
+      "x": 2176,
+      "y": 9952,
+      "corridors": [
+        "road-219",
+        "road-242",
+        "road-248",
+        "road-249"
+      ]
+    },
+    {
+      "id": "road-junction-138",
+      "x": 2464,
+      "y": 9952,
+      "corridors": [
+        "road-221",
+        "road-249",
+        "road-250"
+      ]
+    },
+    {
+      "id": "road-junction-139",
+      "x": 4480,
+      "y": 9952,
+      "corridors": [
+        "road-223",
+        "road-245",
+        "road-250",
+        "road-251"
+      ]
+    },
+    {
+      "id": "road-junction-140",
+      "x": 7520,
+      "y": 9952,
+      "corridors": [
+        "road-227",
+        "road-244",
+        "road-252",
+        "road-253"
+      ]
+    },
+    {
+      "id": "road-junction-141",
+      "x": 8032,
+      "y": 9952,
+      "corridors": [
+        "road-247",
+        "road-252",
+        "road-254"
+      ]
+    },
+    {
+      "id": "road-junction-142",
       "x": 9728,
-      "y": 9696,
-      "corridors": [
-        "south-boulevard-north",
-        "south-boulevard-east-return"
-      ],
-      "terminalTransfer": true
-    },
-    {
-      "id": "south-boulevard-east-south-return",
-      "x": 9728,
       "y": 9952,
       "corridors": [
-        "south-boulevard-east-return",
-        "south-boulevard-south"
-      ],
-      "terminalTransfer": true
+        "road-230",
+        "road-246",
+        "road-255",
+        "road-256"
+      ]
+    },
+    {
+      "id": "road-junction-143",
+      "x": 10912,
+      "y": 9952,
+      "corridors": [
+        "road-256",
+        "road-257",
+        "road-258"
+      ]
+    },
+    {
+      "id": "road-junction-144",
+      "x": 11168,
+      "y": 9952,
+      "corridors": [
+        "road-257",
+        "road-259",
+        "road-260"
+      ]
+    },
+    {
+      "id": "road-junction-145",
+      "x": 12864,
+      "y": 9952,
+      "corridors": [
+        "road-215",
+        "road-231",
+        "road-259",
+        "road-261"
+      ]
+    },
+    {
+      "id": "road-junction-146",
+      "x": 14880,
+      "y": 10080,
+      "corridors": [
+        "road-233",
+        "road-235",
+        "road-262"
+      ]
+    },
+    {
+      "id": "road-junction-147",
+      "x": 15008,
+      "y": 10080,
+      "corridors": [
+        "road-237",
+        "road-262",
+        "road-263"
+      ]
+    },
+    {
+      "id": "road-junction-148",
+      "x": 15136,
+      "y": 10080,
+      "corridors": [
+        "road-239",
+        "road-240",
+        "road-263"
+      ]
+    },
+    {
+      "id": "road-junction-149",
+      "x": 7456,
+      "y": 10784,
+      "corridors": [
+        "road-253",
+        "road-267",
+        "road-268"
+      ]
+    },
+    {
+      "id": "road-junction-150",
+      "x": 8032,
+      "y": 10784,
+      "corridors": [
+        "road-254",
+        "road-267",
+        "road-269"
+      ]
+    },
+    {
+      "id": "road-junction-151",
+      "x": 3552,
+      "y": 10848,
+      "corridors": [
+        "road-264",
+        "road-270",
+        "road-271"
+      ]
+    },
+    {
+      "id": "road-junction-152",
+      "x": 4448,
+      "y": 10848,
+      "corridors": [
+        "road-251",
+        "road-270",
+        "road-272"
+      ]
+    },
+    {
+      "id": "road-junction-153",
+      "x": 9696,
+      "y": 10848,
+      "corridors": [
+        "road-255",
+        "road-273",
+        "road-274"
+      ]
+    },
+    {
+      "id": "road-junction-154",
+      "x": 10272,
+      "y": 10848,
+      "corridors": [
+        "road-265",
+        "road-273",
+        "road-275"
+      ]
+    },
+    {
+      "id": "road-junction-155",
+      "x": 10912,
+      "y": 10880,
+      "corridors": [
+        "road-258",
+        "road-275",
+        "road-276",
+        "road-277"
+      ]
+    },
+    {
+      "id": "road-junction-156",
+      "x": 11168,
+      "y": 10912,
+      "corridors": [
+        "road-260",
+        "road-276",
+        "road-278"
+      ]
+    },
+    {
+      "id": "road-junction-157",
+      "x": 5920,
+      "y": 11424,
+      "corridors": [
+        "road-272",
+        "road-280",
+        "road-281"
+      ]
+    },
+    {
+      "id": "road-junction-158",
+      "x": 6432,
+      "y": 11424,
+      "corridors": [
+        "road-266",
+        "road-280",
+        "road-282",
+        "road-283"
+      ]
+    },
+    {
+      "id": "road-junction-159",
+      "x": 7520,
+      "y": 11424,
+      "corridors": [
+        "road-268",
+        "road-282",
+        "road-284",
+        "road-285"
+      ]
+    },
+    {
+      "id": "road-junction-160",
+      "x": 8544,
+      "y": 11424,
+      "corridors": [
+        "road-284",
+        "road-286",
+        "road-287"
+      ]
+    },
+    {
+      "id": "road-junction-161",
+      "x": 9696,
+      "y": 11424,
+      "corridors": [
+        "road-274",
+        "road-286",
+        "road-288"
+      ]
+    },
+    {
+      "id": "road-junction-162",
+      "x": 10208,
+      "y": 11424,
+      "corridors": [
+        "road-288",
+        "road-289",
+        "road-290"
+      ]
+    },
+    {
+      "id": "road-junction-163",
+      "x": 10912,
+      "y": 11456,
+      "corridors": [
+        "road-277",
+        "road-289",
+        "road-291",
+        "road-292"
+      ]
+    },
+    {
+      "id": "road-junction-164",
+      "x": 11104,
+      "y": 11488,
+      "corridors": [
+        "road-278",
+        "road-291",
+        "road-293"
+      ]
+    },
+    {
+      "id": "road-junction-165",
+      "x": 1568,
+      "y": 11776,
+      "corridors": [
+        "road-243",
+        "road-294",
+        "road-295",
+        "road-296"
+      ]
+    },
+    {
+      "id": "road-junction-166",
+      "x": 2912,
+      "y": 11744,
+      "corridors": [
+        "road-271",
+        "road-294",
+        "road-297"
+      ]
+    },
+    {
+      "id": "road-junction-167",
+      "x": 3616,
+      "y": 11744,
+      "corridors": [
+        "road-297",
+        "road-298",
+        "road-299"
+      ]
+    },
+    {
+      "id": "road-junction-168",
+      "x": 1312,
+      "y": 11808,
+      "corridors": [
+        "road-241",
+        "road-296",
+        "road-301"
+      ]
+    },
+    {
+      "id": "road-junction-169",
+      "x": 11168,
+      "y": 12032,
+      "corridors": [
+        "road-293",
+        "road-302",
+        "road-303",
+        "road-304"
+      ]
+    },
+    {
+      "id": "road-junction-170",
+      "x": 12768,
+      "y": 12000,
+      "corridors": [
+        "road-261",
+        "road-302",
+        "road-305"
+      ]
+    },
+    {
+      "id": "road-junction-171",
+      "x": 10912,
+      "y": 12064,
+      "corridors": [
+        "road-292",
+        "road-304",
+        "road-307"
+      ]
+    },
+    {
+      "id": "road-junction-172",
+      "x": 7520,
+      "y": 12128,
+      "corridors": [
+        "road-283",
+        "road-285",
+        "road-309",
+        "road-310"
+      ]
+    },
+    {
+      "id": "road-junction-173",
+      "x": 8032,
+      "y": 12128,
+      "corridors": [
+        "road-309",
+        "road-311",
+        "road-312"
+      ]
+    },
+    {
+      "id": "road-junction-174",
+      "x": 8544,
+      "y": 12128,
+      "corridors": [
+        "road-287",
+        "road-311",
+        "road-313"
+      ]
+    },
+    {
+      "id": "road-junction-175",
+      "x": 9696,
+      "y": 12320,
+      "corridors": [
+        "road-290",
+        "road-300",
+        "road-315"
+      ]
+    },
+    {
+      "id": "road-junction-176",
+      "x": 5216,
+      "y": 12512,
+      "corridors": [
+        "road-279",
+        "road-298",
+        "road-316"
+      ]
+    },
+    {
+      "id": "road-junction-177",
+      "x": 5920,
+      "y": 12512,
+      "corridors": [
+        "road-281",
+        "road-316",
+        "road-317"
+      ]
+    },
+    {
+      "id": "road-junction-178",
+      "x": 2144,
+      "y": 12640,
+      "corridors": [
+        "road-306",
+        "road-318",
+        "road-319"
+      ]
+    },
+    {
+      "id": "road-junction-179",
+      "x": 2784,
+      "y": 12640,
+      "corridors": [
+        "road-314",
+        "road-318",
+        "road-320"
+      ]
+    },
+    {
+      "id": "road-junction-180",
+      "x": 3616,
+      "y": 12640,
+      "corridors": [
+        "road-299",
+        "road-320",
+        "road-321"
+      ]
+    },
+    {
+      "id": "road-junction-181",
+      "x": 10016,
+      "y": 12832,
+      "corridors": [
+        "road-315",
+        "road-322",
+        "road-323"
+      ]
+    },
+    {
+      "id": "road-junction-182",
+      "x": 10912,
+      "y": 12864,
+      "corridors": [
+        "road-307",
+        "road-322",
+        "road-324",
+        "road-325"
+      ]
+    },
+    {
+      "id": "road-junction-183",
+      "x": 416,
+      "y": 12896,
+      "corridors": [
+        "road-308",
+        "road-326",
+        "road-327"
+      ]
+    },
+    {
+      "id": "road-junction-184",
+      "x": 1312,
+      "y": 12928,
+      "corridors": [
+        "road-301",
+        "road-326",
+        "road-328",
+        "road-329"
+      ]
+    },
+    {
+      "id": "road-junction-185",
+      "x": 11168,
+      "y": 12896,
+      "corridors": [
+        "road-303",
+        "road-324",
+        "road-330"
+      ]
+    },
+    {
+      "id": "road-junction-186",
+      "x": 1568,
+      "y": 12960,
+      "corridors": [
+        "road-295",
+        "road-328",
+        "road-331"
+      ]
+    },
+    {
+      "id": "road-junction-187",
+      "x": 2176,
+      "y": 13344,
+      "corridors": [
+        "road-319",
+        "road-331",
+        "road-332",
+        "road-333"
+      ]
+    },
+    {
+      "id": "road-junction-188",
+      "x": 3648,
+      "y": 13344,
+      "corridors": [
+        "road-321",
+        "road-332",
+        "road-334",
+        "road-335"
+      ]
+    },
+    {
+      "id": "road-junction-189",
+      "x": 5024,
+      "y": 13344,
+      "corridors": [
+        "road-334",
+        "road-336",
+        "road-337"
+      ]
+    },
+    {
+      "id": "road-junction-190",
+      "x": 5952,
+      "y": 13344,
+      "corridors": [
+        "road-317",
+        "road-336",
+        "road-338",
+        "road-339"
+      ]
+    },
+    {
+      "id": "road-junction-191",
+      "x": 7488,
+      "y": 13344,
+      "corridors": [
+        "road-310",
+        "road-338",
+        "road-340",
+        "road-341"
+      ]
+    },
+    {
+      "id": "road-junction-192",
+      "x": 8064,
+      "y": 13344,
+      "corridors": [
+        "road-312",
+        "road-340",
+        "road-342",
+        "road-343"
+      ]
+    },
+    {
+      "id": "road-junction-193",
+      "x": 9024,
+      "y": 13344,
+      "corridors": [
+        "road-313",
+        "road-342",
+        "road-344",
+        "road-345"
+      ]
+    },
+    {
+      "id": "road-junction-194",
+      "x": 10048,
+      "y": 13344,
+      "corridors": [
+        "road-323",
+        "road-325",
+        "road-344",
+        "road-346"
+      ]
+    },
+    {
+      "id": "road-junction-195",
+      "x": 7520,
+      "y": 13472,
+      "corridors": [
+        "road-341",
+        "road-347",
+        "road-348"
+      ]
+    },
+    {
+      "id": "road-junction-196",
+      "x": 5984,
+      "y": 13536,
+      "corridors": [
+        "road-339",
+        "road-348",
+        "road-349"
+      ]
+    },
+    {
+      "id": "road-junction-197",
+      "x": 2208,
+      "y": 13632,
+      "corridors": [
+        "road-333",
+        "road-350",
+        "road-351",
+        "road-352"
+      ]
+    },
+    {
+      "id": "road-junction-198",
+      "x": 3680,
+      "y": 13600,
+      "corridors": [
+        "road-335",
+        "road-350",
+        "road-353"
+      ]
+    },
+    {
+      "id": "road-junction-199",
+      "x": 4992,
+      "y": 13600,
+      "corridors": [
+        "road-337",
+        "road-349",
+        "road-353",
+        "road-354"
+      ]
+    },
+    {
+      "id": "road-junction-200",
+      "x": 8064,
+      "y": 13600,
+      "corridors": [
+        "road-343",
+        "road-347",
+        "road-355",
+        "road-356"
+      ]
+    },
+    {
+      "id": "road-junction-201",
+      "x": 9024,
+      "y": 13600,
+      "corridors": [
+        "road-345",
+        "road-356",
+        "road-357",
+        "road-358"
+      ]
+    },
+    {
+      "id": "road-junction-202",
+      "x": 10080,
+      "y": 13600,
+      "corridors": [
+        "road-330",
+        "road-346",
+        "road-358"
+      ]
+    },
+    {
+      "id": "road-junction-203",
+      "x": 1696,
+      "y": 13664,
+      "corridors": [
+        "road-329",
+        "road-359",
+        "road-360"
+      ]
+    },
+    {
+      "id": "road-junction-204",
+      "x": 1824,
+      "y": 13664,
+      "corridors": [
+        "road-359",
+        "road-361",
+        "road-362"
+      ]
+    },
+    {
+      "id": "road-junction-205",
+      "x": 1952,
+      "y": 13664,
+      "corridors": [
+        "road-361",
+        "road-363",
+        "road-364"
+      ]
+    },
+    {
+      "id": "road-junction-206",
+      "x": 2080,
+      "y": 13664,
+      "corridors": [
+        "road-352",
+        "road-363",
+        "road-365"
+      ]
+    },
+    {
+      "id": "road-junction-207",
+      "x": 1824,
+      "y": 14048,
+      "corridors": [
+        "road-360",
+        "road-362",
+        "road-366"
+      ]
+    },
+    {
+      "id": "road-junction-208",
+      "x": 1952,
+      "y": 14048,
+      "corridors": [
+        "road-364",
+        "road-366",
+        "road-367"
+      ]
+    },
+    {
+      "id": "road-junction-209",
+      "x": 2080,
+      "y": 14048,
+      "corridors": [
+        "road-351",
+        "road-365",
+        "road-367"
+      ]
+    },
+    {
+      "id": "road-junction-210",
+      "x": 8992,
+      "y": 14048,
+      "corridors": [
+        "road-355",
+        "road-357",
+        "road-368"
+      ]
+    },
+    {
+      "id": "road-junction-211",
+      "x": 1696,
+      "y": 14176,
+      "corridors": [
+        "road-327",
+        "road-369",
+        "road-370"
+      ]
+    },
+    {
+      "id": "road-junction-212",
+      "x": 4192,
+      "y": 14944,
+      "corridors": [
+        "road-354",
+        "road-369",
+        "road-371"
+      ]
+    },
+    {
+      "id": "road-junction-213",
+      "x": 11040,
+      "y": 15072,
+      "corridors": [
+        "road-305",
+        "road-368",
+        "road-372"
+      ]
     }
   ],
   "roadblocks": [
@@ -343,8 +9038,8 @@
       "y": 7136,
       "angle": 0,
       "blockedEdgeIds": [
-        "north-boulevard:forward:edge:1",
-        "north-boulevard:reverse:edge:0"
+        "road-155:forward:edge:0",
+        "road-155:reverse:edge:0"
       ],
       "vehiclePoses": [
         {
@@ -370,10 +9065,8 @@
       "y": 7908,
       "angle": 1.5707963267948966,
       "blockedEdgeIds": [
-        "central-avenue:forward:edge:2",
-        "central-avenue:forward:lane-1:edge:2",
-        "central-avenue:reverse:edge:4",
-        "central-avenue:reverse:lane-1:edge:4"
+        "road-154:forward:edge:0",
+        "road-154:reverse:edge:0"
       ],
       "vehiclePoses": [
         {
@@ -404,8 +9097,7 @@
       "y": 9696,
       "angle": 0,
       "blockedEdgeIds": [
-        "south-boulevard-north:reverse:edge:2",
-        "south-boulevard-north:reverse:lane-1:edge:2"
+        "road-228:reverse:edge:0"
       ],
       "vehiclePoses": [
         {

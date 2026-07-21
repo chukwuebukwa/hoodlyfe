@@ -21,13 +21,15 @@ interface FrontierEntry {
 
 export class TrafficRoutePlanner {
   private readonly maximumTraversalSpeed: number;
+  private readonly visitLimit: number;
 
   constructor(
     private readonly graph: LaneGraph,
-    private readonly visitLimit = 512,
+    visitLimit?: number,
     private readonly edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
   ) {
     this.maximumTraversalSpeed = Math.max(1, ...graph.edges().map((edge) => edge.speedLimit));
+    this.visitLimit = visitLimit ?? Math.max(512, graph.nodes().length);
   }
 
   plan(

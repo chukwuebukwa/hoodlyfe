@@ -35,6 +35,14 @@ test('authored district lane graph is valid, connected, directed, and spawnable'
   )));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'left'));
   assert.ok(graph.edges().some((edge) => edge.kind === 'connector' && edge.turn === 'right'));
+  assert.ok(graph.junctionApproaches('central-center').some(({role}) => role === 'incoming'));
+  assert.ok(graph.junctionApproaches('central-center').some(({role}) => role === 'outgoing'));
+  assert.ok(graph.junctionMovements('central-center').some(({turn}) => turn === 'straight'));
+  assert.ok(graph.junctionMovements('central-center').every(({path}) => path.length >= 3));
+  assert.ok(graph.junctionSignalGroups('central-center').length > 0);
+  assert.ok(graph.junctionMovements('central-center').every((movement) => (
+    graph.movementForTraversalEdge(movement.traversalEdgeId)?.id === movement.id
+  )));
   assert.ok(graph.edges().some((edge) => (
     edge.kind === 'turnaround' && edge.junctionId === 'terminal:west-avenue:end'
   )));

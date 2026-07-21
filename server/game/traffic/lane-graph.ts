@@ -2,6 +2,14 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import type {TrafficSpawn} from '../../world-map.ts';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
+import {
+  compileLaneNetwork,
+  type CompiledJunctionApproach,
+  type CompiledJunctionMovement,
+  type CompiledJunctionSignalGroup,
+  type CompiledLaneNetwork,
+  type LaneCompilerDiagnostic
+} from '../../../shared/traffic/lane-network-compiler.ts';
 
 export type LaneDirection = 'forward' | 'reverse';
 export type LaneCorridorDirection = 'both' | LaneDirection;
@@ -108,6 +116,11 @@ export interface LaneProjection {
   angle: number;
 }
 
+export type LaneGraphJunctionApproach = CompiledJunctionApproach;
+export type LaneGraphJunctionMovement = CompiledJunctionMovement;
+export type LaneGraphJunctionSignalGroup = CompiledJunctionSignalGroup;
+export type LaneGraphCompilerDiagnostic = LaneCompilerDiagnostic;
+
 interface LaneGraphWorld {
   tileWidth: number;
   tileHeight: number;
@@ -124,19 +137,6 @@ interface LaneGraphWorld {
     surfaceId?: string,
     actorKind?: 'vehicle'
   ): boolean;
-}
-
-interface CompiledLane {
-  id: string;
-  corridorId: string;
-  direction: LaneDirection;
-  laneIndex: number;
-  laneCount: number;
-  nodes: LaneGraphNode[];
-}
-
-interface CenterlineSample extends LanePointDefinition {
-  junctionId: string;
 }
 
 const SUPPORTED_SCHEMA_VERSION = 2;
@@ -158,17 +158,24 @@ export class LaneGraph {
   private readonly edgeById = new Map<string, LaneGraphEdge>();
   private readonly junctionById = new Map<string, LaneGraphJunction>();
   private readonly outgoingByNode = new Map<string, LaneGraphEdge[]>();
+  private readonly approachesByJunction = new Map<string, LaneGraphJunctionApproach[]>();
+  private readonly movementsByJunction = new Map<string, LaneGraphJunctionMovement[]>();
+  private readonly signalGroupsByJunction = new Map<string, LaneGraphJunctionSignalGroup[]>();
+  private readonly movementByTraversalEdge = new Map<string, LaneGraphJunctionMovement>();
   private readonly laneEdges: LaneGraphEdge[];
   private readonly roadblockDefinitions: LaneRoadblockDefinition[];
+  private readonly compiledDiagnostics: readonly LaneGraphCompilerDiagnostic[];
 
   private constructor(
     document: LaneGraphDocument,
     private readonly world: LaneGraphWorld,
-    nodes: LaneGraphNode[],
-    edges: LaneGraphEdge[]
+    compiled: CompiledLaneNetwork
   ) {
+    const nodes = compiled.nodes as LaneGraphNode[];
+    const edges = compiled.edges as LaneGraphEdge[];
     this.schemaVersion = document.schemaVersion;
     this.districtId = document.districtId;
+    this.compiledDiagnostics = Object.freeze(compiled.diagnostics.map((diagnostic) => Object.freeze({...diagnostic})));
     this.roadblockDefinitions = (document.roadblocks ?? []).map(freezeRoadblockDefinition);
     for (const junction of allJunctionDefinitions(document, nodes)) {
       const laneNodes = nodes.filter((node) => node.junctionId === junction.id);
@@ -202,6 +209,23 @@ export class LaneGraph {
     for (const outgoing of this.outgoingByNode.values()) {
       outgoing.sort(compareEdges);
     }
+    for (const approach of compiled.approaches) {
+      const approaches = this.approachesByJunction.get(approach.junctionId) ?? [];
+      approaches.push(Object.freeze({...approach, heading: Object.freeze({...approach.heading}), point: Object.freeze({...approach.point})}));
+      this.approachesByJunction.set(approach.junctionId, approaches);
+    }
+    for (const movement of compiled.movements) {
+      const frozen = Object.freeze({...movement, path: Object.freeze(movement.path.map((point) => Object.freeze({...point})))});
+      const movements = this.movementsByJunction.get(movement.junctionId) ?? [];
+      movements.push(frozen);
+      this.movementsByJunction.set(movement.junctionId, movements);
+      this.movementByTraversalEdge.set(movement.traversalEdgeId, frozen);
+    }
+    for (const signalGroup of compiled.signalGroups) {
+      const groups = this.signalGroupsByJunction.get(signalGroup.junctionId) ?? [];
+      groups.push(Object.freeze({...signalGroup, movementIds: Object.freeze([...signalGroup.movementIds])}));
+      this.signalGroupsByJunction.set(signalGroup.junctionId, groups);
+    }
     this.laneEdges = [...this.edgeById.values()]
       .filter((edge) => edge.kind === 'lane')
       .sort(compareEdges);
@@ -221,7 +245,7 @@ export class LaneGraph {
     issues.push(...validateCompiledGraph(compiled.nodes, compiled.edges, world));
     issues.push(...validateRoadblockDefinitions(document.roadblocks ?? [], compiled.edges, world));
     if (issues.length > 0) throw new LaneGraphValidationError(issues);
-    return new LaneGraph(document, world, compiled.nodes, compiled.edges);
+    return new LaneGraph(document, world, compiled);
   }
 
   nodes(): readonly LaneGraphNode[] {
@@ -271,6 +295,26 @@ export class LaneGraph {
 
   junctions(): readonly LaneGraphJunction[] {
     return [...this.junctionById.values()].sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  junctionApproaches(junctionId: string): readonly LaneGraphJunctionApproach[] {
+    return this.approachesByJunction.get(junctionId) ?? [];
+  }
+
+  junctionMovements(junctionId: string): readonly LaneGraphJunctionMovement[] {
+    return this.movementsByJunction.get(junctionId) ?? [];
+  }
+
+  junctionSignalGroups(junctionId: string): readonly LaneGraphJunctionSignalGroup[] {
+    return this.signalGroupsByJunction.get(junctionId) ?? [];
+  }
+
+  movementForTraversalEdge(edgeId: string): LaneGraphJunctionMovement | undefined {
+    return this.movementByTraversalEdge.get(edgeId);
+  }
+
+  compilerDiagnostics(): readonly LaneGraphCompilerDiagnostic[] {
+    return this.compiledDiagnostics;
   }
 
   roadblocks(): readonly LaneRoadblockDefinition[] {
@@ -493,140 +537,8 @@ function validateDocument(document: LaneGraphDocument): string[] {
   return issues;
 }
 
-function compileDocument(document: LaneGraphDocument): {
-  nodes: LaneGraphNode[];
-  edges: LaneGraphEdge[];
-} {
-  const nodes: LaneGraphNode[] = [];
-  const edges: LaneGraphEdge[] = [];
-  const lanes: CompiledLane[] = [];
-  for (const corridor of [...document.corridors].sort((left, right) => left.id.localeCompare(right.id))) {
-    const samples = centerlineSamples(corridor, document.junctions);
-    const laneCount = corridor.lanesPerDirection ?? 1;
-    const forward = corridorSupportsDirection(corridor, 'forward')
-      ? Array.from({length: laneCount}, (_, laneIndex) => compileLane(
-          corridor,
-          'forward',
-          samples,
-          document.laneOffset + document.laneSpacing * laneIndex,
-          laneIndex,
-          laneCount,
-          corridor.surfaceId ?? ''
-        ))
-      : [];
-    const reverse = corridorSupportsDirection(corridor, 'reverse')
-      ? Array.from({length: laneCount}, (_, laneIndex) => compileLane(
-          corridor,
-          'reverse',
-          [...samples].reverse(),
-          document.laneOffset + document.laneSpacing * laneIndex,
-          laneIndex,
-          laneCount,
-          corridor.surfaceId ?? ''
-        ))
-      : [];
-    const supportsTurnarounds = Boolean(document.allowTerminalTurnarounds && forward.length && reverse.length);
-    if (supportsTurnarounds) {
-      markTerminalJunctions(corridor.id, forward, reverse);
-    }
-    lanes.push(...forward, ...reverse);
-    nodes.push(...forward.flatMap((lane) => lane.nodes), ...reverse.flatMap((lane) => lane.nodes));
-    edges.push(
-      ...forward.flatMap(laneEdges),
-      ...reverse.flatMap(laneEdges)
-    );
-    if (supportsTurnarounds) {
-      const startJunctionId = terminalJunctionId(corridor.id, 'start');
-      const endJunctionId = terminalJunctionId(corridor.id, 'end');
-      for (let laneIndex = 0; laneIndex < laneCount; laneIndex++) {
-        edges.push(
-          connectorEdge(
-            forward[laneIndex].nodes[forward[laneIndex].nodes.length - 1],
-            reverse[laneIndex].nodes[0],
-            'turnaround',
-            'uturn',
-            endJunctionId
-          ),
-          connectorEdge(
-            reverse[laneIndex].nodes[reverse[laneIndex].nodes.length - 1],
-            forward[laneIndex].nodes[0],
-            'turnaround',
-            'uturn',
-            startJunctionId
-          )
-        );
-      }
-    }
-  }
-
-  for (const junction of [...document.junctions].sort((left, right) => left.id.localeCompare(right.id))) {
-    const entries = lanes.flatMap((lane) => lane.nodes
-      .filter((node) => node.junctionId === junction.id)
-      .map((node) => ({lane, node}))
-    );
-    for (const inbound of entries) {
-      if (inbound.node.index === 0) continue;
-      const previous = inbound.lane.nodes[inbound.node.index - 1];
-      const incoming = unitVector(previous, inbound.node);
-      for (const outbound of entries) {
-        if (outbound.lane.id === inbound.lane.id || outbound.node.index >= outbound.lane.nodes.length - 1) {
-          continue;
-        }
-        const next = outbound.lane.nodes[outbound.node.index + 1];
-        const leaving = unitVector(outbound.node, next);
-        const turn = classifyTurn(incoming, leaving);
-        if (turn === 'uturn') continue;
-        if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) continue;
-        if (!legalLaneConnection(
-          inbound.node,
-          outbound.node,
-          turn,
-          Boolean(
-            junction.terminalTransfer &&
-            inbound.node.index === inbound.lane.nodes.length - 1 &&
-            outbound.node.index === 0
-          )
-        )) continue;
-        edges.push(connectorEdge(
-          inbound.node,
-          outbound.node,
-          'connector',
-          turn,
-          junction.id
-        ));
-      }
-    }
-  }
-  return {nodes, edges};
-}
-
-function corridorSupportsDirection(
-  corridor: Pick<LaneCorridorDefinition, 'direction'>,
-  direction: LaneDirection
-): boolean {
-  const configured = corridor.direction ?? 'both';
-  return configured === 'both' || configured === direction;
-}
-
-function markTerminalJunctions(
-  corridorId: string,
-  forward: readonly CompiledLane[],
-  reverse: readonly CompiledLane[]
-): void {
-  const startJunctionId = terminalJunctionId(corridorId, 'start');
-  const endJunctionId = terminalJunctionId(corridorId, 'end');
-  for (const lane of forward) {
-    lane.nodes[0].junctionId = startJunctionId;
-    lane.nodes[lane.nodes.length - 1].junctionId = endJunctionId;
-  }
-  for (const lane of reverse) {
-    lane.nodes[0].junctionId = endJunctionId;
-    lane.nodes[lane.nodes.length - 1].junctionId = startJunctionId;
-  }
-}
-
-function terminalJunctionId(corridorId: string, terminal: 'start' | 'end'): string {
-  return `terminal:${corridorId}:${terminal}`;
+function compileDocument(document: LaneGraphDocument): CompiledLaneNetwork {
+  return compileLaneNetwork(document);
 }
 
 function allJunctionDefinitions(
@@ -653,134 +565,6 @@ function allJunctionDefinitions(
         allowedTurns: []
       }))
   ];
-}
-
-function centerlineSamples(
-  corridor: LaneCorridorDefinition,
-  junctions: readonly LaneJunctionDefinition[]
-): CenterlineSample[] {
-  const result: CenterlineSample[] = [];
-  for (let segmentIndex = 0; segmentIndex < corridor.points.length - 1; segmentIndex++) {
-    const from = corridor.points[segmentIndex];
-    const to = corridor.points[segmentIndex + 1];
-    const candidates: CenterlineSample[] = [
-      {...from, junctionId: junctionAt(from, corridor.id, junctions)?.id ?? ''},
-      ...junctions
-        .filter((junction) => junction.corridors.includes(corridor.id) && pointOnSegment(junction, from, to))
-        .map((junction) => ({x: junction.x, y: junction.y, junctionId: junction.id})),
-      {...to, junctionId: junctionAt(to, corridor.id, junctions)?.id ?? ''}
-    ].sort((left, right) => segmentProgress(left, from, to) - segmentProgress(right, from, to));
-    for (const candidate of candidates) {
-      const existing = result[result.length - 1];
-      if (existing && samePoint(existing, candidate)) {
-        if (!existing.junctionId) existing.junctionId = candidate.junctionId;
-        continue;
-      }
-      result.push(candidate);
-    }
-  }
-  return result;
-}
-
-function compileLane(
-  corridor: LaneCorridorDefinition,
-  direction: LaneDirection,
-  samples: CenterlineSample[],
-  laneOffset: number,
-  laneIndex: number,
-  laneCount: number,
-  surfaceId: string
-): CompiledLane {
-  const id = laneIndex === 0
-    ? `${corridor.id}:${direction}`
-    : `${corridor.id}:${direction}:lane-${laneIndex}`;
-  const vehicleClasses = [...(corridor.vehicleClasses ?? DEFAULT_VEHICLE_CLASSES)].sort();
-  const nodes = samples.map((sample, index) => {
-    const previous = samples[Math.max(0, index - 1)];
-    const next = samples[Math.min(samples.length - 1, index + 1)];
-    const heading = index < samples.length - 1
-      ? unitVector(sample, next)
-      : unitVector(previous, sample);
-    return {
-      id: `${id}:${index}`,
-      laneId: id,
-      corridorId: corridor.id,
-      direction,
-      laneIndex,
-      laneCount,
-      index,
-      x: sample.x - heading.y * laneOffset,
-      y: sample.y + heading.x * laneOffset,
-      speedLimit: corridor.speedLimit,
-      junctionId: sample.junctionId,
-      vehicleClasses,
-      surfaceId
-    } satisfies LaneGraphNode;
-  });
-  return {id, corridorId: corridor.id, direction, laneIndex, laneCount, nodes};
-}
-
-function laneEdges(lane: CompiledLane): LaneGraphEdge[] {
-  const result: LaneGraphEdge[] = [];
-  for (let index = 0; index < lane.nodes.length - 1; index++) {
-    const from = lane.nodes[index];
-    const to = lane.nodes[index + 1];
-    result.push({
-      id: `${lane.id}:edge:${index}`,
-      fromNodeId: from.id,
-      toNodeId: to.id,
-      kind: 'lane',
-      turn: 'none',
-      junctionId: '',
-      speedLimit: Math.min(from.speedLimit, to.speedLimit),
-      length: distance(from, to),
-      vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
-      fromSurfaceId: from.surfaceId,
-      toSurfaceId: to.surfaceId
-    });
-  }
-  return result;
-}
-
-function legalLaneConnection(
-  inbound: LaneGraphNode,
-  outbound: LaneGraphNode,
-  turn: Exclude<LaneTurn, 'none' | 'uturn'>,
-  terminalTransfer: boolean
-): boolean {
-  // An explicit terminal transfer fans every inbound lane into every outbound
-  // lane because there is no downstream segment on which to merge.
-  if (terminalTransfer) return true;
-  if (turn === 'left' && inbound.laneIndex !== 0) return false;
-  if (turn === 'right' && inbound.laneIndex !== inbound.laneCount - 1) return false;
-  const targetLane = turn === 'left'
-    ? 0
-    : (turn === 'right'
-        ? outbound.laneCount - 1
-        : Math.min(inbound.laneIndex, outbound.laneCount - 1));
-  return outbound.laneIndex === targetLane;
-}
-
-function connectorEdge(
-  from: LaneGraphNode,
-  to: LaneGraphNode,
-  kind: 'connector' | 'turnaround',
-  turn: LaneTurn,
-  junctionId: string
-): LaneGraphEdge {
-  return {
-    id: `${kind}:${junctionId || from.corridorId}:${from.id}->${to.id}`,
-    fromNodeId: from.id,
-    toNodeId: to.id,
-    kind,
-    turn,
-    junctionId,
-    speedLimit: Math.min(from.speedLimit, to.speedLimit, kind === 'turnaround' ? 52 : 76),
-    length: Math.max(12, distance(from, to)),
-    vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
-    fromSurfaceId: from.surfaceId,
-    toSurfaceId: to.surfaceId
-  };
 }
 
 function validateCompiledGraph(
@@ -941,27 +725,6 @@ function reachableNodeIds(
   return visited;
 }
 
-function classifyTurn(
-  incoming: LanePointDefinition,
-  outgoing: LanePointDefinition
-): Exclude<LaneTurn, 'none'> {
-  const dot = incoming.x * outgoing.x + incoming.y * outgoing.y;
-  if (dot < -0.75) return 'uturn';
-  if (dot > 0.75) return 'straight';
-  const cross = incoming.x * outgoing.y - incoming.y * outgoing.x;
-  return cross > 0 ? 'right' : 'left';
-}
-
-function junctionAt(
-  point: LanePointDefinition,
-  corridorId: string,
-  junctions: readonly LaneJunctionDefinition[]
-): LaneJunctionDefinition | undefined {
-  return junctions.find((junction) => (
-    junction.corridors.includes(corridorId) && samePoint(junction, point)
-  ));
-}
-
 function pointOnPolyline(point: LanePointDefinition, polyline: readonly LanePointDefinition[]): boolean {
   for (let index = 0; index < polyline.length - 1; index++) {
     if (pointOnSegment(point, polyline[index], polyline[index + 1])) return true;
@@ -979,17 +742,6 @@ function pointOnSegment(
   const dot = (point.x - from.x) * (to.x - from.x) + (point.y - from.y) * (to.y - from.y);
   const lengthSquared = (to.x - from.x) ** 2 + (to.y - from.y) ** 2;
   return dot >= -POINT_EPSILON && dot <= lengthSquared + POINT_EPSILON;
-}
-
-function segmentProgress(
-  point: LanePointDefinition,
-  from: LanePointDefinition,
-  to: LanePointDefinition
-): number {
-  const lengthSquared = (to.x - from.x) ** 2 + (to.y - from.y) ** 2;
-  if (lengthSquared === 0) return 0;
-  return ((point.x - from.x) * (to.x - from.x) + (point.y - from.y) * (to.y - from.y)) /
-    lengthSquared;
 }
 
 function projectPointToSegment(
@@ -1012,24 +764,6 @@ function projectPointToSegment(
     progress,
     distance: Math.hypot(projectedX - x, projectedY - y)
   };
-}
-
-function unitVector(from: LanePointDefinition, to: LanePointDefinition): LanePointDefinition {
-  const deltaX = to.x - from.x;
-  const deltaY = to.y - from.y;
-  const magnitude = Math.hypot(deltaX, deltaY);
-  return magnitude > 0 ? {x: deltaX / magnitude, y: deltaY / magnitude} : {x: 0, y: 0};
-}
-
-function intersectClasses(
-  left: readonly LaneVehicleClass[],
-  right: readonly LaneVehicleClass[]
-): LaneVehicleClass[] {
-  return left.filter((vehicleClass) => right.includes(vehicleClass)).sort();
-}
-
-function distance(left: LanePointDefinition, right: LanePointDefinition): number {
-  return Math.hypot(right.x - left.x, right.y - left.y);
 }
 
 function finitePoint(point: LanePointDefinition | undefined): boolean {

@@ -26,7 +26,11 @@ import type {EditorPlaytestResponse} from '../../shared/content/editor-productio
 import {clearLevelDraft, loadLevelDraft, saveLevelDraft} from '../../src/tools/level-editor/level-draft-store.ts';
 import {createLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision.ts';
 import {saveLocalPlaytestRevision} from '../../src/tools/level-editor/playtest-revision-store.ts';
-import {repairJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
+import {
+  repairJunctionIntersections,
+  synchronizeJunctionIntersections
+} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
+import {generateRoadNetwork} from '../../src/tools/level-editor/road-network-generator.ts';
 import {
   DEFAULT_EDITOR_PREFERENCES,
   reconcileSelection,
@@ -236,16 +240,45 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
 
   function onRepairJunctions(): void {
     const before = documentRef.current;
-    const result = repairJunctionIntersections(before.lanes.corridors, before.lanes.junctions);
-    if (result.repaired === 0) {
+    const result = synchronizeJunctionIntersections(before.lanes.corridors, before.lanes.junctions);
+    if (result.repaired === 0 && result.removed === 0 && result.added === 0) {
       setStatus(result.unresolved > 0
         ? `${result.unresolved} junction${result.unresolved === 1 ? '' : 's'} could not be repaired because their corridors do not intersect.`
-        : 'All junctions already lie on their connected corridors.');
+        : 'Every corridor crossing already has a valid junction.');
       return;
     }
     const after = {...before, lanes: {...before.lanes, junctions: result.junctions}};
-    onExecute(documentCommand('Repair lane junctions', before, after));
-    setStatus(`Repaired ${result.repaired} junction${result.repaired === 1 ? '' : 's'}${result.unresolved > 0 ? `; ${result.unresolved} remain unresolved` : ''}.`);
+    onExecute(documentCommand('Synchronize lane junctions', before, after));
+    const changes = [
+      result.added > 0 ? `added ${result.added} missing` : '',
+      result.repaired > 0 ? `repaired ${result.repaired}` : '',
+      result.removed > 0 ? `removed ${result.removed} stale` : ''
+    ].filter(Boolean).join(' and ');
+    const changedCount = result.added + result.repaired + result.removed;
+    setStatus(`${changes[0].toUpperCase()}${changes.slice(1)} junction${changedCount === 1 ? '' : 's'}${result.unresolved > 0 ? `; ${result.unresolved} remain unresolved` : ''}.`);
+  }
+
+  function onGenerateRoadNetwork(): void {
+    const before = documentRef.current;
+    const generated = generateRoadNetwork(before);
+    const removedRoadblocks = before.lanes.roadblocks?.length ?? 0;
+    const summary = [
+      `Generate ${generated.stats.corridors} corridors and ${generated.stats.junctions} junctions from the complete road-cell layer?`,
+      `This replaces the current ${before.lanes.corridors.length} corridors and ${before.lanes.junctions.length} junctions.`,
+      removedRoadblocks > 0 ? `${removedRoadblocks} roadblock definition${removedRoadblocks === 1 ? '' : 's'} will be cleared because their lane-edge references become stale.` : '',
+      'The operation is undoable.'
+    ].filter(Boolean).join('\n\n');
+    if (!window.confirm(summary)) return;
+    const after = {...before, lanes: generated.lanes};
+    onExecute(documentCommand('Generate full road network', before, after));
+    setSelection(undefined);
+    setPreferences((current) => ({
+      ...current,
+      layers: {...current.layers, roads: true, corridors: true, junctions: true}
+    }));
+    setValidationOpen(false);
+    requestView('fit');
+    setStatus(`Generated ${generated.stats.corridors} corridors and ${generated.stats.junctions} junctions across ${generated.stats.retainedRoadCells.toLocaleString()} connected road cells.`);
   }
 
   function onExportProject(): void {
@@ -403,6 +436,8 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
           if (next && next.kind !== 'cell') setInspectorOpen(true);
         }}
         onPreferencesChange={setPreferences}
+        onGenerateRoadNetwork={onGenerateRoadNetwork}
+        onSynchronizeJunctions={onRepairJunctions}
       />
       <section className="le-stage">
         <LevelEditorCanvas
@@ -521,7 +556,13 @@ function deleteSelection(document: LevelEditorDocument, selection: Exclude<Edito
     lanes: {
       ...document.lanes,
       corridors: document.lanes.corridors.filter((corridor) => corridor.id !== selection.id),
-      junctions: document.lanes.junctions.map((junction) => ({...junction, corridors: junction.corridors.filter((id) => id !== selection.id)}))
+      junctions: repairJunctionIntersections(
+        document.lanes.corridors.filter((corridor) => corridor.id !== selection.id),
+        document.lanes.junctions.map((junction) => ({
+          ...junction,
+          corridors: junction.corridors.filter((id) => id !== selection.id)
+        }))
+      ).junctions
     }
   };
 }

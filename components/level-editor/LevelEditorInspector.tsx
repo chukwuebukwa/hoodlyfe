@@ -11,7 +11,8 @@ import type {
   SpawnKind
 } from '../../src/tools/level-editor/level-document.ts';
 import {selectionKey, type EditorSelection} from '../../src/tools/level-editor/editor-ui.ts';
-import {repairJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
+import {synchronizeJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
+import {compileLaneNetwork} from '../../shared/traffic/lane-network-compiler.ts';
 
 interface LevelEditorInspectorProps {
   document: LevelEditorDocument;
@@ -139,7 +140,7 @@ function CorridorInspector(props: LevelEditorInspectorProps & {corridor: LaneCor
       let junctions = nextId
         ? document.lanes.junctions.map((junction) => ({...junction, corridors: junction.corridors.map((id) => id === corridor.id ? nextId : id)}))
         : document.lanes.junctions;
-      if (patch.points) junctions = repairJunctionIntersections(corridors, junctions, nextId ?? corridor.id).junctions;
+      if (patch.points) junctions = synchronizeJunctionIntersections(corridors, junctions).junctions;
       return {...document, lanes: {...document.lanes, corridors, junctions}};
     });
     if (nextId) props.onSelectionChange({kind: 'corridor', id: nextId});
@@ -189,6 +190,14 @@ function CorridorInspector(props: LevelEditorInspectorProps & {corridor: LaneCor
 
 function JunctionInspector(props: LevelEditorInspectorProps & {junction: LaneJunction}) {
   const {junction} = props;
+  const compiled = compileLaneNetwork(props.document.lanes);
+  const approaches = compiled.approaches.filter((approach) => approach.junctionId === junction.id);
+  const movements = compiled.movements.filter((movement) => movement.junctionId === junction.id);
+  const signalGroups = compiled.signalGroups.filter((group) => group.junctionId === junction.id);
+  const turnCounts = movements.reduce((counts, movement) => {
+    counts[movement.turn]++;
+    return counts;
+  }, {left: 0, right: 0, straight: 0});
   function update(label: string, patch: Partial<LaneJunction>, nextId?: string): void {
     props.onCommit(label, (document) => ({...document, lanes: {...document.lanes, junctions: document.lanes.junctions.map((candidate) => candidate.id === junction.id ? {...candidate, ...patch} : candidate)}}));
     if (nextId) props.onSelectionChange({kind: 'junction', id: nextId});
@@ -198,12 +207,21 @@ function JunctionInspector(props: LevelEditorInspectorProps & {junction: LaneJun
       <InspectorSection title="Junction">
         <TextField label="ID" value={junction.id} onCommit={(value) => update('Rename junction', {id: value}, value)} />
         <div className="le-field-grid">
-          <NumberField label="X" value={junction.x} onCommit={(x) => update('Move junction', {x})} />
-          <NumberField label="Y" value={junction.y} onCommit={(y) => update('Move junction', {y})} />
+          <Readout label="Position" value={`${Math.round(junction.x)}, ${Math.round(junction.y)}`} />
+          <Readout label="Connections" value={junction.corridors.length.toString()} />
         </div>
-        <TextAreaField label="Corridor ids (one per line)" value={junction.corridors.join('\n')} onCommit={(value) => update('Change junction corridors', {corridors: lines(value)})} />
+        <Readout label="Connected corridors" value={junction.corridors.join(', ')} />
         <TextAreaField label="Allowed turns" value={(junction.allowedTurns ?? ['straight', 'left', 'right']).join('\n')} onCommit={(value) => update('Change allowed turns', {allowedTurns: lines(value).filter(isAllowedTurn)})} />
         <CheckField label="Terminal lane transfer" checked={junction.terminalTransfer ?? false} onCommit={(terminalTransfer) => update('Change terminal transfer', {terminalTransfer})} />
+      </InspectorSection>
+      <InspectorSection title="Generated intersection">
+        <div className="le-field-grid">
+          <Readout label="Incoming lanes" value={approaches.filter(({role}) => role === 'incoming').length.toString()} />
+          <Readout label="Outgoing lanes" value={approaches.filter(({role}) => role === 'outgoing').length.toString()} />
+          <Readout label="Movements" value={movements.length.toString()} />
+          <Readout label="Signal phases" value={signalGroups.length.toString()} />
+        </div>
+        <Readout label="Turns" value={`Straight ${turnCounts.straight}, left ${turnCounts.left}, right ${turnCounts.right}`} />
       </InspectorSection>
     </>
   );

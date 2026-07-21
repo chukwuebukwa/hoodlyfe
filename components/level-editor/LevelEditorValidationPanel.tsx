@@ -13,7 +13,12 @@ interface LevelEditorValidationPanelProps {
 
 export function LevelEditorValidationPanel({report, open, onOpenChange, onSelectIssue, onRepairJunctions}: LevelEditorValidationPanelProps) {
   const total = report.issues.length;
-  const hasRepairableJunctions = report.issues.some((issue) => issue.code === 'junction-off-corridor');
+  const hasRepairableJunctions = report.issues.some((issue) => (
+    issue.code === 'junction-off-corridor' ||
+    issue.code === 'junction-connections' ||
+    issue.code === 'junction-corridor-missing' ||
+    issue.code === 'corridor-disconnected'
+  ));
   return (
     <section className={`le-validation ${open ? 'is-open' : ''}`} aria-label="Level validation results">
       <button className="le-validation__summary" type="button" onClick={() => onOpenChange(!open)} aria-expanded={open}>
@@ -28,7 +33,7 @@ export function LevelEditorValidationPanel({report, open, onOpenChange, onSelect
         <div className="le-validation__drawer">
           <header>
             <strong>{total === 0 ? 'No validation issues' : `${total} validation issue${total === 1 ? '' : 's'}`}</strong>
-            {hasRepairableJunctions && <button className="le-wide-command" type="button" onClick={onRepairJunctions}><Wrench size={15} /> Repair junctions</button>}
+            {hasRepairableJunctions && <button className="le-wide-command" type="button" onClick={onRepairJunctions}><Wrench size={15} /> Sync junctions</button>}
             <button className="le-icon-button" type="button" onClick={() => onOpenChange(false)} aria-label="Close validation"><X size={16} /></button>
           </header>
           {total === 0 ? (

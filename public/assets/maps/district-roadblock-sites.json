@@ -1,0 +1,63 @@
+[
+  {
+    "id": "north-boulevard-east",
+    "x": 9444,
+    "y": 7136,
+    "angle": 0,
+    "blockedEdgeIds": [
+      "north-boulevard:forward:edge:1",
+      "north-boulevard:reverse:edge:0"
+    ],
+    "vehiclePoses": [
+      {"x": 9444, "y": 7136, "angle": 1.5707963267948966}
+    ],
+    "stinger": {
+      "x": 9384,
+      "y": 7136,
+      "angle": 1.5707963267948966,
+      "officerPose": {"x": 9384, "y": 7072, "angle": 1.5707963267948966}
+    }
+  },
+  {
+    "id": "central-avenue-mid",
+    "x": 8480,
+    "y": 7908,
+    "angle": 1.5707963267948966,
+    "blockedEdgeIds": [
+      "central-avenue:forward:edge:2",
+      "central-avenue:forward:lane-1:edge:2",
+      "central-avenue:reverse:edge:4",
+      "central-avenue:reverse:lane-1:edge:4"
+    ],
+    "vehiclePoses": [
+      {"x": 8444, "y": 7908, "angle": 0},
+      {"x": 8516, "y": 7908, "angle": 0}
+    ],
+    "stinger": {
+      "x": 8480,
+      "y": 7836,
+      "angle": 0,
+      "officerPose": {"x": 8360, "y": 7836, "angle": 0}
+    }
+  },
+  {
+    "id": "south-boulevard-east",
+    "x": 9144,
+    "y": 9696,
+    "angle": 0,
+    "blockedEdgeIds": [
+      "south-boulevard-north:reverse:edge:2",
+      "south-boulevard-north:reverse:lane-1:edge:2"
+    ],
+    "vehiclePoses": [
+      {"x": 9144, "y": 9660, "angle": 1.5707963267948966},
+      {"x": 9144, "y": 9732, "angle": 1.5707963267948966}
+    ],
+    "stinger": {
+      "x": 9072,
+      "y": 9696,
+      "angle": 1.5707963267948966,
+      "officerPose": {"x": 9072, "y": 9576, "angle": 1.5707963267948966}
+    }
+  }
+]

@@ -28,13 +28,19 @@ import type {
   ViewportReadout
 } from '../../src/tools/level-editor/editor-ui.ts';
 import {
+  corridorIntersections,
   nearestCorridorIntersection,
-  repairJunctionIntersections
+  repairJunctionIntersections,
+  synchronizeJunctionIntersections
 } from '../../src/tools/level-editor/lane-authoring-geometry.ts';
 import {
   compiledLaneEdgeLabel,
   type CompiledLaneEdgeDiagnostic
 } from '../../src/tools/level-editor/compiled-lane-diagnostic.ts';
+import {
+  compileLaneNetwork,
+  type CompiledLaneNetwork
+} from '../../shared/traffic/lane-network-compiler.ts';
 
 export interface CanvasViewCommand {
   id: number;
@@ -222,7 +228,14 @@ export function LevelEditorCanvas({
 
     drawTileLayers(context, activeDocument, view, viewport.scale, preferencesRef.current);
     if (preferencesRef.current.layers.corridors) drawCorridors(context, activeDocument, viewport.scale, selectionRef.current);
-    if (preferencesRef.current.layers.junctions) drawJunctions(context, activeDocument, viewport.scale, selectionRef.current);
+    if (toolRef.current === 'junction') {
+      drawJunctionPlacementGuides(context, activeDocument, cursorWorldRef.current, viewport.scale);
+    }
+    if (preferencesRef.current.layers.junctions) {
+      const compiledNetwork = compileLaneNetwork(activeDocument.lanes);
+      drawCompiledJunctionNetwork(context, compiledNetwork, viewport.scale, selectionRef.current);
+      drawJunctions(context, activeDocument, viewport.scale, selectionRef.current);
+    }
     if (highlightedLaneEdgeRef.current) drawCompiledLaneEdge(context, highlightedLaneEdgeRef.current, viewport.scale);
     if (preferencesRef.current.layers.spawns) drawSpawns(context, activeDocument, viewport.scale, selectionRef.current);
     if (preferencesRef.current.layers.roadblocks) drawRoadblocks(context, activeDocument, viewport.scale, selectionRef.current);
@@ -413,9 +426,11 @@ export function LevelEditorCanvas({
       lanesPerDirection: 1,
       points: draftCorridorRef.current.map((point) => ({...point}))
     };
+    const corridors = [...before.lanes.corridors, corridor];
+    const junctions = synchronizeJunctionIntersections(corridors, before.lanes.junctions).junctions;
     const after = {
       ...before,
-      lanes: {...before.lanes, corridors: [...before.lanes.corridors, corridor]}
+      lanes: {...before.lanes, corridors, junctions}
     };
     draftCorridorRef.current = [];
     callbacksRef.current.onExecute(documentCommand('Add lane corridor', before, after));
@@ -428,6 +443,12 @@ export function LevelEditorCanvas({
     const intersection = nearestCorridorIntersection(before.lanes.corridors, world, before.map.tileSize * 2);
     if (!intersection) {
       callbacksRef.current.onStatus('No corridor intersection nearby. Draw crossing corridors before placing a junction.');
+      return;
+    }
+    const existing = before.lanes.junctions.find((junction) => distance(junction, intersection.point) <= 0.01);
+    if (existing) {
+      callbacksRef.current.onSelectionChange({kind: 'junction', id: existing.id});
+      callbacksRef.current.onStatus(`${existing.id} already owns this corridor crossing.`);
       return;
     }
     const id = uniqueId('junction', before.lanes.junctions.map((junction) => junction.id));
@@ -481,10 +502,13 @@ export function LevelEditorCanvas({
     if (selected.kind === 'spawn') after = {...before, spawns: before.spawns.filter((spawn) => spawn.id !== selected.id)};
     if (selected.kind === 'corridor') {
       const corridors = before.lanes.corridors.filter((corridor) => corridor.id !== selected.id);
-      const junctions = before.lanes.junctions.map((junction) => ({
-        ...junction,
-        corridors: junction.corridors.filter((id) => id !== selected.id)
-      }));
+      const junctions = repairJunctionIntersections(
+        corridors,
+        before.lanes.junctions.map((junction) => ({
+          ...junction,
+          corridors: junction.corridors.filter((id) => id !== selected.id)
+        }))
+      ).junctions;
       after = {...before, lanes: {...before.lanes, corridors, junctions}};
     }
     if (selected.kind === 'junction') after = {...before, lanes: {...before.lanes, junctions: before.lanes.junctions.filter((junction) => junction.id !== selected.id)}};
@@ -702,6 +726,54 @@ function drawCompiledLaneEdge(
   );
 }
 
+function drawJunctionPlacementGuides(
+  context: CanvasRenderingContext2D,
+  document: LevelEditorDocument,
+  cursor: Point2D,
+  scale: number
+): void {
+  const intersections = corridorIntersections(document.lanes.corridors);
+  const maximumDistance = document.map.tileSize * 2;
+  const nearest = intersections
+    .map((intersection) => ({...intersection, distance: distance(intersection.point, cursor)}))
+    .filter((intersection) => intersection.distance <= maximumDistance)
+    .sort((left, right) => left.distance - right.distance)[0];
+
+  context.save();
+  for (const intersection of intersections) {
+    const occupied = document.lanes.junctions.some((junction) => distance(junction, intersection.point) <= 0.01);
+    const highlighted = nearest?.point.x === intersection.point.x && nearest?.point.y === intersection.point.y;
+    const radius = (highlighted ? 17 : 10) / scale;
+    context.beginPath();
+    context.arc(intersection.point.x, intersection.point.y, radius, 0, Math.PI * 2);
+    context.fillStyle = occupied
+      ? 'rgba(86,227,159,0.12)'
+      : highlighted ? 'rgba(255,212,77,0.35)' : 'rgba(64,217,239,0.22)';
+    context.strokeStyle = occupied ? 'rgba(86,227,159,0.45)' : highlighted ? '#ffd44d' : '#40d9ef';
+    context.lineWidth = (highlighted ? 4 : 2) / scale;
+    context.setLineDash(occupied ? [4 / scale, 4 / scale] : []);
+    context.fill();
+    context.stroke();
+  }
+  context.setLineDash([]);
+  if (nearest) {
+    context.beginPath();
+    context.moveTo(cursor.x, cursor.y);
+    context.lineTo(nearest.point.x, nearest.point.y);
+    context.strokeStyle = 'rgba(255,212,77,0.85)';
+    context.lineWidth = 2 / scale;
+    context.stroke();
+    drawLabel(
+      context,
+      `VALID: ${nearest.corridorIds.join(' + ')}`,
+      {x: nearest.point.x, y: nearest.point.y - 24 / scale},
+      scale,
+      '#ffd44d'
+    );
+  }
+  context.restore();
+}
+
 function drawJunctions(context: CanvasRenderingContext2D, document: LevelEditorDocument, scale: number, selection: EditorSelection): void {
   for (const junction of document.lanes.junctions) {
     const selected = selection?.kind === 'junction' && selection.id === junction.id;
@@ -722,6 +794,58 @@ function drawJunctions(context: CanvasRenderingContext2D, document: LevelEditorD
     if (scale >= 0.18) drawLabel(context, junction.id, {x: junction.x, y: junction.y - 18 / scale}, scale, '#b9f8d7');
     context.restore();
   }
+}
+
+function drawCompiledJunctionNetwork(
+  context: CanvasRenderingContext2D,
+  network: CompiledLaneNetwork,
+  scale: number,
+  selection: EditorSelection
+): void {
+  const selectedJunctionId = selection?.kind === 'junction' ? selection.id : undefined;
+  const movements = selectedJunctionId
+    ? network.movements.filter((movement) => movement.junctionId === selectedJunctionId)
+    : scale >= 0.35 ? network.movements : [];
+  context.save();
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  for (const movement of movements) {
+    if (movement.path.length < 2) continue;
+    context.beginPath();
+    context.moveTo(movement.path[0].x, movement.path[0].y);
+    movement.path.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+    context.strokeStyle = movement.turn === 'left'
+      ? 'rgba(255,138,91,0.88)'
+      : movement.turn === 'right'
+        ? 'rgba(242,153,194,0.88)'
+        : 'rgba(255,212,77,0.82)';
+    context.globalAlpha = selectedJunctionId ? 1 : 0.32;
+    context.lineWidth = (selectedJunctionId ? 3 : 1.5) / scale;
+    context.stroke();
+  }
+  const approaches = selectedJunctionId
+    ? network.approaches.filter((approach) => approach.junctionId === selectedJunctionId)
+    : [];
+  context.globalAlpha = 1;
+  for (const approach of approaches) {
+    const direction = approach.role === 'incoming' ? -1 : 1;
+    const length = 18 / scale;
+    const startX = approach.point.x - approach.heading.x * length * direction;
+    const startY = approach.point.y - approach.heading.y * length * direction;
+    const endX = approach.point.x + approach.heading.x * length * direction;
+    const endY = approach.point.y + approach.heading.y * length * direction;
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.lineTo(endX, endY);
+    context.strokeStyle = approach.role === 'incoming' ? '#53c7ff' : '#56e39f';
+    context.lineWidth = 3 / scale;
+    context.stroke();
+    context.beginPath();
+    context.arc(approach.point.x, approach.point.y, 4 / scale, 0, Math.PI * 2);
+    context.fillStyle = context.strokeStyle;
+    context.fill();
+  }
+  context.restore();
 }
 
 function drawSpawns(context: CanvasRenderingContext2D, document: LevelEditorDocument, scale: number, selection: EditorSelection): void {
@@ -867,9 +991,14 @@ function moveSelection(
     return {...document, spawns};
   }
   if (selection.kind === 'junction') {
-    const junctions = document.lanes.junctions.map((junction) => junction.id === selection.id
-      ? {...junction, ...snapPoint({x: junction.x + dx, y: junction.y + dy}, snapSize)}
-      : junction);
+    const junction = document.lanes.junctions.find((candidate) => candidate.id === selection.id);
+    if (!junction) return document;
+    const target = {x: junction.x + dx, y: junction.y + dy};
+    const intersection = nearestCorridorIntersection(document.lanes.corridors, target, document.map.tileSize * 2);
+    if (!intersection) return document;
+    const junctions = document.lanes.junctions.map((candidate) => candidate.id === selection.id
+      ? {...candidate, ...intersection.point, corridors: intersection.corridorIds}
+      : candidate);
     return {...document, lanes: {...document.lanes, junctions}};
   }
   if (selection.kind === 'roadblock') {
@@ -907,8 +1036,8 @@ function moveSelection(
     const points = corridor.points.map((point) => snapPoint({x: point.x + dx, y: point.y + dy}, snapSize));
     return {...corridor, points};
   });
-  const repaired = repairJunctionIntersections(corridors, document.lanes.junctions, selection.id);
-  return {...document, lanes: {...document.lanes, corridors, junctions: repaired.junctions}};
+  const synchronized = synchronizeJunctionIntersections(corridors, document.lanes.junctions);
+  return {...document, lanes: {...document.lanes, corridors, junctions: synchronized.junctions}};
 }
 
 function paintMode(tool: EditorTool): {layer: 'collision' | 'roads'; value: number} | undefined {
