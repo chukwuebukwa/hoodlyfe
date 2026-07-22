@@ -523,6 +523,8 @@ function createTraffic(world: CollisionMap, id: string, seed: number) {
 function occupiedJunctionFixture(world: CollisionMap, laneGraph: LaneGraph) {
   for (const junction of laneGraph.junctions()) {
     for (const movement of laneGraph.junctionMovements(junction.id)) {
+      // Terminal transfers exercise U-turn routing, not crossing-zone contention.
+      if (movement.turn === 'uturn') continue;
       const edge = laneGraph.edge(movement.entryLaneId);
       const from = edge ? laneGraph.node(edge.fromNodeId) : undefined;
       const to = edge ? laneGraph.node(edge.toNodeId) : undefined;

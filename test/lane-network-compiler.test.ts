@@ -39,6 +39,49 @@ test('one-way corridors omit the disabled direction from approaches and movement
   )));
 });
 
+test('paired one-way carriageways make an explicit terminal U-turn at a dead end', () => {
+  const compiled = compileLaneNetwork({
+    laneOffset: 12,
+    laneSpacing: 20,
+    corridors: [
+      {
+        id: 'dead-end-forward',
+        direction: 'forward',
+        speedLimit: 60,
+        points: [{x: 0, y: 0}, {x: 100, y: 0}]
+      },
+      {
+        id: 'dead-end-reverse',
+        direction: 'reverse',
+        speedLimit: 60,
+        points: [{x: 0, y: 0}, {x: 100, y: 0}]
+      }
+    ],
+    junctions: [
+      {
+        id: 'dead-end-start',
+        x: 0,
+        y: 0,
+        corridors: ['dead-end-forward', 'dead-end-reverse'],
+        terminalTransfer: true
+      },
+      {
+        id: 'dead-end',
+        x: 100,
+        y: 0,
+        corridors: ['dead-end-forward', 'dead-end-reverse'],
+        terminalTransfer: true
+      }
+    ]
+  });
+
+  const uturn = compiled.movements.find(({turn}) => turn === 'uturn');
+  assert.ok(uturn);
+  assert.equal(uturn.entryLaneId, 'dead-end-forward:forward:edge:0');
+  assert.equal(uturn.exitLaneId, 'dead-end-reverse:reverse:edge:0');
+  assert.equal(compiled.diagnostics.length, 0);
+});
+
 test('lane-role rules constrain two-lane turns without removing straight travel', () => {
   const document = crossIntersection();
   document.corridors.forEach((corridor) => { corridor.lanesPerDirection = 2; });
@@ -67,7 +110,7 @@ function crossIntersection(): LaneCompilerDocument {
 
 function countTurns(movements: ReturnType<typeof compileLaneNetwork>['movements']): Record<'left' | 'right' | 'straight', number> {
   return movements.reduce((counts, movement) => {
-    counts[movement.turn]++;
+    if (movement.turn !== 'uturn') counts[movement.turn]++;
     return counts;
   }, {left: 0, right: 0, straight: 0});
 }

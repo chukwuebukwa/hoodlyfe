@@ -97,7 +97,7 @@ export function generateRoadNetwork(
     if (corridor.to !== corridor.from) incident[corridor.to].push(index);
   });
 
-  const corridors: LaneCorridor[] = traced.map((corridor, index) => {
+  const centerlineCorridors: LaneCorridor[] = traced.map((corridor, index) => {
     const from = regions[corridor.from].point;
     const to = regions[corridor.to].point;
     const tilePoints = simplifyPolyline([
@@ -125,21 +125,25 @@ export function generateRoadNetwork(
     };
   });
 
-  const junctions: LaneJunction[] = [];
+  const centerlineJunctions: LaneJunction[] = [];
   let terminalNodes = 0;
   regions.forEach((region, regionIndex) => {
     const corridorIndexes = incident[regionIndex];
-    if (corridorIndexes.length < 2) {
-      if (corridorIndexes.length === 1) terminalNodes++;
-      return;
-    }
-    junctions.push({
-      id: numberedId('road-junction', junctions.length),
+    if (corridorIndexes.length === 0) return;
+    const terminalTransfer = corridorIndexes.length === 1;
+    if (terminalTransfer) terminalNodes++;
+    centerlineJunctions.push({
+      id: numberedId('road-junction', centerlineJunctions.length),
       ...tileCenterToWorld(document, region.point),
-      corridors: corridorIndexes.map((index) => corridors[index].id).sort()
+      corridors: corridorIndexes.map((index) => centerlineCorridors[index].id).sort(),
+      ...(terminalTransfer ? {terminalTransfer: true} : {})
     });
   });
-  fitCorridorLaneOffsets(document, roadMask, corridors, junctions);
+  fitCorridorLaneOffsets(document, roadMask, centerlineCorridors, centerlineJunctions);
+  const {corridors, junctions} = splitIntoDirectionalCarriageways(
+    centerlineCorridors,
+    centerlineJunctions
+  );
   const roadClasses: Record<LaneRoadClass, number> = {
     arterial: 0,
     boulevard: 0,
@@ -171,6 +175,29 @@ export function generateRoadNetwork(
       clearanceConstrainedCorridors: corridors.filter((corridor) => corridor.clearanceConstrained).length,
       roadClasses
     }
+  };
+}
+
+function splitIntoDirectionalCarriageways(
+  centerlines: readonly LaneCorridor[],
+  junctions: readonly LaneJunction[]
+): {corridors: LaneCorridor[]; junctions: LaneJunction[]} {
+  const directionalIds = new Map<string, [string, string]>();
+  const corridors = centerlines.flatMap((centerline): LaneCorridor[] => {
+    const forwardId = `${centerline.id}-forward`;
+    const reverseId = `${centerline.id}-reverse`;
+    directionalIds.set(centerline.id, [forwardId, reverseId]);
+    return [
+      {...structuredClone(centerline), id: forwardId, direction: 'forward'},
+      {...structuredClone(centerline), id: reverseId, direction: 'reverse'}
+    ];
+  });
+  return {
+    corridors,
+    junctions: junctions.map((junction) => ({
+      ...structuredClone(junction),
+      corridors: junction.corridors.flatMap((corridorId) => directionalIds.get(corridorId) ?? [])
+    }))
   };
 }
 
@@ -320,15 +347,19 @@ function rebindRoadblocks(
   corridors: readonly LaneCorridor[]
 ): LaneRoadblock[] {
   return roadblocks.flatMap((roadblock) => {
-    const nearest = nearestCorridorSegment(roadblock, corridors);
-    if (!nearest) return [];
     const directions = roadblockDirections(roadblock);
-    const lastSegmentIndex = nearest.corridor.points.length - 2;
-    const blockedEdgeIds = directions.flatMap((direction) => (
-      Array.from({length: lastSegmentIndex + 1}, (_, segmentIndex) => (
+    const blockedEdgeIds = directions.flatMap((direction) => {
+      const nearest = nearestCorridorSegment(
+        roadblock,
+        corridors.filter((corridor) => corridor.direction === direction)
+      );
+      if (!nearest) return [];
+      const lastSegmentIndex = nearest.corridor.points.length - 2;
+      return Array.from({length: lastSegmentIndex + 1}, (_, segmentIndex) => (
         `${nearest.corridor.id}:${direction}:edge:${segmentIndex}`
-      ))
-    ));
+      ));
+    });
+    if (blockedEdgeIds.length === 0) return [];
     return [{
       ...structuredClone(roadblock),
       blockedEdgeIds

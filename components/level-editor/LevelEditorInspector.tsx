@@ -216,7 +216,7 @@ function JunctionInspector(props: LevelEditorInspectorProps & {junction: LaneJun
   const turnCounts = movements.reduce((counts, movement) => {
     counts[movement.turn]++;
     return counts;
-  }, {left: 0, right: 0, straight: 0});
+  }, {left: 0, right: 0, straight: 0, uturn: 0});
   function update(label: string, patch: Partial<LaneJunction>, nextId?: string): void {
     props.onCommit(label, (document) => ({...document, lanes: {...document.lanes, junctions: document.lanes.junctions.map((candidate) => candidate.id === junction.id ? {...candidate, ...patch} : candidate)}}));
     if (nextId) props.onSelectionChange({kind: 'junction', id: nextId});
@@ -240,7 +240,7 @@ function JunctionInspector(props: LevelEditorInspectorProps & {junction: LaneJun
           <Readout label="Movements" value={movements.length.toString()} />
           <Readout label="Signal phases" value={signalGroups.length.toString()} />
         </div>
-        <Readout label="Turns" value={`Straight ${turnCounts.straight}, left ${turnCounts.left}, right ${turnCounts.right}`} />
+        <Readout label="Turns" value={`Straight ${turnCounts.straight}, left ${turnCounts.left}, right ${turnCounts.right}, U-turn ${turnCounts.uturn}`} />
       </InspectorSection>
     </>
   );

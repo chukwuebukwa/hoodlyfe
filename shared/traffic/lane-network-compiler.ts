@@ -104,7 +104,7 @@ export interface CompiledJunctionMovement {
   exitLaneId: string;
   fromNodeId: string;
   toNodeId: string;
-  turn: Exclude<CompiledLaneTurn, 'none' | 'uturn'>;
+  turn: Exclude<CompiledLaneTurn, 'none'>;
   path: readonly LaneCompilerPoint[];
   signalGroupId: string;
 }
@@ -221,8 +221,12 @@ export function compileLaneNetwork(document: LaneCompilerDocument): CompiledLane
         const next = outboundLane.nodes[outboundNode.index + 1];
         const sameLane = outbound.laneId === inbound.laneId;
         const turn = sameLane ? 'straight' : classifyTurn(inbound.heading, outbound.heading);
-        if (turn === 'uturn') continue;
-        if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) continue;
+        const terminalUturn = turn === 'uturn';
+        if (terminalUturn) {
+          if (!junction.terminalTransfer) continue;
+        } else if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) {
+          continue;
+        }
         if (!sameLane && !legalLaneConnection(
           inboundNode,
           outboundNode,
@@ -235,7 +239,13 @@ export function compileLaneNetwork(document: LaneCompilerDocument): CompiledLane
         )) continue;
         const connector = sameLane
           ? undefined
-          : connectorEdge(inboundNode, outboundNode, 'connector', turn, junction.id);
+          : connectorEdge(
+            inboundNode,
+            outboundNode,
+            terminalUturn ? 'turnaround' : 'connector',
+            turn,
+            junction.id
+          );
         if (connector) edges.push(connector);
         const traversalEdgeId = connector?.id ?? laneEdgeId(outboundLane, outboundNode.index);
         pendingMovements.push({
@@ -458,10 +468,11 @@ function approachFor(
 function legalLaneConnection(
   inbound: CompiledLaneNode,
   outbound: CompiledLaneNode,
-  turn: Exclude<CompiledLaneTurn, 'none' | 'uturn'>,
+  turn: Exclude<CompiledLaneTurn, 'none'>,
   terminalTransfer: boolean
 ): boolean {
   if (terminalTransfer) return true;
+  if (turn === 'uturn') return false;
   if (turn === 'straight') {
     if (inbound.laneCount === 1 || outbound.laneCount === 1) return true;
     const normalizedInbound = inbound.laneIndex / Math.max(1, inbound.laneCount - 1);

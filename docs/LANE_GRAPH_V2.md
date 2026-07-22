@@ -9,10 +9,11 @@ Lane Graph V2 turns the road-cell layer into a complete, editable, directed traf
 3. Collapse crossings into junction regions and trace the paths between them.
 4. Classify every corridor as `arterial`, `boulevard`, `street`, `service`, or `alley` from measured width, length, and terminal status.
 5. Fit the lane centerlines to the road with a 40px vehicle envelope. Narrow roads receive a smaller per-corridor lane offset and are marked `clearanceConstrained`.
-6. Compile directed lanes, stop lines, turning movements, signal groups, terminal turnarounds, and roadblock references.
-7. Reject invalid geometry, missing directed connectivity, sinks, or blocked lane envelopes.
+6. Split every physical centerline into explicit `forward` and `reverse` one-way carriageways. No generated corridor retains the legacy `both` direction.
+7. Compile directed lanes, stop lines, turning movements, signal groups, terminal U-turn transfers, and roadblock references.
+8. Reject invalid geometry, missing directed connectivity, sinks, or blocked lane envelopes.
 
-The generated BIL network currently contains 372 corridors, 213 authored junctions, 3,084 compiled nodes, and 4,015 compiled edges. Of the 179 multi-lane corridors, 41 are classified as arterials and 138 as boulevards.
+The generated BIL network currently contains 744 explicit one-way carriageways, 254 authored junctions, 3,084 compiled nodes, and 4,019 compiled edges. The 41 terminal junctions own explicit U-turn transfers between paired carriageways. Runtime lane volume stays equivalent to the former 372 bidirectional records, but each direction can now be edited, closed, classified, or rebalanced independently.
 
 ## Runtime policy
 
@@ -25,10 +26,12 @@ The generated BIL network currently contains 372 corridors, 213 authored junctio
 
 ## Editor workflow
 
-Use **Generate full road network** after the road-cell layer is materially changed. Select a corridor to inspect or override its class, speed, lane spacing, lane offset, route priority, and traffic density. The canvas shows:
+Use **Generate full road network** after the road-cell layer is materially changed. Select a one-way carriageway to inspect or override its direction, class, speed, lane spacing, lane offset, route priority, and traffic density. The canvas shows:
+
+Existing browser-saved drafts are not rewritten implicitly when generator code changes. A draft that predates this version can still display legacy `BOTH` corridors until **Generate full road network** is run and confirmed.
 
 - class-colored authored centerlines;
-- exact dashed compiled lanes for both directions;
+- exact dashed compiled lanes for the selected carriageway direction;
 - direction arrows;
 - selected road clearance envelopes;
 - junction stop lines and generated movement data.
