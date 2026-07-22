@@ -125,6 +125,7 @@ export class ThreePrototypeViewer {
       this.interiors = new ThreeInteriorRenderer(this.scene);
       this.entities = await ThreeDistrictEntities.create(
         this.scene,
+        this.room.sessionId,
         this.surfaceHeightAt,
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
         () => this.rolloutEnabled('remoteTimelines'),

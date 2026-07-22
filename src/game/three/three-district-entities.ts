@@ -63,6 +63,7 @@ import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
 import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
+import {shouldUseRemoteTimeline} from '../network/remote-timeline-policy.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
 import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
 import {voiceIndicatorPresentation} from '../rendering/voice-indicator-policy.ts';
@@ -161,6 +162,7 @@ export class ThreeDistrictEntities {
   private readonly skidMarks: ThreeSkidMarkRenderer;
   private constructor(
     private readonly scene: THREE.Scene,
+    private readonly localPlayerId: string,
     private readonly textures: EntityTextures,
     private readonly lpcSources: LpcSpriteSources,
     private readonly surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
@@ -175,6 +177,7 @@ export class ThreeDistrictEntities {
 
   static async create(
     scene: THREE.Scene,
+    localPlayerId: string,
     surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
     onRemoteTimeline?: (
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
@@ -219,6 +222,7 @@ export class ThreeDistrictEntities {
     }
     return new ThreeDistrictEntities(
       scene,
+      localPlayerId,
       {
         player,
         playerWalkColumns: characterSources.walkColumns,
@@ -243,6 +247,7 @@ export class ThreeDistrictEntities {
     estimatedServerTimeMs = state.serverTimeMs ?? renderServerTimeMs
   ): void {
     const presentationNowMs = performance.now();
+    const localVehicleId = state.players.get(this.localPlayerId)?.vehicleId ?? '';
     this.skidMarks.beginFrame(localSpaceId === 'street');
     const present = new Set<string>();
     state.players.forEach((player, id) => {
@@ -274,6 +279,7 @@ export class ThreeDistrictEntities {
         `vehicle:${id}`,
         vehicle,
         state.players.values(),
+        localVehicleId,
         state.serverTimeMs ?? 0,
         renderServerTimeMs,
         estimatedServerTimeMs,
@@ -578,11 +584,12 @@ export class ThreeDistrictEntities {
       weaponMesh.geometry = weaponPlaneGeometry(held);
       weaponMesh.userData.weapon = player.weapon;
     }
+    const isLocalPlayer = !shouldUseRemoteTimeline(player.id, this.localPlayerId);
     const vehicle = player.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
     const vehiclePose = vehicle
-      ? this.vehiclePose(player.vehicleId) ?? vehicle
+      ? (isLocalPlayer ? vehicle : this.vehiclePose(player.vehicleId) ?? vehicle)
       : undefined;
-    const buffered = !vehicle && this.remoteTimelinesEnabled()
+    const buffered = !vehicle && !isLocalPlayer && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
@@ -606,7 +613,7 @@ export class ThreeDistrictEntities {
       y,
       buffered?.surfaceId ?? player.surfaceId ?? STREET_GROUND_SURFACE_ID
     ) + (attachments.passenger ? 8 : 4);
-    positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.34);
+    positionEntity(rendered.mesh, x, y, z, buffered || vehicle || isLocalPlayer ? 1 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
       ? 0
       : serverPedestrianAngleToThree(renderAngle) -
@@ -847,6 +854,7 @@ export class ThreeDistrictEntities {
     id: string,
     vehicle: NetworkVehicle,
     players: Iterable<NetworkPlayer>,
+    localVehicleId: string,
     serverTimeMs: number,
     renderServerTimeMs: number,
     estimatedServerTimeMs: number,
@@ -909,7 +917,8 @@ export class ThreeDistrictEntities {
       vehicleDoorAtlasFrame(vehicle, door.frame),
       vehicleDoorSpriteOffset(vehicle, door.frame)
     );
-    const buffered = this.remoteTimelinesEnabled()
+    const isLocalVehicle = !shouldUseRemoteTimeline(vehicle.id, localVehicleId);
+    const buffered = !isLocalVehicle && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
@@ -921,11 +930,11 @@ export class ThreeDistrictEntities {
       y,
       buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
     ) + 3;
-    positionEntity(rendered.mesh, x, y, z, buffered ? 1 : 0.3);
+    positionEntity(rendered.mesh, x, y, z, buffered || isLocalVehicle ? 1 : 0.3);
     rendered.mesh.rotation.z = rotateTowards(
       rendered.mesh.rotation.z,
       serverVehicleAngleToThree(angle),
-      buffered ? 1 : 0.2
+      buffered || isLocalVehicle ? 1 : 0.2
     );
     rendered.renderedAngle = angle;
     rendered.mesh.visible = true;

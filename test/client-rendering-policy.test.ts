@@ -57,16 +57,24 @@ test('render rotation follows the shortest wrapped angle', () => {
 });
 
 test('projectile presentation preserves weapon style and police override', () => {
-  assert.deepEqual(projectileStyle(createBullet('pistol')), {color: 0xffdc55, radius: 3.2});
-  assert.deepEqual(projectileStyle(createBullet('smg')), {color: 0xff9f43, radius: 2.5});
-  assert.deepEqual(projectileStyle(createBullet('shotgun')), {color: 0xffe8a3, radius: 3.5});
+  assert.deepEqual(projectileStyle(createBullet('pistol')), {
+    color: 0xffdc55, length: 13, width: 2
+  });
+  assert.deepEqual(projectileStyle(createBullet('smg')), {
+    color: 0xff9f43, length: 10, width: 1.5
+  });
+  assert.deepEqual(projectileStyle(createBullet('shotgun')), {
+    color: 0xffe8a3, length: 8, width: 2.1
+  });
   assert.deepEqual(projectileStyle({...createBullet('shotgun'), ownerKind: 'police'}), {
     color: 0xff6262,
-    radius: 3.5
+    length: 8,
+    width: 2.1
   });
   assert.deepEqual(projectileStyle({...createBullet('smg'), ownerKind: 'hostile'}), {
     color: 0xff9d3f,
-    radius: 2.5
+    length: 10,
+    width: 1.5
   });
 });
 

@@ -2,21 +2,23 @@ import type {NetworkBullet} from '../types.ts';
 
 export interface ProjectileStyle {
   color: number;
-  radius: number;
+  length: number;
+  width: number;
 }
 
 export function projectileStyle(
   bullet: Pick<NetworkBullet, 'ownerKind' | 'weapon'>
 ): ProjectileStyle {
-  if (bullet.ownerKind === 'hostile') return {color: 0xff9d3f, radius: weaponRadius(bullet.weapon)};
-  if (bullet.ownerKind === 'police') return {color: 0xff6262, radius: weaponRadius(bullet.weapon)};
-  if (bullet.weapon === 'smg') return {color: 0xff9f43, radius: weaponRadius(bullet.weapon)};
-  if (bullet.weapon === 'shotgun') return {color: 0xffe8a3, radius: weaponRadius(bullet.weapon)};
-  return {color: 0xffdc55, radius: weaponRadius(bullet.weapon)};
+  const dimensions = weaponDimensions(bullet.weapon);
+  if (bullet.ownerKind === 'hostile') return {color: 0xff9d3f, ...dimensions};
+  if (bullet.ownerKind === 'police') return {color: 0xff6262, ...dimensions};
+  if (bullet.weapon === 'smg') return {color: 0xff9f43, ...dimensions};
+  if (bullet.weapon === 'shotgun') return {color: 0xffe8a3, ...dimensions};
+  return {color: 0xffdc55, ...dimensions};
 }
 
-function weaponRadius(weapon: NetworkBullet['weapon']): number {
-  if (weapon === 'smg') return 2.5;
-  if (weapon === 'shotgun') return 3.5;
-  return 3.2;
+function weaponDimensions(weapon: NetworkBullet['weapon']): Pick<ProjectileStyle, 'length' | 'width'> {
+  if (weapon === 'smg') return {length: 10, width: 1.5};
+  if (weapon === 'shotgun') return {length: 8, width: 2.1};
+  return {length: 13, width: 2};
 }

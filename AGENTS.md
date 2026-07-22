@@ -21,6 +21,34 @@ Each district room writes `journals/district-<roomId>-<timestamp>.jsonl`: a head
 it applied, all drained game events per tick, and a state hash every 60 ticks. Cost is
 negligible; there is no reason to run without it during development.
 
+The same run writes nondeterministic performance observations to the matching basename
+under `journals/diagnostics/`. These sidecars contain a one-second sample plus immediate
+`hitch` records whenever a simulation tick exceeds its 16.67 ms budget or the fixed-step
+clock drops time. They are evidence only and are never replayed.
+
+### Check observability first for lag
+
+The journal explains what the simulation did; its diagnostics sidecar explains how long
+the server took. Match them by basename and tick:
+
+```bash
+# Latest server hitches and their slowest phase:
+jq -c 'select(.kind=="hitch") | {tick,tickDurationMs,droppedDeltaMs,slowestPhase,entities}' \
+  journals/diagnostics/<file>.jsonl
+
+# Current process, event-loop, memory, physics, and latest room observations:
+curl -s http://127.0.0.1:2567/health | jq
+```
+
+Start a performance investigation with the diagnostics file. Use its tick to inspect the
+matching journal events and commands, then replay the journal. If there is no server
+hitch at the reported time, capture a Chrome Performance trace with F3 closed: F3 is a
+live spatial inspector and perturbs client performance when open.
+
+Do not add wall-clock timings, memory, network metrics, or browser measurements to the
+deterministic journal. Put server observations in the diagnostics sidecar; use Chrome
+trace markers/traces for client rendering and audio.
+
 ### Debug from a journal
 
 The tick rate is 60/sec ("2 minutes in" ≈ tick 7200). Start by reading, not replaying —

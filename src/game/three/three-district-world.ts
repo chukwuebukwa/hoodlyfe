@@ -241,10 +241,15 @@ export class ThreeDistrictWorld {
       let mesh = this.bullets.get(id);
       if (!mesh) {
         const style = projectileStyle(bullet);
-        mesh = disc(style.radius, style.color, 1, 25);
+        mesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(style.length, style.width),
+          material(style.color, 0.92, 25)
+        );
+        mesh.renderOrder = 25;
         this.bullets.set(id, mesh);
         this.scene.add(mesh);
       }
+      mesh.rotation.z = serverAngleToThree(bullet.angle);
       mesh.position.set(
         bullet.x,
         serverYToThree(bullet.y),

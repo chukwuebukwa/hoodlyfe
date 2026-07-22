@@ -61,6 +61,12 @@ export type DistrictSimulationPhaseId = typeof DISTRICT_SIMULATION_PHASES[number
 
 interface DistrictSimulationContext extends SimulationFrame {
   events: GameEvent[];
+  vehicleMotion?: VehicleMotionObservation;
+}
+
+export interface VehicleMotionObservation {
+  beginTickMs: number;
+  slowestVehicle?: {id: string; kind: string; durationMs: number};
 }
 
 interface MissionPort {
@@ -111,6 +117,13 @@ export interface DistrictSimulationOptions {
   indexNpc: (npc: NpcState) => void;
   indexVehicle: (vehicle: VehicleState) => void;
   onPhaseChange?: (phase: {id: string; tick: number} | undefined) => void;
+  onTickComplete?: (observation: {
+    tick: number;
+    nowMs: number;
+    eventsThisTick: number;
+    phases: readonly SimulationPhaseDiagnostic[];
+    vehicleMotion?: VehicleMotionObservation;
+  }) => void;
 }
 
 export class DistrictSimulation {
@@ -124,7 +137,15 @@ export class DistrictSimulation {
 
   advance(elapsedMs: number): number {
     return this.options.clock.advance(elapsedMs, (frame) => {
-      this.pipeline.run({...frame, events: []});
+      const context: DistrictSimulationContext = {...frame, events: []};
+      this.pipeline.run(context);
+      this.options.onTickComplete?.({
+        tick: frame.tick,
+        nowMs: frame.nowMs,
+        eventsThisTick: context.events.length,
+        phases: this.pipeline.diagnostics(),
+        vehicleMotion: context.vehicleMotion
+      });
     });
   }
 
@@ -166,12 +187,22 @@ export class DistrictSimulation {
         this.options.explosions.update(nowMs);
         this.options.policeFleet.update(nowMs);
       }),
-      phase('vehicle-motion', ({deltaSeconds, nowMs}) => {
+      phase('vehicle-motion', (context) => {
+        const {deltaSeconds, nowMs} = context;
+        const beginTickAt = performance.now();
         this.options.vehicles.beginTick(nowMs);
+        const beginTickMs = performance.now() - beginTickAt;
+        let slowestVehicle: VehicleMotionObservation['slowestVehicle'];
         this.options.state.vehicles.forEach((vehicle) => {
+          const startedAt = performance.now();
           this.options.vehicles.update(vehicle, deltaSeconds, nowMs);
           if (this.options.state.vehicles.has(vehicle.id)) this.options.indexVehicle(vehicle);
+          const durationMs = performance.now() - startedAt;
+          if (!slowestVehicle || durationMs > slowestVehicle.durationMs) {
+            slowestVehicle = {id: vehicle.id, kind: vehicle.kind, durationMs};
+          }
         });
+        context.vehicleMotion = {beginTickMs, slowestVehicle};
       }),
       phase('player-motion', ({deltaSeconds, nowMs}) => {
         this.options.weaponRuntime.update(nowMs);

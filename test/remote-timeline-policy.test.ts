@@ -4,8 +4,15 @@ import {
   adaptiveInterpolationDelayMs,
   DEFAULT_INTERPOLATION_DELAY_MS,
   MAXIMUM_INTERPOLATION_DELAY_MS,
-  MINIMUM_INTERPOLATION_DELAY_MS
+  MINIMUM_INTERPOLATION_DELAY_MS,
+  shouldUseRemoteTimeline
 } from '../src/game/network/remote-timeline-policy.ts';
+
+test('remote timelines exclude the local player and locally occupied vehicle', () => {
+  assert.equal(shouldUseRemoteTimeline('local', 'local'), false);
+  assert.equal(shouldUseRemoteTimeline('car-1', 'car-1'), false);
+  assert.equal(shouldUseRemoteTimeline('remote', 'local'), true);
+});
 
 test('adaptive timeline delay covers patch cadence, jitter, and RTT variation within bounds', () => {
   assert.equal(adaptiveInterpolationDelayMs({

@@ -97,7 +97,25 @@ class GameRuntimeController implements GameRuntime {
       auth: playerAuth,
       spectator: onboardingRequired
     });
-    this.startNetworkControllers(this.activeRoom);
+    const room = this.activeRoom;
+    if (!room.state?.players) {
+      await new Promise<void>((resolve, reject) => {
+        const onState = (state: DistrictNetworkState) => {
+          if (!state?.players) return;
+          room.onStateChange.remove(onState);
+          room.onLeave.remove(onLeave);
+          resolve();
+        };
+        const onLeave = (code: number) => {
+          room.onStateChange.remove(onState);
+          room.onLeave.remove(onLeave);
+          reject(new Error(`District room closed before initial state (${code}).`));
+        };
+        room.onStateChange(onState);
+        room.onLeave(onLeave);
+      });
+    }
+    this.startNetworkControllers(room);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
     const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');

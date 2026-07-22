@@ -1,4 +1,5 @@
 import type {PhysicsRuntimeDiagnostics} from './game/vehicles/vehicle-simulation-controller.ts';
+import type {SimulationObservabilitySnapshot} from './game/observability/simulation-observability.ts';
 
 export interface RuntimePhase {
   id: string;
@@ -18,6 +19,7 @@ export interface RuntimeHealthSnapshot {
   lastSuccessfulTickAt?: number;
   lastSuccessfulTickAgeMs?: number;
   physics?: PhysicsRuntimeDiagnostics;
+  observability: SimulationObservabilitySnapshot[];
 }
 
 export class RuntimeHealthMonitor {
@@ -32,6 +34,7 @@ export class RuntimeHealthMonitor {
   private lastSuccessfulTick = 0;
   private lastSuccessfulTickAt?: number;
   private physics?: PhysicsRuntimeDiagnostics;
+  private readonly observability = new Map<string, SimulationObservabilitySnapshot>();
 
   roomReady(roomId: string, now = Date.now()): void {
     this.ready = true;
@@ -48,6 +51,14 @@ export class RuntimeHealthMonitor {
     this.lastSuccessfulTickAt = now;
     this.lastFailedPhase = undefined;
     if (physics) this.physics = physics;
+  }
+
+  updateObservability(snapshot: SimulationObservabilitySnapshot): void {
+    this.observability.set(snapshot.roomId, structuredClone(snapshot));
+  }
+
+  removeObservability(roomId: string): void {
+    this.observability.delete(roomId);
   }
 
   fail(error: unknown, context: string, phase?: RuntimePhase): boolean {
@@ -89,7 +100,8 @@ export class RuntimeHealthMonitor {
       lastSuccessfulTickAgeMs: this.lastSuccessfulTickAt === undefined
         ? undefined
         : Math.max(0, now - this.lastSuccessfulTickAt),
-      physics: this.physics
+      physics: this.physics,
+      observability: [...this.observability.values()].map((snapshot) => structuredClone(snapshot))
     };
   }
 }

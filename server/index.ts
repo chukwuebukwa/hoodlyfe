@@ -19,6 +19,8 @@ const serveNext = process.env.NODE_ENV === 'production';
 const nextApp = serveNext ? next({dev: false, hostname: '0.0.0.0', port}) : undefined;
 await nextApp?.prepare();
 const processStartedAt = Date.now();
+const buildId = process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
+  process.env.RAILWAY_DEPLOYMENT_ID ?? 'development';
 const runtimeHealth = new RuntimeHealthMonitor();
 // Fail the process before Railway marks it healthy if required runtime map assets are absent.
 CollisionMap.load();
@@ -49,8 +51,7 @@ app.get('/health', (_request, response) => {
     room: 'district',
     region: process.env.RAILWAY_REPLICA_REGION ?? process.env.GAME_REGION ?? 'local',
     replicaId: process.env.RAILWAY_REPLICA_ID ?? 'local',
-    buildId: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
-      process.env.RAILWAY_DEPLOYMENT_ID ?? 'development',
+    buildId,
     startedAt: processStartedAt,
     uptimeSeconds: Math.round(process.uptime()),
     memoryRssMb: memory.rssMb,
@@ -108,7 +109,11 @@ const requestFatalShutdown = (error: Error): void => {
     process.exitCode = 1;
   });
 };
-gameServer.define('district', DistrictRoom, {runtimeHealth, fatalShutdown: requestFatalShutdown});
+gameServer.define('district', DistrictRoom, {
+  runtimeHealth,
+  fatalShutdown: requestFatalShutdown,
+  buildId
+});
 gameServer.define('district-playtest', DistrictPlaytestRoom)
   .filterBy(['assetSourceId', 'revisionId']);
 

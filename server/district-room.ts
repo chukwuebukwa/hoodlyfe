@@ -1,4 +1,4 @@
-import {join} from 'node:path';
+import {basename, dirname, join} from 'node:path';
 import {
   OnCreateException,
   SimulationIntervalException,
@@ -82,6 +82,12 @@ import {GameEventStream} from './game/events/game-events.ts';
 import {FileJournalSink, type JournalSink} from './game/journal/journal-sink.ts';
 import {SimulationJournal} from './game/journal/simulation-journal.ts';
 import {hashDistrictState} from './game/journal/state-hash.ts';
+import {
+  FileSimulationObservabilitySink,
+  SimulationObservability,
+  type SimulationEntityCounts
+} from './game/observability/simulation-observability.ts';
+import type {SimulationPhaseDiagnostic} from './game/world/simulation-phase-pipeline.ts';
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
@@ -152,7 +158,10 @@ import {
 import {VOICE_TOKEN_REQUEST_MESSAGE} from '../shared/protocol/proximity-voice.ts';
 import {DeferredCommandQueue} from './game/world/deferred-command-queue.ts';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
-import {DistrictSimulation} from './game/world/district-simulation.ts';
+import {
+  DistrictSimulation,
+  type VehicleMotionObservation
+} from './game/world/district-simulation.ts';
 import {FixedStepClock} from './game/world/fixed-step-clock.ts';
 import {SpatialIndex, type SpatialRecord} from './game/world/spatial-index.ts';
 import {WorldStimulusAdapter} from './game/world/world-stimulus-adapter.ts';
@@ -176,6 +185,7 @@ interface DistrictRoomOptions extends PlaytestWorldOptions {
   epochMs?: number;
   journalSink?: JournalSink;
   journalHashIntervalTicks?: number;
+  buildId?: string;
   // Skip the wall-clock simulation interval so a harness can call stepSimulationTick().
   externalSimulation?: boolean;
   runtimeHealth?: RuntimeHealthMonitor;
@@ -268,6 +278,15 @@ export class DistrictRoom extends Room<DistrictState> {
   private replicationController!: DistrictReplicationController;
   private random = new DeterministicRandom('industrial-district:v1');
   private journal?: SimulationJournal;
+  private observability?: SimulationObservability;
+  private pendingSimulationObservation?: {
+    tick: number;
+    nowMs: number;
+    eventsThisTick: number;
+    entities: SimulationEntityCounts;
+    phases: readonly SimulationPhaseDiagnostic[];
+    vehicleMotion?: VehicleMotionObservation;
+  };
   private epochMs = 0;
   private readonly journaledCommands = new Map<
     string,
@@ -294,12 +313,17 @@ export class DistrictRoom extends Room<DistrictState> {
     this.worldStimuli.clear();
     this.combatHistory.clear();
     this.debugSubscribers.clear();
+    const roomId = this.roomId || 'room';
     const seed = resolveSeed(options?.seed);
     this.random = new DeterministicRandom(seed);
     const requestedEpoch = Number(options?.epochMs);
     this.epochMs = Number.isFinite(requestedEpoch) ? requestedEpoch : Date.now();
+    this.runtimeHealth?.removeObservability(roomId);
     this.journal?.close();
     this.journal = undefined;
+    this.observability?.close();
+    this.observability = undefined;
+    this.pendingSimulationObservation = undefined;
     this.journaledCommands.clear();
     const playtest = this.acceptsPlaytestRevision()
       ? await loadPlaytestWorld(options ?? {})
@@ -319,7 +343,7 @@ export class DistrictRoom extends Room<DistrictState> {
         this.clients.find((client) => client.sessionId === playerId)?.send(type, payload);
       }
     });
-    const journalSink = options?.journalSink ?? environmentJournalSink(this.roomId);
+    const journalSink = options?.journalSink ?? environmentJournalSink(roomId);
     if (journalSink) {
       this.journal = new SimulationJournal({
         sink: journalSink,
@@ -333,6 +357,26 @@ export class DistrictRoom extends Room<DistrictState> {
         onFailure: (error) => console.error('Simulation journal disabled after sink error:', error)
       });
     }
+    const reportObservabilityFailure = (error: unknown) => {
+      console.error('Simulation observability disabled after sink error:', error);
+    };
+    const observabilitySink = journalSink instanceof FileJournalSink
+      ? new FileSimulationObservabilitySink(join(
+        dirname(journalSink.filePath),
+        'diagnostics',
+        basename(journalSink.filePath)
+      ), reportObservabilityFailure)
+      : undefined;
+    this.observability = new SimulationObservability({
+      roomId,
+      buildId: options?.buildId ?? 'development',
+      journalFile: journalSink instanceof FileJournalSink ? basename(journalSink.filePath) : undefined,
+      stepMs: this.simulationClock.stepMs,
+      sampleIntervalTicks: SIMULATION_HZ,
+      sink: observabilitySink,
+      onFailure: reportObservabilityFailure
+    });
+    this.runtimeHealth?.updateObservability(this.observability.snapshot());
     this.worldStimulusAdapter = new WorldStimulusAdapter({
       state: this.state,
       registry: this.worldStimuli
@@ -1006,7 +1050,18 @@ export class DistrictRoom extends Room<DistrictState> {
       indexPlayer: (player) => this.indexPlayer(player),
       indexNpc: (npc) => this.indexNpc(npc),
       indexVehicle: (vehicle) => this.indexVehicle(vehicle),
-      onPhaseChange: (phase) => this.runtimeHealth?.phaseChanged(phase)
+      onPhaseChange: (phase) => this.runtimeHealth?.phaseChanged(phase),
+      onTickComplete: ({tick, nowMs, eventsThisTick, phases, vehicleMotion}) => {
+        this.flushSimulationObservation();
+        this.pendingSimulationObservation = {
+          tick,
+          nowMs,
+          eventsThisTick,
+          entities: this.simulationEntityCounts(),
+          phases,
+          vehicleMotion
+        };
+      }
     });
     this.serviceController.initialize();
     this.medicalController.initialize();
@@ -1222,6 +1277,8 @@ export class DistrictRoom extends Room<DistrictState> {
 
   onDispose(): void {
     this.journal?.close();
+    this.observability?.close();
+    this.runtimeHealth?.removeObservability(this.roomId || 'room');
     this.vehicleSimulation?.disposePhysics();
     this.physicsWorld?.free();
   }
@@ -1281,9 +1338,60 @@ export class DistrictRoom extends Room<DistrictState> {
     this.completeSimulationTick(this.simulationClock.stepMs);
   }
 
+  private observeSimulationTick(
+    tick: number,
+    nowMs: number,
+    eventsThisTick: number | undefined,
+    entities: SimulationEntityCounts,
+    phases: readonly SimulationPhaseDiagnostic[],
+    vehicleMotion?: VehicleMotionObservation
+  ): void {
+    const observability = this.observability;
+    const record = observability?.observe({
+      tick,
+      nowMs,
+      droppedMs: this.simulationClock.droppedMs,
+      eventsThisTick,
+      entities,
+      phases,
+      vehicleMotion
+    });
+    if (record && observability) {
+      this.runtimeHealth?.updateObservability(observability.snapshot());
+    }
+  }
+
+  private simulationEntityCounts(): SimulationEntityCounts {
+    return {
+      players: this.state.players.size,
+      npcs: this.state.npcs.size,
+      vehicles: this.state.vehicles.size,
+      bullets: this.state.bullets.size,
+      rockets: this.state.rockets.size,
+      thrownProjectiles: this.state.thrownProjectiles.size,
+      explosions: this.state.explosions.size,
+      fires: this.state.fires.size
+    };
+  }
+
+  private flushSimulationObservation(): void {
+    const observation = this.pendingSimulationObservation;
+    if (!observation) return;
+    this.pendingSimulationObservation = undefined;
+    this.observeSimulationTick(
+      observation.tick,
+      observation.nowMs,
+      observation.eventsThisTick,
+      observation.entities,
+      observation.phases,
+      observation.vehicleMotion
+    );
+  }
+
   private completeSimulationTick(deltaTime: number): void {
     const startedAt = Date.now();
     this.simulation.advance(deltaTime);
+    this.flushSimulationObservation();
     this.runtimeHealth?.tickSucceeded(
       this.simulationClock.tick,
       this.simulationClock.tick % SIMULATION_HZ === 0

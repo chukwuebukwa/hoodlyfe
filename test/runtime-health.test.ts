@@ -34,6 +34,46 @@ test('runtime health preserves the first fatal context and reports shutdown', ()
   assert.equal(health.snapshot(1_001).shuttingDown, true);
 });
 
+test('runtime health keeps room observability isolated', () => {
+  const health = new RuntimeHealthMonitor();
+  health.updateObservability({
+    roomId: 'room-a',
+    buildId: 'build-1',
+    recentHitches: []
+  });
+  health.updateObservability({
+    roomId: 'room-b',
+    buildId: 'build-1',
+    recentHitches: []
+  });
+  assert.deepEqual(
+    health.snapshot().observability.map(({roomId}) => roomId),
+    ['room-a', 'room-b']
+  );
+  health.removeObservability('room-a');
+  assert.deepEqual(health.snapshot().observability.map(({roomId}) => roomId), ['room-b']);
+});
+
+test('catch-up drops produce at most one observation per simulation tick', async () => {
+  const health = new RuntimeHealthMonitor();
+  const room = new DistrictRoom();
+  await room.onCreate({
+    seed: 1,
+    epochMs: 1_000,
+    externalSimulation: true,
+    runtimeHealth: health
+  });
+  try {
+    (room as any).completeSimulationTick(1_000);
+    const observations = health.snapshot().observability[0]?.recentHitches ?? [];
+    const ticks = observations.map(({tick}) => tick);
+    assert.equal(new Set(ticks).size, ticks.length);
+    assert.ok(observations.some(({droppedDeltaMs}) => droppedDeltaMs > 0));
+  } finally {
+    room.onDispose();
+  }
+});
+
 test('district room makes simulation failures fatal and isolates message failures', () => {
   const originalError = console.error;
   console.error = () => undefined;

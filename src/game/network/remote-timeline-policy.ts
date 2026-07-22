@@ -2,6 +2,10 @@ export const MINIMUM_INTERPOLATION_DELAY_MS = 75;
 export const MAXIMUM_INTERPOLATION_DELAY_MS = 250;
 export const DEFAULT_INTERPOLATION_DELAY_MS = 100;
 
+export function shouldUseRemoteTimeline(entityId: string, localEntityId: string): boolean {
+  return entityId !== localEntityId;
+}
+
 export function adaptiveInterpolationDelayMs(input: {
   patchGapP95Ms: number;
   jitterP95Ms: number;
