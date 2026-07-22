@@ -160,6 +160,37 @@ function validateCorridors(document: LevelEditorDocument, issues: ValidationIssu
     if (!['both', 'forward', 'reverse'].includes(corridor.direction ?? 'both')) {
       add(issues, 'error', 'corridor-direction', `${corridor.id} has an invalid traffic direction.`, 'corridor', corridor.id, corridor.points[0]);
     }
+    if (corridor.roadClass !== undefined && !['arterial', 'boulevard', 'street', 'service', 'alley'].includes(corridor.roadClass)) {
+      add(issues, 'error', 'corridor-road-class', `${corridor.id} has an invalid road class.`, 'corridor', corridor.id, corridor.points[0]);
+    }
+    if (corridor.laneOffset !== undefined && (!Number.isFinite(corridor.laneOffset) || corridor.laneOffset <= 0)) {
+      add(issues, 'error', 'corridor-lane-offset', `${corridor.id} lane offset must be positive.`, 'corridor', corridor.id, corridor.points[0]);
+    }
+    if (corridor.measuredHalfWidth !== undefined && corridor.laneOffset !== undefined) {
+      const requiredHalfWidth = corridor.laneOffset + 20;
+      if (corridor.measuredHalfWidth + 1 < requiredHalfWidth) {
+        add(
+          issues,
+          'warning',
+          'corridor-clearance',
+          `${corridor.id} has ${corridor.measuredHalfWidth.toFixed(1)}px half-width but needs about ${requiredHalfWidth.toFixed(1)}px for its vehicle envelope.`,
+          'corridor',
+          corridor.id,
+          corridor.points[Math.floor(corridor.points.length / 2)]
+        );
+      }
+    }
+    if (corridor.clearanceConstrained) {
+      add(
+        issues,
+        'warning',
+        'corridor-clearance-constrained',
+        `${corridor.id} needed a reduced lane offset so a full 40px vehicle envelope remains on the road at a bend.`,
+        'corridor',
+        corridor.id,
+        corridor.points[Math.floor(corridor.points.length / 2)]
+      );
+    }
     corridor.points.forEach((point, pointIndex) => {
       if (!insideWorld(document, point)) {
         add(issues, 'error', 'corridor-point-outside', `${corridor.id} point ${pointIndex + 1} is outside the map.`, 'corridor', corridor.id, point);

@@ -5,6 +5,7 @@ import type {
   Point2D
 } from './level-document.ts';
 import {corridorSupportsDirection} from './level-document.ts';
+import {corridorLaneOffset, offsetPolyline} from '../../../shared/traffic/lane-geometry.ts';
 
 export type CompiledLaneDirection = 'forward' | 'reverse';
 
@@ -43,7 +44,7 @@ export function compiledLaneEdgeDiagnostic(
 
   const samples = centerlineSamples(corridor, document.junctions);
   if (direction === 'reverse') samples.reverse();
-  const nodes = compileLanePoints(samples, document.laneOffset + document.laneSpacing * laneIndex);
+  const nodes = offsetPolyline(samples, corridorLaneOffset(document, corridor, laneIndex));
   const from = nodes[edgeIndex];
   const to = nodes[edgeIndex + 1];
   if (!from || !to) return undefined;
@@ -95,20 +96,6 @@ function centerlineSamples(
   return result;
 }
 
-function compileLanePoints(samples: readonly CenterlineSample[], laneOffset: number): Point2D[] {
-  return samples.map((sample, index) => {
-    const previous = samples[Math.max(0, index - 1)];
-    const next = samples[Math.min(samples.length - 1, index + 1)];
-    const heading = index < samples.length - 1
-      ? unitVector(sample, next)
-      : unitVector(previous, sample);
-    return {
-      x: sample.x - heading.y * laneOffset,
-      y: sample.y + heading.x * laneOffset
-    };
-  });
-}
-
 function junctionAt(
   point: Point2D,
   corridorId: string,
@@ -129,13 +116,6 @@ function segmentProgress(point: Point2D, from: Point2D, to: Point2D): number {
   const lengthSquared = (to.x - from.x) ** 2 + (to.y - from.y) ** 2;
   if (lengthSquared === 0) return 0;
   return ((point.x - from.x) * (to.x - from.x) + (point.y - from.y) * (to.y - from.y)) / lengthSquared;
-}
-
-function unitVector(from: Point2D, to: Point2D): Point2D {
-  const deltaX = to.x - from.x;
-  const deltaY = to.y - from.y;
-  const magnitude = Math.hypot(deltaX, deltaY);
-  return magnitude > 0 ? {x: deltaX / magnitude, y: deltaY / magnitude} : {x: 0, y: 0};
 }
 
 function samePoint(left: Point2D, right: Point2D): boolean {

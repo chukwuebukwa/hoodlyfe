@@ -42,16 +42,35 @@ test('level editor rejects incompatible map metadata', async () => {
 test('Preview compiles the saved one-way carriageways into the authoritative world', async () => {
   const source = await loadArtifacts();
   const document = assembleLevelDocument(source.map, source.metadata, source.lanes);
+  const junctionPairs = new Map<string, string[]>();
+  for (const corridor of document.lanes.corridors) {
+    const junctionIds = document.lanes.junctions
+      .filter((junction) => junction.corridors.includes(corridor.id))
+      .map((junction) => junction.id)
+      .sort();
+    if (junctionIds.length !== 2) continue;
+    const key = junctionIds.join('|');
+    junctionPairs.set(key, [...(junctionPairs.get(key) ?? []), corridor.id]);
+  }
+  const parallelPair = [...junctionPairs.values()].find((corridorIds) => corridorIds.length >= 2);
+  const forwardCorridor = document.lanes.corridors.find((corridor) => corridor.id === parallelPair?.[0]);
+  const reverseCorridor = document.lanes.corridors.find((corridor) => corridor.id === parallelPair?.[1]);
+  assert.ok(forwardCorridor);
+  assert.ok(reverseCorridor);
+  forwardCorridor.direction = 'forward';
+  reverseCorridor.direction = 'reverse';
   const preview = compilePlaytestWorld('bil', 'one-way-preview', document);
-  const northEdges = preview.laneGraph.edges().filter((edge) => edge.kind === 'lane' && edge.id.startsWith('south-boulevard-north:'));
-  const southEdges = preview.laneGraph.edges().filter((edge) => edge.kind === 'lane' && edge.id.startsWith('south-boulevard-south:'));
+  const forwardEdges = preview.laneGraph.edges().filter((edge) => (
+    edge.kind === 'lane' && edge.id.startsWith(`${forwardCorridor.id}:`)
+  ));
+  const reverseEdges = preview.laneGraph.edges().filter((edge) => (
+    edge.kind === 'lane' && edge.id.startsWith(`${reverseCorridor.id}:`)
+  ));
 
-  assert.ok(northEdges.length > 0);
-  assert.ok(southEdges.length > 0);
-  assert.equal(northEdges.every((edge) => edge.id.includes(':reverse')), true);
-  assert.equal(southEdges.every((edge) => edge.id.includes(':forward')), true);
-  assert.ok(preview.laneGraph.edges().some((edge) => edge.junctionId === 'south-boulevard-west-south-return'));
-  assert.ok(preview.laneGraph.edges().some((edge) => edge.junctionId === 'south-boulevard-east-south-return'));
+  assert.ok(forwardEdges.length > 0);
+  assert.ok(reverseEdges.length > 0);
+  assert.equal(forwardEdges.every((edge) => edge.id.includes(':forward')), true);
+  assert.equal(reverseEdges.every((edge) => edge.id.includes(':reverse')), true);
 });
 
 async function loadArtifacts(): Promise<{

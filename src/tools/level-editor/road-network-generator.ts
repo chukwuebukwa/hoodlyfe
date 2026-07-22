@@ -2,10 +2,12 @@ import type {
   LaneCorridor,
   LaneGraphDocument,
   LaneJunction,
+  LaneRoadClass,
   LaneRoadblock,
   LevelEditorDocument,
   Point2D
 } from './level-document.ts';
+import {compileLaneNetwork} from '../../../shared/traffic/lane-network-compiler.ts';
 
 export interface RoadNetworkGenerationStats {
   sourceRoadCells: number;
@@ -15,6 +17,9 @@ export interface RoadNetworkGenerationStats {
   corridors: number;
   junctions: number;
   terminalNodes: number;
+  multiLaneCorridors: number;
+  clearanceConstrainedCorridors: number;
+  roadClasses: Record<LaneRoadClass, number>;
 }
 
 export interface GeneratedRoadNetwork {
@@ -92,7 +97,7 @@ export function generateRoadNetwork(
     if (corridor.to !== corridor.from) incident[corridor.to].push(index);
   });
 
-  const corridors: LaneCorridor[] = traced.map((corridor, index) => {
+  const centerlineCorridors: LaneCorridor[] = traced.map((corridor, index) => {
     const from = regions[corridor.from].point;
     const to = regions[corridor.to].point;
     const tilePoints = simplifyPolyline([
@@ -100,35 +105,60 @@ export function generateRoadNetwork(
       ...corridor.pixels.slice(1, -1).map((pixel) => pointFromIndex(pixel, width)),
       to
     ], SIMPLIFICATION_TOLERANCE_TILES);
-    const roadRadius = median(tilePoints.map((point) => roadRadiusAt(roadMask, width, height, point)));
+    const radii = tilePoints.map((point) => roadRadiusAt(roadMask, width, height, point));
+    const roadRadius = median(radii);
+    const measuredHalfWidth = (roadRadius + 0.5) * document.map.tileSize;
+    const terminal = incident[corridor.from].length === 1 || incident[corridor.to].length === 1;
+    const lengthTiles = polylineLength(tilePoints);
+    const roadClass = classifyRoad(roadRadius, lengthTiles, terminal);
     return {
       id: numberedId('road', index),
-      speedLimit: roadRadius >= 2 ? 118 : 96,
-      lanesPerDirection: 1,
+      speedLimit: roadClassSpeed(roadClass),
+      lanesPerDirection: preferredLaneCount(roadClass, measuredHalfWidth),
+      roadClass,
+      laneOffset: laneOffsetForWidth(measuredHalfWidth),
+      laneSpacing: 34,
+      measuredHalfWidth,
+      routePriority: roadClassPriority(roadClass),
+      trafficDensity: roadClassDensity(roadClass),
       points: tilePoints.map((point) => tileCenterToWorld(document, point))
     };
   });
 
-  const junctions: LaneJunction[] = [];
+  const centerlineJunctions: LaneJunction[] = [];
   let terminalNodes = 0;
   regions.forEach((region, regionIndex) => {
     const corridorIndexes = incident[regionIndex];
-    if (corridorIndexes.length < 2) {
-      if (corridorIndexes.length === 1) terminalNodes++;
-      return;
-    }
-    junctions.push({
-      id: numberedId('road-junction', junctions.length),
+    if (corridorIndexes.length === 0) return;
+    const terminalTransfer = corridorIndexes.length === 1;
+    if (terminalTransfer) terminalNodes++;
+    centerlineJunctions.push({
+      id: numberedId('road-junction', centerlineJunctions.length),
       ...tileCenterToWorld(document, region.point),
-      corridors: corridorIndexes.map((index) => corridors[index].id).sort()
+      corridors: corridorIndexes.map((index) => centerlineCorridors[index].id).sort(),
+      ...(terminalTransfer ? {terminalTransfer: true} : {})
     });
   });
+  fitCorridorLaneOffsets(document, roadMask, centerlineCorridors, centerlineJunctions);
+  const {corridors, junctions} = splitIntoDirectionalCarriageways(
+    centerlineCorridors,
+    centerlineJunctions
+  );
+  const roadClasses: Record<LaneRoadClass, number> = {
+    arterial: 0,
+    boulevard: 0,
+    street: 0,
+    service: 0,
+    alley: 0
+  };
+  for (const corridor of corridors) roadClasses[corridor.roadClass ?? 'street']++;
 
   return {
     lanes: {
       ...document.lanes,
       schemaVersion: 2,
-      laneOffset: Math.min(document.lanes.laneOffset, 8),
+      laneOffset: 16.5,
+      laneSpacing: 34,
       corridors,
       junctions,
       roadblocks: rebindRoadblocks(options.roadblocks ?? document.lanes.roadblocks ?? [], corridors)
@@ -140,9 +170,176 @@ export function generateRoadNetwork(
       skeletonCells: skeleton.reduce((sum, value) => sum + value, 0),
       corridors: corridors.length,
       junctions: junctions.length,
-      terminalNodes
+      terminalNodes,
+      multiLaneCorridors: corridors.filter((corridor) => (corridor.lanesPerDirection ?? 1) > 1).length,
+      clearanceConstrainedCorridors: corridors.filter((corridor) => corridor.clearanceConstrained).length,
+      roadClasses
     }
   };
+}
+
+function splitIntoDirectionalCarriageways(
+  centerlines: readonly LaneCorridor[],
+  junctions: readonly LaneJunction[]
+): {corridors: LaneCorridor[]; junctions: LaneJunction[]} {
+  const directionalIds = new Map<string, [string, string]>();
+  const corridors = centerlines.flatMap((centerline): LaneCorridor[] => {
+    const forwardId = `${centerline.id}-forward`;
+    const reverseId = `${centerline.id}-reverse`;
+    directionalIds.set(centerline.id, [forwardId, reverseId]);
+    return [
+      {...structuredClone(centerline), id: forwardId, direction: 'forward'},
+      {...structuredClone(centerline), id: reverseId, direction: 'reverse'}
+    ];
+  });
+  return {
+    corridors,
+    junctions: junctions.map((junction) => ({
+      ...structuredClone(junction),
+      corridors: junction.corridors.flatMap((corridorId) => directionalIds.get(corridorId) ?? [])
+    }))
+  };
+}
+
+function fitCorridorLaneOffsets(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  corridors: LaneCorridor[],
+  junctions: readonly LaneJunction[]
+): void {
+  const candidates = [16.5, 16, 15, 14, 12, 10, 8];
+  for (const corridor of corridors) {
+    const desired = corridor.laneOffset ?? 16.5;
+    const offsets = [desired, ...candidates.filter((candidate) => candidate < desired)];
+    const desiredLaneCount = corridor.lanesPerDirection ?? 1;
+    let accepted: {laneOffset: number; laneCount: number} | undefined;
+    for (const laneCount of desiredLaneCount > 1 ? [desiredLaneCount, 1] : [1]) {
+      const laneOffset = offsets.find((candidate) => corridorFitsRoad(
+        document,
+        roadMask,
+        {...corridor, lanesPerDirection: laneCount, laneOffset: candidate},
+        junctions
+      ));
+      if (laneOffset !== undefined) {
+        accepted = {laneOffset, laneCount};
+        break;
+      }
+    }
+    corridor.lanesPerDirection = accepted?.laneCount ?? 1;
+    corridor.laneOffset = accepted?.laneOffset ?? 8;
+    corridor.clearanceConstrained = (
+      corridor.lanesPerDirection < desiredLaneCount || corridor.laneOffset < 16.5
+    );
+  }
+}
+
+function corridorFitsRoad(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  corridor: LaneCorridor,
+  junctions: readonly LaneJunction[]
+): boolean {
+  const relevantJunctions = junctions
+    .filter((junction) => junction.corridors.includes(corridor.id))
+    .map((junction) => ({...junction, corridors: [corridor.id]}));
+  const compiled = compileLaneNetwork({
+    laneOffset: 16.5,
+    laneSpacing: 34,
+    corridors: [corridor],
+    junctions: relevantJunctions
+  });
+  return compiled.edges
+    .filter((edge) => edge.kind === 'lane')
+    .every((edge) => {
+      const from = compiled.nodes.find((node) => node.id === edge.fromNodeId)!;
+      const to = compiled.nodes.find((node) => node.id === edge.toNodeId)!;
+      const samples = Math.max(1, Math.ceil(edge.length / 8));
+      for (let index = 0; index <= samples; index++) {
+        const progress = index / samples;
+        const x = from.x + (to.x - from.x) * progress;
+        const y = from.y + (to.y - from.y) * progress;
+        if (!roadFootprintFits(document, roadMask, x, y, 20)) return false;
+      }
+      return true;
+    });
+}
+
+function roadFootprintFits(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  x: number,
+  y: number,
+  radius: number
+): boolean {
+  const diagonal = radius * Math.SQRT1_2;
+  const samples = [
+    {x, y},
+    {x: x - radius, y}, {x: x + radius, y},
+    {x, y: y - radius}, {x, y: y + radius},
+    {x: x - diagonal, y: y - diagonal}, {x: x + diagonal, y: y - diagonal},
+    {x: x - diagonal, y: y + diagonal}, {x: x + diagonal, y: y + diagonal}
+  ];
+  return samples.every((point) => {
+    const tileX = Math.floor((point.x - document.map.origin.x) / document.map.tileSize);
+    const tileY = Math.floor((point.y - document.map.origin.y) / document.map.tileSize);
+    if (!inside(tileX, tileY, document.map.width, document.map.height)) return false;
+    return Boolean(roadMask[indexOf(tileX, tileY, document.map.width)]);
+  });
+}
+
+function classifyRoad(roadRadius: number, lengthTiles: number, terminal: boolean): LaneRoadClass {
+  if (roadRadius >= 2) return 'arterial';
+  if (roadRadius >= 1) return 'boulevard';
+  if (terminal && lengthTiles <= 3.5) return 'alley';
+  if (terminal && lengthTiles <= 7) return 'service';
+  return 'street';
+}
+
+function roadClassSpeed(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 124;
+    case 'boulevard': return 112;
+    case 'street': return 96;
+    case 'service': return 76;
+    case 'alley': return 58;
+  }
+}
+
+function roadClassPriority(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.25;
+    case 'boulevard': return 1.15;
+    case 'street': return 1;
+    case 'service': return 0.84;
+    case 'alley': return 0.68;
+  }
+}
+
+function roadClassDensity(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.35;
+    case 'boulevard': return 1.2;
+    case 'street': return 1;
+    case 'service': return 0.58;
+    case 'alley': return 0.24;
+  }
+}
+
+function preferredLaneCount(roadClass: LaneRoadClass, measuredHalfWidth: number): number {
+  if ((roadClass === 'arterial' || roadClass === 'boulevard') && measuredHalfWidth >= 70) return 2;
+  return 1;
+}
+
+function laneOffsetForWidth(measuredHalfWidth: number): number {
+  return Math.max(16.5, Math.min(22, Math.floor(measuredHalfWidth - 16)));
+}
+
+function polylineLength(points: readonly TilePoint[]): number {
+  let length = 0;
+  for (let index = 1; index < points.length; index++) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
 }
 
 function rebindRoadblocks(
@@ -150,15 +347,19 @@ function rebindRoadblocks(
   corridors: readonly LaneCorridor[]
 ): LaneRoadblock[] {
   return roadblocks.flatMap((roadblock) => {
-    const nearest = nearestCorridorSegment(roadblock, corridors);
-    if (!nearest) return [];
     const directions = roadblockDirections(roadblock);
-    const lastSegmentIndex = nearest.corridor.points.length - 2;
-    const blockedEdgeIds = directions.flatMap((direction) => (
-      Array.from({length: lastSegmentIndex + 1}, (_, segmentIndex) => (
+    const blockedEdgeIds = directions.flatMap((direction) => {
+      const nearest = nearestCorridorSegment(
+        roadblock,
+        corridors.filter((corridor) => corridor.direction === direction)
+      );
+      if (!nearest) return [];
+      const lastSegmentIndex = nearest.corridor.points.length - 2;
+      return Array.from({length: lastSegmentIndex + 1}, (_, segmentIndex) => (
         `${nearest.corridor.id}:${direction}:edge:${segmentIndex}`
-      ))
-    ));
+      ));
+    });
+    if (blockedEdgeIds.length === 0) return [];
     return [{
       ...structuredClone(roadblock),
       blockedEdgeIds

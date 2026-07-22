@@ -126,7 +126,13 @@ export class TrafficManeuverSystem {
       return;
     }
     const lead = obstacles.find((obstacle) => obstacle.id === input.obstacleId);
-    if (!lead || Math.abs(lead.speed ?? 0) > 8 || this.nearProtectedStop(vehicle, lead.id, obstacles)) {
+    const routeAngle = Math.atan2(input.routeTargetY - vehicle.y, input.routeTargetX - vehicle.x);
+    if (
+      !lead ||
+      Math.abs(lead.speed ?? 0) > 8 ||
+      !isRecoverableLead(lead, routeAngle) ||
+      this.nearProtectedStop(vehicle, lead.id, obstacles)
+    ) {
       runtime.stationarySince = 0;
       runtime.blockedById = '';
       return;
@@ -139,7 +145,6 @@ export class TrafficManeuverSystem {
     const stuckDelay = lead.kind === 'pedestrian' ? PEDESTRIAN_STUCK_DELAY_MS : STUCK_DELAY_MS;
     if (nowMs < runtime.cooldownUntil || nowMs - runtime.stationarySince < stuckDelay) return;
 
-    const routeAngle = Math.atan2(input.routeTargetY - vehicle.y, input.routeTargetX - vehicle.x);
     const preferredSide: -1 | 1 = hash(vehicle.id, runtime.attempts) % 2 === 0 ? -1 : 1;
     const alternateSide: -1 | 1 = preferredSide === -1 ? 1 : -1;
     const plan = lead.kind === 'pedestrian'
@@ -241,6 +246,11 @@ export class TrafficManeuverSystem {
     runtime.phaseUntil = 0;
     runtime.cooldownUntil = nowMs + RETRY_COOLDOWN_MS;
   }
+}
+
+function isRecoverableLead(lead: TrafficObstacle, routeAngle: number): boolean {
+  if (lead.kind !== 'vehicle' || lead.angle === undefined) return true;
+  return Math.cos(lead.angle - routeAngle) >= 0.25;
 }
 
 function distance(leftX: number, leftY: number, rightX: number, rightY: number): number {

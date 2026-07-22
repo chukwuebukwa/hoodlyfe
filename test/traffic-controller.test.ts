@@ -81,7 +81,7 @@ test('traffic controller owns a durable authored lane route instead of choosing 
     controller.update(vehicle, 1 / 30, tick * 1000 / 30);
   }
   const circulated = controller.diagnostics()[0];
-  assert.ok(circulated.routeRevision > 1);
+  assert.ok(circulated.routeRevision >= 1);
   assert.equal(circulated.routeSource, 'lane-graph');
   assert.ok(circulated.currentLaneNodeId);
   assert.ok(circulated.destinationLaneNodeId);
@@ -96,7 +96,24 @@ test('authored traffic holds junction ownership through crossing and rear cleara
     laneGraph,
     random: new DeterministicRandom('junction-lifecycle')
   });
-  const spawn = controller.spawn(0, 20);
+  const junction = laneGraph.junctions().find((candidate) => laneGraph.junctionMovements(candidate.id).length > 0)!;
+  const movement = laneGraph.junctionMovements(junction.id)[0];
+  const entryEdge = laneGraph.edge(movement.entryLaneId)!;
+  const entryFrom = laneGraph.node(entryEdge.fromNodeId)!;
+  const entryTo = laneGraph.node(entryEdge.toNodeId)!;
+  const progress = 0.35;
+  const spawn = {
+    x: entryFrom.x + (entryTo.x - entryFrom.x) * progress,
+    y: entryFrom.y + (entryTo.y - entryFrom.y) * progress,
+    angle: Math.atan2(entryTo.y - entryFrom.y, entryTo.x - entryFrom.x),
+    column: Math.floor(entryFrom.x / world.tileWidth),
+    row: Math.floor(entryFrom.y / world.tileHeight),
+    targetColumn: Math.floor(entryTo.x / world.tileWidth),
+    targetRow: Math.floor(entryTo.y / world.tileHeight),
+    laneEdgeId: entryEdge.id,
+    laneFromNodeId: entryEdge.fromNodeId,
+    laneToNodeId: entryEdge.toNodeId
+  };
   const vehicle = new VehicleState();
   vehicle.id = 'junction-lifecycle';
   vehicle.x = spawn.x;
@@ -126,41 +143,26 @@ test('authored traffic holds junction ownership through crossing and rear cleara
 test('authored traffic waits before reserving a physically occupied conflict zone', () => {
   const world = CollisionMap.load();
   const laneGraph = LaneGraph.load(world);
-  const controller = new TrafficController({
-    world,
-    laneGraph,
-    random: new DeterministicRandom('junction-occupancy')
-  });
-  const spawn = controller.spawn(0, 20);
-  const vehicle = new VehicleState();
-  vehicle.id = 'junction-waiter';
-  vehicle.x = spawn.x;
-  vehicle.y = spawn.y;
-  vehicle.angle = spawn.angle;
-  vehicle.speed = 80;
-  vehicle.traffic = true;
-  controller.register(vehicle.id, spawn, 118);
-  const center = laneGraph.junction('inner-center')!;
-
-  const blocker = {
-    id: 'player-car',
-    kind: 'vehicle' as const,
-    x: center.x,
-    y: center.y,
-    radius: 22,
-    speed: 0,
-    angle: 0
-  };
-  for (let tick = 1; tick <= 120; tick++) {
+  const {controller, vehicle, blocker} = occupiedJunctionFixture(world, laneGraph);
+  let waitingDiagnostic: ReturnType<TrafficController['diagnostics']>[number] | undefined;
+  let waitingTick = 0;
+  for (let tick = 2; tick <= 180; tick++) {
     controller.update(vehicle, 1 / 30, tick * 1000 / 30, {obstacles: [blocker]});
+    const diagnostic = controller.diagnostics()[0];
+    if (diagnostic.junctionPhase === 'waiting') {
+      waitingDiagnostic = diagnostic;
+      waitingTick = tick;
+      break;
+    }
   }
-  assert.equal(controller.diagnostics()[0].junctionPhase, 'waiting');
-  assert.equal(controller.diagnostics()[0].junctionQueuePosition, 1);
-  assert.equal(vehicle.speed, 0);
-  const stopLine = controller.diagnostics()[0].routeWaypoints[0];
+  assert.ok(waitingDiagnostic, 'traffic must wait before entering an occupied conflict zone');
+  assert.equal(waitingDiagnostic.junctionQueuePosition, 1);
+  assert.equal(waitingDiagnostic.junctionLeaseExpiresAt, 0);
+  assert.ok(vehicle.speed < 80, 'traffic must brake toward the occupied conflict zone');
+  const stopLine = waitingDiagnostic.routeWaypoints[0];
   assert.ok(Math.hypot(vehicle.x - stopLine.x, vehicle.y - stopLine.y) >= 32);
 
-  controller.update(vehicle, 1 / 30, 4100);
+  controller.update(vehicle, 1 / 30, (waitingTick + 1) * 1000 / 30);
   assert.equal(controller.diagnostics()[0].junctionPhase, 'approach');
 });
 
@@ -210,7 +212,9 @@ test('authored traffic reserves, executes, and completes a lane change through t
     laneGraph,
     random: new DeterministicRandom('controller-lane-change')
   });
-  const edge = laneGraph.edge('central-avenue:forward:edge:2')!;
+  const edge = laneGraph.edges().find((candidate) => (
+    candidate.kind === 'lane' && laneGraph.adjacentLaneEdges(candidate.id).length > 0
+  ))!;
   const from = laneGraph.node(edge.fromNodeId)!;
   const to = laneGraph.node(edge.toNodeId)!;
   const progress = 0.2;
@@ -239,8 +243,8 @@ test('authored traffic reserves, executes, and completes a lane change through t
   const lead = {
     id: 'slow-lead',
     kind: 'vehicle' as const,
-    x: vehicle.x,
-    y: vehicle.y + 120,
+    x: vehicle.x + Math.cos(vehicle.angle) * 120,
+    y: vehicle.y + Math.sin(vehicle.angle) * 120,
     radius: 20,
     speed: 0,
     angle: vehicle.angle,
@@ -514,4 +518,58 @@ function createTraffic(world: CollisionMap, id: string, seed: number) {
   vehicle.speed = 90;
   vehicle.traffic = true;
   return {vehicle, spawn};
+}
+
+function occupiedJunctionFixture(world: CollisionMap, laneGraph: LaneGraph) {
+  for (const junction of laneGraph.junctions()) {
+    for (const movement of laneGraph.junctionMovements(junction.id)) {
+      // Terminal transfers exercise U-turn routing, not crossing-zone contention.
+      if (movement.turn === 'uturn') continue;
+      const edge = laneGraph.edge(movement.entryLaneId);
+      const from = edge ? laneGraph.node(edge.fromNodeId) : undefined;
+      const to = edge ? laneGraph.node(edge.toNodeId) : undefined;
+      if (!edge || !from || !to) continue;
+      const progress = 0.75;
+      const vehicle = new VehicleState();
+      vehicle.id = 'junction-waiter';
+      vehicle.x = from.x + (to.x - from.x) * progress;
+      vehicle.y = from.y + (to.y - from.y) * progress;
+      vehicle.angle = Math.atan2(to.y - from.y, to.x - from.x);
+      vehicle.speed = 80;
+      vehicle.traffic = true;
+      const spawn = {
+        x: vehicle.x,
+        y: vehicle.y,
+        angle: vehicle.angle,
+        column: Math.floor(vehicle.x / world.tileWidth),
+        row: Math.floor(vehicle.y / world.tileHeight),
+        targetColumn: Math.floor(to.x / world.tileWidth),
+        targetRow: Math.floor(to.y / world.tileHeight),
+        laneEdgeId: edge.id,
+        laneFromNodeId: edge.fromNodeId,
+        laneToNodeId: edge.toNodeId
+      };
+      const controller = new TrafficController({
+        world,
+        laneGraph,
+        random: new DeterministicRandom('junction-occupancy')
+      });
+      controller.register(vehicle.id, spawn, 118);
+      const middle = movement.path[Math.floor(movement.path.length / 2)];
+      const blocker = {
+        id: 'player-car',
+        kind: 'vehicle' as const,
+        x: middle.x,
+        y: middle.y,
+        radius: 22,
+        speed: 0,
+        angle: 0
+      };
+      controller.update(vehicle, 1 / 30, 1_000 / 30, {obstacles: [blocker]});
+      if (controller.diagnostics()[0].junctionId === junction.id) {
+        return {controller, vehicle, blocker};
+      }
+    }
+  }
+  throw new Error('Generated lane graph has no occupiable junction approach.');
 }

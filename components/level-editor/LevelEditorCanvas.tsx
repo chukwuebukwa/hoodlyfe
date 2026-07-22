@@ -41,6 +41,7 @@ import {
   compileLaneNetwork,
   type CompiledLaneNetwork
 } from '../../shared/traffic/lane-network-compiler.ts';
+import {corridorLaneOffset, offsetPolyline} from '../../shared/traffic/lane-geometry.ts';
 
 export interface CanvasViewCommand {
   id: number;
@@ -597,15 +598,17 @@ function drawCorridors(context: CanvasRenderingContext2D, document: LevelEditorD
   for (const corridor of document.lanes.corridors) {
     if (corridor.points.length === 0) continue;
     const selected = selection?.kind === 'corridor' && selection.id === corridor.id;
+    const classColor = corridorRoadClassColor(corridor.roadClass);
     context.save();
-    context.strokeStyle = selected ? '#ffd44d' : '#40d9ef';
+    if (selected) drawCorridorEnvelope(context, document, corridor, scale);
+    context.strokeStyle = selected ? '#ffd44d' : classColor;
     context.fillStyle = selected ? '#ffd44d' : '#40d9ef';
     context.lineWidth = (selected ? 4 : 2) / scale;
     context.beginPath();
     context.moveTo(corridor.points[0].x, corridor.points[0].y);
     corridor.points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
     context.stroke();
-    drawCorridorDirectionArrows(context, corridor, scale, selected ? '#ffd44d' : '#40d9ef');
+    drawCorridorDirectionArrows(context, corridor, scale, selected ? '#ffd44d' : classColor);
     corridor.points.forEach((point, index) => {
       context.beginPath();
       context.arc(point.x, point.y, (selected && selection.pointIndex === index ? 8 : 5) / scale, 0, Math.PI * 2);
@@ -613,6 +616,55 @@ function drawCorridors(context: CanvasRenderingContext2D, document: LevelEditorD
     });
     if (scale >= 0.12) drawLabel(context, corridor.id, corridor.points[0], scale, selected ? '#ffd44d' : '#b9eff7');
     context.restore();
+  }
+}
+
+function drawCorridorEnvelope(
+  context: CanvasRenderingContext2D,
+  document: LevelEditorDocument,
+  corridor: LaneCorridor,
+  scale: number
+): void {
+  const halfWidth = corridor.measuredHalfWidth;
+  if (halfWidth !== undefined) {
+    context.save();
+    context.strokeStyle = corridor.clearanceConstrained ? 'rgba(255,138,91,0.72)' : 'rgba(83,199,255,0.44)';
+    context.lineWidth = halfWidth * 2;
+    context.globalAlpha = 0.2;
+    context.beginPath();
+    context.moveTo(corridor.points[0].x, corridor.points[0].y);
+    corridor.points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+    context.stroke();
+    context.restore();
+  }
+
+  const laneCount = corridor.lanesPerDirection ?? 1;
+  for (const direction of ['forward', 'reverse'] as const) {
+    if (!corridorSupportsDirection(corridor, direction)) continue;
+    for (let laneIndex = 0; laneIndex < laneCount; laneIndex++) {
+      const lateralOffset = corridorLaneOffset(document.lanes, corridor, laneIndex) * (direction === 'forward' ? 1 : -1);
+      const points = offsetPolyline(corridor.points, lateralOffset);
+      if (points.length < 2) continue;
+      context.save();
+      context.strokeStyle = direction === 'forward' ? 'rgba(86,227,159,0.95)' : 'rgba(110,140,255,0.95)';
+      context.lineWidth = 1.5 / scale;
+      context.setLineDash([10 / scale, 7 / scale]);
+      context.beginPath();
+      context.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+      context.stroke();
+      context.restore();
+    }
+  }
+}
+
+function corridorRoadClassColor(roadClass: LaneCorridor['roadClass']): string {
+  switch (roadClass) {
+    case 'arterial': return '#ff8a5b';
+    case 'boulevard': return '#ffd44d';
+    case 'service': return '#56e39f';
+    case 'alley': return '#a78bfa';
+    default: return '#40d9ef';
   }
 }
 
@@ -844,6 +896,21 @@ function drawCompiledJunctionNetwork(
     context.arc(approach.point.x, approach.point.y, 4 / scale, 0, Math.PI * 2);
     context.fillStyle = context.strokeStyle;
     context.fill();
+    if (approach.role === 'incoming') {
+      const halfWidth = 10 / scale;
+      context.beginPath();
+      context.moveTo(
+        approach.stopLinePoint.x - approach.heading.y * halfWidth,
+        approach.stopLinePoint.y + approach.heading.x * halfWidth
+      );
+      context.lineTo(
+        approach.stopLinePoint.x + approach.heading.y * halfWidth,
+        approach.stopLinePoint.y - approach.heading.x * halfWidth
+      );
+      context.strokeStyle = '#ffffff';
+      context.lineWidth = 3 / scale;
+      context.stroke();
+    }
   }
   context.restore();
 }

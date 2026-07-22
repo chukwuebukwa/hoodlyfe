@@ -4,6 +4,7 @@ export type EditableTileLayer = 'collision' | 'roads';
 export type SpawnKind = 'player' | 'pedestrian' | 'traffic' | 'police' | 'mission';
 export type LaneVehicleClass = 'civilian' | 'service' | 'emergency';
 export type LaneCorridorDirection = 'both' | 'forward' | 'reverse';
+export type LaneRoadClass = 'arterial' | 'boulevard' | 'street' | 'service' | 'alley';
 
 export interface Point2D {
   x: number;
@@ -17,6 +18,13 @@ export interface LaneCorridor {
   direction?: LaneCorridorDirection;
   vehicleClasses?: LaneVehicleClass[];
   lanesPerDirection?: number;
+  roadClass?: LaneRoadClass;
+  laneOffset?: number;
+  laneSpacing?: number;
+  measuredHalfWidth?: number;
+  routePriority?: number;
+  trafficDensity?: number;
+  clearanceConstrained?: boolean;
 }
 
 export function corridorSupportsDirection(

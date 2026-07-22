@@ -87,6 +87,37 @@ test('traffic does not overtake a queue protected by a signal or pedestrian', ()
   }
 });
 
+test('traffic never ignores an oncoming vehicle as an overtake recovery target', () => {
+  const system = new TrafficManeuverSystem(openRoad);
+  const runtime = system.createRuntime();
+  const vehicle = trafficVehicle('traffic-oncoming', 100, 100);
+  const oncoming = {
+    id: 'oncoming-lead',
+    kind: 'vehicle' as const,
+    x: 150,
+    y: 100,
+    radius: 20,
+    speed: 0,
+    angle: Math.PI
+  };
+  const input = {
+    vehicle,
+    runtime,
+    routeTargetX: 300,
+    routeTargetY: 100,
+    obstacles: [oncoming],
+    speedReason: 'vehicle',
+    obstacleId: oncoming.id,
+    desiredSpeed: 0
+  };
+
+  assert.equal(system.command({...input, nowMs: 100}).phase, 'none');
+  const command = system.command({...input, nowMs: 5_000});
+  assert.equal(command.phase, 'none');
+  assert.equal(command.ignoredObstacleIds, undefined);
+  assert.equal(runtime.attempts, 0);
+});
+
 test('traffic eventually steers around a pedestrian directly blocking its lane', () => {
   const system = new TrafficManeuverSystem(openRoad);
   const runtime = system.createRuntime();

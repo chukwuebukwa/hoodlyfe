@@ -84,15 +84,26 @@ interface TrafficRouteSystemOptions {
 
 export class TrafficRouteSystem {
   private readonly planner?: TrafficRoutePlanner;
+  private readonly edgeOccupancy = new Map<string, number>();
 
   constructor(private readonly options: TrafficRouteSystemOptions) {
     this.planner = options.laneGraph
       ? new TrafficRoutePlanner(
           options.laneGraph,
           undefined,
-          (edge) => !options.closures?.isClosed(edge.id)
+          (edge) => !options.closures?.isClosed(edge.id),
+          (edge) => this.congestionMultiplier(edge.id)
         )
       : undefined;
+  }
+
+  synchronizeCongestion(runtimes: Iterable<TrafficRouteRuntime>): void {
+    this.edgeOccupancy.clear();
+    for (const runtime of runtimes) {
+      const edge = this.currentEdge(runtime);
+      if (!edge || edge.kind !== 'lane') continue;
+      this.edgeOccupancy.set(edge.id, (this.edgeOccupancy.get(edge.id) ?? 0) + 1);
+    }
   }
 
   create(vehicleId: string, spawn: TrafficSpawn): TrafficRouteRuntime {
@@ -493,6 +504,11 @@ export class TrafficRouteSystem {
     runtime.visited = plan.visited;
     runtime.revision++;
     this.updateLegacyTarget(runtime);
+  }
+
+  private congestionMultiplier(edgeId: string): number {
+    const occupancy = this.edgeOccupancy.get(edgeId) ?? 0;
+    return 1 + Math.min(8, occupancy) * 0.18;
   }
 
   private currentEdge(runtime: TrafficRouteRuntime): LaneGraphEdge | undefined {

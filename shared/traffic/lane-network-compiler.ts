@@ -1,8 +1,11 @@
+import {corridorLaneOffset, offsetPolyline} from './lane-geometry.ts';
+
 export type CompiledLaneDirection = 'forward' | 'reverse';
 export type CompiledLaneCorridorDirection = 'both' | CompiledLaneDirection;
 export type CompiledLaneEdgeKind = 'lane' | 'connector' | 'turnaround';
 export type CompiledLaneTurn = 'none' | 'left' | 'right' | 'straight' | 'uturn';
 export type CompiledLaneVehicleClass = 'civilian' | 'service' | 'emergency';
+export type CompiledLaneRoadClass = 'arterial' | 'boulevard' | 'street' | 'service' | 'alley';
 
 export interface LaneCompilerPoint {
   x: number;
@@ -17,6 +20,13 @@ export interface LaneCompilerCorridor {
   vehicleClasses?: CompiledLaneVehicleClass[];
   lanesPerDirection?: number;
   surfaceId?: string;
+  roadClass?: CompiledLaneRoadClass;
+  laneOffset?: number;
+  laneSpacing?: number;
+  measuredHalfWidth?: number;
+  routePriority?: number;
+  trafficDensity?: number;
+  clearanceConstrained?: boolean;
 }
 
 export interface LaneCompilerJunction extends LaneCompilerPoint {
@@ -46,6 +56,9 @@ export interface CompiledLaneNode extends LaneCompilerPoint {
   junctionId: string;
   vehicleClasses: CompiledLaneVehicleClass[];
   surfaceId: string;
+  roadClass: CompiledLaneRoadClass;
+  routePriority: number;
+  trafficDensity: number;
 }
 
 export interface CompiledLaneEdge {
@@ -60,6 +73,9 @@ export interface CompiledLaneEdge {
   vehicleClasses: CompiledLaneVehicleClass[];
   fromSurfaceId: string;
   toSurfaceId: string;
+  roadClass: CompiledLaneRoadClass;
+  routePriority: number;
+  trafficDensity: number;
 }
 
 export interface CompiledJunctionApproach {
@@ -74,6 +90,7 @@ export interface CompiledJunctionApproach {
   adjacentNodeId: string;
   heading: LaneCompilerPoint;
   point: LaneCompilerPoint;
+  stopLinePoint: LaneCompilerPoint;
 }
 
 export interface CompiledJunctionMovement {
@@ -87,7 +104,7 @@ export interface CompiledJunctionMovement {
   exitLaneId: string;
   fromNodeId: string;
   toNodeId: string;
-  turn: Exclude<CompiledLaneTurn, 'none' | 'uturn'>;
+  turn: Exclude<CompiledLaneTurn, 'none'>;
   path: readonly LaneCompilerPoint[];
   signalGroupId: string;
 }
@@ -131,7 +148,7 @@ interface CompiledLane {
 interface PendingMovement extends Omit<CompiledJunctionMovement, 'signalGroupId'> {}
 
 const DEFAULT_VEHICLE_CLASSES: CompiledLaneVehicleClass[] = ['civilian', 'service', 'emergency'];
-const DEFAULT_MOVEMENT_HALF_WIDTH = 18.5;
+const DEFAULT_MOVEMENT_HALF_WIDTH = 16.5;
 const POINT_EPSILON = 0.001;
 
 export function compileLaneNetwork(document: LaneCompilerDocument): CompiledLaneNetwork {
@@ -204,8 +221,12 @@ export function compileLaneNetwork(document: LaneCompilerDocument): CompiledLane
         const next = outboundLane.nodes[outboundNode.index + 1];
         const sameLane = outbound.laneId === inbound.laneId;
         const turn = sameLane ? 'straight' : classifyTurn(inbound.heading, outbound.heading);
-        if (turn === 'uturn') continue;
-        if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) continue;
+        const terminalUturn = turn === 'uturn';
+        if (terminalUturn) {
+          if (!junction.terminalTransfer) continue;
+        } else if (!(junction.allowedTurns ?? ['straight', 'left', 'right']).includes(turn)) {
+          continue;
+        }
         if (!sameLane && !legalLaneConnection(
           inboundNode,
           outboundNode,
@@ -218,7 +239,13 @@ export function compileLaneNetwork(document: LaneCompilerDocument): CompiledLane
         )) continue;
         const connector = sameLane
           ? undefined
-          : connectorEdge(inboundNode, outboundNode, 'connector', turn, junction.id);
+          : connectorEdge(
+            inboundNode,
+            outboundNode,
+            terminalUturn ? 'turnaround' : 'connector',
+            turn,
+            junction.id
+          );
         if (connector) edges.push(connector);
         const traversalEdgeId = connector?.id ?? laneEdgeId(outboundLane, outboundNode.index);
         pendingMovements.push({
@@ -263,7 +290,7 @@ function createDirectionalLanes(
     corridor,
     direction,
     samples,
-    document.laneOffset + document.laneSpacing * laneIndex,
+    corridorLaneOffset(document, corridor, laneIndex),
     laneIndex,
     laneCount,
     corridor.surfaceId ?? ''
@@ -310,10 +337,12 @@ function compileLane(
     ? `${corridor.id}:${direction}`
     : `${corridor.id}:${direction}:lane-${laneIndex}`;
   const vehicleClasses = [...(corridor.vehicleClasses ?? DEFAULT_VEHICLE_CLASSES)].sort();
+  const offsetPoints = offsetPolyline(samples, laneOffset);
+  const roadClass = corridor.roadClass ?? 'street';
+  const routePriority = corridor.routePriority ?? defaultRoutePriority(roadClass);
+  const trafficDensity = corridor.trafficDensity ?? defaultTrafficDensity(roadClass);
   const nodes = samples.map((sample, index): CompiledLaneNode => {
-    const previous = samples[Math.max(0, index - 1)];
-    const next = samples[Math.min(samples.length - 1, index + 1)];
-    const heading = index < samples.length - 1 ? unitVector(sample, next) : unitVector(previous, sample);
+    const offsetPoint = offsetPoints[index];
     return {
       id: `${id}:${index}`,
       laneId: id,
@@ -322,12 +351,15 @@ function compileLane(
       laneIndex,
       laneCount,
       index,
-      x: sample.x - heading.y * laneOffset,
-      y: sample.y + heading.x * laneOffset,
+      x: offsetPoint.x,
+      y: offsetPoint.y,
       speedLimit: corridor.speedLimit,
       junctionId: sample.junctionId,
       vehicleClasses,
-      surfaceId
+      surfaceId,
+      roadClass,
+      routePriority,
+      trafficDensity
     };
   });
   return {id, corridorId: corridor.id, direction, laneIndex, laneCount, nodes};
@@ -347,7 +379,10 @@ function laneEdges(lane: CompiledLane): CompiledLaneEdge[] {
       length: distance(from, to),
       vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
       fromSurfaceId: from.surfaceId,
-      toSurfaceId: to.surfaceId
+      toSurfaceId: to.surfaceId,
+      roadClass: from.roadClass,
+      routePriority: Math.min(from.routePriority, to.routePriority),
+      trafficDensity: Math.min(from.trafficDensity, to.trafficDensity)
     };
   });
 }
@@ -374,8 +409,31 @@ function connectorEdge(
     length: Math.max(12, distance(from, to)),
     vehicleClasses: intersectClasses(from.vehicleClasses, to.vehicleClasses),
     fromSurfaceId: from.surfaceId,
-    toSurfaceId: to.surfaceId
+    toSurfaceId: to.surfaceId,
+    roadClass: from.roadClass,
+    routePriority: Math.min(from.routePriority, to.routePriority),
+    trafficDensity: Math.min(from.trafficDensity, to.trafficDensity)
   };
+}
+
+function defaultRoutePriority(roadClass: CompiledLaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.25;
+    case 'boulevard': return 1.15;
+    case 'street': return 1;
+    case 'service': return 0.86;
+    case 'alley': return 0.72;
+  }
+}
+
+function defaultTrafficDensity(roadClass: CompiledLaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.35;
+    case 'boulevard': return 1.2;
+    case 'street': return 1;
+    case 'service': return 0.58;
+    case 'alley': return 0.24;
+  }
 }
 
 function approachFor(
@@ -386,6 +444,8 @@ function approachFor(
 ): CompiledJunctionApproach {
   const adjacent = role === 'incoming' ? lane.nodes[node.index - 1] : lane.nodes[node.index + 1];
   const heading = role === 'incoming' ? unitVector(adjacent, node) : unitVector(node, adjacent);
+  const adjacentDistance = Math.hypot(node.x - adjacent.x, node.y - adjacent.y);
+  const setback = role === 'incoming' ? Math.min(28, adjacentDistance * 0.4) : 0;
   return {
     id: `${junctionId}:${lane.id}:${role}`,
     junctionId,
@@ -397,24 +457,31 @@ function approachFor(
     nodeId: node.id,
     adjacentNodeId: adjacent.id,
     heading,
-    point: {x: node.x, y: node.y}
+    point: {x: node.x, y: node.y},
+    stopLinePoint: {
+      x: node.x - heading.x * setback,
+      y: node.y - heading.y * setback
+    }
   };
 }
 
 function legalLaneConnection(
   inbound: CompiledLaneNode,
   outbound: CompiledLaneNode,
-  turn: Exclude<CompiledLaneTurn, 'none' | 'uturn'>,
+  turn: Exclude<CompiledLaneTurn, 'none'>,
   terminalTransfer: boolean
 ): boolean {
   if (terminalTransfer) return true;
+  if (turn === 'uturn') return false;
+  if (turn === 'straight') {
+    if (inbound.laneCount === 1 || outbound.laneCount === 1) return true;
+    const normalizedInbound = inbound.laneIndex / Math.max(1, inbound.laneCount - 1);
+    const expectedOutbound = Math.round(normalizedInbound * Math.max(1, outbound.laneCount - 1));
+    return outbound.laneIndex === expectedOutbound;
+  }
   if (turn === 'left' && inbound.laneIndex !== 0) return false;
   if (turn === 'right' && inbound.laneIndex !== inbound.laneCount - 1) return false;
-  const targetLane = turn === 'left'
-    ? 0
-    : turn === 'right'
-      ? outbound.laneCount - 1
-      : Math.min(inbound.laneIndex, outbound.laneCount - 1);
+  const targetLane = turn === 'left' ? 0 : outbound.laneCount - 1;
   return outbound.laneIndex === targetLane;
 }
 

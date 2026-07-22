@@ -16,6 +16,7 @@ export type LaneCorridorDirection = 'both' | LaneDirection;
 export type LaneEdgeKind = 'lane' | 'connector' | 'turnaround';
 export type LaneTurn = 'none' | 'left' | 'right' | 'straight' | 'uturn';
 export type LaneVehicleClass = 'civilian' | 'service' | 'emergency';
+export type LaneRoadClass = 'arterial' | 'boulevard' | 'street' | 'service' | 'alley';
 
 export interface LanePointDefinition {
   x: number;
@@ -30,6 +31,13 @@ export interface LaneCorridorDefinition {
   vehicleClasses?: LaneVehicleClass[];
   lanesPerDirection?: number;
   surfaceId?: string;
+  roadClass?: LaneRoadClass;
+  laneOffset?: number;
+  laneSpacing?: number;
+  measuredHalfWidth?: number;
+  routePriority?: number;
+  trafficDensity?: number;
+  clearanceConstrained?: boolean;
 }
 
 export interface LaneJunctionDefinition extends LanePointDefinition {
@@ -91,6 +99,9 @@ export interface LaneGraphNode {
   junctionId: string;
   vehicleClasses: LaneVehicleClass[];
   surfaceId: string;
+  roadClass: LaneRoadClass;
+  routePriority: number;
+  trafficDensity: number;
 }
 
 export interface LaneGraphEdge {
@@ -105,6 +116,9 @@ export interface LaneGraphEdge {
   vehicleClasses: LaneVehicleClass[];
   fromSurfaceId: string;
   toSurfaceId: string;
+  roadClass: LaneRoadClass;
+  routePriority: number;
+  trafficDensity: number;
 }
 
 export interface LaneProjection {
@@ -163,6 +177,7 @@ export class LaneGraph {
   private readonly signalGroupsByJunction = new Map<string, LaneGraphJunctionSignalGroup[]>();
   private readonly movementByTraversalEdge = new Map<string, LaneGraphJunctionMovement>();
   private readonly laneEdges: LaneGraphEdge[];
+  private readonly spawnLaneEdges: LaneGraphEdge[];
   private readonly roadblockDefinitions: LaneRoadblockDefinition[];
   private readonly compiledDiagnostics: readonly LaneGraphCompilerDiagnostic[];
 
@@ -211,7 +226,12 @@ export class LaneGraph {
     }
     for (const approach of compiled.approaches) {
       const approaches = this.approachesByJunction.get(approach.junctionId) ?? [];
-      approaches.push(Object.freeze({...approach, heading: Object.freeze({...approach.heading}), point: Object.freeze({...approach.point})}));
+      approaches.push(Object.freeze({
+        ...approach,
+        heading: Object.freeze({...approach.heading}),
+        point: Object.freeze({...approach.point}),
+        stopLinePoint: Object.freeze({...approach.stopLinePoint})
+      }));
       this.approachesByJunction.set(approach.junctionId, approaches);
     }
     for (const movement of compiled.movements) {
@@ -229,6 +249,9 @@ export class LaneGraph {
     this.laneEdges = [...this.edgeById.values()]
       .filter((edge) => edge.kind === 'lane')
       .sort(compareEdges);
+    this.spawnLaneEdges = this.laneEdges.flatMap((edge) => (
+      Array.from({length: Math.max(0, Math.min(8, Math.round(edge.trafficDensity * 4)))}, () => edge)
+    ));
   }
 
   static load(world: LaneGraphWorld, projectRoot = process.cwd()): LaneGraph {
@@ -337,21 +360,31 @@ export class LaneGraph {
     radius: number,
     edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
   ): TrafficSpawn | undefined {
-    if (this.laneEdges.length === 0) return undefined;
+    if (this.spawnLaneEdges.length === 0) return undefined;
     const normalized = Math.abs(Number.isFinite(index) ? Math.trunc(index) : 0);
     const progressOptions = [0.22, 0.38, 0.55, 0.72];
-    for (let attempt = 0; attempt < this.laneEdges.length * progressOptions.length; attempt++) {
-      const edge = this.laneEdges[(normalized * 131 + attempt * 53) % this.laneEdges.length];
-      if (!edgeAllowed(edge)) continue;
-      const progress = progressOptions[(normalized + attempt) % progressOptions.length];
+    const trySpawn = (edge: LaneGraphEdge, progress: number): TrafficSpawn | undefined => {
+      if (!edgeAllowed(edge)) return undefined;
       const spawn = this.spawnOnEdge(edge, progress);
       if (
         !this.world.isRoadAt(spawn.x, spawn.y) ||
         !this.world.canOccupy(spawn.x, spawn.y, radius, spawn.surfaceId, 'vehicle')
-      ) {
-        continue;
-      }
+      ) return undefined;
       return spawn;
+    };
+    for (let attempt = 0; attempt < this.spawnLaneEdges.length * progressOptions.length; attempt++) {
+      const edge = this.spawnLaneEdges[(normalized * 131 + attempt * 53) % this.spawnLaneEdges.length];
+      const progress = progressOptions[(normalized + attempt) % progressOptions.length];
+      const spawn = trySpawn(edge, progress);
+      if (spawn) return spawn;
+    }
+    // Density weighting must never make a legal physical edge unreachable.
+    for (let edgeIndex = 0; edgeIndex < this.laneEdges.length; edgeIndex++) {
+      const edge = this.laneEdges[(normalized + edgeIndex) % this.laneEdges.length];
+      for (const progress of progressOptions) {
+        const spawn = trySpawn(edge, progress);
+        if (spawn) return spawn;
+      }
     }
     return undefined;
   }
@@ -461,6 +494,21 @@ function validateDocument(document: LaneGraphDocument): string[] {
     }
     if (!['both', 'forward', 'reverse'].includes(corridor.direction ?? 'both')) {
       issues.push(`Corridor ${corridor.id} has invalid direction ${corridor.direction}.`);
+    }
+    if (corridor.roadClass !== undefined && !['arterial', 'boulevard', 'street', 'service', 'alley'].includes(corridor.roadClass)) {
+      issues.push(`Corridor ${corridor.id} has invalid roadClass ${corridor.roadClass}.`);
+    }
+    if (corridor.laneOffset !== undefined && (!Number.isFinite(corridor.laneOffset) || corridor.laneOffset <= 0)) {
+      issues.push(`Corridor ${corridor.id} laneOffset must be a positive finite number.`);
+    }
+    if (corridor.laneSpacing !== undefined && (!Number.isFinite(corridor.laneSpacing) || corridor.laneSpacing <= 0)) {
+      issues.push(`Corridor ${corridor.id} laneSpacing must be a positive finite number.`);
+    }
+    if (corridor.routePriority !== undefined && (!Number.isFinite(corridor.routePriority) || corridor.routePriority <= 0)) {
+      issues.push(`Corridor ${corridor.id} routePriority must be a positive finite number.`);
+    }
+    if (corridor.trafficDensity !== undefined && (!Number.isFinite(corridor.trafficDensity) || corridor.trafficDensity < 0)) {
+      issues.push(`Corridor ${corridor.id} trafficDensity must be a non-negative finite number.`);
     }
     if (!Array.isArray(corridor.points) || corridor.points.length < 2) {
       issues.push(`Corridor ${corridor.id} requires at least two points.`);
