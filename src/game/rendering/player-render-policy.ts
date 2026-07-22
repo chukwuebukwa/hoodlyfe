@@ -14,6 +14,13 @@ export interface WeaponPresentation {
   originX: number;
 }
 
+export interface GunshotPresentation {
+  active: boolean;
+  kickDistance: number;
+  flashOpacity: number;
+  flashScale: number;
+}
+
 export interface MeleeAttackPresentation {
   active: boolean;
   bodyRotationOffset: number;
@@ -50,6 +57,34 @@ export function weaponPresentation(weapon: NetworkPlayer['weapon']): WeaponPrese
     visible: presentation.heldVisible,
     originX: presentation.heldOriginX ?? 0.16
   };
+}
+
+export function gunshotPresentation(
+  weapon: NetworkPlayer['weapon'],
+  elapsedMs: number
+): GunshotPresentation {
+  const presentation = weaponDefinition(weapon).presentation;
+  const recoilMs = presentation.recoilMs ?? 0;
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0 || recoilMs <= 0 || elapsedMs >= recoilMs) {
+    return {active: false, kickDistance: 0, flashOpacity: 0, flashScale: 0};
+  }
+  const recoilProgress = elapsedMs / recoilMs;
+  const flashMs = presentation.muzzleFlashMs ?? 0;
+  const flashProgress = flashMs > 0 ? Math.min(1, elapsedMs / flashMs) : 1;
+  return {
+    active: true,
+    kickDistance: (presentation.recoilDistance ?? 0) * (1 - easeOutCubic(recoilProgress)),
+    flashOpacity: flashProgress < 1 ? 1 - flashProgress ** 2 : 0,
+    flashScale: presentation.muzzleFlashScale ?? 0
+  };
+}
+
+export function shouldPresentAuthoritativeGunshot(
+  previousSequence: number,
+  nextSequence: number,
+  predictedLocally: boolean
+): boolean {
+  return previousSequence !== nextSequence && !predictedLocally;
 }
 
 export function meleeAttackPresentationAtProgress(
@@ -107,7 +142,7 @@ export function passengerPresentation(
   seat: number,
   aimAngle: number,
   time: number,
-  recoilActive: boolean
+  recoilDistance: number
 ): PassengerPresentation {
   const forwardOffset = seat === 3 ? -11 : 5;
   const sideOffset = seat === 1 ? 15 : (seat === 2 ? -15 : 0);
@@ -120,13 +155,13 @@ export function passengerPresentation(
   const peekAngle = seat === 3
     ? vehicle.angle + Math.PI
     : sideAngle + (sideOffset < 0 ? Math.PI : 0);
-  const recoil = recoilActive ? 4 : 0;
+  const recoil = Math.max(0, recoilDistance);
   return {
     baseX,
     baseY,
     spriteX: baseX + Math.cos(peekAngle) * peek - Math.cos(aimAngle) * recoil,
     spriteY: baseY + Math.sin(peekAngle) * peek - Math.sin(aimAngle) * recoil,
-    scale: recoilActive ? 0.64 : 0.58
+    scale: recoil > 0 ? 0.64 : 0.58
   };
 }
 
@@ -136,7 +171,7 @@ export function playerAttachmentPresentation(
   seat: number,
   aimAngle: number,
   time: number,
-  recoilActive: boolean
+  recoilDistance: number
 ): PlayerAttachmentPresentation {
   if (!vehicle) {
     return {
@@ -158,7 +193,7 @@ export function playerAttachmentPresentation(
       humanoidColliderVisible: false
     };
   }
-  const passenger = passengerPresentation(vehicle, seat, aimAngle, time, recoilActive);
+  const passenger = passengerPresentation(vehicle, seat, aimAngle, time, recoilDistance);
   return {
     root: {...vehicle},
     body: {x: passenger.spriteX, y: passenger.spriteY, angle: aimAngle},

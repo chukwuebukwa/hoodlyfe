@@ -5,16 +5,24 @@ import {
   WEAPONS,
   isMeleeWeapon
 } from '../shared/content/weapon-catalog.ts';
+import {AMMUNITION_CAPACITY} from '../shared/content/street-services.ts';
 
 test('weapon catalog exposes complete unique discriminated definitions', () => {
   assert.equal(new Set(WEAPON_ORDER).size, WEAPON_ORDER.length);
   assert.deepEqual([...WEAPON_ORDER].sort(), Object.keys(WEAPONS).sort());
+  const ammunitionFields = new Set<string>();
 
   for (const id of WEAPON_ORDER) {
     const weapon = WEAPONS[id];
     assert.equal(weapon.id, id);
     assert.ok(weapon.name.length > 0);
     assert.ok(weapon.cooldownMs > 0);
+    if (weapon.ammunitionField) {
+      assert.ok(weapon.ammunitionCapacity > 0);
+      assert.equal(ammunitionFields.has(weapon.ammunitionField), false);
+      ammunitionFields.add(weapon.ammunitionField);
+      assert.equal(AMMUNITION_CAPACITY[weapon.ammunitionField], weapon.ammunitionCapacity);
+    }
     assert.ok(weapon.presentation.assetId.length > 0);
     assert.ok(weapon.presentation.heldWidth > 0);
     assert.ok(weapon.presentation.heldHeight > 0);

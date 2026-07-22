@@ -1,13 +1,15 @@
 import type {DistrictState, PlayerState} from '../../state.ts';
 import {
   WEAPONS,
+  isMagazineWeaponId,
+  type MagazineWeaponId
+} from '../../../shared/content/weapon-catalog.ts';
+import {
   ammoFor,
   clearReload,
-  isMagazineWeaponId,
   magazineFor,
   setAmmo,
-  setMagazine,
-  type MagazineWeaponId
+  setMagazine
 } from '../../weapons.ts';
 
 export type WeaponRuntimeRejection =

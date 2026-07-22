@@ -22,8 +22,10 @@ import {
 import {CHARACTER_ATLASES} from '../../../shared/content/character-animation-manifest.ts';
 import {parseLpcRecipe} from '../../../shared/content/lpc-character-catalog.ts';
 import {
+  gunshotPresentation,
   meleeAttackPresentationAtProgress,
   playerAttachmentPresentation,
+  shouldPresentAuthoritativeGunshot,
   weaponPresentation
 } from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
@@ -77,6 +79,7 @@ interface RenderedEntity {
   label?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   voiceIndicator?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   weapon?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  muzzleFlash?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   smoke?: THREE.Object3D;
   fire?: THREE.Object3D;
   blood?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -91,6 +94,7 @@ interface RenderedEntity {
   attackCombo?: number;
   shotSequence?: number;
   shotStartedAt?: number;
+  localShotPrediction?: boolean;
   spriteKey?: string;
   vehicleActionKey?: string;
   vehicleActionStartedAt?: number;
@@ -171,13 +175,20 @@ export class ThreeDistrictEntities {
   }
 
   presentLocalShot(playerId: string): void {
-    const rendered = this.rendered.get(playerId);
-    if (rendered) rendered.shotStartedAt = performance.now();
-  }
-
-  cancelLocalShot(playerId: string): void {
-    const rendered = this.rendered.get(playerId);
-    if (rendered) rendered.shotStartedAt = undefined;
+    const rendered = this.rendered.get(`player:${playerId}`);
+    if (rendered) {
+      rendered.shotStartedAt = performance.now();
+      rendered.localShotPrediction = true;
+      const shot = gunshotPresentation(
+        rendered.weapon?.userData.weapon as NetworkPlayer['weapon'],
+        0
+      );
+      if (rendered.muzzleFlash) {
+        rendered.muzzleFlash.scale.setScalar(shot.flashScale);
+        rendered.muzzleFlash.material.opacity = shot.flashOpacity;
+        rendered.muzzleFlash.visible = Boolean(rendered.weapon?.visible && shot.flashOpacity > 0);
+      }
+    }
   }
 
   static async create(
@@ -493,9 +504,11 @@ export class ThreeDistrictEntities {
         label: nameLabel(player.name),
         voiceIndicator: voiceIndicator(),
         weapon,
+        muzzleFlash: muzzleFlashMesh(),
         blood: spriteMesh(this.textures.blood, 4, 1, 3, 64, 64),
         fire: createFireSmokeEffect({radius: 11, seed: id.length, smokeWeight: 0.36}),
         appearanceKey: appearance.textureKey,
+        shotSequence: player.shotSequence ?? 0,
         motion: createRemoteMotionTimeline('player')
       };
     });
@@ -509,10 +522,16 @@ export class ThreeDistrictEntities {
       });
     }
     rendered.mesh.userData.player = player;
+    const localNow = performance.now();
     const shotSequence = player.shotSequence ?? 0;
     if (rendered.shotSequence !== shotSequence) {
+      const presentAuthoritativeShot = shouldPresentAuthoritativeGunshot(
+        rendered.shotSequence ?? shotSequence,
+        shotSequence,
+        rendered.localShotPrediction ?? false
+      );
       rendered.shotSequence = shotSequence;
-      rendered.shotStartedAt = performance.now();
+      if (presentAuthoritativeShot) rendered.shotStartedAt = localNow;
     }
     const attackSequence = player.attackSequence ?? 0;
     if (rendered.attackSequence !== attackSequence) {
@@ -532,8 +551,12 @@ export class ThreeDistrictEntities {
         meleeInterrupted ? 1 : (player.attackProgress ?? 0)
       )
       : undefined;
-    const localNow = performance.now();
-    const recoilActive = rendered.shotStartedAt !== undefined && localNow - rendered.shotStartedAt < 110;
+    const shot = gunshotPresentation(
+      player.weapon,
+      rendered.shotStartedAt === undefined
+        ? Number.POSITIVE_INFINITY
+        : localNow - rendered.shotStartedAt
+    );
     const vehicleActionKey = player.action === 'entering' || player.action === 'hijacking'
       ? `${player.action}:${player.actionVehicleId}`
       : '';
@@ -594,7 +617,7 @@ export class ThreeDistrictEntities {
       player.vehicleSeat,
       player.angle,
       localNow,
-      recoilActive
+      Math.min(5, shot.kickDistance * 0.65)
     );
     rendered.presentationPose = attachments.root;
     rendered.presentationAimOrigin = attachments.weaponBase;
@@ -667,7 +690,7 @@ export class ThreeDistrictEntities {
       const baseX = attachments.weaponBase.x;
       const baseY = attachments.weaponBase.y;
       const weaponAngle = renderAngle + (melee?.weaponRotationOffset ?? 0);
-      const weaponDistance = melee?.active ? melee.weaponDistance : 8;
+      const weaponDistance = melee?.active ? melee.weaponDistance : 8 - shot.kickDistance;
       rendered.weapon.position.set(
         baseX + Math.cos(weaponAngle) * weaponDistance,
         serverYToThree(baseY + Math.sin(weaponAngle) * weaponDistance),
@@ -677,6 +700,18 @@ export class ThreeDistrictEntities {
       rendered.weapon.visible = rendered.mesh.visible && held.visible &&
         !reaction.active &&
         (!player.action || player.action === 'melee');
+      if (rendered.muzzleFlash) {
+        const muzzleDistance = weaponDistance + held.width * (1 - held.originX) + 2;
+        rendered.muzzleFlash.position.set(
+          baseX + Math.cos(weaponAngle) * muzzleDistance,
+          serverYToThree(baseY + Math.sin(weaponAngle) * muzzleDistance),
+          z + 2.5
+        );
+        rendered.muzzleFlash.rotation.z = serverAngleToThree(weaponAngle);
+        rendered.muzzleFlash.scale.setScalar(shot.flashScale);
+        rendered.muzzleFlash.material.opacity = shot.flashOpacity;
+        rendered.muzzleFlash.visible = rendered.weapon.visible && shot.flashOpacity > 0;
+      }
     }
     if (rendered.label) {
       const labelX = attachments.root.x;
@@ -1027,6 +1062,7 @@ export class ThreeDistrictEntities {
     if (rendered.label) this.scene.add(rendered.label);
     if (rendered.voiceIndicator) this.scene.add(rendered.voiceIndicator);
     if (rendered.weapon) this.scene.add(rendered.weapon);
+    if (rendered.muzzleFlash) this.scene.add(rendered.muzzleFlash);
     if (rendered.smoke) this.scene.add(rendered.smoke);
     if (rendered.fire) this.scene.add(rendered.fire);
     if (rendered.blood) this.scene.add(rendered.blood);
@@ -1056,7 +1092,7 @@ export class ThreeDistrictEntities {
       rendered.voiceIndicator.material.dispose();
     }
     for (const effect of [
-      rendered.weapon, rendered.smoke, rendered.fire, rendered.blood,
+      rendered.weapon, rendered.muzzleFlash, rendered.smoke, rendered.fire, rendered.blood,
       rendered.headlight, rendered.taillight, rendered.emergencyRed, rendered.emergencyBlue,
       rendered.underglow
     ]) {
@@ -1340,6 +1376,54 @@ function weaponPlaneGeometry(
   const geometry = new THREE.PlaneGeometry(presentation.width, presentation.height);
   geometry.translate((0.5 - presentation.originX) * presentation.width, 0, 0);
   return geometry;
+}
+
+function muzzleFlashMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 64;
+  const context = canvas.getContext('2d');
+  if (context) {
+    const glow = context.createRadialGradient(42, 32, 1, 42, 32, 31);
+    glow.addColorStop(0, 'rgba(255,255,238,1)');
+    glow.addColorStop(0.24, 'rgba(255,226,118,0.95)');
+    glow.addColorStop(1, 'rgba(255,126,30,0)');
+    context.fillStyle = glow;
+    context.fillRect(8, 0, 68, 64);
+    context.fillStyle = 'rgba(255,220,105,0.9)';
+    context.beginPath();
+    context.moveTo(10, 32);
+    context.lineTo(52, 23);
+    context.lineTo(124, 32);
+    context.lineTo(52, 41);
+    context.closePath();
+    context.fill();
+    context.fillStyle = 'rgba(255,255,238,0.95)';
+    context.beginPath();
+    context.moveTo(22, 32);
+    context.lineTo(54, 28);
+    context.lineTo(104, 32);
+    context.lineTo(54, 36);
+    context.closePath();
+    context.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(28, 14), material);
+  mesh.renderOrder = 14;
+  mesh.visible = false;
+  return mesh;
 }
 
 function nameLabel(name: string): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {

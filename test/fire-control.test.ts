@@ -85,6 +85,7 @@ test('fire control enforces cooldown, ammo, pellet count, driver rules, and pass
     random: new DeterministicRandom('grenade-fire-test'),
     clock: () => clock,
     events,
+    weaponRuntime,
     throwExplosive: () => {
       thrown++;
       return true;

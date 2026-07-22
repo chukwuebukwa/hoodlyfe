@@ -2,15 +2,13 @@ import {BulletState, type DistrictState, type PlayerState} from '../../state.ts'
 import {
   WEAPON_ORDER,
   WEAPONS,
-  ammoFor,
   isMagazineWeaponId,
   isWeaponId,
-  refillAmmo,
-  setAmmo,
   type BulletWeaponId,
   type MeleeWeaponId,
   type WeaponId
-} from '../../weapons.ts';
+} from '../../../shared/content/weapon-catalog.ts';
+import {ammoFor, refillAmmo, setAmmo} from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {GameEventStream} from '../events/game-events.ts';
 import type {CombatFireCommand} from '../../../shared/protocol/combat-fire.ts';
@@ -32,7 +30,7 @@ interface FireControlControllerOptions {
   random: DeterministicRandom;
   clock: () => {tick: number; nowMs: number};
   events?: GameEventStream;
-  weaponRuntime?: WeaponRuntimeController;
+  weaponRuntime: WeaponRuntimeController;
   cancelSpawnProtection?: (playerId: string) => void;
   throwExplosive?: (input: {
     kind: 'grenade' | 'molotov';
@@ -126,8 +124,8 @@ export class FireControlController {
       return accepted();
     }
     if (weapon.fireMode === 'rocket') {
-      const ready = this.options.weaponRuntime?.canFire(player, weapon.id);
-      if (ready && !ready.accepted) return {...ready, shotSequence: player.shotSequence};
+      const ready = this.options.weaponRuntime.canFire(player, weapon.id);
+      if (!ready.accepted) return {...ready, shotSequence: player.shotSequence};
       const created = this.options.launchRocket?.({
         ownerId: playerId,
         x: origin.x,
@@ -136,20 +134,18 @@ export class FireControlController {
         nowMs: clock.nowMs
       }) ?? false;
       if (!created) return rejected('capacity-exceeded');
-      const consumed = this.options.weaponRuntime?.consumeShot(player, weapon.id);
-      if (consumed && !consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
-      if (!this.options.weaponRuntime) setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
+      const consumed = this.options.weaponRuntime.consumeShot(player, weapon.id);
+      if (!consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
       this.lastAttackAt.set(playerId, clock.nowMs);
       this.options.cancelSpawnProtection?.(playerId);
       this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
       return accepted(player, weaponId, consumed);
     }
 
-    const consumed = this.options.weaponRuntime?.consumeShot(player, weapon.id);
-    if (consumed && !consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
+    const consumed = this.options.weaponRuntime.consumeShot(player, weapon.id);
+    if (!consumed.accepted) return {...consumed, shotSequence: player.shotSequence};
     this.lastAttackAt.set(playerId, clock.nowMs);
     this.options.cancelSpawnProtection?.(playerId);
-    if (!this.options.weaponRuntime) setAmmo(player, weaponId, ammoFor(player, weaponId) - 1);
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
     const excludedIds = new Set([playerId]);
     if (player.vehicleId) excludedIds.add(player.vehicleId);
@@ -183,7 +179,7 @@ export class FireControlController {
     if (!player?.alive || (player.vehicleId && player.vehicleSeat === 0) || player.action) return;
     const current = isWeaponId(player.weapon) ? WEAPON_ORDER.indexOf(player.weapon) : 0;
     const direction = Number(rawDirection) < 0 ? -1 : 1;
-    this.options.weaponRuntime?.cancelReload(player);
+    this.options.weaponRuntime.cancelReload(player);
     player.weapon = WEAPON_ORDER[(current + direction + WEAPON_ORDER.length) % WEAPON_ORDER.length];
   }
 

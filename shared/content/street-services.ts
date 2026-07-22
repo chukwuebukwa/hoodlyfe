@@ -1,3 +1,9 @@
+import {
+  WEAPON_ORDER,
+  WEAPONS,
+  type AmmunitionField
+} from './weapon-catalog.ts';
+
 export type StreetServiceKind = 'ammunition' | 'repair' | 'hospital' | 'clothing';
 
 export interface AmmunitionState {
@@ -29,17 +35,18 @@ export interface VehicleRepairState {
   damageRight: number;
 }
 
-export const AMMUNITION_CAPACITY: Readonly<Required<Pick<
+const ammunitionCapacity: Partial<Record<AmmunitionField, number>> = {};
+for (const id of WEAPON_ORDER) {
+  const weapon = WEAPONS[id];
+  if (weapon.ammunitionField) {
+    ammunitionCapacity[weapon.ammunitionField] = weapon.ammunitionCapacity;
+  }
+}
+
+export const AMMUNITION_CAPACITY = Object.freeze(ammunitionCapacity) as Readonly<Required<Pick<
   AmmunitionState,
   'ammoPistol' | 'ammoSmg' | 'ammoShotgun' | 'ammoRocket' | 'ammoGrenade' | 'ammoMolotov'
->>> = Object.freeze({
-  ammoPistol: 120,
-  ammoSmg: 240,
-  ammoShotgun: 48,
-  ammoRocket: 4,
-  ammoGrenade: 6,
-  ammoMolotov: 5
-});
+>>>;
 
 export const STREET_SERVICE_RADIUS: Readonly<Record<StreetServiceKind, number>> = Object.freeze({
   ammunition: 72,

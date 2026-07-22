@@ -6,10 +6,12 @@ import {
 } from '../src/game/rendering/interpolation-policy.ts';
 import {projectileStyle} from '../src/game/rendering/projectile-render-policy.ts';
 import {
+  gunshotPresentation,
   meleeAttackPresentation,
   meleeAttackPresentationAtProgress,
   passengerPresentation,
   playerAttachmentPresentation,
+  shouldPresentAuthoritativeGunshot,
   weaponPresentation
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
@@ -90,13 +92,13 @@ test('player weapon models and passenger seats preserve stable presentation anch
     texture: 'weapon-bat', width: 46, height: 12, visible: true, originX: 0.16
   });
   const vehicle = {x: 100, y: 200, angle: 0};
-  const frontRight = passengerPresentation(vehicle, 1, 0, 0, false);
-  const rearLeft = passengerPresentation(vehicle, 2, 0, 0, false);
-  const rear = passengerPresentation(vehicle, 3, 0, 0, false);
+  const frontRight = passengerPresentation(vehicle, 1, 0, 0, 0);
+  const rearLeft = passengerPresentation(vehicle, 2, 0, 0, 0);
+  const rear = passengerPresentation(vehicle, 3, 0, 0, 0);
   assert.deepEqual({x: frontRight.baseX, y: frontRight.baseY}, {x: 105, y: 215});
   assert.deepEqual({x: rearLeft.baseX, y: rearLeft.baseY}, {x: 105, y: 185});
   assert.deepEqual({x: rear.baseX, y: rear.baseY}, {x: 89, y: 200});
-  const recoil = passengerPresentation(vehicle, 1, 0, 0, true);
+  const recoil = passengerPresentation(vehicle, 1, 0, 0, 4);
   assert.equal(recoil.spriteX, frontRight.spriteX - 4);
   assert.equal(recoil.scale, 0.64);
 });
@@ -104,18 +106,18 @@ test('player weapon models and passenger seats preserve stable presentation anch
 test('one attachment root owns body, weapon, label, minimap, and collider presentation', () => {
   const actor = {x: 10, y: 20, angle: 0.25};
   const vehicle = {x: 100, y: 200, angle: 0.5};
-  const onFoot = playerAttachmentPresentation(actor, undefined, -1, 0.25, 0, false);
+  const onFoot = playerAttachmentPresentation(actor, undefined, -1, 0.25, 0, 0);
   assert.deepEqual(onFoot.root, actor);
   assert.deepEqual(onFoot.body, actor);
   assert.deepEqual(onFoot.weaponBase, {x: 10, y: 20});
   assert.equal(onFoot.humanoidColliderVisible, true);
 
-  const driver = playerAttachmentPresentation(actor, vehicle, 0, 1, 0, false);
+  const driver = playerAttachmentPresentation(actor, vehicle, 0, 1, 0, 0);
   assert.deepEqual(driver.root, vehicle);
   assert.equal(driver.bodyVisible, false);
   assert.equal(driver.humanoidColliderVisible, false);
 
-  const passenger = playerAttachmentPresentation(actor, vehicle, 1, 1, 0, true);
+  const passenger = playerAttachmentPresentation(actor, vehicle, 1, 1, 0, 4);
   assert.deepEqual(passenger.root, vehicle);
   assert.deepEqual(passenger.weaponBase, {
     x: passenger.passenger?.baseX,
@@ -126,6 +128,30 @@ test('one attachment root owns body, weapon, label, minimap, and collider presen
     {x: passenger.passenger?.spriteX, y: passenger.passenger?.spriteY}
   );
   assert.equal(passenger.humanoidColliderVisible, false);
+});
+
+test('gunshot presentation gives each firearm distinct immediate weight and fast recovery', () => {
+  const pistol = gunshotPresentation('pistol', 0);
+  const smg = gunshotPresentation('smg', 0);
+  const shotgun = gunshotPresentation('shotgun', 0);
+  assert.equal(pistol.active, true);
+  assert.ok(shotgun.kickDistance > pistol.kickDistance);
+  assert.ok(pistol.kickDistance > smg.kickDistance);
+  assert.ok(shotgun.flashScale > pistol.flashScale);
+  assert.equal(gunshotPresentation('smg', 80).active, false);
+  assert.equal(gunshotPresentation('pistol', 110).active, false);
+  assert.deepEqual(gunshotPresentation('bat', 0), {
+    active: false,
+    kickDistance: 0,
+    flashOpacity: 0,
+    flashScale: 0
+  });
+});
+
+test('authoritative acknowledgements do not replay local gunshot feedback', () => {
+  assert.equal(shouldPresentAuthoritativeGunshot(1, 2, true), false);
+  assert.equal(shouldPresentAuthoritativeGunshot(2, 3, true), false);
+  assert.equal(shouldPresentAuthoritativeGunshot(1, 2, false), true);
 });
 
 test('melee attack presentation follows replicated combo and catalog strike timing', () => {

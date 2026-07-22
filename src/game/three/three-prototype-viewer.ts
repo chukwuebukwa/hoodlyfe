@@ -146,9 +146,6 @@ export class ThreePrototypeViewer {
             : this.room?.state.serverTimeMs ?? 0;
         },
         combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
-        onReceipt: (receipt) => {
-          if (!receipt.accepted) this.entities?.cancelLocalShot(this.room?.sessionId ?? '');
-        }
       });
       this.debug = new ThreeDebugController(
         this.scene,

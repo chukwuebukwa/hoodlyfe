@@ -42,8 +42,8 @@ Do not stream voice through the Colyseus gameplay room. Gameplay state should de
 
 ## Next Sound Targets
 
-- The active temporary SFX pack is extracted from the local GTA2 data into `public/assets/audio/gta2/sfx`.
-  These are placeholders for development and should be replaced with original/cleared samples before public release.
+- Pistol, SMG, and shotgun shots use the public-domain Snake's SECOND Authentic Gun Sounds pack.
+- Remaining files under `public/assets/audio/gta2/sfx` are temporary placeholders; the directory name does not establish their provenance.
 - Replace generated weapon and impact cues with short authored samples.
 - Add vehicle engine loops tied to speed, gear, damage, and siren state.
 - Add tire skid, horn, car door, hijack, and crash families.

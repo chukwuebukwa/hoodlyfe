@@ -27,6 +27,10 @@ export interface WeaponPresentationDefinition {
   heldHeight: number;
   heldVisible: boolean;
   heldOriginX?: number;
+  recoilDistance?: number;
+  recoilMs?: number;
+  muzzleFlashMs?: number;
+  muzzleFlashScale?: number;
 }
 
 interface WeaponDefinitionBase {
@@ -39,6 +43,7 @@ interface WeaponDefinitionBase {
 }
 
 interface MagazineWeaponDefinitionBase {
+  ammunitionCapacity: number;
   magazineField: MagazineField;
   magazineSize: number;
   reloadMs: number;
@@ -61,6 +66,7 @@ export interface ThrownWeaponDefinition extends WeaponDefinitionBase {
   id: Extract<WeaponId, 'grenade' | 'molotov'>;
   fireMode: 'thrown';
   ammunitionField: Extract<AmmunitionField, 'ammoGrenade' | 'ammoMolotov'>;
+  ammunitionCapacity: number;
   fuseMs: number;
   impactTriggered: boolean;
 }
@@ -175,6 +181,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 170,
     ammunitionField: 'ammoPistol',
+    ammunitionCapacity: 120,
     magazineField: 'magazinePistol',
     magazineSize: 12,
     reloadMs: 1100,
@@ -191,7 +198,11 @@ export const WEAPONS = Object.freeze({
       heldWidth: 24,
       heldHeight: 17,
       heldVisible: true,
-      heldOriginX: 0.3
+      heldOriginX: 0.3,
+      recoilDistance: 5,
+      recoilMs: 110,
+      muzzleFlashMs: 42,
+      muzzleFlashScale: 1
     })
   } satisfies BulletWeaponDefinition),
   smg: Object.freeze({
@@ -201,6 +212,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 85,
     ammunitionField: 'ammoSmg',
+    ammunitionCapacity: 240,
     magazineField: 'magazineSmg',
     magazineSize: 30,
     reloadMs: 1500,
@@ -217,7 +229,11 @@ export const WEAPONS = Object.freeze({
       heldWidth: 38,
       heldHeight: 21,
       heldVisible: true,
-      heldOriginX: 0.45
+      heldOriginX: 0.45,
+      recoilDistance: 3,
+      recoilMs: 80,
+      muzzleFlashMs: 30,
+      muzzleFlashScale: 0.78
     })
   } satisfies BulletWeaponDefinition),
   shotgun: Object.freeze({
@@ -227,6 +243,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: true,
     cooldownMs: 650,
     ammunitionField: 'ammoShotgun',
+    ammunitionCapacity: 48,
     magazineField: 'magazineShotgun',
     magazineSize: 6,
     reloadMs: 480,
@@ -243,7 +260,11 @@ export const WEAPONS = Object.freeze({
       heldWidth: 46,
       heldHeight: 11,
       heldVisible: true,
-      heldOriginX: 0.48
+      heldOriginX: 0.48,
+      recoilDistance: 9,
+      recoilMs: 180,
+      muzzleFlashMs: 65,
+      muzzleFlashScale: 1.45
     })
   } satisfies BulletWeaponDefinition),
   rocket: Object.freeze({
@@ -253,6 +274,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: false,
     cooldownMs: 950,
     ammunitionField: 'ammoRocket',
+    ammunitionCapacity: 4,
     magazineField: 'magazineRocket',
     magazineSize: 1,
     reloadMs: 1800,
@@ -269,6 +291,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: false,
     cooldownMs: 650,
     ammunitionField: 'ammoGrenade',
+    ammunitionCapacity: 6,
     fuseMs: 2000,
     impactTriggered: false,
     presentation: Object.freeze({assetId: 'grenade', heldWidth: 15, heldHeight: 15, heldVisible: true})
@@ -280,6 +303,7 @@ export const WEAPONS = Object.freeze({
     passengerAllowed: false,
     cooldownMs: 720,
     ammunitionField: 'ammoMolotov',
+    ammunitionCapacity: 5,
     fuseMs: 2000,
     impactTriggered: true,
     presentation: Object.freeze({assetId: 'molotov', heldWidth: 14, heldHeight: 25, heldVisible: true})

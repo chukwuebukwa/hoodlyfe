@@ -1,6 +1,6 @@
 import type {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import {WEAPONS, isBulletWeaponId} from '../../weapons.ts';
+import {WEAPONS, isBulletWeaponId} from '../../../shared/content/weapon-catalog.ts';
 import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
 import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';

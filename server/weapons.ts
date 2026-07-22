@@ -3,24 +3,7 @@ import {
   WEAPON_ORDER,
   WEAPONS,
   isMagazineWeaponId,
-  isWeaponId,
   type MagazineWeaponId,
-  type WeaponId
-} from '../shared/content/weapon-catalog.ts';
-import {AMMUNITION_CAPACITY} from '../shared/content/street-services.ts';
-
-export {
-  WEAPON_ORDER,
-  WEAPONS,
-  isBulletWeaponId,
-  isMeleeWeaponId,
-  isMagazineWeaponId,
-  isWeaponId,
-  type BulletWeaponId,
-  type MeleeWeaponDefinition,
-  type MeleeWeaponId,
-  type MagazineWeaponId,
-  type WeaponDefinition,
   type WeaponId
 } from '../shared/content/weapon-catalog.ts';
 
@@ -46,28 +29,30 @@ export function setMagazine(player: PlayerState, weapon: MagazineWeaponId, amoun
 }
 
 export function refillAmmo(player: PlayerState): void {
-  for (const weapon of ['pistol', 'smg', 'shotgun', 'rocket'] as const) {
+  for (const weapon of WEAPON_ORDER) {
     const definition = WEAPONS[weapon];
-    setMagazine(player, weapon, definition.magazineSize);
-    setAmmo(player, weapon, AMMUNITION_CAPACITY[definition.ammunitionField] - definition.magazineSize);
+    if (!definition.ammunitionField) continue;
+    if (isMagazineWeaponId(weapon)) {
+      const magazineDefinition = WEAPONS[weapon];
+      setMagazine(player, weapon, magazineDefinition.magazineSize);
+      setAmmo(
+        player,
+        weapon,
+        magazineDefinition.ammunitionCapacity - magazineDefinition.magazineSize
+      );
+    } else {
+      setAmmo(player, weapon, definition.ammunitionCapacity);
+    }
   }
-  player.ammoGrenade = 6;
-  player.ammoMolotov = 5;
   clearReload(player);
 }
 
 export function confiscateWeapons(player: PlayerState): void {
   player.weapon = 'fists';
-  player.ammoPistol = 0;
-  player.ammoSmg = 0;
-  player.ammoShotgun = 0;
-  player.ammoRocket = 0;
-  player.ammoGrenade = 0;
-  player.ammoMolotov = 0;
-  player.magazinePistol = 0;
-  player.magazineSmg = 0;
-  player.magazineShotgun = 0;
-  player.magazineRocket = 0;
+  for (const weapon of WEAPON_ORDER) {
+    if (WEAPONS[weapon].ammunitionField) setAmmo(player, weapon, 0);
+    if (isMagazineWeaponId(weapon)) setMagazine(player, weapon, 0);
+  }
   clearReload(player);
 }
 

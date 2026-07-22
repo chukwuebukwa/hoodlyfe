@@ -315,14 +315,6 @@ authoritative street loop (playable)
 
 The original-map pipeline and OpenGTA2 3D renderer can advance alongside the first four steps. They cannot weaken server authority or bind durable content IDs to Rockstar asset identifiers.
 
-## Active Systemic Gameplay Program
-
-The implementation order, pinned re3/reVC source index, multiplayer authority matrix,
-and repeatable milestone goal loop live in
-[`SYSTEMIC_GAMEPLAY_IMPLEMENTATION_PLAN.md`](SYSTEMIC_GAMEPLAY_IMPLEMENTATION_PLAN.md).
-That plan is the active execution sequence for traffic, wanted response, police tactics,
-pedestrian AI, weapons, vehicle damage, encounters, and population virtualization.
-
 ## Development and QA Rule
 
 Each slice must start with a production reference study, define one domain owner and typed boundaries, expose enough opt-in diagnostics to prove behavior, add deterministic unit/scenario coverage, preserve the real two-client flow, pass the production build, and end with a timestamped devlog checkpoint and focused commit.

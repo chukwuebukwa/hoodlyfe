@@ -2,7 +2,8 @@ import {
   WEAPON_PICKUPS,
   weaponPickupDefinition
 } from '../../../shared/content/weapon-pickups.ts';
-import {ammoFor, isWeaponId, setAmmo} from '../../weapons.ts';
+import {isWeaponId} from '../../../shared/content/weapon-catalog.ts';
+import {ammoFor, setAmmo} from '../../weapons.ts';
 import {WeaponPickupState, type DistrictState, type PlayerState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {GameEventStream} from '../events/game-events.ts';

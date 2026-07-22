@@ -11,9 +11,9 @@ import {projectPositionalAudio, type AudioListenerPosition} from './positional-a
 const EVENT_TTL_MS = 2_000;
 
 const SAMPLES = {
-  pistol: '/assets/audio/gta2/sfx/pistol.wav',
-  smg: '/assets/audio/gta2/sfx/smg.wav',
-  shotgun: '/assets/audio/gta2/sfx/shotgun.wav',
+  pistol: '/assets/audio/snake-authentic-guns/pistol.wav',
+  smg: '/assets/audio/snake-authentic-guns/smg.wav',
+  shotgun: '/assets/audio/snake-authentic-guns/shotgun.wav',
   rocket: '/assets/audio/gta2/sfx/rocket.wav',
   explosion: '/assets/audio/gta2/sfx/explosion.wav',
   crash: '/assets/audio/gta2/sfx/crash.wav',
@@ -39,6 +39,7 @@ export class SfxSystem {
       this.handle(message);
     });
     this.removeMessage = typeof remove === 'function' ? remove : undefined;
+    for (const sample of ['pistol', 'smg', 'shotgun'] as const) void this.loadSample(sample);
   }
 
   synchronize(player?: NetworkPlayer, vehicle?: NetworkVehicle): void {
