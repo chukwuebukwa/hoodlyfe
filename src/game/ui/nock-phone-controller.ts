@@ -9,6 +9,7 @@ import {
 } from '../../../shared/content/lpc-character-catalog.ts';
 import {loadSavedAppearance} from '../appearance/appearance-storage.ts';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
+import {phoneGlyph, type PhoneGlyphName} from './phone-glyphs.ts';
 
 const DRIVER_NAME_KEY = 'nock0-driver-name';
 const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
@@ -105,20 +106,21 @@ export class NockPhoneController {
     popup.dataset.app = this.activeApp;
     popup.innerHTML = `
       <header id="phone-status-bar">
-        <span>NOCK</span>
-        <strong>${currentClock()}</strong>
-        <button id="profile-close" type="button" aria-label="Close phone">x</button>
+        <time datetime="${currentClock()}">${currentClock()}</time>
+        <span id="phone-dynamic-island" aria-hidden="true"><i></i></span>
+        <span id="phone-status-icons" aria-hidden="true">
+          <i class="phone-cellular"><b></b><b></b><b></b><b></b></i>
+          ${phoneGlyph('wifi')}
+          <i class="phone-battery"><b></b></i>
+        </span>
       </header>
+      <button id="profile-close" type="button" aria-label="Close phone">${phoneGlyph('close')}</button>
       <main id="phone-screen">
         ${this.renderHome()}
         ${this.renderProfile()}
         ${this.renderWallet()}
       </main>
-      <nav id="phone-nav" aria-label="Phone apps">
-        <button id="phone-nav-home" type="button" data-app="home"><i>HM</i><span>Home</span></button>
-        <button id="phone-nav-profile" type="button" data-app="profile"><i>PR</i><span>Profile</span></button>
-        <button id="phone-nav-wallet" type="button" data-app="wallet"><i>WA</i><span>Wallet</span></button>
-      </nav>
+      <footer id="phone-home-indicator" aria-hidden="true"><i></i></footer>
     `;
     popup.querySelector('#profile-close')?.addEventListener('click', this.handleCloseClick);
     popup.querySelectorAll<HTMLButtonElement>('[data-app]').forEach((button) => {
@@ -126,28 +128,34 @@ export class NockPhoneController {
     });
     popup.querySelector('#wallet-copy-address')?.addEventListener('click', this.handleCopyWalletAddress);
     popup.querySelector('#wallet-refresh')?.addEventListener('click', this.handleRefreshClick);
+    popup.querySelector('#profile-refresh')?.addEventListener('click', this.handleRefreshClick);
   }
 
   private renderHome(): string {
     const hidden = this.activeApp === 'home' ? '' : ' hidden';
     return `
       <section id="phone-home" class="${hidden}">
-        <div id="phone-app-grid">
-          ${appButton('profile', 'PR', 'Profile', 'Driver account')}
-          ${appButton('wallet', 'WA', 'Wallet', 'Tokens + chain')}
-          ${disabledAppButton('JB', 'Jobs', 'Coming soon')}
-          ${disabledAppButton('MP', 'Map', 'District GPS')}
-          ${disabledAppButton('GR', 'Garage', 'Vehicles')}
-          ${disabledAppButton('ST', 'Settings', 'Options')}
-          ${disabledAppButton('RD', 'Radio', 'Stations')}
-          ${disabledAppButton('CM', 'Crew', 'Contacts')}
+        <div id="phone-home-date">
+          <span>${weekdayLabel()}</span>
+          <strong>${calendarDay()}</strong>
+          <small>Industrial District</small>
         </div>
-        <div id="phone-search-pill">Search</div>
-        <div id="phone-dock">
-          ${appButton('profile', 'PH', 'Phone', 'Profile')}
-          ${appButton('wallet', 'SA', 'Wallet', 'Assets')}
-          ${disabledAppButton('MS', 'Messages', 'Soon')}
-          ${disabledAppButton('MU', 'Music', 'Soon')}
+        <div id="phone-app-grid" aria-label="Apps">
+          ${appButton('profile', 'profile', 'profile', 'Profile')}
+          ${appButton('wallet', 'wallet', 'wallet', 'Wallet')}
+          ${disabledAppButton('briefcase-business', 'jobs', 'Jobs')}
+          ${disabledAppButton('map', 'maps', 'Maps')}
+          ${disabledAppButton('car-front', 'garage', 'Garage')}
+          ${disabledAppButton('settings', 'settings', 'Settings')}
+          ${disabledAppButton('radio', 'radio', 'Radio')}
+          ${disabledAppButton('users', 'crew', 'Crew')}
+        </div>
+        <div id="phone-page-dots" aria-hidden="true"><i></i><i></i></div>
+        <div id="phone-dock" aria-label="Dock">
+          ${disabledAppButton('phone', 'phone', 'Phone')}
+          ${disabledAppButton('message-circle', 'messages', 'Messages')}
+          ${appButton('wallet', 'wallet', 'wallet', 'Wallet')}
+          ${disabledAppButton('music-2', 'music', 'Music')}
         </div>
       </section>
     `;
@@ -159,46 +167,41 @@ export class NockPhoneController {
     return `
       <section id="phone-profile-app-screen" class="${hidden}" data-auth="${profile.walletAddress ? 'privy' : 'guest'}">
         <header id="phone-app-header">
-          <button type="button" data-app="home" aria-label="Back to home">&lt;</button>
-          <div><strong>Profile</strong><span>${profile.authLabel}</span></div>
+          <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
+          <button id="profile-refresh" class="phone-header-action" type="button" aria-label="Refresh profile">${phoneGlyph('refresh-cw')}</button>
         </header>
         <div id="profile-body">
+          <h1>Profile</h1>
           <section class="profile-hero-card ${profile.walletAddress ? 'connected' : 'guest'}">
-            <span>${profile.walletAddress ? 'Wallet ready' : 'Local driver'}</span>
-            <strong>${escapeHtml(profile.driverName)}</strong>
-            <p>${profile.walletAddress
-              ? 'This driver has a wallet address available in local state.'
-              : 'Login wallet sync is not connected in this wrapper yet. Local character and driver state still work.'}</p>
+            <div class="profile-avatar">${phoneGlyph('user-round')}</div>
+            <div><strong>${escapeHtml(profile.driverName)}</strong><span>${profile.authLabel}</span></div>
+            ${phoneGlyph('chevron-right')}
           </section>
           <section class="profile-wallet-card ${profile.walletAddress ? 'ready' : 'missing'}">
-            <header><strong>Wallet</strong><span>${profile.walletAddress ? 'Ready' : 'Missing'}</span></header>
-            <p>${escapeHtml(profile.walletAddress ?? 'No wallet address found')}</p>
-            <small>${profile.walletAddress ? 'Use the Wallet app for token display.' : 'Once Privy wallet state is bridged into the client, this will populate here.'}</small>
+            <i class="profile-row-icon wallet">${phoneGlyph('wallet')}</i>
+            <div><strong>Wallet</strong><span>${escapeHtml(profile.walletAddress ? shortAddress(profile.walletAddress) : 'Not connected')}</span></div>
+            <b>${profile.walletAddress ? 'Ready' : 'Off'}</b>
           </section>
           <section class="profile-card">
-            <header><strong>Driver</strong><span>Live district</span></header>
+            <h2>Driver</h2>
             <dl>
-              ${profileRow('Cash', profile.cash)}
-              ${profileRow('Health', profile.health)}
-              ${profileRow('Weapon', profile.weapon)}
-              ${profileRow('Outfit', profile.outfitName)}
+              ${profileRow('banknote', 'Cash', profile.cash)}
+              ${profileRow('heart-pulse', 'Health', profile.health)}
+              ${profileRow('crosshair', 'Weapon', profile.weapon)}
+              ${profileRow('shirt', 'Outfit', profile.outfitName)}
             </dl>
           </section>
           <section class="profile-card">
-            <header><strong>Character</strong><span>LPC recipe</span></header>
+            <h2>Appearance</h2>
             <dl>
-              ${profileRow('Hair', profile.hair)}
-              ${profileRow('Hat', profile.hat)}
-              ${profileRow('Top', profile.top)}
-              ${profileRow('Legs', profile.legs)}
-              ${profileRow('Shoes', profile.shoes)}
+              ${profileRow('scissors', 'Hair', profile.hair)}
+              ${profileRow('hard-hat', 'Hat', profile.hat)}
+              ${profileRow('shirt', 'Top', profile.top)}
+              ${profileRow('person-standing', 'Legs', profile.legs)}
+              ${profileRow('footprints', 'Shoes', profile.shoes)}
             </dl>
           </section>
         </div>
-        <footer>
-          <button type="button" id="profile-refresh">REFRESH</button>
-          <button type="button" id="profile-logout">LOG OUT</button>
-        </footer>
       </section>
     `;
   }
@@ -210,43 +213,38 @@ export class NockPhoneController {
     return `
       <section id="phone-wallet-app-screen" class="${hidden}">
         <header id="wallet-app-header">
-          <button type="button" data-app="home" aria-label="Back to home">&lt;</button>
-          <div><strong>Wallet</strong><span>${walletAddress ? shortAddress(walletAddress) : 'No address'}</span></div>
-          <button id="wallet-refresh" type="button">Refresh</button>
+          <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
+          <button id="wallet-refresh" class="phone-header-action" type="button" aria-label="Refresh wallet">${phoneGlyph('refresh-cw')}</button>
         </header>
         <div id="wallet-body">
+          <h1>Wallet</h1>
           <section class="wallet-hero ${walletAddress ? '' : 'missing'}">
-            <header><span>${walletAddress ? 'Connected address' : 'Wallet unavailable'}</span><b>Chain 4663</b></header>
+            <header><span>Nock Wallet</span><b>Chain 4663</b></header>
+            <small>${walletAddress ? 'Total Balance' : 'Wallet unavailable'}</small>
             <strong>${walletAddress ? '0.0000 ETH' : '--'}</strong>
-            <p>${walletAddress
-              ? 'Native balance display is ready for the chain API bridge.'
-              : 'No wallet address is available to query yet.'}</p>
+            <p>${escapeHtml(walletAddress ? shortAddress(walletAddress) : 'Connect a wallet to view assets')}</p>
             <div class="wallet-actions">
-              <button id="wallet-receive" type="button" ${walletAddress ? '' : 'disabled'}>Receive</button>
-              <button type="button" disabled>Send</button>
-              <button type="button" disabled>Swap</button>
-              <button type="button" disabled>Buy</button>
+              <button id="wallet-receive" type="button" ${walletAddress ? '' : 'disabled'}>${phoneGlyph('arrow-down')}<span>Receive</span></button>
+              <button type="button" disabled>${phoneGlyph('arrow-up')}<span>Send</span></button>
+              <button type="button" disabled>${phoneGlyph('arrow-left-right')}<span>Swap</span></button>
+              <button type="button" disabled>${phoneGlyph('plus')}<span>Buy</span></button>
             </div>
           </section>
           <section class="wallet-address-card">
-            <span>Address</span>
-            <strong>${escapeHtml(walletAddress ?? 'No wallet address found')}</strong>
-            ${walletAddress ? `<button id="wallet-copy-address" type="button">Copy Address</button>` : ''}
-          </section>
-          <section class="wallet-search-card">
-            <span>Token images and balances can load here once the wallet bridge is connected.</span>
+            <div><span>Wallet Address</span><strong>${escapeHtml(walletAddress ? shortAddress(walletAddress) : 'No address')}</strong></div>
+            ${walletAddress ? `<button id="wallet-copy-address" type="button" aria-label="Copy wallet address">${phoneGlyph('copy')}</button>` : `<i>${phoneGlyph('link-2-off')}</i>`}
           </section>
           <section class="wallet-token-card">
-            <header><strong>Tokens</strong><span>Local preview</span></header>
+            <header><strong>Assets</strong><span>Local preview</span></header>
             <ul>
               <li>
-                <i>ETH</i>
-                <div><strong>Ethereum</strong><span>${walletAddress ? 'Chain 4663 native' : 'Wallet required'}</span></div>
+                <i class="token-ethereum">${phoneGlyph('gem')}</i>
+                <div><strong>Ethereum</strong><span>${walletAddress ? 'Chain 4663' : 'Wallet required'}</span></div>
                 <b>${walletAddress ? '0.0000' : '--'}</b>
               </li>
               <li class="pending">
-                <i>CC</i>
-                <div><strong>Cashcat</strong><span>Dexscreener metadata pending</span></div>
+                <i class="token-cashcat">C</i>
+                <div><strong>Cashcat</strong><span>Metadata pending</span></div>
                 <b>--</b>
               </li>
             </ul>
@@ -322,16 +320,21 @@ function readProfileSnapshot(player?: NetworkPlayer): {
   };
 }
 
-function appButton(app: 'profile' | 'wallet', icon: string, label: string, sublabel: string): string {
-  return `<button type="button" data-app="${app}"><i>${icon}</i><span>${label}<small>${sublabel}</small></span></button>`;
+function appButton(
+  app: 'profile' | 'wallet',
+  icon: PhoneGlyphName,
+  iconClass: string,
+  label: string
+): string {
+  return `<button type="button" data-app="${app}" aria-label="Open ${label}"><i class="phone-app-icon ${iconClass}">${phoneGlyph(icon)}</i><span>${label}</span></button>`;
 }
 
-function disabledAppButton(icon: string, label: string, sublabel: string): string {
-  return `<button type="button" disabled><i>${icon}</i><span>${label}<small>${sublabel}</small></span></button>`;
+function disabledAppButton(icon: PhoneGlyphName, iconClass: string, label: string): string {
+  return `<button type="button" disabled aria-label="${label}, coming soon"><i class="phone-app-icon ${iconClass}">${phoneGlyph(icon)}</i><span>${label}</span></button>`;
 }
 
-function profileRow(label: string, value: string): string {
-  return `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`;
+function profileRow(icon: PhoneGlyphName, label: string, value: string): string {
+  return `<div><i class="profile-row-icon">${phoneGlyph(icon)}</i><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`;
 }
 
 function readWalletAddress(): string | undefined {
@@ -356,6 +359,14 @@ function labelFor<T extends string>(options: readonly LpcOption<T>[], id: T): st
 
 function currentClock(date: Date = new Date()): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function weekdayLabel(date: Date = new Date()): string {
+  return date.toLocaleDateString(undefined, {weekday: 'long'});
+}
+
+function calendarDay(date: Date = new Date()): string {
+  return String(date.getDate());
 }
 
 function shortAddress(address: string): string {
