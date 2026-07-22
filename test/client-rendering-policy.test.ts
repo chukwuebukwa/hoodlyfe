@@ -11,7 +11,7 @@ import {
   meleeAttackPresentationAtProgress,
   passengerPresentation,
   playerAttachmentPresentation,
-  shouldPresentAuthoritativeGunshot,
+  reloadPresentation,
   weaponPresentation
 } from '../src/game/rendering/player-render-policy.ts';
 import {vehicleVisualState} from '../src/game/rendering/vehicle-render-policy.ts';
@@ -25,6 +25,7 @@ import {actorBurnPresentation} from '../src/game/rendering/actor-burn-render-pol
 import type {
   NetworkBullet,
   NetworkExplosion,
+  NetworkPlayer,
   NetworkThrownProjectile,
   NetworkVehicle,
   NetworkWeaponPickup
@@ -148,10 +149,22 @@ test('gunshot presentation gives each firearm distinct immediate weight and fast
   });
 });
 
-test('authoritative acknowledgements do not replay local gunshot feedback', () => {
-  assert.equal(shouldPresentAuthoritativeGunshot(1, 2, true), false);
-  assert.equal(shouldPresentAuthoritativeGunshot(2, 3, true), false);
-  assert.equal(shouldPresentAuthoritativeGunshot(1, 2, false), true);
+test('reload presentation follows authoritative timing for bullet weapons', () => {
+  const player = {
+    weapon: 'pistol',
+    reloadWeapon: 'pistol',
+    reloadStartedAt: 1_000,
+    reloadEndsAt: 2_000
+  } as NetworkPlayer;
+  assert.deepEqual(reloadPresentation(player, 1_000), {
+    active: true, weaponRotationOffset: 0, weaponDistanceOffset: 0
+  });
+  const midpoint = reloadPresentation(player, 1_500);
+  assert.equal(midpoint.active, true);
+  assert.ok(midpoint.weaponRotationOffset > 0.5);
+  assert.ok(midpoint.weaponDistanceOffset < -2);
+  assert.equal(reloadPresentation(player, 2_000).active, false);
+  assert.equal(reloadPresentation({...player, weapon: 'rocket'}, 1_500).active, false);
 });
 
 test('melee attack presentation follows replicated combo and catalog strike timing', () => {

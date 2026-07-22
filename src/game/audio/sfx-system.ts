@@ -5,6 +5,7 @@ import {
   type AudioEventsMessage
 } from '../../../shared/protocol/audio-events.ts';
 import type {DistrictNetworkState, NetworkPlayer, NetworkVehicle} from '../types.ts';
+import {isBulletWeaponId, WEAPONS} from '../../../shared/content/weapon-catalog.ts';
 import {AudioBus} from './audio-bus.ts';
 import {projectPositionalAudio, type AudioListenerPosition} from './positional-audio-policy.ts';
 
@@ -14,6 +15,8 @@ const SAMPLES = {
   pistol: '/assets/audio/snake-authentic-guns/pistol.wav',
   smg: '/assets/audio/snake-authentic-guns/smg.wav',
   shotgun: '/assets/audio/snake-authentic-guns/shotgun.wav',
+  dryFire: '/assets/audio/snake-authentic-guns/dry-fire.wav',
+  reloadComplete: '/assets/audio/snake-authentic-guns/reload-complete.wav',
   rocket: '/assets/audio/gta2/sfx/rocket.wav',
   explosion: '/assets/audio/gta2/sfx/explosion.wav',
   crash: '/assets/audio/gta2/sfx/crash.wav',
@@ -33,23 +36,50 @@ export class SfxSystem {
   private readonly buffers = new Map<SampleKey, Promise<AudioBuffer | undefined>>();
   private readonly removeMessage: (() => void) | undefined;
   private listener?: AudioListenerPosition;
+  private reloadWeapon: NetworkPlayer['reloadWeapon'];
+  private reloadMagazine = 0;
+  private lastDryFireAt = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly room: Room<DistrictNetworkState>) {
     const remove = room.onMessage<AudioEventsMessage>(AUDIO_EVENTS_MESSAGE, (message) => {
       this.handle(message);
     });
     this.removeMessage = typeof remove === 'function' ? remove : undefined;
-    for (const sample of ['pistol', 'smg', 'shotgun'] as const) void this.loadSample(sample);
+    for (const sample of ['pistol', 'smg', 'shotgun', 'dryFire', 'reloadComplete'] as const) {
+      void this.loadSample(sample);
+    }
   }
 
   synchronize(player?: NetworkPlayer, vehicle?: NetworkVehicle): void {
     if (!player?.alive) {
       this.listener = undefined;
+      this.reloadWeapon = undefined;
       return;
     }
+    if (this.reloadWeapon && !player.reloadWeapon && isBulletWeaponId(this.reloadWeapon)) {
+      const magazine = player[WEAPONS[this.reloadWeapon].magazineField] ?? 0;
+      if (magazine > this.reloadMagazine) {
+        void this.playSample('reloadComplete', 0.45, 0, () => this.chime(0.2, 0, 420, 620));
+      }
+    }
+    if (
+      player.reloadWeapon &&
+      player.reloadWeapon !== this.reloadWeapon &&
+      isBulletWeaponId(player.reloadWeapon)
+    ) {
+      this.reloadMagazine = player[WEAPONS[player.reloadWeapon].magazineField] ?? 0;
+    }
+    this.reloadWeapon = player.reloadWeapon;
     this.listener = vehicle && player.vehicleId
       ? {x: vehicle.x, y: vehicle.y, angle: vehicle.angle}
       : {x: player.x, y: player.y, angle: player.angle};
+  }
+
+  presentDryFire(): void {
+    const nowMs = performance.now();
+    if (nowMs - this.lastDryFireAt < 160) return;
+    this.lastDryFireAt = nowMs;
+    void this.playSample('dryFire', 0.38, 0, () => this.tone(190, 0.04, 0.2, 0, 'square'));
   }
 
   destroy(): void {

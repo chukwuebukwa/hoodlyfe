@@ -1,4 +1,5 @@
 import {
+  isBulletWeaponId,
   isMeleeWeapon,
   weaponDefinition,
   type WeaponId
@@ -79,12 +80,28 @@ export function gunshotPresentation(
   };
 }
 
-export function shouldPresentAuthoritativeGunshot(
-  previousSequence: number,
-  nextSequence: number,
-  predictedLocally: boolean
-): boolean {
-  return previousSequence !== nextSequence && !predictedLocally;
+export function reloadPresentation(
+  player: NetworkPlayer,
+  serverTimeMs: number
+) {
+  const startedAt = player.reloadStartedAt ?? 0;
+  const endsAt = player.reloadEndsAt ?? 0;
+  if (
+    !isBulletWeaponId(player.weapon) ||
+    player.reloadWeapon !== player.weapon ||
+    !Number.isFinite(serverTimeMs) ||
+    endsAt <= startedAt ||
+    serverTimeMs < startedAt ||
+    serverTimeMs >= endsAt
+  ) {
+    return {active: false, weaponRotationOffset: 0, weaponDistanceOffset: 0};
+  }
+  const dip = Math.sin(Math.PI * (serverTimeMs - startedAt) / (endsAt - startedAt));
+  return {
+    active: true,
+    weaponRotationOffset: dip * 0.65,
+    weaponDistanceOffset: dip === 0 ? 0 : dip * -3
+  };
 }
 
 export function meleeAttackPresentationAtProgress(

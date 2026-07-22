@@ -146,6 +146,9 @@ export class ThreePrototypeViewer {
             : this.room?.state.serverTimeMs ?? 0;
         },
         combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
+        onReceipt: (receipt) => {
+          if (!receipt.accepted && receipt.reason === 'empty-magazine') this.ui?.presentDryFire();
+        }
       });
       this.debug = new ThreeDebugController(
         this.scene,
@@ -179,7 +182,6 @@ export class ThreePrototypeViewer {
         surfaceZ: () => this.center.z,
         isBlocked: () => this.settingsOpen || (this.ui?.isInputBlocked() ?? false),
         onFire: (angle) => {
-          this.entities?.presentLocalShot(this.room?.sessionId ?? '');
           this.combatFire?.send(angle);
         },
         directAimAngle: () => this.cameraMode === 'explorer' ? this.explorerYaw : undefined

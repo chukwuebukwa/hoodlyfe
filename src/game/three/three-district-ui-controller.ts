@@ -106,6 +106,10 @@ export class ThreeDistrictUiController {
     return this.voice.playerVoiceActivity(playerId);
   }
 
+  presentDryFire(): void {
+    this.sfx.presentDryFire();
+  }
+
   update(state: DistrictNetworkState, nowMs: number): void {
     if (nowMs - this.lastUpdateAt < UI_INTERVAL_MS) return;
     this.lastUpdateAt = nowMs;

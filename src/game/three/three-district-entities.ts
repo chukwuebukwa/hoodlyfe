@@ -25,7 +25,7 @@ import {
   gunshotPresentation,
   meleeAttackPresentationAtProgress,
   playerAttachmentPresentation,
-  shouldPresentAuthoritativeGunshot,
+  reloadPresentation,
   weaponPresentation
 } from '../rendering/player-render-policy.ts';
 import {pedestrianMotionPresentation} from '../rendering/pedestrian-render-policy.ts';
@@ -94,7 +94,6 @@ interface RenderedEntity {
   attackCombo?: number;
   shotSequence?: number;
   shotStartedAt?: number;
-  localShotPrediction?: boolean;
   spriteKey?: string;
   vehicleActionKey?: string;
   vehicleActionStartedAt?: number;
@@ -172,23 +171,6 @@ export class ThreeDistrictEntities {
     private readonly playerVoiceActivity: (playerId: string) => number = () => 0
   ) {
     this.skidMarks = new ThreeSkidMarkRenderer(scene, surfaceHeightAt);
-  }
-
-  presentLocalShot(playerId: string): void {
-    const rendered = this.rendered.get(`player:${playerId}`);
-    if (rendered) {
-      rendered.shotStartedAt = performance.now();
-      rendered.localShotPrediction = true;
-      const shot = gunshotPresentation(
-        rendered.weapon?.userData.weapon as NetworkPlayer['weapon'],
-        0
-      );
-      if (rendered.muzzleFlash) {
-        rendered.muzzleFlash.scale.setScalar(shot.flashScale);
-        rendered.muzzleFlash.material.opacity = shot.flashOpacity;
-        rendered.muzzleFlash.visible = Boolean(rendered.weapon?.visible && shot.flashOpacity > 0);
-      }
-    }
   }
 
   static async create(
@@ -525,13 +507,8 @@ export class ThreeDistrictEntities {
     const localNow = performance.now();
     const shotSequence = player.shotSequence ?? 0;
     if (rendered.shotSequence !== shotSequence) {
-      const presentAuthoritativeShot = shouldPresentAuthoritativeGunshot(
-        rendered.shotSequence ?? shotSequence,
-        shotSequence,
-        rendered.localShotPrediction ?? false
-      );
       rendered.shotSequence = shotSequence;
-      if (presentAuthoritativeShot) rendered.shotStartedAt = localNow;
+      rendered.shotStartedAt = localNow;
     }
     const attackSequence = player.attackSequence ?? 0;
     if (rendered.attackSequence !== attackSequence) {
@@ -557,6 +534,7 @@ export class ThreeDistrictEntities {
         ? Number.POSITIVE_INFINITY
         : localNow - rendered.shotStartedAt
     );
+    const reload = reloadPresentation(player, estimatedServerTimeMs);
     const vehicleActionKey = player.action === 'entering' || player.action === 'hijacking'
       ? `${player.action}:${player.actionVehicleId}`
       : '';
@@ -689,8 +667,10 @@ export class ThreeDistrictEntities {
     if (rendered.weapon) {
       const baseX = attachments.weaponBase.x;
       const baseY = attachments.weaponBase.y;
-      const weaponAngle = renderAngle + (melee?.weaponRotationOffset ?? 0);
-      const weaponDistance = melee?.active ? melee.weaponDistance : 8 - shot.kickDistance;
+      const weaponAngle = renderAngle + (melee?.weaponRotationOffset ?? 0) + reload.weaponRotationOffset;
+      const weaponDistance = melee?.active
+        ? melee.weaponDistance
+        : 8 - shot.kickDistance + reload.weaponDistanceOffset;
       rendered.weapon.position.set(
         baseX + Math.cos(weaponAngle) * weaponDistance,
         serverYToThree(baseY + Math.sin(weaponAngle) * weaponDistance),
