@@ -202,6 +202,7 @@ export class TrafficController {
   }
 
   beginTick(nowMs: number): void {
+    this.routes.synchronizeCongestion([...this.runtime.values()].map((runtime) => runtime.route));
     this.deadlocks.beginTick(nowMs);
     this.laneChanges.beginTick(nowMs);
   }

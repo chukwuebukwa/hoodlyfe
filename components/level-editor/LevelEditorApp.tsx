@@ -264,6 +264,9 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     const removedRoadblocks = before.lanes.roadblocks?.length ?? 0;
     const summary = [
       `Generate ${generated.stats.corridors} corridors and ${generated.stats.junctions} junctions from the complete road-cell layer?`,
+      `Classification: ${Object.entries(generated.stats.roadClasses).map(([roadClass, count]) => `${count} ${roadClass}`).join(', ')}.`,
+      `${generated.stats.multiLaneCorridors} wide corridors carry two lanes per direction.`,
+      `${generated.stats.clearanceConstrainedCorridors} narrow corridor${generated.stats.clearanceConstrainedCorridors === 1 ? '' : 's'} use reduced lane offsets to preserve the full vehicle envelope.`,
       `This replaces the current ${before.lanes.corridors.length} corridors and ${before.lanes.junctions.length} junctions.`,
       removedRoadblocks > 0 ? `${removedRoadblocks} roadblock definition${removedRoadblocks === 1 ? '' : 's'} will be cleared because their lane-edge references become stale.` : '',
       'The operation is undoable.'
@@ -278,7 +281,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     }));
     setValidationOpen(false);
     requestView('fit');
-    setStatus(`Generated ${generated.stats.corridors} corridors and ${generated.stats.junctions} junctions across ${generated.stats.retainedRoadCells.toLocaleString()} connected road cells.`);
+    setStatus(`Generated ${generated.stats.corridors} classified corridors and ${generated.stats.junctions} junctions across ${generated.stats.retainedRoadCells.toLocaleString()} connected road cells; ${generated.stats.multiLaneCorridors} are multi-lane and ${generated.stats.clearanceConstrainedCorridors} required clearance fitting.`);
   }
 
   function onExportProject(): void {

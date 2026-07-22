@@ -5,6 +5,7 @@ import type {
   EditorSpawn,
   LaneCorridor,
   LaneCorridorDirection,
+  LaneRoadClass,
   LaneJunction,
   LaneRoadblock,
   LevelEditorDocument,
@@ -163,10 +164,28 @@ function CorridorInspector(props: LevelEditorInspectorProps & {corridor: LaneCor
             <option value="reverse">Reverse only</option>
           </select>
         </label>
+        <label className="le-field"><span>Road class</span>
+          <select
+            value={corridor.roadClass ?? 'street'}
+            onChange={(event) => update('Change road class', {roadClass: event.target.value as LaneRoadClass})}
+          >
+            <option value="arterial">Arterial</option>
+            <option value="boulevard">Boulevard</option>
+            <option value="street">Street</option>
+            <option value="service">Service road</option>
+            <option value="alley">Alley</option>
+          </select>
+        </label>
         <div className="le-field-grid">
           <NumberField label="Speed limit" value={corridor.speedLimit} min={1} onCommit={(speedLimit) => update('Change speed limit', {speedLimit})} />
           <NumberField label="Lanes / direction" value={corridor.lanesPerDirection ?? 1} min={1} max={4} onCommit={(lanesPerDirection) => update('Change lane count', {lanesPerDirection})} />
+          <NumberField label="Lane offset" value={corridor.laneOffset ?? props.document.lanes.laneOffset} min={1} onCommit={(laneOffset) => update('Change lane offset', {laneOffset})} />
+          <NumberField label="Lane spacing" value={corridor.laneSpacing ?? props.document.lanes.laneSpacing} min={1} onCommit={(laneSpacing) => update('Change lane spacing', {laneSpacing})} />
+          <NumberField label="Route priority" value={corridor.routePriority ?? 1} min={0.1} max={4} onCommit={(routePriority) => update('Change route priority', {routePriority})} />
+          <NumberField label="Traffic density" value={corridor.trafficDensity ?? 1} min={0} max={4} onCommit={(trafficDensity) => update('Change traffic density', {trafficDensity})} />
         </div>
+        <Readout label="Measured half-width" value={corridor.measuredHalfWidth === undefined ? 'Not measured' : `${corridor.measuredHalfWidth.toFixed(1)} px`} />
+        <Readout label="Clearance" value={corridor.clearanceConstrained ? 'Constrained bend' : 'Full envelope'} />
       </InspectorSection>
       <InspectorSection title={`Points (${corridor.points.length})`}>
         <div className="le-point-list">

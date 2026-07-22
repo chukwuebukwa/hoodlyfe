@@ -25,6 +25,14 @@ test('full BIL road surface generates a deterministic playable lane network', ()
   assert.ok(first.stats.retainedRoadCells > 15_000);
   assert.ok(first.stats.corridors > 300);
   assert.ok(first.stats.junctions > 180);
+  assert.equal(
+    Object.values(first.stats.roadClasses).reduce((sum, count) => sum + count, 0),
+    first.stats.corridors
+  );
+  assert.ok(first.stats.roadClasses.arterial > 0);
+  assert.ok(first.stats.roadClasses.street > 0);
+  assert.ok(first.stats.multiLaneCorridors > 0);
+  assert.ok(first.stats.clearanceConstrainedCorridors > 0);
   assert.equal(first.lanes.roadblocks?.length, lanes.roadblocks?.length);
   assert.equal(validateLevelDocument({...document, lanes: first.lanes}).counts.error, 0);
 

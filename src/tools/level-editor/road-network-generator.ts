@@ -2,10 +2,12 @@ import type {
   LaneCorridor,
   LaneGraphDocument,
   LaneJunction,
+  LaneRoadClass,
   LaneRoadblock,
   LevelEditorDocument,
   Point2D
 } from './level-document.ts';
+import {compileLaneNetwork} from '../../../shared/traffic/lane-network-compiler.ts';
 
 export interface RoadNetworkGenerationStats {
   sourceRoadCells: number;
@@ -15,6 +17,9 @@ export interface RoadNetworkGenerationStats {
   corridors: number;
   junctions: number;
   terminalNodes: number;
+  multiLaneCorridors: number;
+  clearanceConstrainedCorridors: number;
+  roadClasses: Record<LaneRoadClass, number>;
 }
 
 export interface GeneratedRoadNetwork {
@@ -100,11 +105,22 @@ export function generateRoadNetwork(
       ...corridor.pixels.slice(1, -1).map((pixel) => pointFromIndex(pixel, width)),
       to
     ], SIMPLIFICATION_TOLERANCE_TILES);
-    const roadRadius = median(tilePoints.map((point) => roadRadiusAt(roadMask, width, height, point)));
+    const radii = tilePoints.map((point) => roadRadiusAt(roadMask, width, height, point));
+    const roadRadius = median(radii);
+    const measuredHalfWidth = (roadRadius + 0.5) * document.map.tileSize;
+    const terminal = incident[corridor.from].length === 1 || incident[corridor.to].length === 1;
+    const lengthTiles = polylineLength(tilePoints);
+    const roadClass = classifyRoad(roadRadius, lengthTiles, terminal);
     return {
       id: numberedId('road', index),
-      speedLimit: roadRadius >= 2 ? 118 : 96,
-      lanesPerDirection: 1,
+      speedLimit: roadClassSpeed(roadClass),
+      lanesPerDirection: preferredLaneCount(roadClass, measuredHalfWidth),
+      roadClass,
+      laneOffset: laneOffsetForWidth(measuredHalfWidth),
+      laneSpacing: 34,
+      measuredHalfWidth,
+      routePriority: roadClassPriority(roadClass),
+      trafficDensity: roadClassDensity(roadClass),
       points: tilePoints.map((point) => tileCenterToWorld(document, point))
     };
   });
@@ -123,12 +139,22 @@ export function generateRoadNetwork(
       corridors: corridorIndexes.map((index) => corridors[index].id).sort()
     });
   });
+  fitCorridorLaneOffsets(document, roadMask, corridors, junctions);
+  const roadClasses: Record<LaneRoadClass, number> = {
+    arterial: 0,
+    boulevard: 0,
+    street: 0,
+    service: 0,
+    alley: 0
+  };
+  for (const corridor of corridors) roadClasses[corridor.roadClass ?? 'street']++;
 
   return {
     lanes: {
       ...document.lanes,
       schemaVersion: 2,
-      laneOffset: Math.min(document.lanes.laneOffset, 8),
+      laneOffset: 16.5,
+      laneSpacing: 34,
       corridors,
       junctions,
       roadblocks: rebindRoadblocks(options.roadblocks ?? document.lanes.roadblocks ?? [], corridors)
@@ -140,9 +166,153 @@ export function generateRoadNetwork(
       skeletonCells: skeleton.reduce((sum, value) => sum + value, 0),
       corridors: corridors.length,
       junctions: junctions.length,
-      terminalNodes
+      terminalNodes,
+      multiLaneCorridors: corridors.filter((corridor) => (corridor.lanesPerDirection ?? 1) > 1).length,
+      clearanceConstrainedCorridors: corridors.filter((corridor) => corridor.clearanceConstrained).length,
+      roadClasses
     }
   };
+}
+
+function fitCorridorLaneOffsets(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  corridors: LaneCorridor[],
+  junctions: readonly LaneJunction[]
+): void {
+  const candidates = [16.5, 16, 15, 14, 12, 10, 8];
+  for (const corridor of corridors) {
+    const desired = corridor.laneOffset ?? 16.5;
+    const offsets = [desired, ...candidates.filter((candidate) => candidate < desired)];
+    const desiredLaneCount = corridor.lanesPerDirection ?? 1;
+    let accepted: {laneOffset: number; laneCount: number} | undefined;
+    for (const laneCount of desiredLaneCount > 1 ? [desiredLaneCount, 1] : [1]) {
+      const laneOffset = offsets.find((candidate) => corridorFitsRoad(
+        document,
+        roadMask,
+        {...corridor, lanesPerDirection: laneCount, laneOffset: candidate},
+        junctions
+      ));
+      if (laneOffset !== undefined) {
+        accepted = {laneOffset, laneCount};
+        break;
+      }
+    }
+    corridor.lanesPerDirection = accepted?.laneCount ?? 1;
+    corridor.laneOffset = accepted?.laneOffset ?? 8;
+    corridor.clearanceConstrained = (
+      corridor.lanesPerDirection < desiredLaneCount || corridor.laneOffset < 16.5
+    );
+  }
+}
+
+function corridorFitsRoad(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  corridor: LaneCorridor,
+  junctions: readonly LaneJunction[]
+): boolean {
+  const relevantJunctions = junctions
+    .filter((junction) => junction.corridors.includes(corridor.id))
+    .map((junction) => ({...junction, corridors: [corridor.id]}));
+  const compiled = compileLaneNetwork({
+    laneOffset: 16.5,
+    laneSpacing: 34,
+    corridors: [corridor],
+    junctions: relevantJunctions
+  });
+  return compiled.edges
+    .filter((edge) => edge.kind === 'lane')
+    .every((edge) => {
+      const from = compiled.nodes.find((node) => node.id === edge.fromNodeId)!;
+      const to = compiled.nodes.find((node) => node.id === edge.toNodeId)!;
+      const samples = Math.max(1, Math.ceil(edge.length / 8));
+      for (let index = 0; index <= samples; index++) {
+        const progress = index / samples;
+        const x = from.x + (to.x - from.x) * progress;
+        const y = from.y + (to.y - from.y) * progress;
+        if (!roadFootprintFits(document, roadMask, x, y, 20)) return false;
+      }
+      return true;
+    });
+}
+
+function roadFootprintFits(
+  document: LevelEditorDocument,
+  roadMask: Uint8Array,
+  x: number,
+  y: number,
+  radius: number
+): boolean {
+  const diagonal = radius * Math.SQRT1_2;
+  const samples = [
+    {x, y},
+    {x: x - radius, y}, {x: x + radius, y},
+    {x, y: y - radius}, {x, y: y + radius},
+    {x: x - diagonal, y: y - diagonal}, {x: x + diagonal, y: y - diagonal},
+    {x: x - diagonal, y: y + diagonal}, {x: x + diagonal, y: y + diagonal}
+  ];
+  return samples.every((point) => {
+    const tileX = Math.floor((point.x - document.map.origin.x) / document.map.tileSize);
+    const tileY = Math.floor((point.y - document.map.origin.y) / document.map.tileSize);
+    if (!inside(tileX, tileY, document.map.width, document.map.height)) return false;
+    return Boolean(roadMask[indexOf(tileX, tileY, document.map.width)]);
+  });
+}
+
+function classifyRoad(roadRadius: number, lengthTiles: number, terminal: boolean): LaneRoadClass {
+  if (roadRadius >= 2) return 'arterial';
+  if (roadRadius >= 1) return 'boulevard';
+  if (terminal && lengthTiles <= 3.5) return 'alley';
+  if (terminal && lengthTiles <= 7) return 'service';
+  return 'street';
+}
+
+function roadClassSpeed(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 124;
+    case 'boulevard': return 112;
+    case 'street': return 96;
+    case 'service': return 76;
+    case 'alley': return 58;
+  }
+}
+
+function roadClassPriority(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.25;
+    case 'boulevard': return 1.15;
+    case 'street': return 1;
+    case 'service': return 0.84;
+    case 'alley': return 0.68;
+  }
+}
+
+function roadClassDensity(roadClass: LaneRoadClass): number {
+  switch (roadClass) {
+    case 'arterial': return 1.35;
+    case 'boulevard': return 1.2;
+    case 'street': return 1;
+    case 'service': return 0.58;
+    case 'alley': return 0.24;
+  }
+}
+
+function preferredLaneCount(roadClass: LaneRoadClass, measuredHalfWidth: number): number {
+  if ((roadClass === 'arterial' || roadClass === 'boulevard') && measuredHalfWidth >= 70) return 2;
+  return 1;
+}
+
+function laneOffsetForWidth(measuredHalfWidth: number): number {
+  return Math.max(16.5, Math.min(22, Math.floor(measuredHalfWidth - 16)));
+}
+
+function polylineLength(points: readonly TilePoint[]): number {
+  let length = 0;
+  for (let index = 1; index < points.length; index++) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
 }
 
 function rebindRoadblocks(

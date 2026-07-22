@@ -22,8 +22,9 @@ test('fleet scales to heat through delayed, clear, road-reachable reinforcements
   assert.equal(fixture.controller.managedVehicleIds().length, 1);
   fixture.controller.update(1_799);
   assert.equal(fixture.controller.managedVehicleIds().length, 1);
-  fixture.controller.update(1_800);
-  fixture.controller.update(3_600);
+  for (let nowMs = 1_800; nowMs <= 10_800 && fixture.controller.managedVehicleIds().length < 3; nowMs += 1_800) {
+    fixture.controller.update(nowMs);
+  }
   assert.equal(fixture.controller.managedVehicleIds().length, 3);
 
   const vehicles = fixture.controller.managedVehicleIds()

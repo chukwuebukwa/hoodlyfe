@@ -2,14 +2,20 @@
   "schemaVersion": 2,
   "districtId": "industrial-district",
   "driveSide": "right",
-  "laneOffset": 8,
-  "laneSpacing": 40,
+  "laneOffset": 16.5,
+  "laneSpacing": 34,
   "allowTerminalTurnarounds": true,
   "corridors": [
     {
       "id": "road-001",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14816,
@@ -19,12 +25,19 @@
           "x": 14816,
           "y": 1632
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-002",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6944,
@@ -38,12 +51,19 @@
           "x": 8288,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-003",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6944,
@@ -53,12 +73,19 @@
           "x": 6944,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-004",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6944,
@@ -80,12 +107,19 @@
           "x": 5088,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-005",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 11296,
@@ -95,12 +129,19 @@
           "x": 11296,
           "y": 2144
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-006",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 13600,
@@ -110,12 +151,19 @@
           "x": 14816,
           "y": 1632
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-007",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14816,
@@ -133,12 +181,19 @@
           "x": 15136,
           "y": 3040
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-008",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 12768,
@@ -168,12 +223,19 @@
           "x": 12448,
           "y": 2144
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-009",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 11296,
@@ -183,12 +245,19 @@
           "x": 12448,
           "y": 2144
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-010",
-      "speedLimit": 96,
+      "speedLimit": 76,
       "lanesPerDirection": 1,
+      "roadClass": "service",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.84,
+      "trafficDensity": 0.58,
       "points": [
         {
           "x": 11296,
@@ -198,12 +267,19 @@
           "x": 11296,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-011",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 11296,
@@ -229,12 +305,19 @@
           "x": 10112,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-012",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 12448,
@@ -248,12 +331,19 @@
           "x": 13088,
           "y": 2400
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-013",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5088,
@@ -263,12 +353,19 @@
           "x": 6944,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-014",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5088,
@@ -282,12 +379,19 @@
           "x": 5120,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-015",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6944,
@@ -297,12 +401,19 @@
           "x": 8288,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-016",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8288,
@@ -316,12 +427,19 @@
           "x": 8320,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-017",
-      "speedLimit": 96,
+      "speedLimit": 58,
       "lanesPerDirection": 1,
+      "roadClass": "alley",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.68,
+      "trafficDensity": 0.24,
       "points": [
         {
           "x": 14304,
@@ -331,12 +449,19 @@
           "x": 14496,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-018",
-      "speedLimit": 96,
+      "speedLimit": 76,
       "lanesPerDirection": 1,
+      "roadClass": "service",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.84,
+      "trafficDensity": 0.58,
       "points": [
         {
           "x": 14496,
@@ -346,12 +471,19 @@
           "x": 14752,
           "y": 2592
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-019",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14496,
@@ -361,12 +493,19 @@
           "x": 14496,
           "y": 3040
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-020",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9056,
@@ -384,12 +523,19 @@
           "x": 9280,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-021",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14496,
@@ -399,12 +545,19 @@
           "x": 15136,
           "y": 3040
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-022",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14496,
@@ -430,12 +583,19 @@
           "x": 13760,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-023",
-      "speedLimit": 96,
+      "speedLimit": 76,
       "lanesPerDirection": 1,
+      "roadClass": "service",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.84,
+      "trafficDensity": 0.58,
       "points": [
         {
           "x": 15136,
@@ -449,12 +609,19 @@
           "x": 15008,
           "y": 3360
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-024",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1312,
@@ -544,12 +711,19 @@
           "x": 1568,
           "y": 5216
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-025",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1312,
@@ -563,12 +737,19 @@
           "x": 1491.2,
           "y": 5395.2
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-026",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1312,
@@ -594,12 +775,19 @@
           "x": 800,
           "y": 4256
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-027",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5120,
@@ -613,12 +801,19 @@
           "x": 4256,
           "y": 4192
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-028",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5120,
@@ -628,12 +823,19 @@
           "x": 5856,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-029",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5120,
@@ -647,12 +849,19 @@
           "x": 5152,
           "y": 3680
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-030",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5856,
@@ -662,12 +871,19 @@
           "x": 8320,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-031",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5856,
@@ -681,12 +897,19 @@
           "x": 5824,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-032",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8320,
@@ -696,12 +919,19 @@
           "x": 9280,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-033",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8320,
@@ -715,12 +945,19 @@
           "x": 8352,
           "y": 3680
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-034",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9280,
@@ -730,12 +967,19 @@
           "x": 9888,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-035",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9280,
@@ -749,12 +993,19 @@
           "x": 9312,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-036",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9888,
@@ -764,12 +1015,19 @@
           "x": 10112,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-037",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9888,
@@ -783,12 +1041,19 @@
           "x": 9856,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-038",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10112,
@@ -798,12 +1063,19 @@
           "x": 13760,
           "y": 3488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-039",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10112,
@@ -817,12 +1089,19 @@
           "x": 10144,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-040",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 13760,
@@ -836,12 +1115,19 @@
           "x": 14304,
           "y": 5728
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-041",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 13760,
@@ -855,12 +1141,19 @@
           "x": 13792,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-042",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 3232,
@@ -870,12 +1163,19 @@
           "x": 3232,
           "y": 4192
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-043",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5152,
@@ -889,12 +1189,19 @@
           "x": 5824,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-044",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5152,
@@ -932,12 +1239,19 @@
           "x": 4384,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-045",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8352,
@@ -951,12 +1265,19 @@
           "x": 9312,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-046",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8352,
@@ -974,12 +1295,19 @@
           "x": 5824,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-047",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 5824,
@@ -993,12 +1321,19 @@
           "x": 5792,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-048",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9312,
@@ -1008,12 +1343,19 @@
           "x": 9856,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-049",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9856,
@@ -1027,12 +1369,19 @@
           "x": 9824,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-050",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9856,
@@ -1042,12 +1391,19 @@
           "x": 10144,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-051",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10144,
@@ -1057,12 +1413,19 @@
           "x": 13792,
           "y": 3744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-052",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 13792,
@@ -1076,12 +1439,19 @@
           "x": 14048,
           "y": 5696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-053",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7392,
@@ -1099,12 +1469,19 @@
           "x": 8032,
           "y": 4832
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-054",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7392,
@@ -1114,12 +1491,19 @@
           "x": 7392,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-055",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7392,
@@ -1133,12 +1517,19 @@
           "x": 6560,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-056",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3232,
@@ -1148,12 +1539,19 @@
           "x": 4256,
           "y": 4192
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-057",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 3232,
@@ -1179,12 +1577,19 @@
           "x": 2528,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-058",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 4256,
@@ -1206,12 +1611,19 @@
           "x": 3360,
           "y": 5216
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-059",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5280,
@@ -1229,12 +1641,19 @@
           "x": 5792,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-060",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 5792,
@@ -1244,12 +1663,19 @@
           "x": 6560,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-061",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 6560,
@@ -1259,12 +1685,19 @@
           "x": 7392,
           "y": 4512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-062",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7392,
@@ -1278,12 +1711,19 @@
           "x": 8032,
           "y": 4832
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-063",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 8032,
@@ -1293,12 +1733,19 @@
           "x": 8032,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-064",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -1308,12 +1755,19 @@
           "x": 3360,
           "y": 5216
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-065",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1568,
@@ -1331,12 +1785,19 @@
           "x": 1491.2,
           "y": 5395.2
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-066",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3360,
@@ -1350,12 +1811,19 @@
           "x": 3328,
           "y": 5472
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-067",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6240,
@@ -1365,12 +1833,19 @@
           "x": 6880,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-068",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6240,
@@ -1380,12 +1855,19 @@
           "x": 6240,
           "y": 5856
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-069",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6240,
@@ -1407,12 +1889,19 @@
           "x": 5088,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-070",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6880,
@@ -1422,12 +1911,19 @@
           "x": 7648,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-071",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6880,
@@ -1437,12 +1933,19 @@
           "x": 6880,
           "y": 6048
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-072",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7648,
@@ -1452,12 +1955,19 @@
           "x": 8032,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-073",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7648,
@@ -1467,12 +1977,19 @@
           "x": 7648,
           "y": 5792
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-074",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 8032,
@@ -1482,12 +1999,19 @@
           "x": 8416,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-075",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 8416,
@@ -1497,12 +2021,19 @@
           "x": 9248,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-076",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 8416,
@@ -1516,12 +2047,19 @@
           "x": 7648,
           "y": 5792
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-077",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 9248,
@@ -1531,12 +2069,19 @@
           "x": 9824,
           "y": 5280
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-078",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9248,
@@ -1562,12 +2107,19 @@
           "x": 8480,
           "y": 6624
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-079",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 9824,
@@ -1581,12 +2133,19 @@
           "x": 10976,
           "y": 5664
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-080",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 9824,
@@ -1596,12 +2155,19 @@
           "x": 9824,
           "y": 6176
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-081",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1491.2,
@@ -1631,12 +2197,19 @@
           "x": 1376,
           "y": 7776
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-082",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1491.2,
@@ -1650,12 +2223,19 @@
           "x": 3328,
           "y": 5472
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-083",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1491.2,
@@ -1669,12 +2249,19 @@
           "x": 1568,
           "y": 7744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-084",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3328,
@@ -1688,12 +2275,19 @@
           "x": 3296,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-085",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3328,
@@ -1707,12 +2301,19 @@
           "x": 3872,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-086",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 3872,
@@ -1722,12 +2323,19 @@
           "x": 4000,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-087",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 3872,
@@ -1741,12 +2349,19 @@
           "x": 4000,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-088",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4000,
@@ -1756,12 +2371,19 @@
           "x": 4128,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-089",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4000,
@@ -1771,12 +2393,19 @@
           "x": 4000,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-090",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4128,
@@ -1786,12 +2415,19 @@
           "x": 4256,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-091",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4128,
@@ -1801,12 +2437,19 @@
           "x": 4128,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-092",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4256,
@@ -1816,12 +2459,19 @@
           "x": 4384,
           "y": 5536
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-093",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4256,
@@ -1831,12 +2481,19 @@
           "x": 4256,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-094",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4384,
@@ -1850,12 +2507,19 @@
           "x": 4256,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-095",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10976,
@@ -1869,12 +2533,19 @@
           "x": 14048,
           "y": 5696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-096",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -1884,12 +2555,19 @@
           "x": 10976,
           "y": 6688
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-097",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -1903,12 +2581,19 @@
           "x": 14304,
           "y": 5728
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-098",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -1918,12 +2603,19 @@
           "x": 14048,
           "y": 6176
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-099",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -1933,12 +2625,19 @@
           "x": 14304,
           "y": 6144
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-100",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1952,
@@ -1948,12 +2647,19 @@
           "x": 2400,
           "y": 5792
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-101",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2400,
@@ -1963,12 +2669,19 @@
           "x": 2912,
           "y": 5792
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-102",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2400,
@@ -1978,12 +2691,19 @@
           "x": 2400,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-103",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7648,
@@ -1993,12 +2713,19 @@
           "x": 7648,
           "y": 6048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-104",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 6240,
@@ -2012,12 +2739,19 @@
           "x": 5728,
           "y": 6304
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-105",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 6240,
@@ -2039,12 +2773,19 @@
           "x": 5728,
           "y": 6304
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-106",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4000,
@@ -2054,12 +2795,19 @@
           "x": 4128,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-107",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4128,
@@ -2069,12 +2817,19 @@
           "x": 4256,
           "y": 5984
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-108",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6880,
@@ -2084,12 +2839,19 @@
           "x": 7648,
           "y": 6048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-109",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6880,
@@ -2099,12 +2861,19 @@
           "x": 6880,
           "y": 6624
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-110",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7648,
@@ -2114,12 +2883,19 @@
           "x": 7648,
           "y": 6624
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-111",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1824,
@@ -2129,12 +2905,19 @@
           "x": 2400,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-112",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2400,
@@ -2144,12 +2927,19 @@
           "x": 3040,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-113",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2400,
@@ -2159,12 +2949,19 @@
           "x": 2400,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-114",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3296,
@@ -2174,12 +2971,19 @@
           "x": 4128,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-115",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3296,
@@ -2189,12 +2993,19 @@
           "x": 3296,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-116",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 4128,
@@ -2204,12 +3015,19 @@
           "x": 5088,
           "y": 6112
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-117",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4128,
@@ -2223,12 +3041,19 @@
           "x": 3296,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-118",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5088,
@@ -2238,12 +3063,19 @@
           "x": 5088,
           "y": 6304
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-119",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14304,
@@ -2261,12 +3093,19 @@
           "x": 14944,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-120",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -2276,12 +3115,19 @@
           "x": 14304,
           "y": 6944
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-121",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -2295,12 +3141,19 @@
           "x": 14048,
           "y": 6176
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-122",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2314,12 +3167,19 @@
           "x": 10336,
           "y": 6688
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-123",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2329,12 +3189,19 @@
           "x": 9824,
           "y": 6688
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-124",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -2344,12 +3211,19 @@
           "x": 14048,
           "y": 6912
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-125",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5088,
@@ -2359,12 +3233,19 @@
           "x": 5728,
           "y": 6304
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-126",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5088,
@@ -2374,12 +3255,19 @@
           "x": 5088,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-127",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 5728,
@@ -2389,12 +3277,19 @@
           "x": 5728,
           "y": 7072
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-128",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6880,
@@ -2404,12 +3299,19 @@
           "x": 7648,
           "y": 6624
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-129",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6880,
@@ -2431,12 +3333,19 @@
           "x": 6368,
           "y": 7072
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-130",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7648,
@@ -2446,12 +3355,19 @@
           "x": 8480,
           "y": 6624
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-131",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7648,
@@ -2461,12 +3377,19 @@
           "x": 7648,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-132",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -2476,12 +3399,19 @@
           "x": 8480,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-133",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2491,12 +3421,19 @@
           "x": 10336,
           "y": 6688
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-134",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2506,12 +3443,19 @@
           "x": 9824,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-135",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2533,12 +3477,19 @@
           "x": 9184,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-136",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10336,
@@ -2548,12 +3499,19 @@
           "x": 10976,
           "y": 6688
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-137",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -2563,12 +3521,19 @@
           "x": 10976,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-138",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2400,
@@ -2578,12 +3543,19 @@
           "x": 3296,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-139",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 2400,
@@ -2593,12 +3565,19 @@
           "x": 2400,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-140",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 3296,
@@ -2608,12 +3587,19 @@
           "x": 3296,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-141",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -2623,12 +3609,19 @@
           "x": 11936,
           "y": 6880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-142",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -2638,12 +3631,19 @@
           "x": 10976,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-143",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 11936,
@@ -2673,12 +3673,19 @@
           "x": 14048,
           "y": 6912
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-144",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 11936,
@@ -2696,12 +3703,19 @@
           "x": 14048,
           "y": 8512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-145",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -2715,12 +3729,19 @@
           "x": 14304,
           "y": 6944
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-146",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -2730,12 +3751,19 @@
           "x": 14048,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-147",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -2745,12 +3773,19 @@
           "x": 14304,
           "y": 8544
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-148",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5728,
@@ -2760,12 +3795,19 @@
           "x": 6368,
           "y": 7072
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-149",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5728,
@@ -2775,12 +3817,19 @@
           "x": 5728,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-150",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6368,
@@ -2790,12 +3839,19 @@
           "x": 6368,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-151",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7648,
@@ -2805,12 +3861,19 @@
           "x": 8480,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-152",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7648,
@@ -2832,12 +3895,19 @@
           "x": 6816,
           "y": 7392
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-153",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -2847,12 +3917,19 @@
           "x": 9184,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-154",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -2862,12 +3939,19 @@
           "x": 8480,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-155",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9184,
@@ -2877,12 +3961,19 @@
           "x": 9824,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-156",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9184,
@@ -2896,12 +3987,19 @@
           "x": 9824,
           "y": 7648
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-157",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2919,12 +4017,19 @@
           "x": 9824,
           "y": 7648
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-158",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9824,
@@ -2934,12 +4039,19 @@
           "x": 9824,
           "y": 7648
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-159",
-      "speedLimit": 96,
+      "speedLimit": 58,
       "lanesPerDirection": 1,
+      "roadClass": "alley",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.68,
+      "trafficDensity": 0.24,
       "points": [
         {
           "x": 14944,
@@ -2949,12 +4061,19 @@
           "x": 15136,
           "y": 7136
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-160",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14944,
@@ -2972,12 +4091,19 @@
           "x": 15584,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-161",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9824,
@@ -2987,12 +4113,19 @@
           "x": 9824,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-162",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1568,
@@ -3006,12 +4139,19 @@
           "x": 2400,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-163",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1568,
@@ -3021,12 +4161,19 @@
           "x": 1568,
           "y": 8768
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-164",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1568,
@@ -3040,12 +4187,19 @@
           "x": 1376,
           "y": 7776
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-165",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 2400,
@@ -3055,12 +4209,19 @@
           "x": 3296,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-166",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 2400,
@@ -3070,12 +4231,19 @@
           "x": 2400,
           "y": 8736
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-167",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 3296,
@@ -3085,12 +4253,19 @@
           "x": 5088,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-168",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3296,
@@ -3104,12 +4279,19 @@
           "x": 3552,
           "y": 8800
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-169",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5088,
@@ -3119,12 +4301,19 @@
           "x": 5472,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-170",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5472,
@@ -3134,12 +4323,19 @@
           "x": 5728,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-171",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5472,
@@ -3149,12 +4345,19 @@
           "x": 5472,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-172",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5728,
@@ -3164,12 +4367,19 @@
           "x": 6368,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-173",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 6368,
@@ -3183,12 +4393,19 @@
           "x": 7456,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-174",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 13728,
@@ -3198,12 +4415,19 @@
           "x": 14048,
           "y": 7712
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-175",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -3213,12 +4437,19 @@
           "x": 14048,
           "y": 8512
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-176",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1376,
@@ -3236,12 +4467,19 @@
           "x": 1312,
           "y": 8768
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-177",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 800,
@@ -3263,12 +4501,19 @@
           "x": 416,
           "y": 8736
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-178",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5152,
@@ -3278,12 +4523,19 @@
           "x": 5472,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-179",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5472,
@@ -3293,12 +4545,19 @@
           "x": 5472,
           "y": 8800
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-180",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -3308,12 +4567,19 @@
           "x": 9440,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-181",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -3323,12 +4589,19 @@
           "x": 8480,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-182",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9440,
@@ -3338,12 +4611,19 @@
           "x": 9824,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-183",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9440,
@@ -3357,12 +4637,19 @@
           "x": 9472,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-184",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9824,
@@ -3372,12 +4659,19 @@
           "x": 10272,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-185",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10272,
@@ -3387,12 +4681,19 @@
           "x": 10976,
           "y": 8288
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-186",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10272,
@@ -3402,12 +4703,19 @@
           "x": 10272,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-187",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -3417,12 +4725,19 @@
           "x": 10976,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-188",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -3436,12 +4751,19 @@
           "x": 14304,
           "y": 8544
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-189",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14048,
@@ -3463,12 +4785,19 @@
           "x": 12896,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-190",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -3478,12 +4807,19 @@
           "x": 14304,
           "y": 9632
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-191",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 416,
@@ -3497,12 +4833,19 @@
           "x": 1312,
           "y": 8768
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-192",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 416,
@@ -3512,12 +4855,19 @@
           "x": 416,
           "y": 9760
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-193",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1312,
@@ -3535,12 +4885,19 @@
           "x": 1568,
           "y": 8768
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-194",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1312,
@@ -3558,12 +4915,19 @@
           "x": 1491.2,
           "y": 9875.2
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-195",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1568,
@@ -3577,12 +4941,19 @@
           "x": 2400,
           "y": 8736
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-196",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -3592,12 +4963,19 @@
           "x": 1568,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-197",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2400,
@@ -3611,12 +4989,19 @@
           "x": 2432,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-198",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3552,
@@ -3626,12 +5011,19 @@
           "x": 5472,
           "y": 8800
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-199",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3552,
@@ -3641,12 +5033,19 @@
           "x": 3552,
           "y": 9440
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-200",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5472,
@@ -3664,12 +5063,19 @@
           "x": 5888,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-201",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7456,
@@ -3679,12 +5085,19 @@
           "x": 8480,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-202",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7456,
@@ -3702,12 +5115,19 @@
           "x": 7520,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-203",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -3717,12 +5137,19 @@
           "x": 9472,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-204",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8480,
@@ -3736,12 +5163,19 @@
           "x": 8512,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-205",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9472,
@@ -3751,12 +5185,19 @@
           "x": 10272,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-206",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9472,
@@ -3782,12 +5223,19 @@
           "x": 8992,
           "y": 9248
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-207",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10272,
@@ -3797,12 +5245,19 @@
           "x": 10976,
           "y": 8864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-208",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10272,
@@ -3812,12 +5267,19 @@
           "x": 10272,
           "y": 9440
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-209",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -3827,12 +5289,19 @@
           "x": 10976,
           "y": 9632
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-210",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15584,
@@ -3850,12 +5319,19 @@
           "x": 15264,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-211",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15584,
@@ -3877,12 +5353,19 @@
           "x": 15264,
           "y": 9056
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-212",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 10976,
@@ -3900,12 +5383,19 @@
           "x": 12896,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-213",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10976,
@@ -3923,12 +5413,19 @@
           "x": 9760,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-214",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14304,
@@ -3942,12 +5439,19 @@
           "x": 14752,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-215",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 14304,
@@ -3969,12 +5473,19 @@
           "x": 12864,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-216",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -3984,12 +5495,19 @@
           "x": 2208,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-217",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 1568,
@@ -4007,12 +5525,19 @@
           "x": 1491.2,
           "y": 9875.2
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-218",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2208,
@@ -4022,12 +5547,19 @@
           "x": 2432,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-219",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2208,
@@ -4041,12 +5573,19 @@
           "x": 2176,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-220",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2432,
@@ -4056,12 +5595,19 @@
           "x": 4512,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-221",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2432,
@@ -4075,12 +5621,19 @@
           "x": 2464,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-222",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 4512,
@@ -4090,12 +5643,19 @@
           "x": 5888,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-223",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 4512,
@@ -4109,12 +5669,19 @@
           "x": 4480,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-224",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5888,
@@ -4124,12 +5691,19 @@
           "x": 7520,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-225",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5888,
@@ -4143,12 +5717,19 @@
           "x": 5920,
           "y": 9888
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-226",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -4158,12 +5739,19 @@
           "x": 8512,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-227",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -4173,12 +5761,19 @@
           "x": 7520,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-228",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8512,
@@ -4188,12 +5783,19 @@
           "x": 9760,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-229",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8512,
@@ -4207,12 +5809,19 @@
           "x": 8544,
           "y": 9888
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-230",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9760,
@@ -4226,12 +5835,19 @@
           "x": 9728,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-231",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 12896,
@@ -4245,12 +5861,19 @@
           "x": 12864,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-232",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14752,
@@ -4260,12 +5883,19 @@
           "x": 14880,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-233",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14752,
@@ -4279,12 +5909,19 @@
           "x": 14880,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-234",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14880,
@@ -4294,12 +5931,19 @@
           "x": 15008,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-235",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14880,
@@ -4309,12 +5953,19 @@
           "x": 14880,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-236",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15008,
@@ -4324,12 +5975,19 @@
           "x": 15136,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-237",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15008,
@@ -4339,12 +5997,19 @@
           "x": 15008,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-238",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15136,
@@ -4354,12 +6019,19 @@
           "x": 15264,
           "y": 9696
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-239",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15136,
@@ -4369,12 +6041,19 @@
           "x": 15136,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-240",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15264,
@@ -4388,12 +6067,19 @@
           "x": 15136,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-241",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1491.2,
@@ -4415,12 +6101,19 @@
           "x": 1312,
           "y": 11808
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-242",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1491.2,
@@ -4434,12 +6127,19 @@
           "x": 2176,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-243",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1491.2,
@@ -4453,12 +6153,19 @@
           "x": 1568,
           "y": 11776
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-244",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5920,
@@ -4472,12 +6179,19 @@
           "x": 7520,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-245",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5920,
@@ -4495,12 +6209,19 @@
           "x": 4480,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-246",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8544,
@@ -4514,12 +6235,19 @@
           "x": 9728,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-247",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8544,
@@ -4537,12 +6265,19 @@
           "x": 8032,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-248",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2176,
@@ -4556,12 +6291,19 @@
           "x": 2144,
           "y": 11488
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-249",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2176,
@@ -4571,12 +6313,19 @@
           "x": 2464,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-250",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2464,
@@ -4586,12 +6335,19 @@
           "x": 4480,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-251",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 4480,
@@ -4605,12 +6361,19 @@
           "x": 4448,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-252",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -4620,12 +6383,19 @@
           "x": 8032,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-253",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7520,
@@ -4643,12 +6413,19 @@
           "x": 7456,
           "y": 10784
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-254",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8032,
@@ -4658,12 +6435,19 @@
           "x": 8032,
           "y": 10784
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-255",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9728,
@@ -4677,12 +6461,19 @@
           "x": 9696,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-256",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9728,
@@ -4692,12 +6483,19 @@
           "x": 10912,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-257",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -4707,12 +6505,19 @@
           "x": 11168,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-258",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -4722,12 +6527,19 @@
           "x": 10912,
           "y": 10880
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-259",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -4737,12 +6549,19 @@
           "x": 12864,
           "y": 9952
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-260",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -4752,12 +6571,19 @@
           "x": 11168,
           "y": 10912
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-261",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 12864,
@@ -4783,12 +6609,19 @@
           "x": 12768,
           "y": 12000
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-262",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 14880,
@@ -4798,12 +6631,19 @@
           "x": 15008,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-263",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 15008,
@@ -4813,12 +6653,19 @@
           "x": 15136,
           "y": 10080
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-264",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3552,
@@ -4828,12 +6675,19 @@
           "x": 3552,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-265",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10272,
@@ -4843,12 +6697,19 @@
           "x": 10272,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-266",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 7072,
@@ -4870,12 +6731,19 @@
           "x": 6432,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-267",
-      "speedLimit": 118,
+      "speedLimit": 124,
       "lanesPerDirection": 1,
+      "roadClass": "arterial",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7456,
@@ -4885,12 +6753,19 @@
           "x": 8032,
           "y": 10784
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-268",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7456,
@@ -4908,12 +6783,19 @@
           "x": 7520,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-269",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 8032,
@@ -4927,12 +6809,19 @@
           "x": 9120,
           "y": 11168
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-270",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3552,
@@ -4942,12 +6831,19 @@
           "x": 4448,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-271",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3552,
@@ -4969,12 +6865,19 @@
           "x": 2912,
           "y": 11744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-272",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 4448,
@@ -4988,12 +6891,19 @@
           "x": 5920,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-273",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9696,
@@ -5003,12 +6913,19 @@
           "x": 10272,
           "y": 10848
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-274",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9696,
@@ -5018,12 +6935,19 @@
           "x": 9696,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-275",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10272,
@@ -5037,12 +6961,19 @@
           "x": 10912,
           "y": 10880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-276",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5056,12 +6987,19 @@
           "x": 11168,
           "y": 10912
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-277",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5071,12 +7009,19 @@
           "x": 10912,
           "y": 11456
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-278",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -5094,12 +7039,19 @@
           "x": 11104,
           "y": 11488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-279",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5216,
@@ -5109,12 +7061,19 @@
           "x": 5216,
           "y": 12512
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-280",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5920,
@@ -5124,12 +7083,19 @@
           "x": 6432,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-281",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5920,
@@ -5139,12 +7105,19 @@
           "x": 5920,
           "y": 12512
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-282",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6432,
@@ -5154,12 +7127,19 @@
           "x": 7520,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-283",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 6432,
@@ -5173,12 +7153,19 @@
           "x": 7520,
           "y": 12128
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-284",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -5188,12 +7175,19 @@
           "x": 8544,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-285",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -5203,12 +7197,19 @@
           "x": 7520,
           "y": 12128
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-286",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8544,
@@ -5218,12 +7219,19 @@
           "x": 9696,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-287",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8544,
@@ -5233,12 +7241,19 @@
           "x": 8544,
           "y": 12128
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-288",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9696,
@@ -5248,12 +7263,19 @@
           "x": 10208,
           "y": 11424
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-289",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10208,
@@ -5267,12 +7289,19 @@
           "x": 10912,
           "y": 11456
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-290",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10208,
@@ -5286,12 +7315,19 @@
           "x": 9696,
           "y": 12320
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-291",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5305,12 +7341,19 @@
           "x": 11104,
           "y": 11488
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-292",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5320,12 +7363,19 @@
           "x": 10912,
           "y": 12064
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-293",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11104,
@@ -5339,12 +7389,19 @@
           "x": 11168,
           "y": 12032
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-294",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -5358,12 +7415,19 @@
           "x": 2912,
           "y": 11744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-295",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -5373,12 +7437,19 @@
           "x": 1568,
           "y": 12960
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-296",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -5392,12 +7463,19 @@
           "x": 1312,
           "y": 11808
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-297",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2912,
@@ -5407,12 +7485,19 @@
           "x": 3616,
           "y": 11744
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-298",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3616,
@@ -5430,12 +7515,19 @@
           "x": 5216,
           "y": 12512
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-299",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3616,
@@ -5445,12 +7537,19 @@
           "x": 3616,
           "y": 12640
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-300",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9120,
@@ -5464,12 +7563,19 @@
           "x": 9696,
           "y": 12320
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-301",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1312,
@@ -5479,12 +7585,19 @@
           "x": 1312,
           "y": 12928
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-302",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -5498,12 +7611,19 @@
           "x": 12768,
           "y": 12000
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-303",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -5513,12 +7633,19 @@
           "x": 11168,
           "y": 12896
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-304",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -5532,12 +7659,19 @@
           "x": 10912,
           "y": 12064
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-305",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 12768,
@@ -5567,12 +7701,19 @@
           "x": 11040,
           "y": 15072
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-306",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2144,
@@ -5582,12 +7723,19 @@
           "x": 2144,
           "y": 12640
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-307",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5597,12 +7745,19 @@
           "x": 10912,
           "y": 12864
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-308",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 608,
@@ -5624,12 +7779,19 @@
           "x": 416,
           "y": 12896
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-309",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -5639,12 +7801,19 @@
           "x": 8032,
           "y": 12128
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-310",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7520,
@@ -5666,12 +7835,19 @@
           "x": 7488,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-311",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8032,
@@ -5681,12 +7857,19 @@
           "x": 8544,
           "y": 12128
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-312",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 8032,
@@ -5700,12 +7883,19 @@
           "x": 8064,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-313",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8544,
@@ -5727,12 +7917,19 @@
           "x": 9024,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-314",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2848,
@@ -5750,12 +7947,19 @@
           "x": 2784,
           "y": 12640
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-315",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 9696,
@@ -5769,12 +7973,19 @@
           "x": 10016,
           "y": 12832
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-316",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5216,
@@ -5784,12 +7995,19 @@
           "x": 5920,
           "y": 12512
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-317",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5920,
@@ -5803,12 +8021,19 @@
           "x": 5952,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-318",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2144,
@@ -5818,12 +8043,19 @@
           "x": 2784,
           "y": 12640
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-319",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2144,
@@ -5837,12 +8069,19 @@
           "x": 2176,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-320",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2784,
@@ -5852,12 +8091,19 @@
           "x": 3616,
           "y": 12640
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-321",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 3616,
@@ -5871,12 +8117,19 @@
           "x": 3648,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-322",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10016,
@@ -5890,12 +8143,19 @@
           "x": 10912,
           "y": 12864
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-323",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 10016,
@@ -5909,12 +8169,19 @@
           "x": 10048,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-324",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5928,12 +8195,19 @@
           "x": 11168,
           "y": 12896
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-325",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10912,
@@ -5955,12 +8229,19 @@
           "x": 10048,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-326",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 416,
@@ -5974,12 +8255,19 @@
           "x": 1312,
           "y": 12928
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-327",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 416,
@@ -5993,12 +8281,19 @@
           "x": 1696,
           "y": 14176
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-328",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1312,
@@ -6012,12 +8307,19 @@
           "x": 1568,
           "y": 12960
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-329",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1312,
@@ -6035,12 +8337,19 @@
           "x": 1696,
           "y": 13664
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-330",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11168,
@@ -6062,12 +8371,19 @@
           "x": 10080,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-331",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 1568,
@@ -6081,12 +8397,19 @@
           "x": 2176,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-332",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2176,
@@ -6096,12 +8419,19 @@
           "x": 3648,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-333",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2176,
@@ -6115,12 +8445,19 @@
           "x": 2208,
           "y": 13632
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-334",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3648,
@@ -6130,12 +8467,19 @@
           "x": 5024,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-335",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3648,
@@ -6149,12 +8493,19 @@
           "x": 3680,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-336",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5024,
@@ -6164,12 +8515,19 @@
           "x": 5952,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-337",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5024,
@@ -6183,12 +8541,19 @@
           "x": 4992,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-338",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 5952,
@@ -6198,12 +8563,19 @@
           "x": 7488,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-339",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5952,
@@ -6217,12 +8589,19 @@
           "x": 5984,
           "y": 13536
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-340",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7488,
@@ -6232,12 +8611,19 @@
           "x": 8064,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-341",
-      "speedLimit": 118,
-      "lanesPerDirection": 1,
+      "speedLimit": 124,
+      "lanesPerDirection": 2,
+      "roadClass": "arterial",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 160,
+      "routePriority": 1.25,
+      "trafficDensity": 1.35,
       "points": [
         {
           "x": 7488,
@@ -6251,12 +8637,19 @@
           "x": 7520,
           "y": 13472
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-342",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8064,
@@ -6266,12 +8659,19 @@
           "x": 9024,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-343",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8064,
@@ -6289,12 +8689,19 @@
           "x": 8064,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-344",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9024,
@@ -6304,12 +8711,19 @@
           "x": 10048,
           "y": 13344
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-345",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9024,
@@ -6327,12 +8741,19 @@
           "x": 9024,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-346",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 10048,
@@ -6346,12 +8767,19 @@
           "x": 10080,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-347",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -6365,12 +8793,19 @@
           "x": 8064,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-348",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 7520,
@@ -6400,12 +8835,19 @@
           "x": 5984,
           "y": 13536
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-349",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 5984,
@@ -6423,12 +8865,19 @@
           "x": 4992,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-350",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 16.5,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 2208,
@@ -6442,12 +8891,19 @@
           "x": 3680,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-351",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2208,
@@ -6461,12 +8917,19 @@
           "x": 2080,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-352",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2208,
@@ -6480,12 +8943,19 @@
           "x": 2080,
           "y": 13664
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-353",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 3680,
@@ -6495,12 +8965,19 @@
           "x": 4992,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-354",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 4992,
@@ -6530,12 +9007,19 @@
           "x": 4192,
           "y": 14944
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-355",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8064,
@@ -6553,12 +9037,19 @@
           "x": 8992,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-356",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8064,
@@ -6568,12 +9059,19 @@
           "x": 9024,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-357",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9024,
@@ -6587,12 +9085,19 @@
           "x": 8992,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-358",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 9024,
@@ -6602,12 +9107,19 @@
           "x": 10080,
           "y": 13600
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-359",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1696,
@@ -6617,12 +9129,19 @@
           "x": 1824,
           "y": 13664
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-360",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1696,
@@ -6636,12 +9155,19 @@
           "x": 1824,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-361",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1824,
@@ -6651,12 +9177,19 @@
           "x": 1952,
           "y": 13664
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-362",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1824,
@@ -6666,12 +9199,19 @@
           "x": 1824,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-363",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1952,
@@ -6681,12 +9221,19 @@
           "x": 2080,
           "y": 13664
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-364",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1952,
@@ -6696,12 +9243,19 @@
           "x": 1952,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-365",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 2080,
@@ -6711,12 +9265,19 @@
           "x": 2080,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-366",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1824,
@@ -6726,12 +9287,19 @@
           "x": 1952,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-367",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 10,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1952,
@@ -6741,12 +9309,19 @@
           "x": 2080,
           "y": 14048
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-368",
-      "speedLimit": 96,
-      "lanesPerDirection": 1,
+      "speedLimit": 112,
+      "lanesPerDirection": 2,
+      "roadClass": "boulevard",
+      "laneOffset": 22,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 8992,
@@ -6760,12 +9335,19 @@
           "x": 11040,
           "y": 15072
         }
-      ]
+      ],
+      "clearanceConstrained": false
     },
     {
       "id": "road-369",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1696,
@@ -6783,12 +9365,19 @@
           "x": 4192,
           "y": 14944
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-370",
       "speedLimit": 96,
       "lanesPerDirection": 1,
+      "roadClass": "street",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 1,
+      "trafficDensity": 1,
       "points": [
         {
           "x": 1696,
@@ -6798,12 +9387,19 @@
           "x": 1696,
           "y": 14880
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-371",
-      "speedLimit": 96,
+      "speedLimit": 58,
       "lanesPerDirection": 1,
+      "roadClass": "alley",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 32,
+      "routePriority": 0.68,
+      "trafficDensity": 0.24,
       "points": [
         {
           "x": 4192,
@@ -6813,12 +9409,19 @@
           "x": 4320,
           "y": 14944
         }
-      ]
+      ],
+      "clearanceConstrained": true
     },
     {
       "id": "road-372",
-      "speedLimit": 96,
+      "speedLimit": 112,
       "lanesPerDirection": 1,
+      "roadClass": "boulevard",
+      "laneOffset": 12,
+      "laneSpacing": 34,
+      "measuredHalfWidth": 96,
+      "routePriority": 1.15,
+      "trafficDensity": 1.2,
       "points": [
         {
           "x": 11040,
@@ -6832,7 +9435,8 @@
           "x": 10976,
           "y": 15968
         }
-      ]
+      ],
+      "clearanceConstrained": true
     }
   ],
   "junctions": [

@@ -26,7 +26,8 @@ export class TrafficRoutePlanner {
   constructor(
     private readonly graph: LaneGraph,
     visitLimit?: number,
-    private readonly edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true
+    private readonly edgeAllowed: (edge: LaneGraphEdge) => boolean = () => true,
+    private readonly dynamicCostMultiplier: (edge: LaneGraphEdge) => number = () => 1
   ) {
     this.maximumTraversalSpeed = Math.max(1, ...graph.edges().map((edge) => edge.speedLimit));
     this.visitLimit = visitLimit ?? Math.max(512, graph.nodes().length);
@@ -85,7 +86,7 @@ export class TrafficRoutePlanner {
         if (!this.edgeAllowed(edge)) continue;
         const next = this.graph.node(edge.toNodeId);
         if (!next) continue;
-        const nextCost = currentEntry.cost + edgeCost(edge);
+        const nextCost = currentEntry.cost + edgeCost(edge) * finitePositive(this.dynamicCostMultiplier(edge));
         const previousCost = costs.get(next.id) ?? Number.POSITIVE_INFINITY;
         const previousParent = parents.get(next.id);
         if (
@@ -174,11 +175,15 @@ function reconstruct(
 }
 
 function edgeCost(edge: LaneGraphEdge): number {
-  const traversal = edge.length / Math.max(1, edge.speedLimit);
+  const traversal = edge.length / Math.max(1, edge.speedLimit) / Math.max(0.25, edge.routePriority ?? 1);
   if (edge.kind === 'turnaround') return traversal + 2;
   if (edge.turn === 'left') return traversal + 0.35;
   if (edge.turn === 'right') return traversal + 0.2;
   return traversal;
+}
+
+function finitePositive(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 function heuristic(node: LaneGraphNode, goal: LaneGraphNode, maximumSpeed: number): number {
