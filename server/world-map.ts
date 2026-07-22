@@ -345,14 +345,13 @@ export class CollisionMap {
       const deltaX = point.x - x;
       const deltaY = point.y - y;
       const distanceSquared = deltaX * deltaX + deltaY * deltaY;
+      if (distanceSquared >= nearestDistanceSquared) continue;
       const candidateSurfaceId = surfaceId && this.canOccupy(
         point.x, point.y, radius, surfaceId, 'vehicle'
       ) ? surfaceId : (!surfaceId
           ? this.spawnSurfaceAt(point.x, point.y, radius, 'vehicle', 0)
           : undefined);
-      if (distanceSquared >= nearestDistanceSquared || !candidateSurfaceId) {
-        continue;
-      }
+      if (!candidateSurfaceId) continue;
       nearest = {...node, surfaceId: candidateSurfaceId};
       nearestDistanceSquared = distanceSquared;
     }

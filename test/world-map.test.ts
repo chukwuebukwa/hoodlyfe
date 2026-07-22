@@ -45,3 +45,22 @@ test('traffic spawns normalize fractional and non-finite deterministic seeds', {
     assert.equal(world.isRoadAt(spawn.x, spawn.y), true);
   }
 });
+
+test('nearest road lookup rejects farther cells before resolving their surfaces', {
+  skip: !hasLocalAssets
+}, () => {
+  const world = CollisionMap.load();
+  const surfaceIdsAt = world.surfaces.surfaceIdsAt.bind(world.surfaces);
+  let surfaceLookups = 0;
+  world.surfaces.surfaceIdsAt = (...args) => {
+    surfaceLookups++;
+    return surfaceIdsAt(...args);
+  };
+
+  assert.deepEqual(world.nearestRoadNode(5216, 6048, 20), {
+    column: 81,
+    row: 94,
+    surfaceId: 'street-ground'
+  });
+  assert.ok(surfaceLookups < 1_000, `${surfaceLookups} surface lookups`);
+});
