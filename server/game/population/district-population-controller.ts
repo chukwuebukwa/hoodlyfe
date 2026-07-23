@@ -5,7 +5,7 @@ import {VehicleState, type DistrictState} from '../../state.ts';
 import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
 import type {CollisionMap, TrafficSpawn} from '../../world-map.ts';
 
-export const AMBIENT_TRAFFIC_TARGET = 16;
+export const AMBIENT_TRAFFIC_TARGET = 12;
 const TRAFFIC_SPAWN_ATTEMPTS = 24;
 const TRAFFIC_SPAWN_GAP = 64;
 const PARKED_VEHICLE_KINDS: readonly VehicleKind[] = ['sedan', 'police', 'taxi', 'r33', 's15'];

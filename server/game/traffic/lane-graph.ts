@@ -255,7 +255,14 @@ export class LaneGraph {
   }
 
   static load(world: LaneGraphWorld, projectRoot = process.cwd()): LaneGraph {
-    const path = resolve(projectRoot, 'public', 'assets', 'maps', 'district-lanes.json');
+    return LaneGraph.loadFromMapsDirectory(
+      world,
+      resolve(projectRoot, 'public', 'assets', 'maps')
+    );
+  }
+
+  static loadFromMapsDirectory(world: LaneGraphWorld, mapsDirectory: string): LaneGraph {
+    const path = resolve(mapsDirectory, 'district-lanes.json');
     const document = JSON.parse(readFileSync(path, 'utf8')) as LaneGraphDocument;
     return LaneGraph.fromDocument(document, world);
   }

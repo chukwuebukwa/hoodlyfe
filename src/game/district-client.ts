@@ -103,7 +103,9 @@ export class DistrictClient {
     private readonly parent: HTMLElement,
     private readonly room?: Room<DistrictNetworkState>,
     private readonly netcodeRollout?: NetcodeRolloutController,
-    private readonly phone?: NockPhoneController
+    private readonly phone?: NockPhoneController,
+    private readonly assetRoot = '/assets',
+    private readonly enableInteriors = true
   ) {
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -118,15 +120,21 @@ export class DistrictClient {
 
   async start(): Promise<void> {
     const [mapStreamer, metadata, surfaceMap] = await Promise.all([
-      MapChunkStreamer.create(this.scene, this.mapOccluders),
-      loadMapMetadata('/assets/maps/district-map.metadata.json'),
-      loadSurfaceMap('/assets/maps/surface-manifest.json')
+      MapChunkStreamer.create(
+        this.scene,
+        this.mapOccluders,
+        `${this.assetRoot}/maps/geometry/world.json`
+      ),
+      loadMapMetadata(`${this.assetRoot}/maps/district-map.metadata.json`),
+      loadSurfaceMap(`${this.assetRoot}/maps/surface-manifest.json`)
     ]);
     this.mapStreamer = mapStreamer;
     this.surfaceMap = surfaceMap;
     const payload = mapStreamer.manifest;
     this.payload = payload;
-    for (const occluder of payload.occluders) validateOccluder(occluder, payload.blockSize);
+    if (this.enableInteriors) {
+      for (const occluder of payload.occluders) validateOccluder(occluder, payload.blockSize);
+    }
     this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
     this.resize();
     this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
@@ -137,9 +145,14 @@ export class DistrictClient {
       initialView.halfWidth,
       initialView.halfHeight
     );
-    this.lighting = await LightingPresentation.create(this.scene, this.surfaceHeightAt);
+    this.lighting = await LightingPresentation.create(
+      this.scene,
+      this.surfaceHeightAt,
+      `${this.assetRoot}/maps/district-map.json`,
+      this.assetRoot === '/assets' ? undefined : []
+    );
     if (this.room) {
-      this.interiors = new InteriorPresentation(this.scene);
+      if (this.enableInteriors) this.interiors = new InteriorPresentation(this.scene);
       this.actors = await ActorPresentation.create(
         this.scene,
         this.room.sessionId,
@@ -194,7 +207,11 @@ export class DistrictClient {
         () => this.mapStreamer?.snapshot(),
         (vehicleId) => this.actors?.vehiclePose(vehicleId)
       );
-      if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
+      if (
+        this.enableInteriors &&
+        isDevelopment() &&
+        new URLSearchParams(window.location.search).get('qa') === '1'
+      ) {
         this.qa = new QaDriver(this.room);
       }
       this.ui = new DistrictUiController(
@@ -202,7 +219,8 @@ export class DistrictClient {
         payload.surfaces.width * payload.blockSize,
         payload.surfaces.height * payload.blockSize,
         () => this.actors?.playerPose(this.room?.sessionId ?? ''),
-        this.phone
+        this.phone,
+        this.assetRoot
       );
       this.input = new InputController({
         room: this.room,
@@ -215,7 +233,13 @@ export class DistrictClient {
           this.room?.state.vehicles.get(vehicleId)?.angle
         ),
         surfaceZ: () => this.center.z,
-        isBlocked: () => this.settingsOpen || (this.ui?.isInputBlocked() ?? false),
+        isBlocked: () =>
+          this.settingsOpen ||
+          (this.ui?.isInputBlocked() ?? false) ||
+          (
+            Boolean(this.room?.state.race?.trackId) &&
+            this.room?.state.race?.phase !== 'racing'
+          ),
         onFire: (angle) => {
           this.combatFire?.send(angle);
         },

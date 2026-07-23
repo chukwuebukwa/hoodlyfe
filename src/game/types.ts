@@ -310,6 +310,7 @@ export interface DistrictNetworkState {
   stingers?: Map<string, NetworkStinger>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
+  race?: NetworkArenaRace;
   worldTimeStartedAt?: number;
   worldTimeStartMinute?: number;
   worldTimeRate?: number;
@@ -317,4 +318,33 @@ export interface DistrictNetworkState {
   serverTimeMs?: number;
   missionContactX: number;
   missionContactY: number;
+}
+
+export interface NetworkRaceEntrant {
+  playerId: string;
+  playerName: string;
+  vehicleId: string;
+  lap: number;
+  checkpointIndex: number;
+  position: number;
+  finished: boolean;
+  finishTimeMs: number;
+  lastLapMs: number;
+  bestLapMs: number;
+  nextCheckpointX: number;
+  nextCheckpointY: number;
+  nextCheckpointRadius: number;
+}
+
+export interface NetworkArenaRace {
+  trackId: string;
+  trackLabel: string;
+  phase: 'waiting' | 'countdown' | 'racing' | 'results';
+  raceNumber: number;
+  lapsRequired: number;
+  countdownEndsAt: number;
+  startedAt: number;
+  finishedAt: number;
+  resultsEndsAt: number;
+  entrants: Map<string, NetworkRaceEntrant>;
 }

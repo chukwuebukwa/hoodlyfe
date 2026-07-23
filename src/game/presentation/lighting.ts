@@ -59,15 +59,17 @@ export class LightingPresentation {
 
   static async create(
     scene: THREE.Scene,
-    surfaceHeightAt: (x: number, y: number) => number
+    surfaceHeightAt: (x: number, y: number) => number,
+    mapUrl = '/assets/maps/district-map.json',
+    authoredFixtures: readonly StreetLightFixture[] = STREET_LIGHT_FIXTURES
   ): Promise<LightingPresentation> {
-    const response = await fetch('/assets/maps/district-map.json');
+    const response = await fetch(mapUrl);
     if (!response.ok) throw new Error(`Road lighting mask failed to load (${response.status}).`);
     const generated = deriveRoadLightEmitters(await response.json() as RoadMask, {
       coverageRadius: 168,
-      existing: STREET_LIGHT_FIXTURES
+      existing: authoredFixtures
     });
-    const fixtures = mergeLightEmitters(STREET_LIGHT_FIXTURES, generated);
+    const fixtures = mergeLightEmitters(authoredFixtures, generated);
     return new LightingPresentation(scene, surfaceHeightAt, fixtures);
   }
 

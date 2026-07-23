@@ -84,8 +84,13 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** Most Wanted adds a reusable eliminate-target objective, living-roster-scaled guards, one marked armored SMG boss, participant-only target pinning, shared payout, and explicit cleanup.
 - **Playable** compact job selector, shared immutable mission catalog, template-declared target/reward/encounter policy, and reusable acquire-vehicle, target-checkpoint, crew-checkpoint, hold-area, clear-wanted, and low-speed-delivery objective evaluators.
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
+- **Playable** separate six-player Industrial Arena race room and streamed 64x64 circuit,
+  with assigned tuner cars, authoritative grid/countdown, three ordered-checkpoint laps,
+  finish ordering, lap timing, race HUD/minimap projection, and automatic heat resets.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
-- **Foundation** five complete jobs now share objective/encounter modules; item, escort, placement-scored race, and event-mode objectives remain incomplete.
+- **Foundation** five complete jobs share objective/encounter modules, while the separate
+  arena room proves authoritative multi-vehicle checkpoint racing and finish placement;
+  item, escort, and in-district competitive event objectives remain incomplete.
 - **Playable** district client with real OpenGTA2 block geometry and depth-tested entities is now the only renderer; the legacy client and its wrapper modules were removed.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
 - **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
@@ -124,7 +129,7 @@ These are ordered by how much of the city loop they improve and by their depende
 - **Delivered foundation**: stable shared content catalog for current Sedan, Taxi, and Police Cruiser; separated mass, footprint, health, acceleration, braking, grip, steering, reverse speed, seats, traffic tuning, and presentation ID.
 - **Delivered foundation**: traffic agents brake for vehicles/pedestrians, preserve model-specific following distance, distinguish valid queues from world blockage, recover deterministically, and expose limiting reasons through F3.
 - **Delivered playable**: Foundry Crossing and Threads Junction own validated approaches, replicated signal phases, virtual stop obstacles, cross-axis clearance, stop-line presentation, and waiting diagnostics.
-- **Delivered playable**: 64 virtual traffic records materialize at most 24 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
+- **Delivered playable**: 64 virtual traffic records materialize at most 18 nearby lane-offset cars; stopped agents can reverse, probe both sides, pass a stationary obstruction, and merge without treating signal queues as deadlocks.
 - **Delivered foundation**: sustained ambient jams outside every player's 1,536-pixel replication radius retire at a bounded rate, including minor collision-damaged traffic, while occupied, hijacked, mission, burning, destroyed, and visible vehicles remain protected.
 - **Delivered foundation**: all disposable moving ambient pedestrians and traffic are owned
   by one player-union population lifecycle. The 720-to-1,280-pixel prewarm ring is the only

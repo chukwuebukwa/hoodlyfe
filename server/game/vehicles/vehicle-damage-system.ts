@@ -10,6 +10,7 @@ const ENGINE_SMOKE = 200;
 const ENGINE_ON_FIRE = 225;
 const MAX_COMPONENT_DAMAGE = 300;
 const FIRE_FUSE_MS = 5000;
+const PLAYER_DRIVEN_CRASH_DAMAGE_MULTIPLIER = 0.5;
 
 export type VehicleDamageZone = 'front' | 'rear' | 'left' | 'right';
 
@@ -95,6 +96,11 @@ export class VehicleDamageSystem {
 
   wallImpactDamage(speed: number): number {
     return Math.max(0, Math.round((Math.abs(speed) - 70) * 0.32));
+  }
+
+  crashDamage(damage: number, playerDriven: boolean): number {
+    const multiplier = playerDriven ? PLAYER_DRIVEN_CRASH_DAMAGE_MULTIPLIER : 1;
+    return Math.max(0, Math.round(damage * multiplier));
   }
 
   weaponDamage(baseDamage: number): number {

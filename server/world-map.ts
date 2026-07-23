@@ -96,6 +96,10 @@ export class CollisionMap {
 
   static load(projectRoot = process.cwd()): CollisionMap {
     const mapsDirectory = resolve(projectRoot, 'public', 'assets', 'maps');
+    return CollisionMap.loadFromMapsDirectory(mapsDirectory);
+  }
+
+  static loadFromMapsDirectory(mapsDirectory: string): CollisionMap {
     const map = JSON.parse(readFileSync(resolve(mapsDirectory, 'district-map.json'), 'utf8')) as TiledMapData;
     const metadata = JSON.parse(
       readFileSync(resolve(mapsDirectory, 'district-map.metadata.json'), 'utf8')

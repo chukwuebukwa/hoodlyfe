@@ -16,6 +16,9 @@ export interface StartGameRuntimeOptions {
   auth?: ClientAuthPayload;
   roomName?: string;
   roomOptions?: Record<string, string>;
+  assetRoot?: string;
+  runtimeLabel?: string;
+  enableInteriors?: boolean;
 }
 
 export interface GameRuntime {
@@ -44,6 +47,10 @@ class GameRuntimeController implements GameRuntime {
     const playerAuth = this.options.auth ?? onboarding.auth;
     const onboardingRequired = shouldShowOnboarding();
     const nameElement = document.querySelector('#driver-name');
+    const districtLabel = document.querySelector<HTMLElement>('#district-label span');
+    if (districtLabel && this.options.runtimeLabel) {
+      districtLabel.textContent = this.options.runtimeLabel;
+    }
     this.loadingUi = createLoadingController();
     if (nameElement) nameElement.textContent = driverName;
 
@@ -123,7 +130,9 @@ class GameRuntimeController implements GameRuntime {
       game,
       this.activeRoom,
       this.netcodeRollout,
-      this.phone
+      this.phone,
+      this.options.assetRoot,
+      this.options.enableInteriors
     );
     await this.activeDistrictClient.start();
     this.loadingUi?.set(0.95, 'Preparing driver');

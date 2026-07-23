@@ -68,7 +68,8 @@ export class DistrictUiController {
     worldWidth: number,
     worldHeight: number,
     private readonly localPose: () => ActorRenderPose | undefined = () => undefined,
-    phone?: NockPhoneController
+    phone?: NockPhoneController,
+    assetRoot = '/assets'
   ) {
     this.phone = phone ?? new NockPhoneController();
     this.ownsPhone = !phone;
@@ -82,7 +83,7 @@ export class DistrictUiController {
     if (canvas) {
       this.minimap = new MinimapRenderer(
         canvas,
-        '/assets/maps/district-preview.png',
+        `${assetRoot}/maps/district-preview.png`,
         worldWidth,
         worldHeight
       );
@@ -130,7 +131,8 @@ export class DistrictUiController {
     this.phone.synchronize(state, this.room.sessionId);
     this.updateInteraction(state);
     if (onStreet) {
-      this.updateMission(state);
+      if (state.race?.trackId) this.updateRace(state);
+      else this.updateMission(state);
     } else {
       this.missionHud?.classList.add('hidden');
     }
@@ -165,6 +167,12 @@ export class DistrictUiController {
   }
 
   private updateInteraction(state: DistrictNetworkState): void {
+    if (state.race?.trackId) {
+      this.interactionButton?.classList.add('hidden');
+      this.touchInteractionButton?.classList.add('hidden');
+      return;
+    }
+    this.touchInteractionButton?.classList.remove('hidden');
     const affordance = projectInteractionAffordance(state, this.room.sessionId);
     this.interactionButton?.classList.toggle('hidden', !affordance.visible);
     if (this.interactionButton && affordance.visible) {
@@ -198,6 +206,40 @@ export class DistrictUiController {
     this.missionAction.classList.toggle('warning', projection.actionWarning);
   }
 
+  private updateRace(state: DistrictNetworkState): void {
+    const race = state.race;
+    const entrant = race?.entrants?.get(this.room.sessionId);
+    this.missionHud?.classList.toggle('hidden', !race || !entrant);
+    if (!race || !entrant) return;
+    const serverNow = state.serverTimeMs ?? 0;
+    const countdown = Math.max(0, Math.ceil((race.countdownEndsAt - serverNow) / 1_000));
+    if (this.missionTitle) this.missionTitle.textContent = race.trackLabel.toUpperCase();
+    if (this.missionTimer) {
+      this.missionTimer.textContent = race.phase === 'countdown'
+        ? String(countdown)
+        : formatRaceTime(
+          entrant.finished ? entrant.finishTimeMs : Math.max(0, serverNow - race.startedAt)
+        );
+    }
+    if (this.missionObjective) {
+      this.missionObjective.textContent = race.phase === 'countdown'
+        ? 'Hold the grid. Get ready.'
+        : race.phase === 'results'
+          ? entrant.finished
+            ? `Finished P${entrant.position}.`
+            : 'Heat complete.'
+          : `Lap ${Math.max(1, entrant.lap)}/${race.lapsRequired} | ` +
+            `Checkpoint ${entrant.checkpointIndex + 1}`;
+    }
+    if (this.missionMeta) {
+      this.missionMeta.textContent = `P${Math.max(1, entrant.position)}/${race.entrants?.size ?? 1}` +
+        (entrant.bestLapMs > 0 ? ` | BEST ${formatRaceTime(entrant.bestLapMs)}` : '');
+    }
+    this.missionPrevious?.classList.add('hidden');
+    this.missionNext?.classList.add('hidden');
+    this.missionAction?.classList.add('hidden');
+  }
+
   private updateMinimap(state: DistrictNetworkState, nowMs: number): void {
     const local = state.players.get(this.room.sessionId);
     const frame = buildMinimapFrame({
@@ -207,7 +249,8 @@ export class DistrictUiController {
       vehicles: state.vehicles?.values() ?? [],
       npcs: state.npcs?.values() ?? [],
       points: [
-        ...missionMinimapPoints(state, this.room.sessionId),
+        ...(state.race?.trackId ? [] : missionMinimapPoints(state, this.room.sessionId)),
+        ...raceMinimapPoints(state, this.room.sessionId),
         ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID),
         ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),
         ...weaponPickupMinimapPoints(state.weaponPickups?.values()),
@@ -250,4 +293,24 @@ export class DistrictUiController {
     }
     this.hud.setConnection(false);
   };
+}
+
+function raceMinimapPoints(
+  state: DistrictNetworkState,
+  playerId: string
+): Array<{id: string; kind: 'objective'; x: number; y: number}> {
+  const entrant = state.race?.entrants?.get(playerId);
+  if (!entrant || entrant.finished || entrant.nextCheckpointRadius <= 0) return [];
+  return [{
+    id: `race:${state.race?.raceNumber ?? 0}:${entrant.checkpointIndex}`,
+    kind: 'objective',
+    x: entrant.nextCheckpointX,
+    y: entrant.nextCheckpointY
+  }];
+}
+
+function formatRaceTime(durationMs: number): string {
+  const minutes = Math.floor(Math.max(0, durationMs) / 60_000);
+  const seconds = ((Math.max(0, durationMs) % 60_000) / 1_000).toFixed(2).padStart(5, '0');
+  return `${minutes}:${seconds}`;
 }

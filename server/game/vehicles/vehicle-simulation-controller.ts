@@ -820,7 +820,14 @@ export class VehicleSimulationController {
     zone: VehicleDamageZone = 'front'
   ): void {
     if (vehicle.destroyed || amount <= 0) return;
-    const result = this.damageSystem.apply(vehicle, amount, sourceKind, zone, nowMs);
+    const collisionLike = sourceKind === 'world' || sourceKind === 'vehicle';
+    const playerDriven = Boolean(
+      vehicle.driverId && this.options.state.players.has(vehicle.driverId)
+    );
+    const appliedAmount = collisionLike
+      ? this.damageSystem.crashDamage(amount, playerDriven)
+      : amount;
+    const result = this.damageSystem.apply(vehicle, appliedAmount, sourceKind, zone, nowMs);
     if (result.appliedDamage <= 0) return;
     vehicle.health = result.health;
     vehicle.engineDamage = result.engineDamage;
@@ -862,6 +869,44 @@ export class VehicleSimulationController {
   repair(vehicle: VehicleState): void {
     Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
     this.fireSources.delete(vehicle.id);
+  }
+
+  relocate(
+    vehicle: VehicleState,
+    pose: {x: number; y: number; angle: number},
+    surfaceId = vehicle.surfaceId
+  ): void {
+    vehicle.x = pose.x;
+    vehicle.y = pose.y;
+    vehicle.angle = pose.angle;
+    vehicle.surfaceId = surfaceId;
+    vehicle.speed = 0;
+    vehicle.linvelX = 0;
+    vehicle.linvelY = 0;
+    vehicle.angvel = 0;
+    vehicle.destroyed = false;
+    vehicle.respawnAt = 0;
+    vehicle.onFire = false;
+    vehicle.fireStartedAt = 0;
+    Object.assign(vehicle, this.damageSystem.reset(vehicleConfig(vehicle.kind).maxHealth));
+    this.fireSources.delete(vehicle.id);
+    const physics = this.physicsForSurface(surfaceId);
+    physics.teleport(physicsBodyKey('vehicle', vehicle.id), {
+      x: pose.x,
+      y: pose.y,
+      rotation: pose.angle,
+      linvelX: 0,
+      linvelY: 0,
+      angvel: 0
+    });
+  }
+
+  remove(vehicleId: string): void {
+    this.options.state.vehicles.delete(vehicleId);
+    this.options.traffic.release(vehicleId);
+    this.options.onVehicleRemoved?.(vehicleId);
+    this.fireSources.delete(vehicleId);
+    this.previousBodies.delete(physicsBodyKey('vehicle', vehicleId));
   }
 
   private queuePhysicsDrive(

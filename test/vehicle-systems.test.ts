@@ -33,6 +33,8 @@ test('vehicle damage tracks components, ignition, delayed explosion, and weapon 
   assert.equal(weaponKill.destroyed, true);
   assert.equal(damage.wallImpactDamage(60), 0);
   assert.ok(damage.wallImpactDamage(400) >= 100);
+  assert.equal(damage.crashDamage(101, false), 101);
+  assert.equal(damage.crashDamage(101, true), 51);
   assert.equal(damage.speedMultiplier(0, false), 1);
   assert.ok(damage.speedMultiplier(250, false) < damage.speedMultiplier(100, false));
   assert.equal(damage.speedMultiplier(250, true), 0.58);
@@ -46,6 +48,24 @@ test('player driving consumes distinct model acceleration from the shared catalo
   ];
   assert.deepEqual(speeds.map(Math.round), [360, 390, 440]);
   assert.ok(speeds[0] < speeds[1] && speeds[1] < speeds[2]);
+});
+
+test('player-driven cars mitigate crash damage without reducing weapon damage', () => {
+  const {room, vehicle, player} = drivingFixture('sedan');
+  const maximumHealth = vehicle.health;
+
+  room.vehicleSimulation.damage(vehicle, 100, 'wall', 'world', 1_000);
+  assert.equal(vehicle.health, maximumHealth - 50);
+
+  room.vehicleSimulation.repair(vehicle);
+  vehicle.driverId = '';
+  room.vehicleSimulation.damage(vehicle, 100, 'traffic-car', 'vehicle', 2_000);
+  assert.equal(vehicle.health, maximumHealth - 100);
+
+  room.vehicleSimulation.repair(vehicle);
+  vehicle.driverId = player.id;
+  room.vehicleSimulation.damage(vehicle, 100, 'shooter', 'weapon', 3_000);
+  assert.equal(vehicle.health, maximumHealth - 100);
 });
 
 test('district projectile resolution damages vehicles and consumes the bullet', () => {

@@ -49,7 +49,7 @@ export const POPULATION_STREAMING = Object.freeze({
   dormantStepMs: 3_000,
   maxDormantStepsPerTick: 16,
   maxActivePedestrians: 40,
-  maxActiveTraffic: 24
+  maxActiveTraffic: 18
 });
 
 interface VirtualPedestrianRecord {

@@ -189,28 +189,43 @@ export class WorldObjectPresentation {
       removeAbsent(this.markers, present);
       return;
     }
-    const mission = projectMissionWorld(state, this.localPlayerId);
-    this.syncMissionMarker(present, 'mission:contact', mission.contact.x, mission.contact.y, 24, 0xff9d3f, 'FREEMODE', nowMs);
-    if (mission.delivery) {
-      this.syncMissionMarker(present, 'mission:delivery', mission.delivery.x, mission.delivery.y, mission.delivery.radius, 0x63df8a, 'DELIVERY', nowMs);
-    }
-    if (mission.checkpoint) {
-      this.syncMissionMarker(present, 'mission:checkpoint', mission.checkpoint.x, mission.checkpoint.y, mission.checkpoint.radius, 0x55d6ff, 'CHECKPOINT', nowMs);
-    }
-    if (mission.hold) {
+    const raceEntrant = state.race?.entrants?.get(this.localPlayerId);
+    if (raceEntrant && !raceEntrant.finished && raceEntrant.nextCheckpointRadius > 0) {
       this.syncMissionMarker(
         present,
-        'mission:hold',
-        mission.hold.x,
-        mission.hold.y,
-        mission.hold.radius,
-        mission.hold.contested ? 0xff5e4d : 0x55d6ff,
-        mission.hold.contested ? 'CONTESTED' : 'HOLD',
+        `race:checkpoint:${state.race?.raceNumber ?? 0}:${raceEntrant.checkpointIndex}`,
+        raceEntrant.nextCheckpointX,
+        raceEntrant.nextCheckpointY,
+        raceEntrant.nextCheckpointRadius,
+        0xf6c945,
+        raceEntrant.checkpointIndex === 0 ? 'LAP' : 'CHECKPOINT',
         nowMs
       );
     }
-    if (mission.target) {
-      this.syncMissionMarker(present, 'mission:target', mission.target.x, mission.target.y, 34, 0xf2c94c, 'TARGET', nowMs);
+    if (!state.race?.trackId) {
+      const mission = projectMissionWorld(state, this.localPlayerId);
+      this.syncMissionMarker(present, 'mission:contact', mission.contact.x, mission.contact.y, 24, 0xff9d3f, 'FREEMODE', nowMs);
+      if (mission.delivery) {
+        this.syncMissionMarker(present, 'mission:delivery', mission.delivery.x, mission.delivery.y, mission.delivery.radius, 0x63df8a, 'DELIVERY', nowMs);
+      }
+      if (mission.checkpoint) {
+        this.syncMissionMarker(present, 'mission:checkpoint', mission.checkpoint.x, mission.checkpoint.y, mission.checkpoint.radius, 0x55d6ff, 'CHECKPOINT', nowMs);
+      }
+      if (mission.hold) {
+        this.syncMissionMarker(
+          present,
+          'mission:hold',
+          mission.hold.x,
+          mission.hold.y,
+          mission.hold.radius,
+          mission.hold.contested ? 0xff5e4d : 0x55d6ff,
+          mission.hold.contested ? 'CONTESTED' : 'HOLD',
+          nowMs
+        );
+      }
+      if (mission.target) {
+        this.syncMissionMarker(present, 'mission:target', mission.target.x, mission.target.y, 34, 0xf2c94c, 'TARGET', nowMs);
+      }
     }
     removeAbsent(this.markers, present);
   }

@@ -244,6 +244,10 @@ const VEHICLE_CATALOG: Readonly<Record<VehicleKind, VehicleDefinition>> = {
 };
 
 export const VEHICLE_KINDS = Object.freeze(Object.keys(VEHICLE_CATALOG) as VehicleKind[]);
+export const CIVILIAN_TRAFFIC_VEHICLE_KINDS = Object.freeze([
+  'sedan',
+  'taxi'
+] satisfies VehicleKind[]);
 
 export function vehicleDefinition(kind: string): VehicleDefinition {
   return isVehicleKind(kind) ? VEHICLE_CATALOG[kind] : VEHICLE_CATALOG.sedan;

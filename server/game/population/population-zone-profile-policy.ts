@@ -5,9 +5,10 @@ import {
   type DistrictPopulationZone,
   type PopulationMix
 } from '../../../shared/content/district-population-zones.ts';
+import {CIVILIAN_TRAFFIC_VEHICLE_KINDS} from '../../../shared/content/vehicle-catalog.ts';
 
 const DAY_MINUTES = 24 * 60;
-const VEHICLE_ORDER: readonly AmbientVehicleKind[] = ['sedan', 'taxi', 'r33', 's15'];
+const VEHICLE_ORDER: readonly AmbientVehicleKind[] = CIVILIAN_TRAFFIC_VEHICLE_KINDS;
 
 export interface ResolvedPopulationProfile extends PopulationMix {
   zone: DistrictPopulationZone;

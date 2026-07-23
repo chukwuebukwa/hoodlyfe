@@ -6,9 +6,18 @@ import type {GameRuntime} from '../src/main.ts';
 interface GameRuntimeMountProps {
   roomName?: string;
   roomOptions?: Record<string, string>;
+  assetRoot?: string;
+  runtimeLabel?: string;
+  enableInteriors?: boolean;
 }
 
-export function GameRuntimeMount({roomName, roomOptions}: GameRuntimeMountProps = {}): null {
+export function GameRuntimeMount({
+  roomName,
+  roomOptions,
+  assetRoot,
+  runtimeLabel,
+  enableInteriors
+}: GameRuntimeMountProps = {}): null {
   const runtimeRef = useRef<GameRuntime | undefined>(undefined);
 
   useEffect(() => {
@@ -20,7 +29,10 @@ export function GameRuntimeMount({roomName, roomOptions}: GameRuntimeMountProps 
         serverUrl: resolveGameServerUrl(),
         auth: {provider: 'guest'},
         roomName,
-        roomOptions
+        roomOptions,
+        assetRoot,
+        runtimeLabel,
+        enableInteriors
       });
       if (cancelled) {
         runtime.destroy();
@@ -36,7 +48,7 @@ export function GameRuntimeMount({roomName, roomOptions}: GameRuntimeMountProps 
       runtimeRef.current?.destroy();
       runtimeRef.current = undefined;
     };
-  }, [roomName, roomOptions]);
+  }, [assetRoot, enableInteriors, roomName, roomOptions, runtimeLabel]);
 
   return null;
 }

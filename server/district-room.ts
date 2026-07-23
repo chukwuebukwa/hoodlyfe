@@ -92,6 +92,12 @@ import type {SimulationPhaseDiagnostic} from './game/world/simulation-phase-pipe
 import {StreetEconomyController} from './game/economy/street-economy-controller.ts';
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
+import {ArenaRaceController} from './game/races/arena-race-controller.ts';
+import {
+  INDUSTRIAL_ARENA_CIRCUIT,
+  type ArenaRaceTrackDefinition,
+  type RaceGridPose
+} from '../shared/content/arena-race.ts';
 import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {CustodyOutcomeController} from './game/police/custody-outcome-controller.ts';
@@ -143,7 +149,8 @@ import {PedestrianController} from './game/pedestrians/pedestrian-controller.ts'
 import {PEDESTRIAN_RADIUS} from './game/pedestrians/pedestrian-config.ts';
 import {
   VEHICLE_COLLISION_BOUNDING_RADIUS,
-  VEHICLE_RADIUS
+  VEHICLE_RADIUS,
+  vehicleConfig
 } from './game/vehicles/vehicle-config.ts';
 import {VehicleAccessController} from './game/vehicles/vehicle-access-controller.ts';
 import {VehicleSimulationController} from './game/vehicles/vehicle-simulation-controller.ts';
@@ -234,6 +241,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private voiceChat!: ProximityVoiceController;
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
+  private raceController?: ArenaRaceController;
   private medicalController!: MedicalCareController;
   private crimeController!: CrimeResponseController;
   private custodyController!: CustodyOutcomeController;
@@ -302,6 +310,14 @@ export class DistrictRoom extends Room<DistrictState> {
     return false;
   }
 
+  protected raceTrack(): ArenaRaceTrackDefinition | undefined {
+    return undefined;
+  }
+
+  protected mapsDirectory(): string | undefined {
+    return undefined;
+  }
+
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
       ? options.runtimeHealth
@@ -331,11 +347,20 @@ export class DistrictRoom extends Room<DistrictState> {
       ? await loadPlaytestWorld(options ?? {})
       : undefined;
     this.autoDispose = Boolean(playtest);
-    this.world = playtest?.world ?? CollisionMap.load();
+    const mapsDirectory = this.mapsDirectory();
+    this.world = playtest?.world ?? (
+      mapsDirectory
+        ? CollisionMap.loadFromMapsDirectory(mapsDirectory)
+        : CollisionMap.load()
+    );
     this.physicsWorld?.free();
     await initializePhysicsEngine();
     this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
-    this.laneGraph = playtest?.laneGraph ?? LaneGraph.load(this.world);
+    this.laneGraph = playtest?.laneGraph ?? (
+      mapsDirectory
+        ? LaneGraph.loadFromMapsDirectory(this.world, mapsDirectory)
+        : LaneGraph.load(this.world)
+    );
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
     this.voiceChat = new ProximityVoiceController({
@@ -653,9 +678,18 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: () => ({tick: this.simulationClock.tick}),
       inputFor: (playerId) => {
         const player = this.state.players.get(playerId);
-        return player?.vehicleId
-          ? this.vehicleInput.consume(playerId, player.vehicleId) ?? this.playerControl.inputFor(playerId)
-          : this.playerControl.inputFor(playerId);
+        if (!player?.vehicleId) return this.playerControl.inputFor(playerId);
+        const input = this.vehicleInput.consume(playerId, player.vehicleId) ??
+          this.playerControl.inputFor(playerId);
+        if (
+          this.raceController &&
+          this.state.race.phase !== 'racing' &&
+          input &&
+          'sequence' in input
+        ) {
+          return {...input, inputX: 0, inputY: 0, handbrake: true};
+        }
+        return input;
       },
       acknowledgeInput: (playerId, vehicleId, sequence) => {
         this.vehicleInput.acknowledge(playerId, vehicleId, sequence);
@@ -1020,6 +1054,32 @@ export class DistrictRoom extends Room<DistrictState> {
         nowMs
       )
     });
+    const raceTrack = this.raceTrack();
+    this.raceController = raceTrack
+      ? new ArenaRaceController({
+        state: this.state,
+        track: raceTrack,
+        spawnVehicle: (player, pose, gridIndex) => this.spawnRaceVehicle(
+          player,
+          pose,
+          gridIndex
+        ),
+        resetVehicle: (vehicle, pose) => {
+          this.vehicleSimulation.relocate(vehicle, pose);
+          this.indexVehicle(vehicle);
+        },
+        removeVehicle: (vehicleId) => this.vehicleSimulation.remove(vehicleId),
+        notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+      })
+      : undefined;
+    const missionPort = this.raceController
+      ? {
+        update: (nowMs: number) => this.raceController?.update(nowMs),
+        observeEvents: (events: readonly import('./game/events/game-events.ts').GameEvent[]) => {
+          this.raceController?.observeEvents(events);
+        }
+      }
+      : this.missionController;
     this.simulation = new DistrictSimulation({
       state: this.state,
       clock: this.simulationClock,
@@ -1049,7 +1109,7 @@ export class DistrictRoom extends Room<DistrictState> {
       actorBurn: this.actorBurnController,
       weaponPickups: this.weaponPickupController,
       cashPickups: this.cashPickupController,
-      missions: this.missionController,
+      missions: missionPort,
       lifecycle: this.lifecycle,
       events: this.events,
       audio: this.audioEvents,
@@ -1072,13 +1132,15 @@ export class DistrictRoom extends Room<DistrictState> {
         };
       }
     });
-    this.serviceController.initialize();
-    this.medicalController.initialize();
-    this.weaponPickupController.initialize();
-    this.soccerBallController.initialize();
-    this.trafficSignalController.initialize(this.simulationClock.nowMs);
-    this.population.populate();
-    this.populationStreaming.initialize(this.simulationClock.nowMs);
+    if (!raceTrack) {
+      this.serviceController.initialize();
+      this.medicalController.initialize();
+      this.weaponPickupController.initialize();
+      this.soccerBallController.initialize();
+      this.trafficSignalController.initialize(this.simulationClock.nowMs);
+      this.population.populate();
+      this.populationStreaming.initialize(this.simulationClock.nowMs);
+    }
     this.rebuildSpatialIndex();
     if (!options?.externalSimulation) {
       this.setSimulationInterval(
@@ -1176,6 +1238,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
     this.registerJournaledCommand('interact', (client) => {
+      if (this.raceController) return;
       this.interactionController.interact(
         client.sessionId,
         this.simulationClock.nowMs,
@@ -1244,6 +1307,7 @@ export class DistrictRoom extends Room<DistrictState> {
     client.view = this.replicationController.attach(client.sessionId);
     this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
+    this.raceController?.register(player);
     this.journal?.recordSpawn(this.simulationClock.tick, client.sessionId, {
       name: options?.name,
       appearance: options?.appearance
@@ -1264,7 +1328,8 @@ export class DistrictRoom extends Room<DistrictState> {
     this.voiceChat.clearPlayer(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     this.policeArrests.clearPlayer(client.sessionId, this.simulationClock.nowMs);
-    if (player) this.vehicleAccess.removePlayer(player);
+    if (player && !this.raceController) this.vehicleAccess.removePlayer(player);
+    this.raceController?.unregister(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
     this.vehicleInput.clear(client.sessionId);
@@ -1282,6 +1347,35 @@ export class DistrictRoom extends Room<DistrictState> {
     this.combatReactions.clearPlayer(client.sessionId);
     this.crimeController.clearSuspect(client.sessionId);
     this.spatialIndex.remove('player', client.sessionId);
+  }
+
+  private spawnRaceVehicle(
+    player: PlayerState,
+    pose: RaceGridPose,
+    gridIndex: number
+  ): VehicleState {
+    const vehicle = new VehicleState();
+    vehicle.id = `race:${this.state.race.raceNumber}:${player.id}`;
+    vehicle.kind = gridIndex % 2 === 0 ? 'r33' : 's15';
+    vehicle.x = pose.x;
+    vehicle.y = pose.y;
+    vehicle.angle = pose.angle;
+    vehicle.surfaceId = this.world.spawnFor(0, VEHICLE_RADIUS).surfaceId;
+    const configuration = vehicleConfig(vehicle.kind);
+    vehicle.maxHealth = configuration.maxHealth;
+    vehicle.health = configuration.maxHealth;
+    vehicle.driverId = player.id;
+    vehicle.traffic = false;
+    vehicle.radioStation = 'station-0';
+    player.vehicleId = vehicle.id;
+    player.vehicleSeat = 0;
+    player.x = vehicle.x;
+    player.y = vehicle.y;
+    player.angle = vehicle.angle;
+    player.surfaceId = vehicle.surfaceId;
+    this.state.vehicles.set(vehicle.id, vehicle);
+    this.indexVehicle(vehicle);
+    return vehicle;
   }
 
   onDispose(): void {
@@ -1493,6 +1587,25 @@ export class DistrictRoom extends Room<DistrictState> {
 export class DistrictPlaytestRoom extends DistrictRoom {
   protected override acceptsPlaytestRevision(): boolean {
     return true;
+  }
+}
+
+export class DistrictRaceRoom extends DistrictRoom {
+  override maxClients = 6;
+
+  protected override raceTrack(): ArenaRaceTrackDefinition {
+    return INDUSTRIAL_ARENA_CIRCUIT;
+  }
+
+  protected override mapsDirectory(): string {
+    return join(
+      process.cwd(),
+      'public',
+      'assets',
+      'districts',
+      'raceway',
+      'maps'
+    );
   }
 }
 

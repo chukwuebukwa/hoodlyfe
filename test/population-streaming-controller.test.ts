@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   PopulationStreamingController,
+  POPULATION_STREAMING,
   streamedPopulationTargets,
   STREAMED_CIVILIAN_RECORDS,
   STREAMED_POLICE_RECORDS,
@@ -187,7 +188,7 @@ test('distant player clusters converge to fair bounded ambient shares', () => {
     fixture.controller.update([{x: 0, y: 0, ownerId: 'west'}], tick * 100);
   }
   assert.equal(fixture.state.npcs.size, 40);
-  assert.equal(fixture.state.vehicles.size, 24);
+  assert.equal(fixture.state.vehicles.size, POPULATION_STREAMING.maxActiveTraffic);
   assert.equal(fixture.controller.diagnostics().interestClusters, 1);
 
   const anchors = [
@@ -199,12 +200,18 @@ test('distant player clusters converge to fair bounded ambient shares', () => {
   for (let tick = 10; tick <= 13; tick++) fixture.controller.update(anchors, tick * 100);
 
   assert.equal(countWest(fixture.state.npcs.values()), 20);
-  assert.equal(countWest(fixture.state.vehicles.values()), 12);
+  assert.equal(
+    countWest(fixture.state.vehicles.values()),
+    POPULATION_STREAMING.maxActiveTraffic / 2
+  );
   assert.equal(fixture.state.npcs.size, 40);
-  assert.equal(fixture.state.vehicles.size, 24);
+  assert.equal(fixture.state.vehicles.size, POPULATION_STREAMING.maxActiveTraffic);
   assert.equal(fixture.controller.diagnostics().interestClusters, 2);
   assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 0);
-  assert.equal(fixture.controller.diagnostics().quotaRebalances, 32);
+  assert.equal(
+    fixture.controller.diagnostics().quotaRebalances,
+    20 + POPULATION_STREAMING.maxActiveTraffic / 2
+  );
 });
 
 test('busy clusters borrow unused capacity and return it when distant demand appears', () => {
@@ -218,7 +225,10 @@ test('busy clusters borrow unused capacity and return it when distant demand app
     fixture.controller.update(idleEastAnchors, tick * 100);
   }
   assert.equal(countWest(fixture.state.npcs.values()), 40);
-  assert.equal(countWest(fixture.state.vehicles.values()), 24);
+  assert.equal(
+    countWest(fixture.state.vehicles.values()),
+    POPULATION_STREAMING.maxActiveTraffic
+  );
   assert.equal(fixture.controller.diagnostics().interestClusters, 2);
   assert.equal(fixture.controller.diagnostics().quotaPressureClusters, 0);
 
@@ -230,9 +240,12 @@ test('busy clusters borrow unused capacity and return it when distant demand app
     fixture.controller.update(activeEastAnchors, tick * 100);
   }
   assert.equal(countWest(fixture.state.npcs.values()), 20);
-  assert.equal(countWest(fixture.state.vehicles.values()), 12);
+  assert.equal(
+    countWest(fixture.state.vehicles.values()),
+    POPULATION_STREAMING.maxActiveTraffic / 2
+  );
   assert.equal(fixture.state.npcs.size, 40);
-  assert.equal(fixture.state.vehicles.size, 24);
+  assert.equal(fixture.state.vehicles.size, POPULATION_STREAMING.maxActiveTraffic);
 });
 
 test('hot or pinned overages defeat fairness without visible despawn', () => {

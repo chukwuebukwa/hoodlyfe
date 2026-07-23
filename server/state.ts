@@ -593,6 +593,64 @@ defineTypes(MissionState, {
   participants: {map: MissionParticipantState}
 });
 
+export class RaceEntrantState extends Schema {
+  playerId = '';
+  playerName = '';
+  vehicleId = '';
+  lap = 0;
+  checkpointIndex = 0;
+  position = 0;
+  finished = false;
+  finishTimeMs = 0;
+  lastLapMs = 0;
+  bestLapMs = 0;
+  nextCheckpointX = 0;
+  nextCheckpointY = 0;
+  nextCheckpointRadius = 0;
+}
+
+defineTypes(RaceEntrantState, {
+  playerId: 'string',
+  playerName: 'string',
+  vehicleId: 'string',
+  lap: 'number',
+  checkpointIndex: 'number',
+  position: 'number',
+  finished: 'boolean',
+  finishTimeMs: 'number',
+  lastLapMs: 'number',
+  bestLapMs: 'number',
+  nextCheckpointX: 'number',
+  nextCheckpointY: 'number',
+  nextCheckpointRadius: 'number'
+});
+
+export class ArenaRaceState extends Schema {
+  trackId = '';
+  trackLabel = '';
+  phase = 'waiting';
+  raceNumber = 1;
+  lapsRequired = 3;
+  countdownEndsAt = 0;
+  startedAt = 0;
+  finishedAt = 0;
+  resultsEndsAt = 0;
+  entrants = new MapSchema<RaceEntrantState>();
+}
+
+defineTypes(ArenaRaceState, {
+  trackId: 'string',
+  trackLabel: 'string',
+  phase: 'string',
+  raceNumber: 'number',
+  lapsRequired: 'number',
+  countdownEndsAt: 'number',
+  startedAt: 'number',
+  finishedAt: 'number',
+  resultsEndsAt: 'number',
+  entrants: {map: RaceEntrantState}
+});
+
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
@@ -608,6 +666,7 @@ export class DistrictState extends Schema {
   soccerBalls = new MapSchema<SoccerBallState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
+  race = new ArenaRaceState();
   worldTimeStartedAt = 0;
   worldTimeStartMinute = 0;
   worldTimeRate = 0;
@@ -633,6 +692,7 @@ defineTypes(DistrictState, {
   soccerBalls: {map: SoccerBallState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
+  race: ArenaRaceState,
   worldTimeStartedAt: 'number',
   worldTimeStartMinute: 'number',
   worldTimeRate: 'number',
@@ -656,6 +716,7 @@ for (const field of [
   'vehicles',
   'soccerBalls',
   'missions',
+  'race',
   'services',
   'stingers'
 ] as const) {
