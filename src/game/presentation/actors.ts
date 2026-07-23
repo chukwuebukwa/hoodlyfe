@@ -57,7 +57,8 @@ import {
   serverPedestrianAngleToScene,
   serverVehicleAngleToScene,
   serverYToScene,
-  renderedVehicleLampAnchor
+  renderedVehicleLampAnchor,
+  weaponSpriteVerticalScale
 } from './scene-policy.ts';
 import {radialGlow, updateRadialGlow, type RadialGlow} from './effects/glow.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
@@ -684,6 +685,7 @@ export class ActorPresentation {
         z + 2
       );
       rendered.weapon.rotation.z = serverAngleToScene(weaponAngle);
+      rendered.weapon.scale.set(1, weaponSpriteVerticalScale(weaponAngle), 1);
       rendered.weapon.visible = rendered.mesh.visible && held.visible &&
         !reaction.active &&
         (!player.action || player.action === 'melee');

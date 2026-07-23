@@ -75,6 +75,10 @@ export function serverAngleToScene(angle: number): number {
   return -angle;
 }
 
+export function weaponSpriteVerticalScale(angle: number): 1 | -1 {
+  return Math.cos(angle) < 0 ? -1 : 1;
+}
+
 export function serverPedestrianAngleToScene(angle: number): number {
   return serverAngleToScene(angle) + Math.PI / 2;
 }

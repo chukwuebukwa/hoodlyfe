@@ -13,7 +13,8 @@ import {
   serverYToScene,
   scenePointToServerAimAngle,
   renderedVehicleLampAnchor,
-  vehicleLampAnchor
+  vehicleLampAnchor,
+  weaponSpriteVerticalScale
 } from '../src/game/presentation/scene-policy.ts';
 import type {WorldGeometryManifest} from '../src/game/presentation/map/geometry-format.ts';
 
@@ -60,6 +61,15 @@ test('scene policy converts the authoritative Y-down coordinate boundary exactly
   assert.equal(serverVehicleAngleToScene(0), -Math.PI / 2);
   assert.equal(scenePointToServerAimAngle(100, 200, 200, -200), 0);
   assert.equal(scenePointToServerAimAngle(100, 200, 100, -100), -Math.PI / 2);
+});
+
+test('left-facing weapon sprites flip locally without turning upside down', () => {
+  assert.equal(weaponSpriteVerticalScale(0), 1);
+  assert.equal(weaponSpriteVerticalScale(Math.PI / 4), 1);
+  assert.equal(weaponSpriteVerticalScale(-Math.PI / 4), 1);
+  assert.equal(weaponSpriteVerticalScale(Math.PI), -1);
+  assert.equal(weaponSpriteVerticalScale(Math.PI * 0.75), -1);
+  assert.equal(weaponSpriteVerticalScale(-Math.PI * 0.75), -1);
 });
 
 test('scene policy derives perspective height and production face shading deterministically', () => {
