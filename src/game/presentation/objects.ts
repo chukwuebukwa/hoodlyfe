@@ -12,12 +12,12 @@ import type {
   NetworkTrafficSignal,
   NetworkWeaponPickup
 } from '../types.ts';
-import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
+import {serverAngleToScene, serverYToScene} from './scene-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
-import {radialGlow, updateRadialGlow} from './three-glow.ts';
-import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
+import {radialGlow, updateRadialGlow} from './effects/glow.ts';
+import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke.ts';
 import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
-import {ThreeProjectileImpactEffects} from './three-projectile-impact-effects.ts';
+import {ProjectileImpactEffects} from './effects/projectile-impacts.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -25,7 +25,7 @@ interface TimedExplosion {
   radius: number;
 }
 
-export class ThreeDistrictWorld {
+export class WorldObjectPresentation {
   private readonly markers = new Map<string, THREE.Group>();
   private readonly bullets = new Map<string, THREE.Mesh>();
   private readonly rockets = new Map<string, THREE.Group>();
@@ -33,7 +33,7 @@ export class ThreeDistrictWorld {
   private readonly fires = new Map<string, THREE.Group>();
   private readonly explosions = new Map<string, TimedExplosion>();
   private readonly signals = new Map<string, THREE.Group>();
-  private readonly projectileImpacts: ThreeProjectileImpactEffects;
+  private readonly projectileImpacts: ProjectileImpactEffects;
   private readonly grenadeTexture: THREE.Texture;
   private readonly molotovTexture: THREE.Texture;
   private readonly rocketTexture: THREE.Texture;
@@ -49,7 +49,7 @@ export class ThreeDistrictWorld {
     this.grenadeTexture = grenadeTexture;
     this.molotovTexture = molotovTexture;
     this.rocketTexture = rocketTexture;
-    this.projectileImpacts = new ThreeProjectileImpactEffects(scene, surfaceHeightAt);
+    this.projectileImpacts = new ProjectileImpactEffects(scene, surfaceHeightAt);
   }
 
   presentProjectileImpacts(impacts: readonly ProjectileImpactPayload[], nowMs: number): void {
@@ -60,7 +60,7 @@ export class ThreeDistrictWorld {
     scene: THREE.Scene,
     localPlayerId: string,
     surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number
-  ): Promise<ThreeDistrictWorld> {
+  ): Promise<WorldObjectPresentation> {
     const loader = new THREE.TextureLoader();
     const [grenade, molotov, rocket] = await Promise.all([
       loader.loadAsync('/assets/original/weapons/grenade.svg'),
@@ -72,7 +72,7 @@ export class ThreeDistrictWorld {
       texture.magFilter = THREE.NearestFilter;
       texture.minFilter = THREE.NearestFilter;
     }
-    return new ThreeDistrictWorld(scene, localPlayerId, surfaceHeightAt, grenade, molotov, rocket);
+    return new WorldObjectPresentation(scene, localPlayerId, surfaceHeightAt, grenade, molotov, rocket);
   }
 
   synchronize(state: DistrictNetworkState, nowMs: number, localSpaceId = 'street'): void {
@@ -260,10 +260,10 @@ export class ThreeDistrictWorld {
         this.bullets.set(id, mesh);
         this.scene.add(mesh);
       }
-      mesh.rotation.z = serverAngleToThree(bullet.angle);
+      mesh.rotation.z = serverAngleToScene(bullet.angle);
       mesh.position.set(
         bullet.x,
-        serverYToThree(bullet.y),
+        serverYToScene(bullet.y),
         this.surfaceHeightAt(
           bullet.x,
           bullet.y,
@@ -291,14 +291,14 @@ export class ThreeDistrictWorld {
       }
       group.position.set(
         rocket.x,
-        serverYToThree(rocket.y),
+        serverYToScene(rocket.y),
         this.surfaceHeightAt(
           rocket.x,
           rocket.y,
           rocket.surfaceId ?? STREET_GROUND_SURFACE_ID
         ) + 14
       );
-      group.rotation.z = serverAngleToThree(rocket.angle);
+      group.rotation.z = serverAngleToScene(rocket.angle);
     }
     removeAbsent(this.rockets, present);
   }
@@ -324,7 +324,7 @@ export class ThreeDistrictWorld {
         grenade.y,
         grenade.surfaceId ?? STREET_GROUND_SURFACE_ID
       ) + 8;
-      group.position.set(grenade.x, serverYToThree(grenade.y), ground);
+      group.position.set(grenade.x, serverYToScene(grenade.y), ground);
       const presentation = thrownProjectilePresentation(grenade, nowMs);
       const shadow = group.children.find((child) => child.userData.role === 'shadow');
       const icon = group.children.find((child) => child.userData.role === 'icon');
@@ -333,7 +333,7 @@ export class ThreeDistrictWorld {
       if (icon) {
         icon.position.z = Math.max(3, grenade.height);
         icon.scale.setScalar(presentation.modelScale);
-        icon.rotation.z = serverAngleToThree(grenade.angle);
+        icon.rotation.z = serverAngleToScene(grenade.angle);
       }
     }
     removeAbsent(this.grenades, present);
@@ -531,7 +531,7 @@ function pulseMarker(group: THREE.Group, nowMs: number, phase: number): void {
 }
 
 function positionAtSurface(group: THREE.Object3D, x: number, y: number, z: number): void {
-  group.position.set(x, serverYToThree(y), z);
+  group.position.set(x, serverYToScene(y), z);
 }
 
 function texturedPlane(texture: THREE.Texture, width: number, height: number, order: number): THREE.Mesh {

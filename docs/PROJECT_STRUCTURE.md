@@ -506,7 +506,7 @@ Important boundaries:
 
 ### Implemented Client Boundary
 
-`ThreePrototypeViewer` is the only client composition root. It coordinates focused Three,
+`DistrictClient` is the only client composition root. It coordinates focused scene,
 input, network timing, debug, UI, audio, world, and rendering modules under `src/game/`.
 Clients send intent and render authoritative snapshots through surface-aware motion
 timelines; they do not run gameplay physics or local prediction.
@@ -515,10 +515,14 @@ Current organization:
 
 ```text
 game/
-  three/
-    three-prototype-viewer.ts
-    three-district-entities.ts
-    three-district-world.ts
+  district-client.ts
+  presentation/
+    actors.ts
+    objects.ts
+    interiors.ts
+    lighting.ts
+    effects/
+    map/
   network/
     network-quality-controller.ts
     netcode-rollout-controller.ts
@@ -526,10 +530,12 @@ game/
     combat-fire-command-sender.ts
   input/
     client-input-policy.ts
+    input-controller.ts
   rendering/
     remote-timeline-config.ts
     render-types.ts
   ui/
+  qa/
   audio/
   debug/
 ```

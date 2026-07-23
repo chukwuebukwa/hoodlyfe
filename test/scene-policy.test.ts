@@ -7,17 +7,17 @@ import {
   mapSurfaceHeightAt,
   perspectiveHeightForSpan,
   renderedSurfaceHeight,
-  serverAngleToThree,
-  serverPedestrianAngleToThree,
-  serverVehicleAngleToThree,
-  serverYToThree,
-  threePointToServerAimAngle,
+  serverAngleToScene,
+  serverPedestrianAngleToScene,
+  serverVehicleAngleToScene,
+  serverYToScene,
+  scenePointToServerAimAngle,
   renderedVehicleLampAnchor,
   vehicleLampAnchor
-} from '../src/game/three/three-prototype-policy.ts';
-import type {ThreeMapManifest} from '../src/game/three/three-map-format.ts';
+} from '../src/game/presentation/scene-policy.ts';
+import type {WorldGeometryManifest} from '../src/game/presentation/map/geometry-format.ts';
 
-test('three prototype maps tile-local UVs into the complete GTA2 atlas', () => {
+test('scene policy maps tile-local UVs into the complete GTA2 atlas', () => {
   assert.deepEqual(atlasUv({tile: 33, u: 0.25, v: 0.75}, {columns: 32, rows: 31}), [
     1.25 / 32,
     1.75 / 31
@@ -41,7 +41,7 @@ test('vehicle lamp anchors follow physical heading without the sprite atlas quar
 });
 
 test('rendered lamp anchors stay attached to the interpolated vehicle sprite heading', () => {
-  const eastSpriteRotation = serverVehicleAngleToThree(0);
+  const eastSpriteRotation = serverVehicleAngleToScene(0);
   assert.deepEqual(
     renderedVehicleLampAnchor(100, -200, eastSpriteRotation, 40),
     {x: 140, y: -200, rotation: 0}
@@ -53,16 +53,16 @@ test('rendered lamp anchors stay attached to the interpolated vehicle sprite hea
   assert.ok(Math.abs(anchor.rotation - Math.PI / 4) < 0.0001);
 });
 
-test('three prototype converts the authoritative Y-down coordinate boundary exactly once', () => {
-  assert.equal(serverYToThree(240), -240);
-  assert.equal(serverAngleToThree(Math.PI / 3), -Math.PI / 3);
-  assert.equal(serverPedestrianAngleToThree(0), Math.PI / 2);
-  assert.equal(serverVehicleAngleToThree(0), -Math.PI / 2);
-  assert.equal(threePointToServerAimAngle(100, 200, 200, -200), 0);
-  assert.equal(threePointToServerAimAngle(100, 200, 100, -100), -Math.PI / 2);
+test('scene policy converts the authoritative Y-down coordinate boundary exactly once', () => {
+  assert.equal(serverYToScene(240), -240);
+  assert.equal(serverAngleToScene(Math.PI / 3), -Math.PI / 3);
+  assert.equal(serverPedestrianAngleToScene(0), Math.PI / 2);
+  assert.equal(serverVehicleAngleToScene(0), -Math.PI / 2);
+  assert.equal(scenePointToServerAimAngle(100, 200, 200, -200), 0);
+  assert.equal(scenePointToServerAimAngle(100, 200, 100, -100), -Math.PI / 2);
 });
 
-test('three prototype derives perspective height and production face shading deterministically', () => {
+test('scene policy derives perspective height and production face shading deterministically', () => {
   assert.ok(Math.abs(perspectiveHeightForSpan(512) - 618.0386719675123) < 0.001);
   assert.equal(faceBrightness(0), 1);
   assert.equal(faceBrightness(1), 16 / 31);
@@ -71,8 +71,8 @@ test('three prototype derives perspective height and production face shading det
 
 test('expanded district actors use the rendered street height at spawn', () => {
   const map = JSON.parse(
-    readFileSync('public/assets/maps/three/world.json', 'utf8')
-  ) as ThreeMapManifest;
+    readFileSync('public/assets/maps/geometry/world.json', 'utf8')
+  ) as WorldGeometryManifest;
 
   const spawnHeight = mapSurfaceHeightAt(8416, 8288, map);
   assert.equal(spawnHeight, 128);

@@ -30,7 +30,7 @@ export async function startGameRuntime(options: StartGameRuntimeOptions): Promis
 
 class GameRuntimeController implements GameRuntime {
   private activeRoom: Room<DistrictNetworkState> | undefined;
-  private activeThree: {start(): Promise<void>; destroy(): void} | undefined;
+  private activeDistrictClient: {start(): Promise<void>; destroy(): void} | undefined;
   private loadingUi: LoadingController | undefined;
   private netcodeRollout: NetcodeRolloutController | undefined;
   private readonly phone = NockPhoneController.forDocument();
@@ -49,7 +49,7 @@ class GameRuntimeController implements GameRuntime {
 
     try {
       this.loadingUi.set(0.06, 'Selecting street renderer');
-      await this.startThree(driverName, playerAppearance, playerAuth, onboardingRequired);
+      await this.startDistrictClient(driverName, playerAppearance, playerAuth, onboardingRequired);
       this.showOnboardingAfterStart(driverName, playerAppearance, playerAuth, onboardingRequired);
     } catch (error) {
       const loadingUi = this.loadingUi;
@@ -67,8 +67,8 @@ class GameRuntimeController implements GameRuntime {
   }
 
   destroy(): void {
-    this.activeThree?.destroy();
-    this.activeThree = undefined;
+    this.activeDistrictClient?.destroy();
+    this.activeDistrictClient = undefined;
     this.netcodeRollout?.destroy();
     this.netcodeRollout = undefined;
     void this.activeRoom?.leave(true);
@@ -77,7 +77,7 @@ class GameRuntimeController implements GameRuntime {
     this.loadingUi = undefined;
   }
 
-  private async startThree(
+  private async startDistrictClient(
     driverName: string,
     playerAppearance: PlayerAppearance,
     playerAuth: ClientAuthPayload,
@@ -85,8 +85,7 @@ class GameRuntimeController implements GameRuntime {
   ): Promise<void> {
     const shell = document.querySelector<HTMLElement>('#game-shell');
     const game = document.querySelector<HTMLElement>('#game');
-    if (!shell || !game) throw new Error('Three prototype mount is unavailable.');
-    shell.dataset.renderer = 'three';
+    if (!shell || !game) throw new Error('Game mount is unavailable.');
     this.loadingUi?.setTitle('NOCK0');
     this.loadingUi?.set(0.14, 'Connecting district server');
     const client = new Client(this.options.serverUrl);
@@ -118,15 +117,15 @@ class GameRuntimeController implements GameRuntime {
     this.startNetworkControllers(room);
     this.loadingUi?.set(0.42, 'District room joined');
     this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
-    const {ThreePrototypeViewer} = await import('./game/three/three-prototype-viewer.ts');
+    const {DistrictClient} = await import('./game/district-client.ts');
     this.loadingUi?.set(0.72, 'Building roads and rooftops');
-    this.activeThree = new ThreePrototypeViewer(
+    this.activeDistrictClient = new DistrictClient(
       game,
       this.activeRoom,
       this.netcodeRollout,
       this.phone
     );
-    await this.activeThree.start();
+    await this.activeDistrictClient.start();
     this.loadingUi?.set(0.95, 'Preparing driver');
     this.loadingUi?.finish();
   }

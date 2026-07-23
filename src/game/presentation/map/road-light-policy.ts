@@ -1,4 +1,4 @@
-import type {StreetLightFixture} from '../../../shared/content/lighting-fixtures.ts';
+import type {StreetLightFixture} from '../../../../shared/content/lighting-fixtures.ts';
 
 export interface RoadMask {
   width: number;

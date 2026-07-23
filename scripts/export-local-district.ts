@@ -38,7 +38,7 @@ await Promise.all([
   access(resolve(outputDirectory, 'maps/district-map.json')),
   access(resolve(outputDirectory, 'maps/district-map.metadata.json')),
   access(resolve(outputDirectory, 'maps/district-preview.png')),
-  access(resolve(outputDirectory, 'maps/three/world.json'))
+  access(resolve(outputDirectory, 'maps/geometry/world.json'))
 ]);
 
 console.log(`District ${districtId.toUpperCase()} is available at /assets/districts/${districtId}.`);

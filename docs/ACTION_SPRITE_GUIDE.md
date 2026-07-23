@@ -1,6 +1,6 @@
 # Action Sprite Guide
 
-The Three.js client keeps locomotion and action art separate. Walking remains on the original
+The game client keeps locomotion and action art separate. Walking remains on the original
 3x3 sheets; combat, death, and vehicle interactions use the atlases in
 `public/assets/custom/actions/`.
 
@@ -42,7 +42,7 @@ presentation frame is added, and update `VEHICLE_DOOR_ROWS` with the catalog row
 ## Runtime ownership
 
 `src/game/rendering/action-sprite-policy.ts` owns deterministic frame and door selection.
-`src/game/three/three-district-entities.ts` only loads textures and applies those decisions.
+`src/game/presentation/actors.ts` only loads textures and applies those decisions.
 Carjacking victims receive a replicated `NpcState.ejectedAt` timestamp, which drives their
 fall-and-recovery sequence before normal pedestrian AI resumes.
 

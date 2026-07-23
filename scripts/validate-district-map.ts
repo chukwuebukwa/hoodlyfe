@@ -39,7 +39,7 @@ interface WorldManifest {
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const metadata = readJson<MapMetadata>('public/assets/maps/district-map.metadata.json');
-const manifest = readJson<WorldManifest>('public/assets/maps/three/world.json');
+const manifest = readJson<WorldManifest>('public/assets/maps/geometry/world.json');
 const world = CollisionMap.load(projectRoot);
 const issues: string[] = [];
 
@@ -72,7 +72,7 @@ for (const chunk of manifest.chunks) {
   compare(`${chunk.id} x`, chunk.x, chunk.column * manifest.chunkSize);
   compare(`${chunk.id} y`, chunk.y, chunk.row * manifest.chunkSize);
   compare(`${chunk.id} size`, chunk.size, manifest.chunkSize);
-  const chunkPath = resolve(projectRoot, 'public', 'assets', 'maps', 'three', chunk.file);
+  const chunkPath = resolve(projectRoot, 'public', 'assets', 'maps', 'geometry', chunk.file);
   if (!existsSync(chunkPath)) issues.push(`${chunk.id} is missing ${chunk.file}`);
   streamedTriangles += chunk.triangleCount;
 }
@@ -94,7 +94,7 @@ for (const interior of INTERIORS) {
   inside(`${interior.id} bounds max`, interior.bounds.maxX, interior.bounds.maxY);
   inside(`${interior.id} exterior door`, interior.exteriorDoor.x, interior.exteriorDoor.y);
   inside(`${interior.id} exterior exit`, interior.exteriorDoor.exitX, interior.exteriorDoor.exitY);
-  if (!occluderIds.has(interior.id)) issues.push(`${interior.id} has no Three.js roof occluder`);
+  if (!occluderIds.has(interior.id)) issues.push(`${interior.id} has no roof occluder`);
 }
 
 for (const signal of TRAFFIC_SIGNALS) {

@@ -36,11 +36,11 @@ const mapFiles = [
   'district-preview.png',
   'district-overlay.png',
   'district-tiles.png',
-  'three/world.json',
-  'three/tiles.png'
+  'geometry/world.json',
+  'geometry/tiles.png'
 ] as const;
-const optionalMapFiles = ['three/prototype.json'] as const;
-const mapDirectories = ['three/chunks'] as const;
+const optionalMapFiles = ['geometry/prototype.json'] as const;
+const mapDirectories = ['geometry/chunks'] as const;
 
 const size = Number.parseInt(process.argv[2] ?? '', 10);
 if (!Number.isInteger(size) || size < 16 || size > 256 || size % 8 !== 0) {

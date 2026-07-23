@@ -32,7 +32,7 @@ interface AuthorInterior {
   serviceAnchors: Array<{id: string; x: number; y: number}>;
 }
 
-interface PrototypePayload {
+interface GeometryPayload {
   blockSize: number;
   size: {width: number; height: number};
   occluders: Array<{
@@ -113,7 +113,7 @@ const controls = {
 const mapImage = new Image();
 mapImage.src = '/assets/maps/district-preview.png';
 
-let prototype: PrototypePayload = {blockSize: 64, size: {width: 64, height: 64}, occluders: []};
+let geometry: GeometryPayload = {blockSize: 64, size: {width: 64, height: 64}, occluders: []};
 let interiors = loadDraft();
 let selectedId = interiors[0]?.id ?? '';
 let history = [snapshot()];
@@ -127,10 +127,10 @@ let pointerDrag:
   | undefined;
 let pointerWorld = {x: 0, y: 0};
 
-void fetch('/assets/maps/three/world.json')
+void fetch('/assets/maps/geometry/world.json')
   .then((response) => response.json())
-  .then((payload: PrototypePayload) => {
-    prototype = payload;
+  .then((payload: GeometryPayload) => {
+    geometry = payload;
     mapSize = payload.size.width * payload.blockSize;
     draw();
   })
@@ -649,12 +649,12 @@ function drawGrid(): void {
 
 function drawRoofs(): void {
   context.lineWidth = 2 / zoom;
-  for (const roof of prototype.occluders) {
+  for (const roof of geometry.occluders) {
     const bounds = {
-      minX: roof.bounds.minX * prototype.blockSize,
-      minY: roof.bounds.minY * prototype.blockSize,
-      maxX: roof.bounds.maxX * prototype.blockSize,
-      maxY: roof.bounds.maxY * prototype.blockSize
+      minX: roof.bounds.minX * geometry.blockSize,
+      minY: roof.bounds.minY * geometry.blockSize,
+      maxX: roof.bounds.maxX * geometry.blockSize,
+      maxY: roof.bounds.maxY * geometry.blockSize
     };
     context.fillStyle = 'rgba(242, 201, 76, 0.12)';
     context.strokeStyle = 'rgba(242, 201, 76, 0.7)';

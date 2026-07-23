@@ -1,6 +1,6 @@
-import type {ThreeMapChunkDescriptor} from './three-map-format.ts';
+import type {WorldGeometryChunkDescriptor} from './geometry-format.ts';
 
-export const THREE_MAP_STREAMING = Object.freeze({
+export const MAP_STREAMING = Object.freeze({
   preloadRings: 1,
   retentionRings: 2,
   maximumConcurrentLoads: 4,
@@ -8,16 +8,16 @@ export const THREE_MAP_STREAMING = Object.freeze({
   maximumLookaheadChunks: 2
 });
 
-export type ThreeMapChunkTier = 'visible' | 'preload' | 'retained';
+export type MapChunkTier = 'visible' | 'preload' | 'retained';
 
-export interface ThreeMapChunkInterest {
-  descriptor: ThreeMapChunkDescriptor;
-  tier: ThreeMapChunkTier;
+export interface MapChunkInterest {
+  descriptor: WorldGeometryChunkDescriptor;
+  tier: MapChunkTier;
   priority: number;
 }
 
-export interface ThreeMapInterestInput {
-  chunks: readonly ThreeMapChunkDescriptor[];
+export interface MapInterestInput {
+  chunks: readonly WorldGeometryChunkDescriptor[];
   blockSize: number;
   chunkSize: number;
   focusX: number;
@@ -28,10 +28,10 @@ export interface ThreeMapInterestInput {
   lookaheadY?: number;
 }
 
-export function selectThreeMapChunkInterest(input: ThreeMapInterestInput): ThreeMapChunkInterest[] {
+export function selectMapChunkInterest(input: MapInterestInput): MapChunkInterest[] {
   const chunkWorldSize = input.blockSize * input.chunkSize;
-  const preloadMargin = THREE_MAP_STREAMING.preloadRings * chunkWorldSize;
-  const retentionMargin = THREE_MAP_STREAMING.retentionRings * chunkWorldSize;
+  const preloadMargin = MAP_STREAMING.preloadRings * chunkWorldSize;
+  const retentionMargin = MAP_STREAMING.retentionRings * chunkWorldSize;
   const focus = {x: input.focusX, y: input.focusY};
   const lookahead = {
     x: input.lookaheadX ?? input.focusX,
@@ -46,7 +46,7 @@ export function selectThreeMapChunkInterest(input: ThreeMapInterestInput): Three
     boundsAround(focus, input.halfWidth, input.halfHeight, retentionMargin),
     boundsAround(lookahead, input.halfWidth, input.halfHeight, retentionMargin)
   );
-  const interests: ThreeMapChunkInterest[] = [];
+  const interests: MapChunkInterest[] = [];
   for (const descriptor of input.chunks) {
     const bounds = chunkBounds(descriptor, input.blockSize);
     const tier = intersects(bounds, visible)
@@ -69,7 +69,7 @@ export function selectThreeMapChunkInterest(input: ThreeMapInterestInput): Three
   ));
 }
 
-function tierPriority(tier: ThreeMapChunkTier): number {
+function tierPriority(tier: MapChunkTier): number {
   if (tier === 'visible') return 0;
   if (tier === 'preload') return 1_000_000;
   return 2_000_000;
@@ -100,7 +100,7 @@ function unionBounds(left: Bounds, right: Bounds): Bounds {
   };
 }
 
-function chunkBounds(descriptor: ThreeMapChunkDescriptor, blockSize: number): Bounds {
+function chunkBounds(descriptor: WorldGeometryChunkDescriptor, blockSize: number): Bounds {
   return {
     minX: descriptor.x * blockSize,
     minY: descriptor.y * blockSize,

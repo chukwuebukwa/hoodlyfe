@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {ThreeMapChunkDescriptor} from '../src/game/three/three-map-format.ts';
-import {selectThreeMapChunkInterest} from '../src/game/three/three-map-streaming-policy.ts';
+import type {WorldGeometryChunkDescriptor} from '../src/game/presentation/map/geometry-format.ts';
+import {selectMapChunkInterest} from '../src/game/presentation/map/streaming-policy.ts';
 
 const BLOCK_SIZE = 64;
 const CHUNK_SIZE = 8;
 const CHUNK_WORLD_SIZE = BLOCK_SIZE * CHUNK_SIZE;
 
-test('three map streaming prioritizes visible, preload, and retained chunk rings', () => {
-  const interests = selectThreeMapChunkInterest({
+test('map streaming prioritizes visible, preload, and retained chunk rings', () => {
+  const interests = selectMapChunkInterest({
     chunks: chunkGrid(5, 5),
     blockSize: BLOCK_SIZE,
     chunkSize: CHUNK_SIZE,
@@ -31,9 +31,9 @@ test('three map streaming prioritizes visible, preload, and retained chunk rings
   );
 });
 
-test('three map streaming adds motion-lookahead chunks without retaining the entire world', () => {
+test('map streaming adds motion-lookahead chunks without retaining the entire world', () => {
   const chunks = chunkGrid(8, 3);
-  const stationary = selectThreeMapChunkInterest({
+  const stationary = selectMapChunkInterest({
     chunks,
     blockSize: BLOCK_SIZE,
     chunkSize: CHUNK_SIZE,
@@ -42,7 +42,7 @@ test('three map streaming adds motion-lookahead chunks without retaining the ent
     halfWidth: 100,
     halfHeight: 100
   });
-  const moving = selectThreeMapChunkInterest({
+  const moving = selectMapChunkInterest({
     chunks,
     blockSize: BLOCK_SIZE,
     chunkSize: CHUNK_SIZE,
@@ -61,7 +61,7 @@ test('three map streaming adds motion-lookahead chunks without retaining the ent
   assert.ok(moving.length < chunks.length, 'Lookahead must not promote the complete map.');
 });
 
-function chunkGrid(columns: number, rows: number): ThreeMapChunkDescriptor[] {
+function chunkGrid(columns: number, rows: number): WorldGeometryChunkDescriptor[] {
   return Array.from({length: columns * rows}, (_, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);

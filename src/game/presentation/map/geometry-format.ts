@@ -1,4 +1,4 @@
-export interface ThreeMapVertex {
+export interface WorldGeometryVertex {
   x: number;
   y: number;
   z: number;
@@ -8,7 +8,7 @@ export interface ThreeMapVertex {
   shade: number;
 }
 
-export interface ThreeMapAtlas {
+export interface WorldGeometryAtlas {
   image: string;
   columns: number;
   rows: number;
@@ -16,13 +16,13 @@ export interface ThreeMapAtlas {
   tileCount: number;
 }
 
-export interface ThreeMapSurfaceGrid {
+export interface WorldGeometrySurfaceGrid {
   width: number;
   height: number;
   values: number[];
 }
 
-export interface ThreeMapOccluderDefinition {
+export interface WorldGeometryOccluderDefinition {
   id: string;
   bounds: {minX: number; minY: number; maxX: number; maxY: number; minZ: number; maxZ: number};
   exteriorDoor: {x: number; y: number};
@@ -30,7 +30,7 @@ export interface ThreeMapOccluderDefinition {
   triangleCount: number;
 }
 
-export interface ThreeMapChunkDescriptor {
+export interface WorldGeometryChunkDescriptor {
   id: string;
   column: number;
   row: number;
@@ -41,7 +41,7 @@ export interface ThreeMapChunkDescriptor {
   triangleCount: number;
 }
 
-export interface ThreeMapManifest {
+export interface WorldGeometryManifest {
   version: number;
   revision: string;
   source: string;
@@ -49,30 +49,30 @@ export interface ThreeMapManifest {
   origin: {x: number; y: number};
   size: {width: number; height: number};
   chunkSize: number;
-  atlas: ThreeMapAtlas;
-  surfaces: ThreeMapSurfaceGrid;
-  occluders: ThreeMapOccluderDefinition[];
-  chunks: ThreeMapChunkDescriptor[];
+  atlas: WorldGeometryAtlas;
+  surfaces: WorldGeometrySurfaceGrid;
+  occluders: WorldGeometryOccluderDefinition[];
+  chunks: WorldGeometryChunkDescriptor[];
   triangleCount: number;
 }
 
-export interface ThreeMapChunkOccluder {
+export interface WorldGeometryChunkOccluder {
   id: string;
   opaqueIndices: number[];
   alphaTestedIndices: number[];
   triangleCount: number;
 }
 
-export interface ThreeMapChunkPayload {
+export interface WorldGeometryChunkPayload {
   version: number;
   column: number;
   row: number;
   x: number;
   y: number;
   size: number;
-  vertices: ThreeMapVertex[];
+  vertices: WorldGeometryVertex[];
   opaqueIndices: number[];
   alphaTestedIndices: number[];
-  occluders: ThreeMapChunkOccluder[];
+  occluders: WorldGeometryChunkOccluder[];
   triangleCount: number;
 }

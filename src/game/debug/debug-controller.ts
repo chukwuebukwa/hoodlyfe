@@ -1,21 +1,21 @@
 import type {Room} from 'colyseus.js';
 import * as THREE from 'three';
 import type {DebugSnapshot} from '../../../shared/protocol/debug.ts';
-import {projectDebugPanel} from '../debug/debug-panel-policy.ts';
-import {DebugSnapshotSubscription} from '../debug/debug-snapshot-subscription.ts';
+import {projectDebugPanel} from './debug-panel-policy.ts';
+import {DebugSnapshotSubscription} from './debug-snapshot-subscription.ts';
 import type {DistrictNetworkState} from '../types.ts';
-import {serverYToThree} from './three-prototype-policy.ts';
+import {serverYToScene} from '../presentation/scene-policy.ts';
 import type {NetworkQualitySnapshot} from '../network/network-quality-controller.ts';
 import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller.ts';
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
-import type {ThreeMapStreamingSnapshot} from './three-map-chunk-streamer.ts';
+import type {MapStreamingSnapshot} from '../presentation/map/chunk-streamer.ts';
 import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
-export class ThreeDebugController {
+export class DebugController {
   private readonly group = new THREE.Group();
   private readonly subscription: DebugSnapshotSubscription;
   private readonly panel = document.querySelector('#debug-panel');
@@ -70,7 +70,7 @@ export class ThreeDebugController {
     private readonly surfaceHeightAt: (x: number, y: number) => number,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
-    private readonly mapStreaming: () => ThreeMapStreamingSnapshot | undefined = () => undefined,
+    private readonly mapStreaming: () => MapStreamingSnapshot | undefined = () => undefined,
     private readonly vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
   ) {
     this.group.visible = false;
@@ -526,7 +526,7 @@ function entityGlyph(
     new THREE.Vector3(),
     new THREE.Vector3(Math.cos(angle) * radius * 1.7, -Math.sin(angle) * radius * 1.7, 0)
   ], color));
-  group.position.set(x, serverYToThree(y), surface(x, y) + 24);
+  group.position.set(x, serverYToScene(y), surface(x, y) + 24);
   return group;
 }
 
@@ -568,7 +568,7 @@ function vehicleGlyph(
       new THREE.Vector3(velocityX * 0.14, -velocityY * 0.14, 0)
     ], 0x48e2ff));
   }
-  group.position.set(x, serverYToThree(y), surface(x, y) + 24);
+  group.position.set(x, serverYToScene(y), surface(x, y) + 24);
   return group;
 }
 
@@ -576,7 +576,7 @@ function debugRing(x: number, y: number, radius: number, color: number, z: numbe
   const points: THREE.Vector3[] = [];
   for (let index = 0; index < 48; index++) {
     const angle = index / 48 * Math.PI * 2;
-    points.push(new THREE.Vector3(x + Math.cos(angle) * radius, serverYToThree(y) + Math.sin(angle) * radius, z));
+    points.push(new THREE.Vector3(x + Math.cos(angle) * radius, serverYToScene(y) + Math.sin(angle) * radius, z));
   }
   const line = new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints(points),
@@ -596,7 +596,7 @@ function debugLine(points: THREE.Vector3[], color: number): THREE.Line {
 }
 
 function point(x: number, y: number, z: number): THREE.Vector3 {
-  return new THREE.Vector3(x, serverYToThree(y), z);
+  return new THREE.Vector3(x, serverYToScene(y), z);
 }
 
 function disposeChildren(group: THREE.Group): void {

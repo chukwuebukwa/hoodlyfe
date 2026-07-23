@@ -114,7 +114,7 @@ public sealed class WebAssetExporter
         var spritesDirectory = Path.Combine(_options.OutputAssetsDirectory, "custom", "sprites");
         Directory.CreateDirectory(mapsDirectory);
         Directory.CreateDirectory(spritesDirectory);
-        ExportThreePrototype(map, style, surfaces, mapsDirectory, originX, originY, width, height);
+        ExportWorldGeometry(map, style, surfaces, mapsDirectory, originX, originY, width, height);
         ExportSurfaceManifest(surfaces, mapsDirectory, originX, originY, width, height, spawn);
 
         var baseAtlas = CreateAtlas(style, baseVariants);
@@ -460,7 +460,7 @@ public sealed class WebAssetExporter
         return new Atlas(bitmap, columns, rows, variants.Ordered.Count);
     }
 
-    private void ExportThreePrototype(
+    private void ExportWorldGeometry(
         Map map,
         Style style,
         SurfaceCell[,] surfaces,
@@ -470,7 +470,7 @@ public sealed class WebAssetExporter
         int width,
         int height)
     {
-        if (width != height) throw new InvalidOperationException("The 3D district prototype requires a square crop.");
+        if (width != height) throw new InvalidOperationException("The district geometry export requires a square crop.");
         var surfaceHeights = new float[width * height];
         for (var y = 0; y < height; y++)
         {
@@ -481,7 +481,7 @@ public sealed class WebAssetExporter
                     surface.LowestGroundFace?.Height ?? 0;
             }
         }
-        var outputDirectory = Path.Combine(mapsDirectory, "three");
+        var outputDirectory = Path.Combine(mapsDirectory, "geometry");
         Directory.CreateDirectory(outputDirectory);
         using var atlas = CreateCompleteTileAtlas(style, out var atlasColumns, out var atlasRows);
         SavePng(atlas, Path.Combine(outputDirectory, "tiles.png"));

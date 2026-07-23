@@ -25,15 +25,15 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 ### Combat and Weapons
 
 - **Playable** pistol, SMG, shotgun, rocket launcher, grenade, and Molotov with distinct cooldown, ammunition, fire mode, projectile, HUD icon, and held-weapon presentation.
-- **Playable** fists and baseball bat with server-owned windup/contact/recovery timing, full collision-safe directional movement during attacks, three-step per-player fist combos, target-facing assistance, line-of-sight and forward-contact validation, one-contact fists, bounded multi-target bat strikes, low bat-to-vehicle damage, assault escalation, and synchronized Phaser/Three swing presentation.
-- **Playable** visible pursuing police and assigned mission hostiles transition from ranged fire to authoritative point-blank melee with a fixed victim, timed windup/contact/recovery, impact-time range/arc/LOS revalidation, reaction interruption, replicated attack sequence/progress, debug events, and one shared Phaser/Three pose policy.
+- **Playable** fists and baseball bat with server-owned windup/contact/recovery timing, full collision-safe directional movement during attacks, three-step per-player fist combos, target-facing assistance, line-of-sight and forward-contact validation, one-contact fists, bounded multi-target bat strikes, low bat-to-vehicle damage, assault escalation, and synchronized swing presentation.
+- **Playable** visible pursuing police and assigned mission hostiles transition from ranged fire to authoritative point-blank melee with a fixed victim, timed windup/contact/recovery, impact-time range/arc/LOS revalidation, reaction interruption, replicated attack sequence/progress, debug events, and one shared pose policy.
 - **Playable** server-authoritative aim, firing gates, projectile movement, collision, player/NPC/vehicle damage, kill rewards, and respawn.
 - **Playable** passenger drive-by shooting with seat-specific muzzle origins and a visible passenger lean/peek presentation.
 - **Playable** bounded thrown-grenade arc/fuse/bounce, production-shaped radial falloff, self damage, player/NPC/vehicle attribution, transient blast presentation, and car chain reactions.
-- **Playable** bounded server-authoritative rockets with accepted-launch ammo consumption, swept actor/world collision, self-damaging typed blasts, attribution, vehicle chain reactions, AOI replication, and Phaser/Three models.
-- **Playable** bounded server-authoritative Molotov flight, impact-created ground fire, and finite carried pedestrian burns with fixed damage cadence, actor/vehicle attribution, AOI replication, pedestrian hazard stimulus, positional ignition audio, lifecycle cleanup, and shared Phaser/Three presentation.
+- **Playable** bounded server-authoritative rockets with accepted-launch ammo consumption, swept actor/world collision, self-damaging typed blasts, attribution, vehicle chain reactions, AOI replication, and client presentation.
+- **Playable** bounded server-authoritative Molotov flight, impact-created ground fire, and finite carried pedestrian burns with fixed damage cadence, actor/vehicle attribution, AOI replication, pedestrian hazard stimulus, positional ignition audio, lifecycle cleanup, and shared presentation.
 - **Playable** server-authoritative armor absorbs accepted damage before health, exposes split damage facts, clears on death, and can be restored with ammunition at Combat Supply. Development players receive a temporary 25-point starter vest so the loop is immediately visible.
-- **Playable** synchronized directional flinch, stagger, and knockdown reactions for players and pedestrians, with force/family/critical-health escalation, stronger-hit interruption, action cancellation, and one shared Phaser/Three presentation policy.
+- **Playable** synchronized directional flinch, stagger, and knockdown reactions for players and pedestrians, with force/family/critical-health escalation, stronger-hit interruption, action cancellation, and one shared presentation policy.
 - **Foundation** weapon-family separation now covers bullet, rocket, thrown, ground/actor fire, and melee definitions through shared content catalogs; blocking, ground attacks, expanded NPC fight moves, spreading/extinguishable fire, mines, throw charging, reloads, recoil/accuracy, durable armor inventory, and weapon shops remain content work.
 
 ### Vehicles and Traffic
@@ -76,7 +76,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 ### World, Navigation, Missions, and Diagnostics
 
 - **Playable** GTA2 compatibility map, corrected collision layers, spawn, roads, labels, overhead props, and minimap.
-- **Playable foundation** server-authoritative 48-minute day/night clock with continuous Three sky/fog/sun/ambient phases, deterministic full-road streetlight coverage, signal-color glow, bounded nearest-light activation, and DBG time controls.
+- **Playable foundation** server-authoritative 48-minute day/night clock with continuous sky/fog/sun/ambient phases, deterministic full-road streetlight coverage, signal-color glow, bounded nearest-light activation, and DBG time controls.
 - **Playable** GTA Online-inspired Freemode Boost and Deliver job with opt-in nearby crew, leader launch, shared objective, target reservation, wanted escape, delivery, failure states, and idempotent participant payouts.
 - **Playable** Getaway Run composes the same crew/runtime boundaries with three ordered authoritative road checkpoints, wanted escape, delivery, condition payout, and cleanup.
 - **Playable** Crew Checkpoint Rush adds five ordered road checkpoints carried by any living crew driver, no reserved target, fixed payout, and shared route progress.
@@ -86,7 +86,7 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** minimap markers for players, police, contact, target, delivery, and local/remote vehicle positions.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** five complete jobs now share objective/encounter modules; item, escort, placement-scored race, and event-mode objectives remain incomplete.
-- **Playable** Three.js district client with real OpenGTA2 block geometry and depth-tested entities is now the only renderer; the Phaser client and its wrapper modules were removed.
+- **Playable** district client with real OpenGTA2 block geometry and depth-tested entities is now the only renderer; the legacy client and its wrapper modules were removed.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.
 - **Playable foundation** per-client spatial state views: same-space players/services replicate everywhere, while street actors, traffic, combat transients, missions, pickups, and signals are not sent to hospital clients.
 - **Playable foundation** street AOI streams NPCs and vehicles with 1,280/1,536-pixel hysteresis, bounded add/remove budgets, occupied/mission vehicle pinning, and F3 visibility pressure diagnostics.
@@ -132,18 +132,18 @@ These are ordered by how much of the city loop they improve and by their depende
   without full AI, physics, schemas, replication, or interaction-island history.
 - **Delivered playable**: persistent visible vehicle blocker cycles elect exactly one
   rear-clear recovery owner, release only that car's junction claim, reverse for a bounded
-  window, and return to the existing route; F3 and Three expose the cycle and owner.
+  window, and return to the existing route; F3 diagnostics expose the cycle and owner.
 - **Delivered playable**: authored conflict zones serialize FIFO approaches, reject blocked
   admission, preserve a commit window, hold ownership until the rear collider clears, and
   expire abandoned ownership; catalog-sized oriented rectangles replace circular
   vehicle-to-vehicle collision.
 - **Delivered playable**: server traffic predicts catalog-sized oriented-box contact from
   relative motion, combines TTC with following-distance speed caps, preserves admitted
-  junction throughput, and exposes limiting risk through F3 and Three overlays.
+  junction throughput, and exposes limiting risk through F3 overlays.
 - **Delivered playable**: authored lane-to-lane movements own stable server-only paths and
   a conservative geometric foe relation. Compatible opposite straights or disjoint turns
   may share one bounded junction owner set, while crossing paths, shared lanes, fallback
-  routes, malformed geometry, and terminal U-turns remain serialized. F3 and Three expose
+  routes, malformed geometry, and terminal U-turns remain serialized. F3 diagnostics expose
   each active movement, shared-owner count, and conflicting wait pressure.
 - **Delivered playable**: selected district corridors compile two lanes per direction;
   turn legality consumes lane index; slow-lead passing reserves one adjacent-lane segment,
@@ -233,7 +233,7 @@ Exit gate met for current presentation states; authored layer art and durable ou
 - **Delivered playable** Mercy Hospital occupies its real building footprint; the exporter owns 32 exact roof-lid triangles, and entering hides only that named group while preserving the surrounding city, HUD, controls, and same-space service presentation.
 - **Delivered playable** Mercy's treatment service and recovery spawn are interior-owned anchors. Medical respawn plans carry coordinates plus `spaceId`; lifecycle applies them without owning facility policy. Threads remains a street service until it gets a separate authored building.
 - **Delivered foundation** `DistrictReplicationController` diffs Colyseus state-view membership per outgoing patch. Interior clients no longer receive street collections, and street peers no longer receive interior players.
-- **Delivered QA** development-only `?renderer=three&qa=1` driver uses normal network movement to complete repeatable street -> hospital -> street round trips. It does not expose a server teleport command.
+- **Delivered QA** development-only `?qa=1` driver uses normal network movement to complete repeatable street -> hospital -> street round trips. It does not expose a server teleport command.
 - **Delivered tooling** `INTERIOR_AUTHORING_GUIDE.md` documents source/runtime coordinate conversion, catalog/export ownership, failure signatures, required tests, and desktop/mobile browser QA for subsequent buildings.
 - Move ammunition, repair, and later garage/property services into authored interiors only as each building gains collision-safe anchors and appropriate vehicle/actor portal rules.
 - Add interior combat/projectile collision, NPC destinations/schedules, audio zones, lighting, cameras, and multiple floors only after the single-floor space contract is stable.
@@ -275,15 +275,15 @@ These begin after durable identity exists, but their gameplay-facing contracts s
 
 Property is not blocked by 2D presentation, but it is blocked by original map/interior content, durable identity, ownership records, and district transfer lifecycle.
 
-## Parallel OpenGTA2 3D Track
+## District Presentation Track
 
 - **Playable foundation** renderer-neutral full-district block geometry extraction in OpenGTA2.
-- **Playable foundation** room-connected Three.js client behind `?renderer=three`.
-- **Playable foundation** actor, vehicle, weapon, projectile, label, input, HUD, minimap, mission, effects, animation, debug, and camera parity.
+- **Playable foundation** room-connected game client.
+- **Playable foundation** actor, vehicle, weapon, projectile, label, input, HUD, minimap, mission, effects, animation, debug, and camera presentation.
 - **Next** authored building/roof/door metadata for clean same-coordinate roof removal.
-- **Later** authoritative elevation/surface IDs, multi-level collision, navigation, and line of sight only after renderer parity.
+- **Later** authoritative elevation/surface IDs, multi-level collision, navigation, and line of sight.
 
-The Three renderer is now the only client; the Phaser renderer and its wrapper modules were removed in July 2026. GTA2-derived maps and sprites are private compatibility fixtures; public distribution and monetization require original art, layout, geometry, vehicles, and branding.
+The legacy Phaser client and its wrapper modules were removed in July 2026. GTA2-derived maps and sprites are private compatibility fixtures; public distribution and monetization require original art, layout, geometry, vehicles, and branding.
 
 ## Onchain Settlement Gate
 

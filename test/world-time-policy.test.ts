@@ -12,7 +12,7 @@ import {
   deriveRoadLightEmitters,
   measureRoadLightCoverage,
   mergeLightEmitters
-} from '../src/game/three/three-road-light-policy.ts';
+} from '../src/game/presentation/map/road-light-policy.ts';
 import {STREET_LIGHT_FIXTURES} from '../shared/content/lighting-fixtures.ts';
 import {TRAFFIC_SIGNALS} from '../shared/content/traffic-signals.ts';
 

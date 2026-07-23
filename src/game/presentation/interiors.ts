@@ -7,9 +7,9 @@ import {
   type InteriorDefinition
 } from '../../../shared/content/interior-catalog.ts';
 import type {DistrictNetworkState} from '../types.ts';
-import {serverYToThree} from './three-prototype-policy.ts';
+import {serverYToScene} from './scene-policy.ts';
 
-export class ThreeInteriorRenderer {
+export class InteriorPresentation {
   private readonly interiors = new Map<string, THREE.Group>();
   private readonly exteriorDoors = new Map<string, THREE.Group>();
 
@@ -60,7 +60,7 @@ function createInterior(definition: InteriorDefinition): THREE.Group {
   const width = bounds.maxX - bounds.minX;
   const height = bounds.maxY - bounds.minY;
   const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = serverYToThree((bounds.minY + bounds.maxY) / 2);
+  const centerY = serverYToScene((bounds.minY + bounds.maxY) / 2);
   const palette = interiorPalette(definition.kind);
 
   group.add(box(width, height, 8, 0x2a2d2f, centerX, centerY, floorZ - 4));
@@ -76,14 +76,14 @@ function createInterior(definition: InteriorDefinition): THREE.Group {
 
   const wallColor = 0x202427;
   const wallHeight = 56;
-  group.add(box(width, 16, wallHeight, wallColor, centerX, serverYToThree(bounds.minY + 8), floorZ + wallHeight / 2));
+  group.add(box(width, 16, wallHeight, wallColor, centerX, serverYToScene(bounds.minY + 8), floorZ + wallHeight / 2));
   group.add(box(16, height, wallHeight, wallColor, bounds.minX + 8, centerY, floorZ + wallHeight / 2));
   if (definition.exteriorDoor.side === 'south') {
     group.add(box(16, height, wallHeight, wallColor, bounds.maxX - 8, centerY, floorZ + wallHeight / 2));
     addHorizontalDoorWall(group, definition, wallColor, wallHeight, floorZ);
   } else {
     addVerticalDoorWall(group, definition, wallColor, wallHeight, floorZ);
-    group.add(box(width, 16, wallHeight, wallColor, centerX, serverYToThree(bounds.maxY - 8), floorZ + wallHeight / 2));
+    group.add(box(width, 16, wallHeight, wallColor, centerX, serverYToScene(bounds.maxY - 8), floorZ + wallHeight / 2));
   }
 
   if (definition.kind === 'hospital') addHospitalFixtures(group, definition, floorZ);
@@ -92,8 +92,8 @@ function createInterior(definition: InteriorDefinition): THREE.Group {
   else addAmmunitionFixtures(group, definition, floorZ);
 
   const threshold = definition.exteriorDoor.side === 'south'
-    ? box(68, 20, 2, 0xf2c94c, definition.entry.x, serverYToThree(bounds.maxY - 18), floorZ + 2)
-    : box(20, 68, 2, 0xf2c94c, bounds.maxX - 18, serverYToThree(definition.entry.y), floorZ + 2);
+    ? box(68, 20, 2, 0xf2c94c, definition.entry.x, serverYToScene(bounds.maxY - 18), floorZ + 2)
+    : box(20, 68, 2, 0xf2c94c, bounds.maxX - 18, serverYToScene(definition.entry.y), floorZ + 2);
   threshold.material.transparent = true;
   threshold.material.opacity = 0.75;
   group.add(threshold);
@@ -111,28 +111,28 @@ function createExteriorDoor(definition: InteriorDefinition): THREE.Group {
   const facadeY = y - 14;
   const facadeX = x - 14;
   const shadow = isSouth
-    ? box(46, 7, 36, 0x050708, x, serverYToThree(facadeY), floorZ + 18)
-    : box(7, 46, 36, 0x050708, facadeX, serverYToThree(y), floorZ + 18);
+    ? box(46, 7, 36, 0x050708, x, serverYToScene(facadeY), floorZ + 18)
+    : box(7, 46, 36, 0x050708, facadeX, serverYToScene(y), floorZ + 18);
   const firstJamb = isSouth
-    ? box(6, 9, 40, frameColor, x - 25, serverYToThree(facadeY + 1), floorZ + 20)
-    : box(9, 6, 40, frameColor, facadeX - 1, serverYToThree(y - 25), floorZ + 20);
+    ? box(6, 9, 40, frameColor, x - 25, serverYToScene(facadeY + 1), floorZ + 20)
+    : box(9, 6, 40, frameColor, facadeX - 1, serverYToScene(y - 25), floorZ + 20);
   const secondJamb = isSouth
-    ? box(6, 9, 40, frameColor, x + 25, serverYToThree(facadeY + 1), floorZ + 20)
-    : box(9, 6, 40, frameColor, facadeX - 1, serverYToThree(y + 25), floorZ + 20);
+    ? box(6, 9, 40, frameColor, x + 25, serverYToScene(facadeY + 1), floorZ + 20)
+    : box(9, 6, 40, frameColor, facadeX - 1, serverYToScene(y + 25), floorZ + 20);
   const lintel = isSouth
-    ? box(56, 9, 6, lintelColor, x, serverYToThree(facadeY + 1), floorZ + 39)
-    : box(9, 56, 6, lintelColor, facadeX - 1, serverYToThree(y), floorZ + 39);
+    ? box(56, 9, 6, lintelColor, x, serverYToScene(facadeY + 1), floorZ + 39)
+    : box(9, 56, 6, lintelColor, facadeX - 1, serverYToScene(y), floorZ + 39);
   const threshold = isSouth
-    ? box(52, 16, 3, lintelColor, x, serverYToThree(y - 5), floorZ + 2)
-    : box(16, 52, 3, lintelColor, x - 5, serverYToThree(y), floorZ + 2);
+    ? box(52, 16, 3, lintelColor, x, serverYToScene(y - 5), floorZ + 2)
+    : box(16, 52, 3, lintelColor, x - 5, serverYToScene(y), floorZ + 2);
   threshold.material.transparent = true;
   threshold.material.opacity = 0.8;
   group.add(shadow, firstJamb, secondJamb, lintel, threshold);
   const signboard = isSouth
-    ? box(176, 24, 6, palette.sign, x, serverYToThree(y - 9), floorZ + 43)
-    : box(24, 176, 6, palette.sign, x - 9, serverYToThree(y), floorZ + 43);
+    ? box(176, 24, 6, palette.sign, x, serverYToScene(y - 9), floorZ + 43)
+    : box(24, 176, 6, palette.sign, x - 9, serverYToScene(y), floorZ + 43);
   const label = facadeLabel(definition.label.toUpperCase(), palette.accent);
-  label.position.set(x, serverYToThree(y - 9), floorZ + 47);
+  label.position.set(x, serverYToScene(y - 9), floorZ + 47);
   group.add(signboard, label);
   return group;
 }
@@ -155,8 +155,8 @@ function addHospitalFixtures(
   }
   if (definition.recoveryAnchor) {
     const {x, y} = definition.recoveryAnchor;
-    group.add(box(12, 44, 2, 0xe23d4f, x, serverYToThree(y), floorZ + 3));
-    group.add(box(44, 12, 2, 0xe23d4f, x, serverYToThree(y), floorZ + 4));
+    group.add(box(12, 44, 2, 0xe23d4f, x, serverYToScene(y), floorZ + 3));
+    group.add(box(44, 12, 2, 0xe23d4f, x, serverYToScene(y), floorZ + 4));
   }
 }
 
@@ -185,13 +185,13 @@ function addAmmunitionFixtures(
       const centerX = (obstacle.minX + obstacle.maxX) / 2;
       const centerY = (obstacle.minY + obstacle.maxY) / 2;
       for (const offset of [-22, 0, 22]) {
-        group.add(box(24, 7, 7, 0xd8b24a, centerX, serverYToThree(centerY + offset), floorZ + 36));
+        group.add(box(24, 7, 7, 0xd8b24a, centerX, serverYToScene(centerY + offset), floorZ + 36));
       }
     }
   });
   const anchor = definition.serviceAnchors[0];
   if (anchor) {
-    group.add(box(28, 18, 4, 0xf2c94c, anchor.x, serverYToThree(anchor.y), floorZ + 3));
+    group.add(box(28, 18, 4, 0xf2c94c, anchor.x, serverYToScene(anchor.y), floorZ + 3));
   }
 }
 
@@ -206,7 +206,7 @@ function addVehicleStoreFixtures(
     if (!isCounter) addObstacleBox(group, inset(obstacle, 8), 4, 0x55d6ff, floorZ + 8);
   });
   for (const anchor of definition.serviceAnchors) {
-    group.add(box(34, 20, 4, 0xf2c94c, anchor.x, serverYToThree(anchor.y), floorZ + 3));
+    group.add(box(34, 20, 4, 0xf2c94c, anchor.x, serverYToScene(anchor.y), floorZ + 3));
   }
 }
 
@@ -223,7 +223,7 @@ function addObstacleBox(
     height,
     color,
     (obstacle.minX + obstacle.maxX) / 2,
-    serverYToThree((obstacle.minY + obstacle.maxY) / 2),
+    serverYToScene((obstacle.minY + obstacle.maxY) / 2),
     floorZ + height / 2
   ));
 }
@@ -299,7 +299,7 @@ function addHorizontalDoorWall(
     height,
     color,
     bounds.minX + leftWidth / 2,
-    serverYToThree(bounds.maxY - 8),
+    serverYToScene(bounds.maxY - 8),
     floorZ + height / 2
   ));
   group.add(box(
@@ -308,7 +308,7 @@ function addHorizontalDoorWall(
     height,
     color,
     exitDoor.maxX + rightWidth / 2,
-    serverYToThree(bounds.maxY - 8),
+    serverYToScene(bounds.maxY - 8),
     floorZ + height / 2
   ));
 }
@@ -329,7 +329,7 @@ function addVerticalDoorWall(
     height,
     color,
     bounds.maxX - 8,
-    serverYToThree(bounds.minY + upperHeight / 2),
+    serverYToScene(bounds.minY + upperHeight / 2),
     floorZ + height / 2
   ));
   group.add(box(
@@ -338,7 +338,7 @@ function addVerticalDoorWall(
     height,
     color,
     bounds.maxX - 8,
-    serverYToThree(exitDoor.maxY + lowerHeight / 2),
+    serverYToScene(exitDoor.maxY + lowerHeight / 2),
     floorZ + height / 2
   ));
 }

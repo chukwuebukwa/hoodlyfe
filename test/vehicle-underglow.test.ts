@@ -5,7 +5,7 @@ import {
   updateVehicleUnderglow,
   vehicleUnderglow,
   vehicleUnderglowRotation
-} from '../src/game/three/three-vehicle-underglow.ts';
+} from '../src/game/presentation/effects/vehicle-underglow.ts';
 
 test('vehicle underglow removes the sprite atlas quarter-turn', () => {
   assert.equal(vehicleUnderglowRotation(0.25), 0.25 + Math.PI / 2);

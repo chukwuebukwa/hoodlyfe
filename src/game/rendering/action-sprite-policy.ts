@@ -134,7 +134,7 @@ export function vehicleDoorPresentation(
   const sideAngle = vehicle.angle + Math.PI / 2;
   const sideDot = (actionPlayer.x - vehicle.x) * Math.cos(sideAngle) +
     (actionPlayer.y - vehicle.y) * Math.sin(sideAngle);
-  // Server Y is inverted for the Three.js presentation, so atlas left/right is mirrored here.
+  // Server Y is inverted in scene coordinates, so atlas left/right is mirrored here.
   const left = sideDot < 0;
   if (rear) return {frame: left ? 3 : 4, open: true};
   return {frame: left ? 1 : 2, open: true};

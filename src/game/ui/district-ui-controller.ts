@@ -30,15 +30,15 @@ import {RadioSystem} from '../audio/radio-system.ts';
 import {SfxSystem} from '../audio/sfx-system.ts';
 import {VehicleAudioSystem} from '../audio/vehicle-audio-system.ts';
 import {ProximityVoiceSystem} from '../audio/proximity-voice-system.ts';
-import {LocalHudController} from '../ui/local-hud-controller.ts';
-import {NockPhoneController} from '../ui/nock-phone-controller.ts';
+import {LocalHudController} from './local-hud-controller.ts';
+import {NockPhoneController} from './nock-phone-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import type {ActorRenderPose} from '../rendering/render-types.ts';
 
 const UI_INTERVAL_MS = 100;
 
-export class ThreeDistrictUiController {
+export class DistrictUiController {
   private readonly hud = new LocalHudController();
   private readonly radio: RadioSystem;
   private readonly sfx: SfxSystem;

@@ -2,39 +2,42 @@ import * as THREE from 'three';
 import {
   PROJECTILE_IMPACTS_MESSAGE,
   type ProjectileImpactsMessage
-} from '../../../shared/protocol/projectile-impacts.ts';
+} from '../../shared/protocol/projectile-impacts.ts';
 import type {Room} from 'colyseus.js';
-import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
-import {ThreeDistrictEntities} from './three-district-entities.ts';
-import {ThreeDistrictUiController} from './three-district-ui-controller.ts';
-import {ThreeDistrictWorld} from './three-district-world.ts';
-import {ThreeDebugController} from './three-debug-controller.ts';
-import {ThreeInteriorRenderer} from './three-interior-renderer.ts';
-import {ThreeQaDriver} from './three-qa-driver.ts';
-import {ThreeInputController} from './three-input-controller.ts';
-import {ThreeDayNightController} from './three-day-night-controller.ts';
-import {NetworkQualityController} from '../network/network-quality-controller.ts';
-import type {NetcodeRolloutController} from '../network/netcode-rollout-controller.ts';
-import type {NockPhoneController} from '../ui/nock-phone-controller.ts';
-import {CombatFireCommandSender} from '../network/combat-fire-command-sender.ts';
-import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
-import {isWeaponId} from '../../../shared/content/weapon-catalog.ts';
-import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../../shared/world/surface-map.ts';
+import type {DistrictNetworkState, NetworkPlayer} from './types.ts';
+import {ActorPresentation} from './presentation/actors.ts';
+import {DistrictUiController} from './ui/district-ui-controller.ts';
+import {WorldObjectPresentation} from './presentation/objects.ts';
+import {DebugController} from './debug/debug-controller.ts';
+import {InteriorPresentation} from './presentation/interiors.ts';
+import {QaDriver} from './qa/driver.ts';
+import {InputController} from './input/input-controller.ts';
+import {LightingPresentation} from './presentation/lighting.ts';
+import {NetworkQualityController} from './network/network-quality-controller.ts';
+import type {NetcodeRolloutController} from './network/netcode-rollout-controller.ts';
+import type {NockPhoneController} from './ui/nock-phone-controller.ts';
+import {CombatFireCommandSender} from './network/combat-fire-command-sender.ts';
+import {interiorDefinition} from '../../shared/content/interior-catalog.ts';
+import {isWeaponId} from '../../shared/content/weapon-catalog.ts';
+import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../shared/world/surface-map.ts';
 import {
   mapSurfaceHeightAt,
   perspectiveHeightForSpan,
   renderedSurfaceHeight,
-  serverYToThree
-} from './three-prototype-policy.ts';
-import {ThreeMapChunkStreamer} from './three-map-chunk-streamer.ts';
-import type {ThreeMapManifest, ThreeMapOccluderDefinition} from './three-map-format.ts';
+  serverYToScene
+} from './presentation/scene-policy.ts';
+import {MapChunkStreamer} from './presentation/map/chunk-streamer.ts';
+import type {
+  WorldGeometryManifest,
+  WorldGeometryOccluderDefinition
+} from './presentation/map/geometry-format.ts';
 import {
   cameraRecoilOffset,
   explorerCameraPose,
   type CameraFollowMode,
   type CameraPresentationMode
-} from '../camera/camera-policy.ts';
-import {gunshotPresentation} from '../rendering/player-render-policy.ts';
+} from './camera/camera-policy.ts';
+import {gunshotPresentation} from './rendering/player-render-policy.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -49,7 +52,7 @@ const EXPLORER_MOUSE_YAW_SPEED = 0.0025;
 const EXPLORER_MOUSE_PITCH_SPEED = 0.002;
 const EXPLORER_MIN_PITCH = -0.72;
 const EXPLORER_MAX_PITCH = 0.52;
-export class ThreePrototypeViewer {
+export class DistrictClient {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 1, 1, 20_000);
   private readonly renderer: THREE.WebGLRenderer;
@@ -65,20 +68,20 @@ export class ThreePrototypeViewer {
   private pointerX = 0;
   private pointerY = 0;
   private status?: HTMLElement;
-  private entities?: ThreeDistrictEntities;
-  private input?: ThreeInputController;
-  private ui?: ThreeDistrictUiController;
-  private world?: ThreeDistrictWorld;
-  private debug?: ThreeDebugController;
+  private actors?: ActorPresentation;
+  private input?: InputController;
+  private ui?: DistrictUiController;
+  private objects?: WorldObjectPresentation;
+  private debug?: DebugController;
   private networkQuality?: NetworkQualityController;
   private combatFire?: CombatFireCommandSender;
   private removeProjectileImpacts?: () => void;
-  private interiors?: ThreeInteriorRenderer;
-  private lighting?: ThreeDayNightController;
+  private interiors?: InteriorPresentation;
+  private lighting?: LightingPresentation;
   private readonly mapOccluders = new Map<string, THREE.Group>();
-  private mapStreamer?: ThreeMapChunkStreamer;
-  private qa?: ThreeQaDriver;
-  private payload?: ThreeMapManifest;
+  private mapStreamer?: MapChunkStreamer;
+  private qa?: QaDriver;
+  private payload?: WorldGeometryManifest;
   private surfaceMap?: SurfaceMap;
   private centerInitialized = false;
   private cameraMode: CameraPresentationMode = readCameraMode();
@@ -105,8 +108,8 @@ export class ThreePrototypeViewer {
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.domElement.id = 'three-prototype-canvas';
-    this.renderer.domElement.setAttribute('aria-label', 'GTA2 three-dimensional map prototype');
+    this.renderer.domElement.id = 'game-canvas';
+    this.renderer.domElement.setAttribute('aria-label', 'District game canvas');
     this.parent.replaceChildren(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x090b0c);
     this.camera.up.set(0, 1, 0);
@@ -115,7 +118,7 @@ export class ThreePrototypeViewer {
 
   async start(): Promise<void> {
     const [mapStreamer, metadata, surfaceMap] = await Promise.all([
-      ThreeMapChunkStreamer.create(this.scene, this.mapOccluders),
+      MapChunkStreamer.create(this.scene, this.mapOccluders),
       loadMapMetadata('/assets/maps/district-map.metadata.json'),
       loadSurfaceMap('/assets/maps/surface-manifest.json')
     ]);
@@ -134,10 +137,10 @@ export class ThreePrototypeViewer {
       initialView.halfWidth,
       initialView.halfHeight
     );
-    this.lighting = await ThreeDayNightController.create(this.scene, this.surfaceHeightAt);
+    this.lighting = await LightingPresentation.create(this.scene, this.surfaceHeightAt);
     if (this.room) {
-      this.interiors = new ThreeInteriorRenderer(this.scene);
-      this.entities = await ThreeDistrictEntities.create(
+      this.interiors = new InteriorPresentation(this.scene);
+      this.actors = await ActorPresentation.create(
         this.scene,
         this.room.sessionId,
         this.surfaceHeightAt,
@@ -145,14 +148,14 @@ export class ThreePrototypeViewer {
         () => this.rolloutEnabled('remoteTimelines'),
         (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0
       );
-      this.world = await ThreeDistrictWorld.create(
+      this.objects = await WorldObjectPresentation.create(
         this.scene,
         this.room.sessionId,
         this.surfaceHeightAt
       );
       const removeProjectileImpacts = this.room.onMessage<ProjectileImpactsMessage>(
         PROJECTILE_IMPACTS_MESSAGE,
-        (message) => this.world?.presentProjectileImpacts(message.impacts, performance.now())
+        (message) => this.objects?.presentProjectileImpacts(message.impacts, performance.now())
       );
       this.removeProjectileImpacts = typeof removeProjectileImpacts === 'function'
         ? removeProjectileImpacts
@@ -182,33 +185,33 @@ export class ThreePrototypeViewer {
           }
         }
       });
-      this.debug = new ThreeDebugController(
+      this.debug = new DebugController(
         this.scene,
         this.room,
         this.surfaceHeightAt,
         () => this.networkQuality?.snapshot(),
         () => this.netcodeRollout?.snapshot(),
         () => this.mapStreamer?.snapshot(),
-        (vehicleId) => this.entities?.vehiclePose(vehicleId)
+        (vehicleId) => this.actors?.vehiclePose(vehicleId)
       );
       if (isDevelopment() && new URLSearchParams(window.location.search).get('qa') === '1') {
-        this.qa = new ThreeQaDriver(this.room);
+        this.qa = new QaDriver(this.room);
       }
-      this.ui = new ThreeDistrictUiController(
+      this.ui = new DistrictUiController(
         this.room,
         payload.surfaces.width * payload.blockSize,
         payload.surfaces.height * payload.blockSize,
-        () => this.entities?.playerPose(this.room?.sessionId ?? ''),
+        () => this.actors?.playerPose(this.room?.sessionId ?? ''),
         this.phone
       );
-      this.input = new ThreeInputController({
+      this.input = new InputController({
         room: this.room,
         canvas: this.renderer.domElement,
         camera: this.camera,
         player: () => this.room?.state.players.get(this.room.sessionId),
-        aimOrigin: () => this.entities?.playerAimOrigin(this.room?.sessionId ?? ''),
+        aimOrigin: () => this.actors?.playerAimOrigin(this.room?.sessionId ?? ''),
         vehicleAngle: (vehicleId) => (
-          this.entities?.vehiclePose(vehicleId)?.angle ??
+          this.actors?.vehiclePose(vehicleId)?.angle ??
           this.room?.state.vehicles.get(vehicleId)?.angle
         ),
         surfaceZ: () => this.center.z,
@@ -233,8 +236,8 @@ export class ThreePrototypeViewer {
     this.combatFire?.destroy();
     this.removeProjectileImpacts?.();
     this.ui?.destroy();
-    this.entities?.destroy();
-    this.world?.destroy();
+    this.actors?.destroy();
+    this.objects?.destroy();
     this.debug?.destroy();
     this.networkQuality?.destroy();
     this.interiors?.destroy();
@@ -267,7 +270,7 @@ export class ThreePrototypeViewer {
       this.explorerYaw ??= focus.angle;
       const pose = explorerCameraPose(
         focus.x,
-        serverYToThree(focus.y),
+        serverYToScene(focus.y),
         this.surfaceHeightAt(focus.x, focus.y),
         this.explorerYaw,
         focus.mode,
@@ -341,13 +344,13 @@ export class ThreePrototypeViewer {
     );
   }
 
-  private createStatus(payload: ThreeMapManifest): void {
+  private createStatus(payload: WorldGeometryManifest): void {
     const status = document.createElement('aside');
-    status.id = 'three-prototype-status';
+    status.id = 'game-status';
     const roofTriangles = [...this.mapOccluders.values()]
       .reduce((sum, occluder) => sum + Number(occluder.userData.triangleCount ?? 0), 0);
     status.innerHTML = `<strong>3D STREAMING</strong><span>WORLD ${payload.size.width}x${payload.size.height}</span>` +
-      `<i id="three-map-stream-status">0/${payload.chunks.length} CHUNKS / ` +
+      `<i id="map-stream-status">0/${payload.chunks.length} CHUNKS / ` +
       `${payload.triangleCount.toLocaleString()} TRIANGLES / ${roofTriangles} AUTHORED ROOF</i>` +
       `<b id="world-clock-status">08:00 DAY</b>`;
     document.querySelector('#game-shell')?.append(status);
@@ -364,13 +367,13 @@ export class ThreePrototypeViewer {
         : this.room.state.serverTimeMs ?? 0;
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
       for (const [id, occluder] of this.mapOccluders) occluder.visible = id !== localSpaceId;
-      this.entities?.synchronize(
+      this.actors?.synchronize(
         this.room.state,
         localSpaceId,
         renderServerTime,
         quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
-      this.world?.synchronize(this.room.state, now, localSpaceId);
+      this.objects?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
       const local = this.room.state.players.get(this.room.sessionId);
       this.observeLocalShot(local, now);
@@ -394,10 +397,10 @@ export class ThreePrototypeViewer {
       this.qa?.update();
       this.ui?.update(this.room.state, now);
       this.followLocalPlayer();
-      const vehiclePose = local?.vehicleId ? this.entities?.vehiclePose(local.vehicleId) : undefined;
-      const playerPose = local ? this.entities?.playerPose(this.room.sessionId) : undefined;
+      const vehiclePose = local?.vehicleId ? this.actors?.vehiclePose(local.vehicleId) : undefined;
+      const playerPose = local ? this.actors?.playerPose(this.room.sessionId) : undefined;
       const focusX = vehiclePose?.x ?? localVehicle?.x ?? playerPose?.x ?? local?.x ?? this.center.x;
-      const focusY = vehiclePose?.y ?? localVehicle?.y ?? playerPose?.y ?? local?.y ?? serverYToThree(this.center.y);
+      const focusY = vehiclePose?.y ?? localVehicle?.y ?? playerPose?.y ?? local?.y ?? serverYToScene(this.center.y);
       const mapView = this.mapStreamingView();
       this.mapStreamer?.update(focusX, focusY, mapView.halfWidth, mapView.halfHeight, now);
       const nightIntensity = this.lighting?.update({
@@ -405,7 +408,7 @@ export class ThreePrototypeViewer {
         worldTimeStartMinute: this.room.state.worldTimeStartMinute ?? 8 * 60,
         worldTimeRate: this.room.state.worldTimeRate ?? 0
       }, Date.now(), focusX, focusY, localSpaceId, this.status?.querySelector('#world-clock-status') ?? undefined) ?? 0;
-      this.entities?.updateVehicleLights(nightIntensity, focusX, focusY);
+      this.actors?.updateVehicleLights(nightIntensity, focusX, focusY);
     } else {
       const pan = 260 * delta / this.zoom;
       if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) this.center.x -= pan;
@@ -415,7 +418,7 @@ export class ThreePrototypeViewer {
       const mapView = this.mapStreamingView();
       this.mapStreamer?.update(
         this.center.x,
-        serverYToThree(this.center.y),
+        serverYToScene(this.center.y),
         mapView.halfWidth,
         mapView.halfHeight
       );
@@ -524,7 +527,7 @@ export class ThreePrototypeViewer {
 
   private updateMapStreamingStatus(): void {
     const snapshot = this.mapStreamer?.snapshot();
-    const element = this.status?.querySelector('#three-map-stream-status');
+    const element = this.status?.querySelector('#map-stream-status');
     if (!snapshot || !element) return;
     const value = `${snapshot.loaded}/${snapshot.totalChunks} CHUNKS / ` +
       `${snapshot.loading} LOADING / ${snapshot.queued} QUEUED / ` +
@@ -539,7 +542,7 @@ export class ThreePrototypeViewer {
     this.renderer.domElement.dataset.localX = x.toFixed(2);
     this.renderer.domElement.dataset.localY = y.toFixed(2);
     this.renderer.domElement.dataset.localMode = focus.mode === 'vehicle' ? 'vehicle' : 'foot';
-    const target = new THREE.Vector3(x, serverYToThree(y), this.surfaceHeightAt(x, y));
+    const target = new THREE.Vector3(x, serverYToScene(y), this.surfaceHeightAt(x, y));
     if (!this.centerInitialized || this.center.distanceTo(target) > 700) {
       this.center.copy(target);
       this.centerInitialized = true;
@@ -554,8 +557,8 @@ export class ThreePrototypeViewer {
     const player = room.state.players.get(room.sessionId);
     if (!player) return undefined;
     const vehicle = player.vehicleId ? room.state.vehicles.get(player.vehicleId) : undefined;
-    const vehiclePose = player.vehicleId ? this.entities?.vehiclePose(player.vehicleId) : undefined;
-    const playerPose = this.entities?.playerPose(room.sessionId);
+    const vehiclePose = player.vehicleId ? this.actors?.vehiclePose(player.vehicleId) : undefined;
+    const playerPose = this.actors?.playerPose(room.sessionId);
     return {
       x: vehiclePose?.x ?? vehicle?.x ?? playerPose?.x ?? player.x,
       y: vehiclePose?.y ?? vehicle?.y ?? playerPose?.y ?? player.y,
@@ -566,7 +569,7 @@ export class ThreePrototypeViewer {
 
   private frameSpectatorSpawn(x: number, y: number): void {
     if (this.centerInitialized || this.room?.state.players.get(this.room.sessionId)) return;
-    this.center.set(x, serverYToThree(y), this.surfaceHeightAt(x, y));
+    this.center.set(x, serverYToScene(y), this.surfaceHeightAt(x, y));
     this.centerInitialized = true;
   }
 
@@ -670,7 +673,7 @@ function isDevelopment(): boolean {
   return metaEnv?.DEV ?? process.env.NODE_ENV !== 'production';
 }
 
-function validateOccluder(occluder: ThreeMapOccluderDefinition, blockSize: number): void {
+function validateOccluder(occluder: WorldGeometryOccluderDefinition, blockSize: number): void {
   const expected = interiorDefinition(occluder.id);
   if (!expected) return;
   const doorX = occluder.exteriorDoor.x * blockSize;

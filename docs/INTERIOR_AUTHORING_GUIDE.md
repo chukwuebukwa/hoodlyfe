@@ -1,6 +1,6 @@
 # Interior Authoring Guide
 
-This is the shortest safe path for adding another seamless, single-floor interior to the Three renderer. An interior is not a teleport-only room: one stable ID must join authoritative movement, service ownership, replication, exported roof geometry, presentation, and QA.
+This is the shortest safe path for adding another seamless, single-floor interior to the game client. An interior is not a teleport-only room: one stable ID must join authoritative movement, service ownership, replication, exported roof geometry, presentation, and QA.
 
 ## Ownership Map
 
@@ -12,7 +12,7 @@ This is the shortest safe path for adding another seamless, single-floor interio
 | Service placement and interaction | the relevant domain controller, never `DistrictRoom` |
 | Same-space network visibility | `server/game/replication/district-replication-controller.ts` |
 | Exact removable roof triangles | OpenGTA2 `WebAssetExporter` authored occluder manifest |
-| Interior shell, fixtures, doorway and facade sign | `src/game/three/three-interior-renderer.ts` |
+| Interior shell, fixtures, doorway and facade sign | `src/game/presentation/interiors.ts` |
 | Permanent GTA-style exterior minimap blip | `storefrontMinimapPoints` plus transparent sprites in `public/assets/custom/minimap/` |
 
 `DistrictRoom` should only construct these owners and route messages. Do not add building-specific gameplay methods there.
@@ -20,7 +20,7 @@ This is the shortest safe path for adding another seamless, single-floor interio
 ## Coordinate Systems
 
 1. OpenGTA2 source map coordinates use GTA block units.
-2. The exported Three manifest stores source-level block coordinates and each geometry
+2. The exported geometry manifest stores source-level block coordinates and each geometry
    chunk stores chunk-local vertices.
 3. Server and browser gameplay use pixels, with `64 px` per block.
 
@@ -38,7 +38,7 @@ Always read the generated origin instead of assuming it when a crop or level cha
 
 ## Add A Building
 
-1. Inspect the same location in the 2D renderer and the Three renderer. Record the complete roof footprint, a facade with open street space, and collision-safe exterior approach.
+1. Inspect the location in the source map and game client. Record the complete roof footprint, a facade with open street space, and collision-safe exterior approach.
 2. Add one `InteriorDefinition` with a permanent kebab-case `id`. Define `kind`, exact exported `roofTriangleCount`, `floorZ`, `bounds`, `exteriorDoor`, `entry`, `exitDoor`, `obstacles`, and any service or recovery anchors.
 3. Keep every anchor outside fixture obstacles. Entry must be inside the shell; `exitX/exitY` must be on collision-safe street ground.
 4. Add the same ID to `ThreeOccluders` in OpenGTA2 `WebAssetExporter.cs`. Author source-map XY bounds and a tight Z band that selects roof lids, not walls.
@@ -52,9 +52,9 @@ dotnet run --project src/OpenGta2.WebExporter -- \
   bil 64
 ```
 
-6. Confirm `three/world.json` contains the occluder definition and that its triangle total is
+6. Confirm `geometry/world.json` contains the occluder definition and that its triangle total is
    distributed across the relevant chunk payloads. The ID, door, floor height, and triangle
-   count must match the catalog. `test/three-map-interior-contract.test.ts` enforces this locally.
+   count must match the catalog. `test/map-interior-contract.test.ts` enforces this locally.
 7. Add a renderer fixture function for the interior `kind`. Geometry dimensions must match catalog obstacles exactly enough that visible furniture and server collision agree.
 8. Register domain content through `serviceAnchors` or `recoveryAnchor`. A service's `spaceId` must equal the interior ID. A medical respawn plan must return both coordinates and `spaceId`.
 9. Project a permanent exterior-door minimap blip with a recognizable kind-specific icon. The blip belongs to the storefront catalog, not indoor service replication, so it remains visible from the street even though its service is inside.
@@ -73,7 +73,7 @@ npx tsx --test \
   test/interior-controller.test.ts \
   test/medical-care-controller.test.ts \
   test/district-replication-controller.test.ts \
-  test/three-map-interior-contract.test.ts \
+  test/map-interior-contract.test.ts \
   test/multiplayer.integration.test.ts
 npm test
 npm run build

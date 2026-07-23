@@ -5,9 +5,9 @@ import {
   canRequestPrimaryAttack,
   directionalVehicleMovement,
   normalizeMovement
-} from '../input/client-input-policy.ts';
+} from './client-input-policy.ts';
 import {TouchControls} from '../touch-controls.ts';
-import {threePointToServerAimAngle} from './three-prototype-policy.ts';
+import {scenePointToServerAimAngle} from '../presentation/scene-policy.ts';
 import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
 import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import {
@@ -21,7 +21,7 @@ import {
 const AIM_INTERVAL_MS = 50;
 const FIRE_INTERVAL_MS = 90;
 
-interface ThreeInputControllerOptions {
+interface InputControllerOptions {
   room: Room<DistrictNetworkState>;
   canvas: HTMLCanvasElement;
   camera: THREE.Camera;
@@ -35,13 +35,13 @@ interface ThreeInputControllerOptions {
   onReloadReceipt?: (receipt: WeaponReloadReceipt) => void;
 }
 
-export interface ThreeMovementInput {
+export interface MovementInput {
   x: number;
   y: number;
   handbrake: boolean;
 }
 
-export class ThreeInputController {
+export class InputController {
   private readonly keys = new Set<string>();
   private readonly pointer = new THREE.Vector2();
   private readonly raycaster = new THREE.Raycaster();
@@ -54,7 +54,7 @@ export class ThreeInputController {
   private aimAngle?: number;
   private nextReloadSequence = 1;
 
-  constructor(private readonly options: ThreeInputControllerOptions) {
+  constructor(private readonly options: InputControllerOptions) {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     options.canvas.addEventListener('pointermove', this.handlePointerMove);
@@ -77,7 +77,7 @@ export class ThreeInputController {
     if (typeof removeReloadReceipt === 'function') this.cleanup.push(removeReloadReceipt);
   }
 
-  update(nowMs: number): ThreeMovementInput {
+  update(nowMs: number): MovementInput {
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) {
       this.fireQueued = false;
@@ -116,7 +116,7 @@ export class ThreeInputController {
       const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.options.surfaceZ());
       if (this.raycaster.ray.intersectPlane(plane, target)) {
         const origin = this.options.aimOrigin?.() ?? player;
-        angle = threePointToServerAimAngle(origin.x, origin.y, target.x, target.y);
+        angle = scenePointToServerAimAngle(origin.x, origin.y, target.x, target.y);
       }
     }
     if (angle !== undefined) {

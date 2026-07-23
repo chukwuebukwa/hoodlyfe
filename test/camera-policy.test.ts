@@ -43,7 +43,7 @@ test('camera recoil follows shot direction, camera mode, passengers, and reduced
   assert.deepEqual(cameraRecoilOffset(9, Number.NaN, 'overhead'), {x: 0, y: 0, pitch: 0});
 });
 
-test('explorer camera follows server heading in the Three.js coordinate frame', () => {
+test('explorer camera follows server heading in the scene coordinate frame', () => {
   const east = explorerCameraPose(100, -200, 12, 0, 'player');
   assert.deepEqual(east.position, {x: 100, y: -200, z: 58});
   assert.ok(east.target.x > east.position.x);

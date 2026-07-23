@@ -1,15 +1,15 @@
-export interface PrototypeAtlas {
+export interface AtlasUvLayout {
   columns: number;
   rows: number;
 }
 
-export interface PrototypeVertexUv {
+export interface AtlasUvVertex {
   u: number;
   v: number;
   tile: number;
 }
 
-export interface PrototypeSurfaceGrid {
+export interface SurfaceHeightGrid {
   blockSize: number;
   origin: {x: number; y: number};
   surfaces: {
@@ -19,7 +19,7 @@ export interface PrototypeSurfaceGrid {
   };
 }
 
-export function atlasUv(vertex: PrototypeVertexUv, atlas: PrototypeAtlas): [number, number] {
+export function atlasUv(vertex: AtlasUvVertex, atlas: AtlasUvLayout): [number, number] {
   const column = vertex.tile % atlas.columns;
   const row = Math.floor(vertex.tile / atlas.columns);
   return [
@@ -37,7 +37,7 @@ export function perspectiveHeightForSpan(span: number, fieldOfViewDegrees = 45):
 export function mapSurfaceHeightAt(
   x: number,
   y: number,
-  map: PrototypeSurfaceGrid
+  map: SurfaceHeightGrid
 ): number {
   const column = clamp(
     Math.floor((x - map.origin.x) / map.blockSize),
@@ -67,20 +67,20 @@ export function faceBrightness(shading: number): number {
   return clamp(1 - shading * 15 / 31, 0.18, 1);
 }
 
-export function serverYToThree(y: number): number {
+export function serverYToScene(y: number): number {
   return -y;
 }
 
-export function serverAngleToThree(angle: number): number {
+export function serverAngleToScene(angle: number): number {
   return -angle;
 }
 
-export function serverPedestrianAngleToThree(angle: number): number {
-  return serverAngleToThree(angle) + Math.PI / 2;
+export function serverPedestrianAngleToScene(angle: number): number {
+  return serverAngleToScene(angle) + Math.PI / 2;
 }
 
-export function serverVehicleAngleToThree(angle: number): number {
-  return serverAngleToThree(angle) - Math.PI / 2;
+export function serverVehicleAngleToScene(angle: number): number {
+  return serverAngleToScene(angle) - Math.PI / 2;
 }
 
 export function vehicleLampAnchor(
@@ -91,32 +91,32 @@ export function vehicleLampAnchor(
 ): {x: number; y: number; rotation: number} {
   return {
     x: x + Math.cos(angle) * forwardOffset,
-    y: serverYToThree(y + Math.sin(angle) * forwardOffset),
-    rotation: serverAngleToThree(angle)
+    y: serverYToScene(y + Math.sin(angle) * forwardOffset),
+    rotation: serverAngleToScene(angle)
   };
 }
 
 export function renderedVehicleLampAnchor(
   x: number,
-  threeY: number,
+  sceneY: number,
   spriteRotation: number,
   forwardOffset: number
 ): {x: number; y: number; rotation: number} {
   const physicalRotation = spriteRotation + Math.PI / 2;
   return {
     x: x + Math.cos(physicalRotation) * forwardOffset,
-    y: threeY + Math.sin(physicalRotation) * forwardOffset,
+    y: sceneY + Math.sin(physicalRotation) * forwardOffset,
     rotation: physicalRotation
   };
 }
 
-export function threePointToServerAimAngle(
+export function scenePointToServerAimAngle(
   originX: number,
   originY: number,
   targetX: number,
-  targetThreeY: number
+  targetSceneY: number
 ): number {
-  return Math.atan2(-targetThreeY - originY, targetX - originX);
+  return Math.atan2(-targetSceneY - originY, targetX - originX);
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
+import type {VehicleKind} from '../../../../shared/content/vehicle-catalog.ts';
 import {
   vehicleSkidMarkPresentation,
   type VehicleSkidMarkPresentation
-} from '../rendering/vehicle-skid-mark-policy.ts';
-import {serverYToThree} from './three-prototype-policy.ts';
+} from '../../rendering/vehicle-skid-mark-policy.ts';
+import {serverYToScene} from '../scene-policy.ts';
 
 interface SkidVehicleSample {
   x: number;
@@ -41,7 +41,7 @@ const MARK_WIDTH = 3.2;
 const FULL_OPACITY_MS = 8_000;
 const MARK_LIFETIME_MS = 16_000;
 
-export class ThreeSkidMarkRenderer {
+export class SkidMarkRenderer {
   private readonly group = new THREE.Group();
   private readonly trails = new Map<string, VehicleTrail>();
   private readonly touched = new Set<string>();
@@ -184,9 +184,9 @@ function pairedStripGeometry(
 
 function stripVertices(from: TrailPoint, to: TrailPoint, width: number): number[] {
   const fromX = from.x;
-  const fromY = serverYToThree(from.y);
+  const fromY = serverYToScene(from.y);
   const toX = to.x;
-  const toY = serverYToThree(to.y);
+  const toY = serverYToScene(to.y);
   const deltaX = toX - fromX;
   const deltaY = toY - fromY;
   const length = Math.max(0.001, Math.hypot(deltaX, deltaY));

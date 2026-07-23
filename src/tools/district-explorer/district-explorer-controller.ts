@@ -2,14 +2,17 @@ import * as THREE from 'three';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {
   districtMapAsset,
-  districtThreeAsset,
+  districtGeometryAsset,
   type DistrictDefinition
 } from '../../../shared/content/district-catalog.ts';
 import {ClientCollisionMap} from '../../game/world/client-collision-map.ts';
 import type {LocalPlaytestRevision} from '../level-editor/playtest-revision.ts';
-import {ThreeMapChunkStreamer} from '../../game/three/three-map-chunk-streamer.ts';
-import type {ThreeMapManifest} from '../../game/three/three-map-format.ts';
-import {serverPedestrianAngleToThree, serverYToThree} from '../../game/three/three-prototype-policy.ts';
+import {MapChunkStreamer} from '../../game/presentation/map/chunk-streamer.ts';
+import type {WorldGeometryManifest} from '../../game/presentation/map/geometry-format.ts';
+import {
+  serverPedestrianAngleToScene,
+  serverYToScene
+} from '../../game/presentation/scene-policy.ts';
 
 interface DistrictMetadata {
   source: string;
@@ -41,9 +44,9 @@ export class DistrictExplorerController {
   private readonly keys = new Set<string>();
   private readonly directions = new Set<Direction>();
   private readonly mapOccluders = new Map<string, THREE.Group>();
-  private mapStreamer?: ThreeMapChunkStreamer;
+  private mapStreamer?: MapChunkStreamer;
   private collision?: ClientCollisionMap;
-  private manifest?: ThreeMapManifest;
+  private manifest?: WorldGeometryManifest;
   private player?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private playerTexture?: THREE.Texture;
   private x = 0;
@@ -71,10 +74,10 @@ export class DistrictExplorerController {
 
   async start(): Promise<void> {
     const [mapStreamer, metadata, collision, texture] = await Promise.all([
-      ThreeMapChunkStreamer.create(
+      MapChunkStreamer.create(
         this.scene,
         this.mapOccluders,
-        districtThreeAsset(this.district, 'world.json')
+        districtGeometryAsset(this.district, 'world.json')
       ),
       loadJson<DistrictMetadata>(districtMapAsset(this.district, 'district-map.metadata.json')),
       this.revision
@@ -209,15 +212,15 @@ export class DistrictExplorerController {
   private placePlayer(moving: boolean): void {
     const player = this.player;
     if (!player) return;
-    player.position.set(this.x, serverYToThree(this.y), this.surfaceHeightAt(this.x, this.y) + 4);
-    player.rotation.z = serverPedestrianAngleToThree(this.angle);
+    player.position.set(this.x, serverYToScene(this.y), this.surfaceHeightAt(this.x, this.y) + 4);
+    player.rotation.z = serverPedestrianAngleToScene(this.angle);
     setPlayerFrame(player, moving ? this.frame : 0);
   }
 
   private placeCamera(): void {
     const ground = this.surfaceHeightAt(this.x, this.y);
-    this.camera.position.set(this.x, serverYToThree(this.y), ground + CAMERA_HEIGHT);
-    this.camera.lookAt(this.x, serverYToThree(this.y), ground);
+    this.camera.position.set(this.x, serverYToScene(this.y), ground + CAMERA_HEIGHT);
+    this.camera.lookAt(this.x, serverYToScene(this.y), ground);
   }
 
   private surfaceHeightAt(x: number, y: number): number {

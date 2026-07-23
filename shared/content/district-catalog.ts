@@ -36,6 +36,6 @@ export function districtMapAsset(district: DistrictDefinition, file: string): st
   return `${district.assetRoot}/maps/${file}`;
 }
 
-export function districtThreeAsset(district: DistrictDefinition, file: string): string {
-  return `${district.assetRoot}/maps/three/${file}`;
+export function districtGeometryAsset(district: DistrictDefinition, file: string): string {
+  return `${district.assetRoot}/maps/geometry/${file}`;
 }

@@ -5,7 +5,7 @@ import {
   DISTRICT_CATALOG,
   districtDefinition,
   districtMapAsset,
-  districtThreeAsset
+  districtGeometryAsset
 } from '../shared/content/district-catalog.ts';
 
 test('district catalog keeps the active runtime district explicit', () => {
@@ -22,5 +22,5 @@ test('district asset helpers isolate optional converted packages', () => {
     districtMapAsset(wil, 'district-map.metadata.json'),
     '/assets/districts/wil/maps/district-map.metadata.json'
   );
-  assert.equal(districtThreeAsset(wil, 'world.json'), '/assets/districts/wil/maps/three/world.json');
+  assert.equal(districtGeometryAsset(wil, 'world.json'), '/assets/districts/wil/maps/geometry/world.json');
 });

@@ -46,8 +46,8 @@ The browser compiles that recipe into runtime atlases with `compileLpcCharacterS
 - `src/game/appearance/appearance-creator-controller.ts`
   In-game LPC creator used by Threads/wardrobe. It edits an LPC recipe and submits it through the existing appearance update flow.
 
-- `src/game/three/three-district-entities.ts`
-  Parses `player.appearance.lpcRecipe`, compiles/caches the LPC atlas, and uses it for Three player rendering.
+- `src/game/presentation/actors.ts`
+  Parses `player.appearance.lpcRecipe`, compiles/caches the LPC atlas, and uses it for player rendering.
 
 ## Runtime Flow
 
@@ -219,7 +219,7 @@ The in-game controller:
 - saves accepted looks to local storage
 - blocks movement/aim while open
 
-The Three route wires this through `ThreeDistrictUiController`, because the Three renderer has its own UI/input path.
+The game client wires this through `DistrictUiController`, which owns the gameplay UI/input path.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
-import {serverYToThree} from './three-prototype-policy.ts';
+import type {ProjectileImpactPayload} from '../../../../shared/protocol/projectile-impacts.ts';
+import {serverYToScene} from '../scene-policy.ts';
 
 const MAX_IMPACTS = 64;
 const PARTICLES_PER_IMPACT = 3;
@@ -15,7 +15,7 @@ interface ActiveImpact {
   angle: number;
 }
 
-export class ThreeProjectileImpactEffects {
+export class ProjectileImpactEffects {
   private readonly positions = new Float32Array(MAX_IMPACTS * PARTICLES_PER_IMPACT * 3);
   private readonly colors = new Float32Array(MAX_IMPACTS * PARTICLES_PER_IMPACT * 3);
   private readonly slots: Array<ActiveImpact | undefined> = Array(MAX_IMPACTS);
@@ -74,7 +74,7 @@ export class ThreeProjectileImpactEffects {
         const angle = impact.angle + Math.PI + (particle - 1) * 0.72;
         const distance = progress * (10 + particle * 4);
         this.positions[offset] = impact.x + Math.cos(angle) * distance;
-        this.positions[offset + 1] = serverYToThree(impact.y + Math.sin(angle) * distance);
+        this.positions[offset + 1] = serverYToScene(impact.y + Math.sin(angle) * distance);
         this.positions[offset + 2] = impact.z + progress * (5 + particle * 3);
         this.colors[offset] = fade;
         this.colors[offset + 1] = fade * 0.58;

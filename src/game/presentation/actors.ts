@@ -53,27 +53,27 @@ import {
   type VehicleSpriteOffset
 } from '../rendering/action-sprite-policy.ts';
 import {
-  serverAngleToThree,
-  serverPedestrianAngleToThree,
-  serverVehicleAngleToThree,
-  serverYToThree,
+  serverAngleToScene,
+  serverPedestrianAngleToScene,
+  serverVehicleAngleToScene,
+  serverYToScene,
   renderedVehicleLampAnchor
-} from './three-prototype-policy.ts';
-import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
+} from './scene-policy.ts';
+import {radialGlow, updateRadialGlow, type RadialGlow} from './effects/glow.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import {type RemoteMotionSample, type RemoteMotionTimeline} from '../network/remote-motion-timeline.ts';
 import {createRemoteMotionTimeline} from '../network/remote-timeline-config.ts';
 import {shouldUseRemoteTimeline} from '../network/remote-timeline-policy.ts';
-import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
+import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke.ts';
 import {POLICE_STINGER_SEGMENT_COUNT} from '../../../shared/simulation/police-stinger-contact.ts';
 import {voiceIndicatorPresentation} from '../rendering/voice-indicator-policy.ts';
-import {ThreeSkidMarkRenderer} from './three-skid-mark-renderer.ts';
+import {SkidMarkRenderer} from './effects/skid-marks.ts';
 import {
   updateVehicleUnderglow,
   vehicleUnderglow,
   vehicleUnderglowRotation,
   type VehicleUnderglow
-} from './three-vehicle-underglow.ts';
+} from './effects/vehicle-underglow.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -156,10 +156,10 @@ const LPC_SPIKE_ATLASES: Readonly<PlayerCharacterSources> = Object.freeze({
   actionMask: '/assets/custom/lpc-spike/player-lpc-actions-mask.png'
 });
 
-export class ThreeDistrictEntities {
+export class ActorPresentation {
   private readonly rendered = new Map<string, RenderedEntity>();
   private readonly appearances = new Map<string, CompiledAppearanceTextures>();
-  private readonly skidMarks: ThreeSkidMarkRenderer;
+  private readonly skidMarks: SkidMarkRenderer;
   private constructor(
     private readonly scene: THREE.Scene,
     private readonly localPlayerId: string,
@@ -172,7 +172,7 @@ export class ThreeDistrictEntities {
     private readonly remoteTimelinesEnabled: () => boolean = () => true,
     private readonly playerVoiceActivity: (playerId: string) => number = () => 0
   ) {
-    this.skidMarks = new ThreeSkidMarkRenderer(scene, surfaceHeightAt);
+    this.skidMarks = new SkidMarkRenderer(scene, surfaceHeightAt);
   }
 
   static async create(
@@ -184,7 +184,7 @@ export class ThreeDistrictEntities {
     ) => void,
     remoteTimelinesEnabled: () => boolean = () => true,
     playerVoiceActivity: (playerId: string) => number = () => 0
-  ): Promise<ThreeDistrictEntities> {
+  ): Promise<ActorPresentation> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
     const lpcSources = await loadLpcSpriteSources();
@@ -220,7 +220,7 @@ export class ThreeDistrictEntities {
     ]) {
       configureTexture(texture);
     }
-    return new ThreeDistrictEntities(
+    return new ActorPresentation(
       scene,
       localPlayerId,
       {
@@ -323,10 +323,10 @@ export class ThreeDistrictEntities {
     }
     rendered.mesh.position.set(
       stinger.x,
-      serverYToThree(stinger.y),
+      serverYToScene(stinger.y),
       this.surfaceHeightAt(stinger.x, stinger.y, STREET_GROUND_SURFACE_ID) + 7
     );
-    rendered.mesh.rotation.z = serverAngleToThree(stinger.angle);
+    rendered.mesh.rotation.z = serverAngleToScene(stinger.angle);
     rendered.mesh.visible = segmentCount > 0;
     rendered.mesh.userData.stinger = stinger;
   }
@@ -371,7 +371,7 @@ export class ThreeDistrictEntities {
       ) + 7,
       buffered ? 1 : 0.45
     );
-    rendered.mesh.rotation.z = serverAngleToThree(angle);
+    rendered.mesh.rotation.z = serverAngleToScene(angle);
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
     rendered.mesh.userData.soccerBall = ball;
@@ -382,7 +382,7 @@ export class ThreeDistrictEntities {
     if (!rendered) return undefined;
     return {
       x: rendered.mesh.position.x,
-      y: serverYToThree(rendered.mesh.position.y),
+      y: serverYToScene(rendered.mesh.position.y),
       angle: rendered.renderedAngle ?? 0
     };
   }
@@ -392,7 +392,7 @@ export class ThreeDistrictEntities {
     if (!rendered) return undefined;
     return rendered.presentationPose ?? {
       x: rendered.mesh.position.x,
-      y: serverYToThree(rendered.mesh.position.y),
+      y: serverYToScene(rendered.mesh.position.y),
       angle: rendered.renderedAngle ?? 0
     };
   }
@@ -616,7 +616,7 @@ export class ThreeDistrictEntities {
     positionEntity(rendered.mesh, x, y, z, buffered || vehicle || isLocalPlayer ? 1 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
       ? 0
-      : serverPedestrianAngleToThree(renderAngle) -
+      : serverPedestrianAngleToScene(renderAngle) -
         (reaction.active ? reaction.rotationOffset : (melee?.bodyRotationOffset ?? 0));
     rendered.mesh.rotation.z = appearanceTextures.directionalWalk
       ? bodyRotation
@@ -651,7 +651,7 @@ export class ThreeDistrictEntities {
     if (rendered.blood) {
       rendered.blood.position.set(
         player.x,
-        serverYToThree(player.y),
+        serverYToScene(player.y),
         this.surfaceHeightAt(
           player.x,
           player.y,
@@ -680,10 +680,10 @@ export class ThreeDistrictEntities {
         : 8 - shot.kickDistance + reload.weaponDistanceOffset;
       rendered.weapon.position.set(
         baseX + Math.cos(weaponAngle) * weaponDistance,
-        serverYToThree(baseY + Math.sin(weaponAngle) * weaponDistance),
+        serverYToScene(baseY + Math.sin(weaponAngle) * weaponDistance),
         z + 2
       );
-      rendered.weapon.rotation.z = serverAngleToThree(weaponAngle);
+      rendered.weapon.rotation.z = serverAngleToScene(weaponAngle);
       rendered.weapon.visible = rendered.mesh.visible && held.visible &&
         !reaction.active &&
         (!player.action || player.action === 'melee');
@@ -691,10 +691,10 @@ export class ThreeDistrictEntities {
         const muzzleDistance = weaponDistance + held.width * (1 - held.originX) + 2;
         rendered.muzzleFlash.position.set(
           baseX + Math.cos(weaponAngle) * muzzleDistance,
-          serverYToThree(baseY + Math.sin(weaponAngle) * muzzleDistance),
+          serverYToScene(baseY + Math.sin(weaponAngle) * muzzleDistance),
           z + 2.5
         );
-        rendered.muzzleFlash.rotation.z = serverAngleToThree(weaponAngle);
+        rendered.muzzleFlash.rotation.z = serverAngleToScene(weaponAngle);
         rendered.muzzleFlash.scale.setScalar(shot.flashScale);
         rendered.muzzleFlash.material.opacity = shot.flashOpacity;
         rendered.muzzleFlash.visible = rendered.weapon.visible && shot.flashOpacity > 0;
@@ -710,7 +710,7 @@ export class ThreeDistrictEntities {
       ) + 12;
       rendered.label.position.set(
         labelX,
-        serverYToThree(labelY) + 40 + Math.max(0, player.vehicleSeat) * 13,
+        serverYToScene(labelY) + 40 + Math.max(0, player.vehicleSeat) * 13,
         labelZ
       );
       rendered.label.visible = player.alive;
@@ -724,7 +724,7 @@ export class ThreeDistrictEntities {
       const anchorY = attachments.root.y;
       rendered.voiceIndicator.position.set(
         anchorX,
-        serverYToThree(anchorY) + 57 + Math.max(0, player.vehicleSeat) * 13,
+        serverYToScene(anchorY) + 57 + Math.max(0, player.vehicleSeat) * 13,
         this.surfaceHeightAt(anchorX, anchorY) + 13
       );
       rendered.voiceIndicator.visible = player.alive && activity.visible;
@@ -808,7 +808,7 @@ export class ThreeDistrictEntities {
     const rotationOffset = reaction.active ? reaction.rotationOffset : melee.rotationOffset;
     const scaleX = reaction.active ? reaction.scaleX : melee.scaleX;
     const scaleY = reaction.active ? reaction.scaleY : melee.scaleY;
-    const bodyRotation = serverPedestrianAngleToThree(angle) - rotationOffset;
+    const bodyRotation = serverPedestrianAngleToScene(angle) - rotationOffset;
     rendered.mesh.rotation.z = reaction.active || melee.active
       ? bodyRotation
       : rotateTowards(rendered.mesh.rotation.z, bodyRotation, 0.18);
@@ -832,7 +832,7 @@ export class ThreeDistrictEntities {
     if (rendered.blood) {
       rendered.blood.position.set(
         x,
-        serverYToThree(y),
+        serverYToScene(y),
         this.surfaceHeightAt(x, y, npc.surfaceId ?? STREET_GROUND_SURFACE_ID) + 2
       );
       rendered.blood.visible = !npc.alive || npc.action === 'dead';
@@ -933,7 +933,7 @@ export class ThreeDistrictEntities {
     positionEntity(rendered.mesh, x, y, z, buffered || isLocalVehicle ? 1 : 0.3);
     rendered.mesh.rotation.z = rotateTowards(
       rendered.mesh.rotation.z,
-      serverVehicleAngleToThree(angle),
+      serverVehicleAngleToScene(angle),
       buffered || isLocalVehicle ? 1 : 0.2
     );
     rendered.renderedAngle = angle;
@@ -1562,7 +1562,7 @@ function positionEntity(
   z: number,
   factor: number
 ): void {
-  const target = new THREE.Vector3(x, serverYToThree(y), z);
+  const target = new THREE.Vector3(x, serverYToScene(y), z);
   if (!mesh.userData.positionInitialized || mesh.position.distanceTo(target) > 600) {
     mesh.position.copy(target);
     mesh.userData.positionInitialized = true;

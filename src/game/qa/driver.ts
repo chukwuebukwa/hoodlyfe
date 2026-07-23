@@ -5,13 +5,13 @@ import type {DistrictNetworkState} from '../types.ts';
 const STEP_INTERVAL_MS = 50;
 const MAX_DRIVE_MS = 8000;
 
-export class ThreeQaDriver {
+export class QaDriver {
   private readonly panel = document.createElement('aside');
   private timer?: ReturnType<typeof setInterval>;
   private timeout?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly room: Room<DistrictNetworkState>) {
-    this.panel.id = 'three-qa-controls';
+    this.panel.id = 'qa-controls';
     this.panel.innerHTML = [
       '<strong>QA DRIVER</strong>',
       '<button type="button" data-testid="qa-enter-interior">ENTER HOSPITAL</button>',

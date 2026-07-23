@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import {
-  THREE_MAP_STREAMING,
-  selectThreeMapChunkInterest,
-  type ThreeMapChunkInterest
-} from './three-map-streaming-policy.ts';
+  MAP_STREAMING,
+  selectMapChunkInterest,
+  type MapChunkInterest
+} from './streaming-policy.ts';
 import type {
-  ThreeMapChunkDescriptor,
-  ThreeMapChunkPayload,
-  ThreeMapManifest,
-  ThreeMapVertex
-} from './three-map-format.ts';
-import {atlasUv, faceBrightness, serverYToThree} from './three-prototype-policy.ts';
+  WorldGeometryChunkDescriptor,
+  WorldGeometryChunkPayload,
+  WorldGeometryManifest,
+  WorldGeometryVertex
+} from './geometry-format.ts';
+import {atlasUv, faceBrightness, serverYToScene} from '../scene-policy.ts';
 
 interface LoadedChunk {
-  descriptor: ThreeMapChunkDescriptor;
+  descriptor: WorldGeometryChunkDescriptor;
   base: THREE.Group;
   occluders: Array<{parent: THREE.Group; mesh: THREE.Mesh}>;
 }
@@ -23,7 +23,7 @@ interface PendingChunk {
   promise: Promise<void>;
 }
 
-export interface ThreeMapStreamingSnapshot {
+export interface MapStreamingSnapshot {
   revision: string;
   loaded: number;
   loading: number;
@@ -36,14 +36,14 @@ export interface ThreeMapStreamingSnapshot {
   totalTriangles: number;
 }
 
-export class ThreeMapChunkStreamer {
+export class MapChunkStreamer {
   private readonly root = new THREE.Group();
   private readonly loaded = new Map<string, LoadedChunk>();
   private readonly pending = new Map<string, PendingChunk>();
   private readonly failed = new Set<string>();
   private readonly desired = new Set<string>();
   private readonly retained = new Set<string>();
-  private queue: ThreeMapChunkDescriptor[] = [];
+  private queue: WorldGeometryChunkDescriptor[] = [];
   private lastFocus?: {x: number; y: number; at: number};
   private lastSelectionKey = '';
   private destroyed = false;
@@ -52,7 +52,7 @@ export class ThreeMapChunkStreamer {
 
   private constructor(
     private readonly scene: THREE.Scene,
-    readonly manifest: ThreeMapManifest,
+    readonly manifest: WorldGeometryManifest,
     private readonly manifestUrl: URL,
     private readonly texture: THREE.Texture,
     private readonly mapOccluders: Map<string, THREE.Group>
@@ -79,12 +79,12 @@ export class ThreeMapChunkStreamer {
   static async create(
     scene: THREE.Scene,
     mapOccluders: Map<string, THREE.Group>,
-    manifestPath = '/assets/maps/three/world.json'
-  ): Promise<ThreeMapChunkStreamer> {
+    manifestPath = '/assets/maps/geometry/world.json'
+  ): Promise<MapChunkStreamer> {
     const manifestUrl = new URL(manifestPath, window.location.origin);
     const response = await fetch(manifestUrl);
-    if (!response.ok) throw new Error(`Three map manifest failed to load (${response.status}).`);
-    const manifest = await response.json() as ThreeMapManifest;
+    if (!response.ok) throw new Error(`World geometry manifest failed to load (${response.status}).`);
+    const manifest = await response.json() as WorldGeometryManifest;
     validateManifest(manifest);
     const textureUrl = new URL(manifest.atlas.image, manifestUrl).toString();
     const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
@@ -92,7 +92,7 @@ export class ThreeMapChunkStreamer {
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestMipmapNearestFilter;
     texture.flipY = false;
-    return new ThreeMapChunkStreamer(scene, manifest, manifestUrl, texture, mapOccluders);
+    return new MapChunkStreamer(scene, manifest, manifestUrl, texture, mapOccluders);
   }
 
   async prime(
@@ -105,8 +105,8 @@ export class ThreeMapChunkStreamer {
     const interests = this.select(focusX, focusY, halfWidth, halfHeight, nowMs);
     this.applyInterest(interests);
     const visible = interests.filter((interest) => interest.tier === 'visible');
-    for (let offset = 0; offset < visible.length; offset += THREE_MAP_STREAMING.maximumConcurrentLoads) {
-      const batch = visible.slice(offset, offset + THREE_MAP_STREAMING.maximumConcurrentLoads);
+    for (let offset = 0; offset < visible.length; offset += MAP_STREAMING.maximumConcurrentLoads) {
+      const batch = visible.slice(offset, offset + MAP_STREAMING.maximumConcurrentLoads);
       await Promise.all(batch.map(({descriptor}) => this.fetchAndInstall(descriptor)));
     }
     this.rebuildQueue(interests);
@@ -136,7 +136,7 @@ export class ThreeMapChunkStreamer {
     this.pump();
   }
 
-  snapshot(): ThreeMapStreamingSnapshot {
+  snapshot(): MapStreamingSnapshot {
     let loadedTriangles = 0;
     for (const loaded of this.loaded.values()) loadedTriangles += loaded.descriptor.triangleCount;
     return {
@@ -172,19 +172,19 @@ export class ThreeMapChunkStreamer {
     halfWidth: number,
     halfHeight: number,
     nowMs: number
-  ): ThreeMapChunkInterest[] {
+  ): MapChunkInterest[] {
     const previous = this.lastFocus;
     const elapsedSeconds = previous ? Math.max(1 / 120, (nowMs - previous.at) / 1000) : 0;
     const chunkWorldSize = this.manifest.blockSize * this.manifest.chunkSize;
-    const maximumLead = chunkWorldSize * THREE_MAP_STREAMING.maximumLookaheadChunks;
+    const maximumLead = chunkWorldSize * MAP_STREAMING.maximumLookaheadChunks;
     const leadX = previous
-      ? clamp((focusX - previous.x) / elapsedSeconds * THREE_MAP_STREAMING.lookaheadSeconds, -maximumLead, maximumLead)
+      ? clamp((focusX - previous.x) / elapsedSeconds * MAP_STREAMING.lookaheadSeconds, -maximumLead, maximumLead)
       : 0;
     const leadY = previous
-      ? clamp((focusY - previous.y) / elapsedSeconds * THREE_MAP_STREAMING.lookaheadSeconds, -maximumLead, maximumLead)
+      ? clamp((focusY - previous.y) / elapsedSeconds * MAP_STREAMING.lookaheadSeconds, -maximumLead, maximumLead)
       : 0;
     this.lastFocus = {x: focusX, y: focusY, at: nowMs};
-    return selectThreeMapChunkInterest({
+    return selectMapChunkInterest({
       chunks: this.manifest.chunks,
       blockSize: this.manifest.blockSize,
       chunkSize: this.manifest.chunkSize,
@@ -197,7 +197,7 @@ export class ThreeMapChunkStreamer {
     });
   }
 
-  private applyInterest(interests: readonly ThreeMapChunkInterest[]): void {
+  private applyInterest(interests: readonly MapChunkInterest[]): void {
     this.desired.clear();
     this.retained.clear();
     for (const interest of interests) {
@@ -214,7 +214,7 @@ export class ThreeMapChunkStreamer {
     }
   }
 
-  private rebuildQueue(interests: readonly ThreeMapChunkInterest[]): void {
+  private rebuildQueue(interests: readonly MapChunkInterest[]): void {
     this.queue = interests
       .filter(({tier, descriptor}) => (
         tier !== 'retained' && !this.loaded.has(descriptor.id) && !this.pending.has(descriptor.id)
@@ -225,7 +225,7 @@ export class ThreeMapChunkStreamer {
   private pump(): void {
     while (
       !this.destroyed &&
-      this.pending.size < THREE_MAP_STREAMING.maximumConcurrentLoads &&
+      this.pending.size < MAP_STREAMING.maximumConcurrentLoads &&
       this.queue.length > 0
     ) {
       const descriptor = this.queue.shift();
@@ -234,7 +234,7 @@ export class ThreeMapChunkStreamer {
     }
   }
 
-  private async fetchAndInstall(descriptor: ThreeMapChunkDescriptor): Promise<void> {
+  private async fetchAndInstall(descriptor: WorldGeometryChunkDescriptor): Promise<void> {
     if (this.loaded.has(descriptor.id) || this.pending.has(descriptor.id) || this.destroyed) return;
     const controller = new AbortController();
     const promise = this.loadPayload(descriptor, controller.signal)
@@ -254,12 +254,12 @@ export class ThreeMapChunkStreamer {
   }
 
   private async loadPayload(
-    descriptor: ThreeMapChunkDescriptor,
+    descriptor: WorldGeometryChunkDescriptor,
     signal: AbortSignal
-  ): Promise<ThreeMapChunkPayload> {
+  ): Promise<WorldGeometryChunkPayload> {
     const response = await fetch(new URL(descriptor.file, this.manifestUrl), {signal});
     if (!response.ok) throw new Error(`Map chunk request failed (${response.status}).`);
-    const payload = await response.json() as ThreeMapChunkPayload;
+    const payload = await response.json() as WorldGeometryChunkPayload;
     if (
       payload.column !== descriptor.column || payload.row !== descriptor.row ||
       payload.x !== descriptor.x || payload.y !== descriptor.y || payload.size !== descriptor.size
@@ -267,13 +267,13 @@ export class ThreeMapChunkStreamer {
     return payload;
   }
 
-  private install(descriptor: ThreeMapChunkDescriptor, payload: ThreeMapChunkPayload): void {
+  private install(descriptor: WorldGeometryChunkDescriptor, payload: WorldGeometryChunkPayload): void {
     if (this.loaded.has(descriptor.id)) return;
     const base = new THREE.Group();
     base.name = `map-chunk:${descriptor.id}`;
     base.position.set(
       descriptor.x * this.manifest.blockSize,
-      serverYToThree(descriptor.y * this.manifest.blockSize),
+      serverYToScene(descriptor.y * this.manifest.blockSize),
       0
     );
     base.add(this.createMesh(payload.vertices, payload.opaqueIndices, payload.alphaTestedIndices));
@@ -297,7 +297,7 @@ export class ThreeMapChunkStreamer {
   }
 
   private createMesh(
-    vertices: readonly ThreeMapVertex[],
+    vertices: readonly WorldGeometryVertex[],
     opaqueIndices: readonly number[],
     alphaIndices: readonly number[]
   ): THREE.Mesh {
@@ -308,7 +308,7 @@ export class ThreeMapChunkStreamer {
       const vertex = vertices[index];
       const positionOffset = index * 3;
       positions[positionOffset] = vertex.x * this.manifest.blockSize;
-      positions[positionOffset + 1] = serverYToThree(vertex.y * this.manifest.blockSize);
+      positions[positionOffset + 1] = serverYToScene(vertex.y * this.manifest.blockSize);
       positions[positionOffset + 2] = vertex.z * this.manifest.blockSize;
       const [u, v] = atlasUv(vertex, this.manifest.atlas);
       const uvOffset = index * 2;
@@ -346,19 +346,19 @@ export class ThreeMapChunkStreamer {
   }
 }
 
-function validateManifest(manifest: ThreeMapManifest): void {
-  if (manifest.version !== 1) throw new Error(`Unsupported Three map manifest ${manifest.version}.`);
-  if (manifest.blockSize <= 0 || manifest.chunkSize <= 0) throw new Error('Three map dimensions are invalid.');
+function validateManifest(manifest: WorldGeometryManifest): void {
+  if (manifest.version !== 1) throw new Error(`Unsupported world geometry manifest ${manifest.version}.`);
+  if (manifest.blockSize <= 0 || manifest.chunkSize <= 0) throw new Error('World geometry dimensions are invalid.');
   if (manifest.surfaces.values.length !== manifest.size.width * manifest.size.height) {
-    throw new Error('Three map surface grid is incomplete.');
+    throw new Error('World geometry surface grid is incomplete.');
   }
   const expectedChunks = manifest.size.width / manifest.chunkSize *
     (manifest.size.height / manifest.chunkSize);
   if (!Number.isInteger(expectedChunks) || manifest.chunks.length !== expectedChunks) {
-    throw new Error('Three map chunk grid is incomplete.');
+    throw new Error('World geometry chunk grid is incomplete.');
   }
   const ids = new Set(manifest.chunks.map((chunk) => chunk.id));
-  if (ids.size !== manifest.chunks.length) throw new Error('Three map chunk identifiers are not unique.');
+  if (ids.size !== manifest.chunks.length) throw new Error('World geometry chunk identifiers are not unique.');
 }
 
 function disposeGeometry(object: THREE.Object3D): void {

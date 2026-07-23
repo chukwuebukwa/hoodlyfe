@@ -17,7 +17,7 @@ Mercy is also a real medical destination. `MedicalCareController` selects the ne
 - `PlayerState.spaceId` and `StreetServiceState.spaceId`: authoritative spatial membership; durable property ownership does not belong here.
 - `DistrictReplicationController`: exact same-space player/service membership and street-only collection ownership through Colyseus `StateView`.
 - OpenGTA2 `WebAssetExporter`: authored source-map occluder bounds and stable roof index groups.
-- `three-interior-renderer.ts`: floor, walls, fixtures, facade sign/awning, and door presentation only.
+- `src/game/presentation/interiors.ts`: floor, walls, fixtures, facade sign/awning, and door presentation only.
 
 `DistrictRoom` remains composition and message routing. No building-specific gameplay rule belongs there.
 
@@ -33,13 +33,13 @@ The accepted contract is:
 4. Entering one interior hides only the matching named group.
 5. A valid floor and closed interior shell must already exist beneath it.
 
-`test/three-prototype-interior-contract.test.ts` now fails locally when stale generated assets use a different interior ID.
+`test/map-interior-contract.test.ts` now fails locally when stale generated assets use a different interior ID.
 
 ## QA Contract
 
 - Controller tests cover entry, exit, wall collision, fixtures, service-space isolation, nearest medical selection, recovery anchors, and lifecycle application.
 - The real two-client scenario covers death, indoor respawn, same-space isolation, exit, restored street visibility, continued combat, and an explicit hospital round trip.
-- `?renderer=three&qa=1` sends ordinary movement toward real thresholds; it exposes no server teleport command.
+- `?qa=1` sends ordinary movement toward real thresholds; it exposes no server teleport command.
 - Live desktop QA completed street -> `mercy-hospital` -> street and showed the facade sign, exact roof cutaway, clinic fixtures, same-space treatment marker, player, and surrounding city.
 - Explicit `390 x 844` QA produced a nonblank `390 x 844` canvas with zero document overflow.
 - Wire behavior remains `street: players/NPCs/vehicles/services` versus `hospital: same-space players plus hospital-mercy only`.

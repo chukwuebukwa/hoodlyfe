@@ -5,20 +5,20 @@
 The active Industrial District is the complete `256 x 256` GTA2 source level. Each tile is
 `64` world pixels, producing a `16384 x 16384` world at source origin `0,0`.
 
-The world is not one Three.js mesh. Export divides it into `8 x 8`-tile (`512 x 512` pixel)
+The world is not one monolithic mesh. Export divides it into `8 x 8`-tile (`512 x 512` pixel)
 chunks:
 
 ```text
 32 columns x 32 rows = 1,024 chunks
 ```
 
-`public/assets/maps/three/world.json` is the geometry manifest. Chunk payloads live under
-`public/assets/maps/three/chunks/`. The old `three/prototype.json` monolith is deliberately
+`public/assets/maps/geometry/world.json` is the geometry manifest. Chunk payloads live under
+`public/assets/maps/geometry/chunks/`. The old `geometry/prototype.json` monolith is deliberately
 absent for full-world exports.
 
 ## Runtime Contract
 
-The Three renderer keeps these small or simulation-critical datasets resident:
+The scene renderer keeps these small or simulation-critical datasets resident:
 
 - the world manifest, chunk descriptors, surface grid, and authored roof definitions;
 - the shared texture atlas;
@@ -92,7 +92,7 @@ obstacles, signals, street lights, and population-zone bounds.
 ## What The Full Export Provides
 
 All 65,536 source tiles now have exported visuals, collision, roads, pedestrian surfaces,
-height data, and streamable Three geometry. Players can travel and collide throughout the
+height data, and streamable scene geometry. Players can travel and collide throughout the
 complete source level.
 
 The authored lane graph and handcrafted systemic content still describe the translated
@@ -112,7 +112,7 @@ Treat world expansion and world content as separate workstreams:
 Run the game and open:
 
 ```text
-http://127.0.0.1:5173/?renderer=three&qa=1
+http://127.0.0.1:5173/?qa=1
 ```
 
 Enable `DBG`. The map row reports:

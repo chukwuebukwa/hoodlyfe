@@ -7,9 +7,13 @@ import {
 } from '../../../shared/content/world-time.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {STREET_LIGHT_FIXTURES, type StreetLightFixture} from '../../../shared/content/lighting-fixtures.ts';
-import {serverYToThree} from './three-prototype-policy.ts';
-import {radialGlow, updateRadialGlow, type RadialGlow} from './three-glow.ts';
-import {deriveRoadLightEmitters, mergeLightEmitters, type RoadMask} from './three-road-light-policy.ts';
+import {serverYToScene} from './scene-policy.ts';
+import {radialGlow, updateRadialGlow, type RadialGlow} from './effects/glow.ts';
+import {
+  deriveRoadLightEmitters,
+  mergeLightEmitters,
+  type RoadMask
+} from './map/road-light-policy.ts';
 
 interface FixtureLight {
   definition: StreetLightFixture;
@@ -17,7 +21,7 @@ interface FixtureLight {
   light: THREE.PointLight;
 }
 
-export class ThreeDayNightController {
+export class LightingPresentation {
   private readonly hemisphere = new THREE.HemisphereLight();
   private readonly ambient = new THREE.AmbientLight(0xffffff, 0.45);
   private readonly sun = new THREE.DirectionalLight();
@@ -43,10 +47,10 @@ export class ThreeDayNightController {
     this.liveButton?.addEventListener('click', this.handleLiveTime);
     this.fixtureLights = fixtures.map((fixture) => {
       const glow = radialGlow(220, 0xffd793, 0, 14);
-      glow.position.set(fixture.x, serverYToThree(fixture.y), surfaceHeightAt(fixture.x, fixture.y) + 2);
+      glow.position.set(fixture.x, serverYToScene(fixture.y), surfaceHeightAt(fixture.x, fixture.y) + 2);
       glow.visible = false;
       const light = new THREE.PointLight(0xffd7a0, 0, 175, 2);
-      light.position.set(fixture.x, serverYToThree(fixture.y), surfaceHeightAt(fixture.x, fixture.y) + 28);
+      light.position.set(fixture.x, serverYToScene(fixture.y), surfaceHeightAt(fixture.x, fixture.y) + 28);
       light.visible = false;
       this.scene.add(glow, light);
       return {definition: fixture, glow, light};
@@ -56,7 +60,7 @@ export class ThreeDayNightController {
   static async create(
     scene: THREE.Scene,
     surfaceHeightAt: (x: number, y: number) => number
-  ): Promise<ThreeDayNightController> {
+  ): Promise<LightingPresentation> {
     const response = await fetch('/assets/maps/district-map.json');
     if (!response.ok) throw new Error(`Road lighting mask failed to load (${response.status}).`);
     const generated = deriveRoadLightEmitters(await response.json() as RoadMask, {
@@ -64,7 +68,7 @@ export class ThreeDayNightController {
       existing: STREET_LIGHT_FIXTURES
     });
     const fixtures = mergeLightEmitters(STREET_LIGHT_FIXTURES, generated);
-    return new ThreeDayNightController(scene, surfaceHeightAt, fixtures);
+    return new LightingPresentation(scene, surfaceHeightAt, fixtures);
   }
 
   update(
@@ -93,10 +97,10 @@ export class ThreeDayNightController {
     this.sun.intensity = interior ? 0 : lighting.sunIntensity;
     this.sun.position.set(
       focusX + Math.cos(lighting.sunAngle) * 900,
-      serverYToThree(focusY) + Math.sin(lighting.sunAngle) * 900,
+      serverYToScene(focusY) + Math.sin(lighting.sunAngle) * 900,
       900
     );
-    this.sun.target.position.set(focusX, serverYToThree(focusY), 0);
+    this.sun.target.position.set(focusX, serverYToScene(focusY), 0);
     if (!this.sun.target.parent) this.scene.add(this.sun.target);
     this.updateFixtureLights(focusX, focusY, interior ? 0 : lighting.streetlightIntensity);
     const nextLabel = `${formatWorldTime(minute)} ${lighting.phase.toUpperCase()}`;

@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
 import type {ProjectileImpactPayload} from '../shared/protocol/projectile-impacts.ts';
-import {ThreeProjectileImpactEffects} from '../src/game/three/three-projectile-impact-effects.ts';
+import {ProjectileImpactEffects} from '../src/game/presentation/effects/projectile-impacts.ts';
 
 test('projectile impact sparks reuse one point buffer, dedupe, and expire', () => {
   const scene = new THREE.Scene();
-  const effects = new ThreeProjectileImpactEffects(scene, () => 4);
+  const effects = new ProjectileImpactEffects(scene, () => 4);
   const impact: ProjectileImpactPayload = {
     id: '1:0:bullet',
     tick: 1,

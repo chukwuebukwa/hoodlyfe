@@ -3,7 +3,7 @@ import {existsSync, readFileSync} from 'node:fs';
 import test from 'node:test';
 import {INTERIORS} from '../shared/content/interior-catalog.ts';
 
-const manifestPath = 'public/assets/maps/three/world.json';
+const manifestPath = 'public/assets/maps/geometry/world.json';
 
 test('streamed roof groups match the authoritative interior catalog', {
   skip: !existsSync(manifestPath)

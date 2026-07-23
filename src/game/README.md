@@ -2,16 +2,16 @@
 
 The browser is a presentation and input client. It sends player intent, renders replicated server state, and never decides movement, collisions, damage, inventory, or mission outcomes.
 
-`ThreePrototypeViewer` is the client composition root. It owns the Three renderer and coordinates focused modules for input, UI, audio, debug tools, network timing, remote interpolation, interiors, lighting, and entity presentation.
+`DistrictClient` is the client composition root. It owns the scene renderer and coordinates focused modules for input, UI, audio, debug tools, network timing, remote interpolation, interiors, lighting, and entity presentation.
 
 ## Dependency Direction
 
 ```text
-ThreePrototypeViewer
+DistrictClient
   -> input and presentation controllers
     -> pure client policies
   -> replicated protocol/state views
-  -> Three and DOM adapters
+  -> scene and DOM adapters
 ```
 
 Rules:
