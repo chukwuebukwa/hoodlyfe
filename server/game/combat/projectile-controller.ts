@@ -6,6 +6,7 @@ import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
 import type {DamageController} from './damage-controller.ts';
+import type {GameEventStream, ProjectileImpactEvent} from '../events/game-events.ts';
 import {
   CombatHitboxHistory,
   type HistoricalCombatHit
@@ -21,6 +22,8 @@ interface ProjectileControllerOptions {
   access: VehicleAccessController;
   vehicles: VehicleSimulationController;
   damage: DamageController;
+  events: GameEventStream;
+  clock: () => {tick: number};
   history?: CombatHitboxHistory;
   queryPlayers: (minX: number, minY: number, maxX: number, maxY: number) => PlayerState[];
   queryNpcs: (minX: number, minY: number, maxX: number, maxY: number) => NpcState[];
@@ -65,6 +68,7 @@ export class ProjectileController {
       const endY = startY + Math.sin(bullet.angle) * weapon.projectileSpeed * durationSeconds;
       const nextSurface = this.surfaceAfterMove(bullet, startX, startY, endX, endY);
       if (!nextSurface) {
+        this.publishImpact(bullet, input.nowMs, 'world', undefined, endX, endY);
         this.options.state.bullets.delete(bullet.id);
         return {
           effectiveServerShotTimeMs: window.effectiveServerTimeMs,
@@ -87,6 +91,7 @@ export class ProjectileController {
       if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
         bullet.x = interpolate(startX, endX, historical.hit.progress);
         bullet.y = interpolate(startY, endY, historical.hit.progress);
+        bullet.surfaceId = nextSurface;
         this.resolveHistoricalHit(historical.hit, bullet, input.nowMs);
         this.options.state.bullets.delete(bullet.id);
         return {
@@ -98,6 +103,8 @@ export class ProjectileController {
       if (worldProgress !== undefined) {
         bullet.x = interpolate(startX, endX, worldProgress);
         bullet.y = interpolate(startY, endY, worldProgress);
+        bullet.surfaceId = nextSurface;
+        this.publishImpact(bullet, input.nowMs, 'world');
         this.options.state.bullets.delete(bullet.id);
         return {
           effectiveServerShotTimeMs: window.effectiveServerTimeMs,
@@ -129,6 +136,16 @@ export class ProjectileController {
     const nextY = bullet.y + Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     const nextSurface = this.surfaceAfterMove(bullet, previousX, previousY, nextX, nextY);
     if (!nextSurface || this.options.world.isBlockedAt(nextX, nextY)) {
+      const progress = firstBlockedProgress(this.options.world, previousX, previousY, nextX, nextY) ?? 1;
+      this.publishImpact(
+        bullet,
+        nowMs,
+        'world',
+        undefined,
+        interpolate(previousX, nextX, progress),
+        interpolate(previousY, nextY, progress),
+        nextSurface
+      );
       this.options.remove(bulletId);
       return;
     }
@@ -146,9 +163,14 @@ export class ProjectileController {
         target.surfaceId !== bullet.surfaceId
       ) continue;
       if (bullet.ownerKind === 'police' && target.wanted <= 0) continue;
-      if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > PLAYER_RADIUS + 4) {
-        continue;
-      }
+      const progress = circleHitProgress(
+        target.x, target.y, PLAYER_RADIUS + 4, previousX, previousY, bullet.x, bullet.y
+      );
+      if (progress === undefined) continue;
+      this.publishImpact(
+        bullet, nowMs, 'player', target.id,
+        interpolate(previousX, bullet.x, progress), interpolate(previousY, bullet.y, progress)
+      );
       this.options.damage.player(
         target,
         weapon.damage,
@@ -172,9 +194,14 @@ export class ProjectileController {
       if (this.options.access.occupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) {
         continue;
       }
-      if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > VEHICLE_RADIUS + 4) {
-        continue;
-      }
+      const progress = circleHitProgress(
+        target.x, target.y, VEHICLE_RADIUS + 4, previousX, previousY, bullet.x, bullet.y
+      );
+      if (progress === undefined) continue;
+      this.publishImpact(
+        bullet, nowMs, 'vehicle', target.id,
+        interpolate(previousX, bullet.x, progress), interpolate(previousY, bullet.y, progress)
+      );
       this.options.vehicles.damage(
         target,
         this.options.vehicles.weaponDamage(weapon.damage),
@@ -190,9 +217,14 @@ export class ProjectileController {
     if (bullet.ownerKind !== 'player') return;
     for (const target of this.options.queryNpcs(minX, minY, maxX, maxY)) {
       if (!target.alive || target.surfaceId !== bullet.surfaceId) continue;
-      if (pointSegmentDistance(target.x, target.y, previousX, previousY, bullet.x, bullet.y) > NPC_RADIUS + 4) {
-        continue;
-      }
+      const progress = circleHitProgress(
+        target.x, target.y, NPC_RADIUS + 4, previousX, previousY, bullet.x, bullet.y
+      );
+      if (progress === undefined) continue;
+      this.publishImpact(
+        bullet, nowMs, 'npc', target.id,
+        interpolate(previousX, bullet.x, progress), interpolate(previousY, bullet.y, progress)
+      );
       this.options.damage.npc(
         target,
         weapon.damage,
@@ -242,6 +274,7 @@ export class ProjectileController {
       const target = this.options.state.players.get(hit.id);
       if (!target?.alive || target.vehicleId || target.id === bullet.ownerId) return;
       if (bullet.ownerKind === 'police' && target.wanted <= 0) return;
+      this.publishImpact(bullet, nowMs, 'player', target.id);
       this.options.damage.player(
         target,
         weapon.damage,
@@ -259,6 +292,7 @@ export class ProjectileController {
       if (this.options.access.occupants(target.id).some((occupant) => occupant.id === bullet.ownerId)) {
         return;
       }
+      this.publishImpact(bullet, nowMs, 'vehicle', target.id);
       this.options.vehicles.damage(
         target,
         this.options.vehicles.weaponDamage(weapon.damage),
@@ -272,6 +306,7 @@ export class ProjectileController {
     if (bullet.ownerKind !== 'player') return;
     const target = this.options.state.npcs.get(hit.id);
     if (!target?.alive) return;
+    this.publishImpact(bullet, nowMs, 'npc', target.id);
     this.options.damage.npc(
       target,
       weapon.damage,
@@ -280,6 +315,30 @@ export class ProjectileController {
       undefined,
       bulletImpact(target.x, target.y, bullet, weapon.id === 'shotgun')
     );
+  }
+
+  private publishImpact(
+    bullet: BulletState,
+    nowMs: number,
+    targetKind: ProjectileImpactEvent['targetKind'],
+    targetId?: string,
+    x = bullet.x,
+    y = bullet.y,
+    surfaceId = bullet.surfaceId
+  ): void {
+    this.options.events.publish({
+      type: 'projectile.impact',
+      tick: this.options.clock().tick,
+      nowMs,
+      projectileId: bullet.id,
+      weapon: bullet.weapon,
+      targetKind,
+      targetId,
+      x,
+      y,
+      angle: bullet.angle,
+      surfaceId
+    });
   }
 }
 
@@ -321,27 +380,32 @@ function firstBlockedProgress(
   return undefined;
 }
 
-function pointSegmentDistance(
+function circleHitProgress(
   pointX: number,
   pointY: number,
+  radius: number,
   startX: number,
   startY: number,
   endX: number,
   endY: number
-): number {
+): number | undefined {
   const segmentX = endX - startX;
   const segmentY = endY - startY;
   const lengthSquared = segmentX * segmentX + segmentY * segmentY;
-  if (lengthSquared === 0) return Math.hypot(pointX - startX, pointY - startY);
-  const progress = clamp(
-    ((pointX - startX) * segmentX + (pointY - startY) * segmentY) / lengthSquared,
-    0,
-    1
-  );
-  return Math.hypot(
+  if (lengthSquared === 0) {
+    return Math.hypot(pointX - startX, pointY - startY) <= radius ? 0 : undefined;
+  }
+  const progress = ((pointX - startX) * segmentX + (pointY - startY) * segmentY) / lengthSquared;
+  const distance = Math.hypot(
     pointX - (startX + segmentX * progress),
     pointY - (startY + segmentY * progress)
   );
+  if (distance > radius) return undefined;
+  const entryOffset = Math.sqrt(Math.max(0, radius * radius - distance * distance));
+  const normalizedOffset = entryOffset / Math.sqrt(lengthSquared);
+  const entry = progress - normalizedOffset;
+  const exit = progress + normalizedOffset;
+  return entry <= 1 && exit >= 0 ? clamp(entry, 0, 1) : undefined;
 }
 
 function clamp(value: number, min: number, max: number): number {

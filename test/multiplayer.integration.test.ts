@@ -17,6 +17,7 @@ import {
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
 import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
+import {PROJECTILE_IMPACTS_MESSAGE} from '../shared/protocol/projectile-impacts.ts';
 import {
   COMBAT_FIRE_MESSAGE,
   COMBAT_PROTOCOL_VERSION
@@ -76,6 +77,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   second.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
+  first.onMessage(PROJECTILE_IMPACTS_MESSAGE, () => undefined);
+  second.onMessage(PROJECTILE_IMPACTS_MESSAGE, () => undefined);
   first.onMessage<AppearanceResultMessage>(
     APPEARANCE_RESULT_MESSAGE,
     (result) => appearanceResults.push(result)

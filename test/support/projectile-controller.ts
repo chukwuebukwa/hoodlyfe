@@ -12,6 +12,8 @@ export function attachTestProjectileController(room: any): ProjectileController 
       player: () => undefined,
       npc: () => undefined
     } as any,
+    events: room.events,
+    clock: () => ({tick: room.simulationClock?.tick ?? 0}),
     queryPlayers: (minX, minY, maxX, maxY) => [...room.state.players.values()].filter((player: any) => (
       player.x >= minX && player.x <= maxX && player.y >= minY && player.y <= maxY
     )),

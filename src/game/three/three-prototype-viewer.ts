@@ -1,6 +1,10 @@
 import * as THREE from 'three';
+import {
+  PROJECTILE_IMPACTS_MESSAGE,
+  type ProjectileImpactsMessage
+} from '../../../shared/protocol/projectile-impacts.ts';
 import type {Room} from 'colyseus.js';
-import type {DistrictNetworkState} from '../types.ts';
+import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
 import {ThreeDistrictEntities} from './three-district-entities.ts';
 import {ThreeDistrictUiController} from './three-district-ui-controller.ts';
 import {ThreeDistrictWorld} from './three-district-world.ts';
@@ -14,6 +18,7 @@ import type {NetcodeRolloutController} from '../network/netcode-rollout-controll
 import type {NockPhoneController} from '../ui/nock-phone-controller.ts';
 import {CombatFireCommandSender} from '../network/combat-fire-command-sender.ts';
 import {interiorDefinition} from '../../../shared/content/interior-catalog.ts';
+import {isWeaponId} from '../../../shared/content/weapon-catalog.ts';
 import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../../shared/world/surface-map.ts';
 import {
   mapSurfaceHeightAt,
@@ -24,10 +29,12 @@ import {
 import {ThreeMapChunkStreamer} from './three-map-chunk-streamer.ts';
 import type {ThreeMapManifest, ThreeMapOccluderDefinition} from './three-map-format.ts';
 import {
+  cameraRecoilOffset,
   explorerCameraPose,
   type CameraFollowMode,
   type CameraPresentationMode
 } from '../camera/camera-policy.ts';
+import {gunshotPresentation} from '../rendering/player-render-policy.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -65,6 +72,7 @@ export class ThreePrototypeViewer {
   private debug?: ThreeDebugController;
   private networkQuality?: NetworkQualityController;
   private combatFire?: CombatFireCommandSender;
+  private removeProjectileImpacts?: () => void;
   private interiors?: ThreeInteriorRenderer;
   private lighting?: ThreeDayNightController;
   private readonly mapOccluders = new Map<string, THREE.Group>();
@@ -77,6 +85,12 @@ export class ThreePrototypeViewer {
   private settingsOpen = false;
   private explorerYaw?: number;
   private explorerPitch = -0.08;
+  private cameraShotSequence?: number;
+  private cameraShotStartedAt?: number;
+  private cameraShotWeapon?: NetworkPlayer['weapon'];
+  private cameraShotAngle = 0;
+  private cameraShotPassenger = false;
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly settingsToggle = document.querySelector<HTMLButtonElement>('#settings-toggle');
   private readonly settingsOverlay = document.querySelector<HTMLElement>('#settings-overlay');
   private readonly settingsClose = document.querySelector<HTMLButtonElement>('#settings-close');
@@ -136,6 +150,13 @@ export class ThreePrototypeViewer {
         this.room.sessionId,
         this.surfaceHeightAt
       );
+      const removeProjectileImpacts = this.room.onMessage<ProjectileImpactsMessage>(
+        PROJECTILE_IMPACTS_MESSAGE,
+        (message) => this.world?.presentProjectileImpacts(message.impacts, performance.now())
+      );
+      this.removeProjectileImpacts = typeof removeProjectileImpacts === 'function'
+        ? removeProjectileImpacts
+        : undefined;
       this.networkQuality = new NetworkQualityController(this.room);
       this.combatFire = new CombatFireCommandSender({
         room: this.room,
@@ -147,8 +168,18 @@ export class ThreePrototypeViewer {
             : this.room?.state.serverTimeMs ?? 0;
         },
         combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
-        onReceipt: (receipt) => {
+        onReceipt: (receipt, aimAngle) => {
           if (!receipt.accepted && receipt.reason === 'empty-magazine') this.ui?.presentDryFire();
+          const player = this.room?.state.players.get(this.room.sessionId);
+          if (
+            receipt.accepted &&
+            receipt.shotSequence !== undefined &&
+            receipt.weapon &&
+            isWeaponId(receipt.weapon) &&
+            aimAngle !== undefined
+          ) {
+            this.presentCameraShot(receipt.shotSequence, receipt.weapon, aimAngle, player, performance.now());
+          }
         }
       });
       this.debug = new ThreeDebugController(
@@ -200,6 +231,7 @@ export class ThreePrototypeViewer {
     this.unbind();
     this.input?.destroy();
     this.combatFire?.destroy();
+    this.removeProjectileImpacts?.();
     this.ui?.destroy();
     this.entities?.destroy();
     this.world?.destroy();
@@ -227,8 +259,9 @@ export class ThreePrototypeViewer {
     return this.netcodeRollout?.enabled(stage) ?? true;
   }
 
-  private applyCamera(): void {
+  private applyCamera(nowMs: number): void {
     const focus = this.localCameraFocus();
+    const recoil = this.cameraRecoil(nowMs);
     if (this.cameraMode === 'explorer' && focus) {
       this.camera.up.set(0, 0, 1);
       this.explorerYaw ??= focus.angle;
@@ -238,7 +271,7 @@ export class ThreePrototypeViewer {
         this.surfaceHeightAt(focus.x, focus.y),
         this.explorerYaw,
         focus.mode,
-        this.explorerPitch
+        this.explorerPitch + recoil.pitch
       );
       this.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
       this.camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
@@ -246,11 +279,66 @@ export class ThreePrototypeViewer {
     }
     this.camera.up.set(0, 1, 0);
     this.camera.position.set(
-      this.center.x,
-      this.center.y,
+      this.center.x + recoil.x,
+      this.center.y + recoil.y,
       this.center.z + this.baseHeight / this.zoom
     );
-    this.camera.lookAt(this.center.x, this.center.y, this.center.z);
+    this.camera.lookAt(
+      this.center.x + recoil.x,
+      this.center.y + recoil.y,
+      this.center.z
+    );
+  }
+
+  private observeLocalShot(player: NetworkPlayer | undefined, nowMs: number): void {
+    if (!player) {
+      this.cameraShotSequence = undefined;
+      this.cameraShotStartedAt = undefined;
+      return;
+    }
+    const sequence = player.shotSequence ?? 0;
+    const previous = this.cameraShotSequence;
+    if (!player.alive) {
+      this.cameraShotStartedAt = undefined;
+      if (previous === undefined || sequence > previous) this.cameraShotSequence = sequence;
+      return;
+    }
+    if (previous === undefined) {
+      this.cameraShotSequence = sequence;
+      return;
+    }
+    if (sequence <= previous) return;
+    this.presentCameraShot(sequence, player.weapon, player.angle, player, nowMs);
+  }
+
+  private presentCameraShot(
+    sequence: number,
+    weapon: NetworkPlayer['weapon'],
+    angle: number,
+    player: NetworkPlayer | undefined,
+    nowMs: number
+  ): void {
+    if (!player?.alive || (this.cameraShotSequence !== undefined && sequence <= this.cameraShotSequence)) {
+      return;
+    }
+    this.cameraShotSequence = sequence;
+    this.cameraShotStartedAt = nowMs;
+    this.cameraShotWeapon = weapon;
+    this.cameraShotAngle = angle;
+    this.cameraShotPassenger = Boolean(player.vehicleId && player.vehicleSeat > 0);
+  }
+
+  private cameraRecoil(nowMs: number): {x: number; y: number; pitch: number} {
+    const shot = this.cameraShotWeapon && this.cameraShotStartedAt !== undefined
+      ? gunshotPresentation(this.cameraShotWeapon, nowMs - this.cameraShotStartedAt)
+      : undefined;
+    return cameraRecoilOffset(
+      shot?.kickDistance ?? 0,
+      this.cameraShotAngle,
+      this.cameraMode,
+      this.cameraShotPassenger,
+      this.reducedMotion.matches
+    );
   }
 
   private createStatus(payload: ThreeMapManifest): void {
@@ -285,6 +373,7 @@ export class ThreePrototypeViewer {
       this.world?.synchronize(this.room.state, now, localSpaceId);
       const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
       const local = this.room.state.players.get(this.room.sessionId);
+      this.observeLocalShot(local, now);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
@@ -332,7 +421,7 @@ export class ThreePrototypeViewer {
       );
     }
     this.updateMapStreamingStatus();
-    this.applyCamera();
+    this.applyCamera(performance.now());
     this.renderer.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.render);
   };

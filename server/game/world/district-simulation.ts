@@ -13,6 +13,7 @@ import type {ThrownProjectileController} from '../combat/thrown-projectile-contr
 import type {WeaponRuntimeController} from '../combat/weapon-runtime-controller.ts';
 import type {DebugSnapshotController} from '../debug/debug-snapshot-controller.ts';
 import type {GameEvent, GameEventStream} from '../events/game-events.ts';
+import type {ProjectileImpactPublisher} from '../events/projectile-impact-publisher.ts';
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
 import type {CashPickupController} from '../pickups/cash-pickup-controller.ts';
 import type {WeaponPickupController} from '../pickups/weapon-pickup-controller.ts';
@@ -111,6 +112,7 @@ export interface DistrictSimulationOptions {
   lifecycle: DeferredCommandQueue;
   events: GameEventStream;
   audio: AudioEventController;
+  projectileImpacts: ProjectileImpactPublisher;
   debug: DebugSnapshotController;
   journal?: JournalPort;
   indexPlayer: (player: PlayerState) => void;
@@ -289,6 +291,7 @@ export class DistrictSimulation {
         this.options.worldStimulusAdapter.ingest(context.events);
         this.options.cashPickups.observeEvents(context.events);
         this.options.audio.publish(context.events);
+        this.options.projectileImpacts.publish(context.events);
       }),
       phase('snapshot-observability', ({tick, events}) => {
         this.options.debug.update(events);

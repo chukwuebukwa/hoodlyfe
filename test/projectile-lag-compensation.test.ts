@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {CombatHitboxHistory} from '../server/game/combat/combat-hitbox-history.ts';
 import {ProjectileController} from '../server/game/combat/projectile-controller.ts';
+import {GameEventStream, type ProjectileImpactEvent} from '../server/game/events/game-events.ts';
 import {BulletState, DistrictState, PlayerState} from '../server/state.ts';
 
 test('physical projectile catch-up hits historical actors once and removes resolved authority', () => {
@@ -23,6 +24,19 @@ test('physical projectile catch-up hits historical actors once and removes resol
   assert.equal(setup.state.bullets.has(bullet.id), false);
   assert.equal(setup.playerHits, 1);
   assert.ok(bullet.x > 80 && bullet.x < 100, 'Receipt pose stops at the historical hitbox entry.');
+  assert.deepEqual(setup.impacts(), [{
+    type: 'projectile.impact',
+    tick: 36,
+    nowMs: 1_200,
+    projectileId: 'bullet-1',
+    weapon: 'pistol',
+    targetKind: 'player',
+    targetId: 'target',
+    x: bullet.x,
+    y: bullet.y,
+    angle: 0,
+    surfaceId: 'street-ground'
+  }]);
 
   setup.controller.catchUp({
     bullet,
@@ -31,6 +45,7 @@ test('physical projectile catch-up hits historical actors once and removes resol
     excludedIds: new Set(['shooter'])
   });
   assert.equal(setup.playerHits, 1, 'A correlated authoritative projectile resolves once.');
+  assert.deepEqual(setup.impacts(), [], 'A resolved projectile emits its impact once.');
 });
 
 test('physical projectile catch-up keeps an unresolved bullet at its server-age position', () => {
@@ -48,6 +63,7 @@ test('physical projectile catch-up keeps an unresolved bullet at its server-age 
   assert.ok(Math.abs(bullet.x - 162) < 1e-9);
   assert.equal(bullet.createdAt, 1_000);
   assert.equal(setup.state.bullets.has(bullet.id), true);
+  assert.deepEqual(setup.impacts(), []);
 });
 
 test('current static obstruction wins before a historical target and consumes catch-up', () => {
@@ -64,6 +80,19 @@ test('current static obstruction wins before a historical target and consumes ca
   });
   assert.equal(result.resolved, true);
   assert.equal(setup.playerHits, 0);
+  assert.deepEqual(setup.impacts().map((event) => event.targetKind), ['world']);
+});
+
+test('live projectile impact stops at the target hitbox entry', () => {
+  const setup = fixture(() => false);
+  setup.state.players.set('target', player('target', 34, 0));
+  const bullet = setup.bullet();
+
+  setup.controller.update(bullet, bullet.id, 0.016, 1_216);
+
+  const [impact] = setup.impacts();
+  assert.equal(impact.targetKind, 'player');
+  assert.ok(Math.abs(impact.x - 19) < 1e-9);
 });
 
 function fixture(blocked: (x: number, y: number) => boolean): {
@@ -71,12 +100,14 @@ function fixture(blocked: (x: number, y: number) => boolean): {
   controller: ProjectileController;
   capture: (time: number) => void;
   bullet: () => BulletState;
+  impacts: () => ProjectileImpactEvent[];
   readonly playerHits: number;
 } {
   const state = new DistrictState();
   const shooter = player('shooter', 0, 0);
   state.players.set(shooter.id, shooter);
   const history = new CombatHitboxHistory();
+  const events = new GameEventStream();
   let playerHits = 0;
   const controller = new ProjectileController({
     state,
@@ -93,7 +124,9 @@ function fixture(blocked: (x: number, y: number) => boolean): {
       },
       npc: () => undefined
     } as any,
-    queryPlayers: () => [],
+    events,
+    clock: () => ({tick: 36}),
+    queryPlayers: () => [...state.players.values()],
     queryNpcs: () => [],
     queryVehicles: () => [],
     remove: (id) => state.bullets.delete(id)
@@ -101,6 +134,9 @@ function fixture(blocked: (x: number, y: number) => boolean): {
   return {
     state,
     controller,
+    impacts: () => events.drain().filter((event): event is ProjectileImpactEvent => (
+      event.type === 'projectile.impact'
+    )),
     capture: (serverTimeMs) => history.capture({
       serverTick: Math.round(serverTimeMs / 33),
       serverTimeMs,

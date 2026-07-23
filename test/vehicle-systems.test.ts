@@ -76,6 +76,7 @@ test('district projectile resolution damages vehicles and consumes the bullet', 
   assert.equal(vehicle.health, 975);
   assert.equal(room.state.bullets.has(bullet.id), false);
   assert.deepEqual(room.events.drain().map((event: {type: string}) => event.type), [
+    'projectile.impact',
     'vehicle.damaged'
   ]);
 });

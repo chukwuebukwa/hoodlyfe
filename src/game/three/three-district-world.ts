@@ -16,6 +16,8 @@ import {serverAngleToThree, serverYToThree} from './three-prototype-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {radialGlow, updateRadialGlow} from './three-glow.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './three-fire-smoke-effect.ts';
+import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
+import {ThreeProjectileImpactEffects} from './three-projectile-impact-effects.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -31,6 +33,7 @@ export class ThreeDistrictWorld {
   private readonly fires = new Map<string, THREE.Group>();
   private readonly explosions = new Map<string, TimedExplosion>();
   private readonly signals = new Map<string, THREE.Group>();
+  private readonly projectileImpacts: ThreeProjectileImpactEffects;
   private readonly grenadeTexture: THREE.Texture;
   private readonly molotovTexture: THREE.Texture;
   private readonly rocketTexture: THREE.Texture;
@@ -46,6 +49,11 @@ export class ThreeDistrictWorld {
     this.grenadeTexture = grenadeTexture;
     this.molotovTexture = molotovTexture;
     this.rocketTexture = rocketTexture;
+    this.projectileImpacts = new ThreeProjectileImpactEffects(scene, surfaceHeightAt);
+  }
+
+  presentProjectileImpacts(impacts: readonly ProjectileImpactPayload[], nowMs: number): void {
+    this.projectileImpacts.present(impacts, nowMs);
   }
 
   static async create(
@@ -73,6 +81,7 @@ export class ThreeDistrictWorld {
       this.clearStreetTransients();
       return;
     }
+    this.projectileImpacts.update(nowMs);
     this.synchronizeBullets(state);
     this.synchronizeRockets(state);
     this.synchronizeGrenades(state, nowMs);
@@ -94,6 +103,7 @@ export class ThreeDistrictWorld {
     this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
+    this.projectileImpacts.clear();
   }
 
   destroy(): void {
@@ -111,6 +121,7 @@ export class ThreeDistrictWorld {
     this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
+    this.projectileImpacts.destroy();
     this.grenadeTexture.dispose();
     this.molotovTexture.dispose();
     this.rocketTexture.dispose();

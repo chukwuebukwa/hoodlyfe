@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   cameraFollowPolicy,
+  cameraRecoilOffset,
   cameraTargetKey,
   cameraZoom,
   explorerCameraPose
@@ -21,6 +22,25 @@ test('camera policy keeps responsive zoom and distinct player/vehicle follow mod
     centerOnAcquire: false
   });
   assert.equal(cameraTargetKey('vehicle', 'taxi-4'), 'vehicle:taxi-4');
+});
+
+test('camera recoil follows shot direction, camera mode, passengers, and reduced motion', () => {
+  assert.deepEqual(cameraRecoilOffset(9, 0, 'overhead'), {x: -9, y: 0, pitch: 0});
+  const south = cameraRecoilOffset(9, Math.PI / 2, 'overhead');
+  assert.ok(Math.abs(south.x) < 0.000001);
+  assert.equal(south.y, 9);
+  assert.deepEqual(cameraRecoilOffset(9, 0, 'overhead', true), {
+    x: -4.5,
+    y: 0,
+    pitch: 0
+  });
+  assert.deepEqual(cameraRecoilOffset(9, 0, 'explorer'), {x: 0, y: 0, pitch: 0.054});
+  assert.deepEqual(cameraRecoilOffset(9, 0, 'overhead', false, true), {
+    x: 0,
+    y: 0,
+    pitch: 0
+  });
+  assert.deepEqual(cameraRecoilOffset(9, Number.NaN, 'overhead'), {x: 0, y: 0, pitch: 0});
 });
 
 test('explorer camera follows server heading in the Three.js coordinate frame', () => {

@@ -14,12 +14,13 @@ interface CombatFireCommandSenderOptions {
   readonly player: () => NetworkPlayer | undefined;
   readonly estimatedServerTimeMs: () => number;
   readonly combatRewindEnabled: () => boolean;
-  readonly onReceipt?: (receipt: CombatFireReceipt) => void;
+  readonly onReceipt?: (receipt: CombatFireReceipt, aimAngle?: number) => void;
 }
 
 export class CombatFireCommandSender {
   private nextSequence = 1;
   private lastSampleTimeMs = 0;
+  private readonly aimAngleBySequence = new Map<number, number>();
   private readonly removeReceipt?: () => void;
 
   constructor(private readonly options: CombatFireCommandSenderOptions) {
@@ -27,7 +28,10 @@ export class CombatFireCommandSender {
       onMessage?: <Message>(type: string, callback: (message: Message) => void) => unknown;
     };
     const remove = room.onMessage?.<CombatFireReceipt>(COMBAT_FIRE_RECEIPT_MESSAGE, (receipt) => {
-      if (receipt.protocolVersion === COMBAT_PROTOCOL_VERSION) options.onReceipt?.(receipt);
+      if (receipt.protocolVersion !== COMBAT_PROTOCOL_VERSION) return;
+      const aimAngle = this.aimAngleBySequence.get(receipt.sequence);
+      this.aimAngleBySequence.delete(receipt.sequence);
+      options.onReceipt?.(receipt, aimAngle);
     });
     this.removeReceipt = typeof remove === 'function' ? remove as () => void : undefined;
   }
@@ -50,10 +54,12 @@ export class CombatFireCommandSender {
       controlledEntityId: player.id,
       aimAngle: angle
     };
+    this.aimAngleBySequence.set(command.sequence, angle);
     this.options.room.send(COMBAT_FIRE_MESSAGE, command);
   }
 
   destroy(): void {
+    this.aimAngleBySequence.clear();
     this.removeReceipt?.();
   }
 }

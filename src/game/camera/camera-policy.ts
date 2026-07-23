@@ -12,6 +12,31 @@ export interface CameraFollowPolicy {
   centerOnAcquire: boolean;
 }
 
+export function cameraRecoilOffset(
+  kickDistance: number,
+  serverAngle: number,
+  mode: CameraPresentationMode,
+  passenger = false,
+  reducedMotion = false
+): {x: number; y: number; pitch: number} {
+  if (
+    reducedMotion ||
+    !Number.isFinite(kickDistance) ||
+    kickDistance <= 0 ||
+    !Number.isFinite(serverAngle)
+  ) {
+    return {x: 0, y: 0, pitch: 0};
+  }
+  const amount = kickDistance * (passenger ? 0.5 : 1);
+  return mode === 'explorer'
+    ? {x: 0, y: 0, pitch: amount * 0.006}
+    : {
+        x: -Math.cos(serverAngle) * amount,
+        y: Math.sin(serverAngle) * amount,
+        pitch: 0
+      };
+}
+
 export function cameraZoom(viewportWidth: number): number {
   return viewportWidth < 700 ? 1.05 : 1.15;
 }

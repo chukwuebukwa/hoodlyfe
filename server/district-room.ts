@@ -79,6 +79,7 @@ import {DebugSnapshotController} from './game/debug/debug-snapshot-controller.ts
 import {AudioEventController} from './game/audio/audio-event-controller.ts';
 import {ProximityVoiceController} from './game/audio/proximity-voice-controller.ts';
 import {GameEventStream} from './game/events/game-events.ts';
+import {ProjectileImpactPublisher} from './game/events/projectile-impact-publisher.ts';
 import {FileJournalSink, type JournalSink} from './game/journal/journal-sink.ts';
 import {SimulationJournal} from './game/journal/simulation-journal.ts';
 import {hashDistrictState} from './game/journal/state-hash.ts';
@@ -229,6 +230,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private worldStimulusAdapter!: WorldStimulusAdapter;
   private debugProjection!: DebugSnapshotController;
   private audioEvents!: AudioEventController;
+  private projectileImpacts!: ProjectileImpactPublisher;
   private voiceChat!: ProximityVoiceController;
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
@@ -543,6 +545,10 @@ export class DistrictRoom extends Room<DistrictState> {
       }
     });
     this.audioEvents = new AudioEventController({
+      state: this.state,
+      clients: () => this.clients
+    });
+    this.projectileImpacts = new ProjectileImpactPublisher({
       state: this.state,
       clients: () => this.clients
     });
@@ -923,6 +929,8 @@ export class DistrictRoom extends Room<DistrictState> {
       access: this.vehicleAccess,
       vehicles: this.vehicleSimulation,
       damage: this.damageController,
+      events: this.events,
+      clock: () => ({tick: this.simulationClock.tick}),
       history: this.combatHistory,
       queryPlayers: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
         minX,
@@ -1045,6 +1053,7 @@ export class DistrictRoom extends Room<DistrictState> {
       lifecycle: this.lifecycle,
       events: this.events,
       audio: this.audioEvents,
+      projectileImpacts: this.projectileImpacts,
       debug: this.debugProjection,
       journal: this.journal,
       indexPlayer: (player) => this.indexPlayer(player),

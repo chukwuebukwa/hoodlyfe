@@ -45,7 +45,7 @@ test('fire falls back to the legacy authority command when rewind is unavailable
 test('fire sender routes matching authoritative receipts to presentation reconciliation', () => {
   let receive: ((message: CombatFireReceipt) => void) | undefined;
   let removed = false;
-  const receipts: CombatFireReceipt[] = [];
+  const receipts: Array<{receipt: CombatFireReceipt; aimAngle?: number}> = [];
   const sender = new CombatFireCommandSender({
     room: {
       send() {},
@@ -55,15 +55,19 @@ test('fire sender routes matching authoritative receipts to presentation reconci
         return () => { removed = true; };
       }
     } as never,
-    player: () => undefined,
+    player: () => ({id: 'player-1', alive: true, spaceId: 'street', weapon: 'pistol'}) as never,
     estimatedServerTimeMs: () => 0,
     combatRewindEnabled: () => true,
-    onReceipt: (receipt) => receipts.push(receipt)
+    onReceipt: (receipt, aimAngle) => receipts.push({receipt, aimAngle})
   });
+  sender.send(Math.PI / 3);
   receive?.({protocolVersion: COMBAT_PROTOCOL_VERSION + 1, sequence: 1, accepted: false});
   receive?.({protocolVersion: COMBAT_PROTOCOL_VERSION, sequence: 1, accepted: true, magazine: 11});
   assert.deepEqual(receipts, [
-    {protocolVersion: COMBAT_PROTOCOL_VERSION, sequence: 1, accepted: true, magazine: 11}
+    {
+      receipt: {protocolVersion: COMBAT_PROTOCOL_VERSION, sequence: 1, accepted: true, magazine: 11},
+      aimAngle: Math.PI / 3
+    }
   ]);
   sender.destroy();
   assert.equal(removed, true);

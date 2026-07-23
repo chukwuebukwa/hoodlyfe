@@ -16,6 +16,18 @@ export interface WeaponFiredEvent extends EventMetadata {
   y: number;
 }
 
+export interface ProjectileImpactEvent extends EventMetadata {
+  type: 'projectile.impact';
+  projectileId: string;
+  weapon: string;
+  targetKind: 'world' | 'player' | 'npc' | 'vehicle';
+  targetId?: string;
+  x: number;
+  y: number;
+  angle: number;
+  surfaceId: string;
+}
+
 export interface MeleeAttackStartedEvent extends EventMetadata {
   type: 'melee.started';
   playerId: string;
@@ -250,6 +262,7 @@ export interface StreetEconomyChangedEvent extends EventMetadata {
 
 export type GameEvent =
   | WeaponFiredEvent
+  | ProjectileImpactEvent
   | MeleeAttackStartedEvent
   | NpcMeleeAttackStartedEvent
   | ExplosionCreatedEvent
