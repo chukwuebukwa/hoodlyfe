@@ -122,7 +122,9 @@ export class NockPhoneController {
       </main>
       <footer id="phone-home-indicator" aria-hidden="true"><i></i></footer>
     `;
-    popup.querySelector('#profile-close')?.addEventListener('click', this.handleCloseClick);
+    const closeButton = popup.querySelector('#profile-close');
+    closeButton?.addEventListener('pointerdown', this.handleClosePointerDown);
+    closeButton?.addEventListener('click', this.handleCloseClick);
     popup.querySelectorAll<HTMLButtonElement>('[data-app]').forEach((button) => {
       button.addEventListener('click', this.handleAppClick);
     });
@@ -258,6 +260,11 @@ export class NockPhoneController {
     event.preventDefault();
     event.stopPropagation();
     this.close();
+  };
+
+  private readonly handleClosePointerDown = (event: Event): void => {
+    if (event instanceof PointerEvent && event.pointerType === 'mouse' && event.button !== 0) return;
+    this.handleCloseClick(event);
   };
 
   private readonly handleAppClick = (event: Event): void => {
