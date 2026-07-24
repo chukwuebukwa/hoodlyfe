@@ -29,7 +29,7 @@ interface PoliceRoadblockRuntime {
 interface PoliceRoadblockControllerOptions {
   state: DistrictState;
   world: CollisionMap;
-  laneGraph: LaneGraph;
+  laneGraph?: LaneGraph;
   closures: RoadClosureRegistry;
   responsePlan: () => PoliceResponseFleetPlan;
   traffic: {activeVehicleIdsOnEdges(edgeIds: readonly string[]): string[]};
@@ -177,7 +177,7 @@ export class PoliceRoadblockController {
       if ((this.cooldownUntilBySuspect.get(target.suspectId) ?? 0) > nowMs) continue;
       const suspect = this.suspect(target.suspectId);
       if (!suspect) continue;
-      const opportunities = this.options.laneGraph.roadblocks().filter((opportunity) => (
+      const opportunities = (this.options.laneGraph?.roadblocks() ?? []).filter((opportunity) => (
         !this.slotOwners.has(opportunity.id) &&
         !this.playersNear(opportunity.x, opportunity.y, DEPLOYMENT_VISIBILITY_RADIUS)
       ));

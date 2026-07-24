@@ -249,7 +249,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private policeVehicleController!: PoliceVehicleController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
-  private laneGraph!: LaneGraph;
+  private laneGraph?: LaneGraph;
   private trafficSignalController!: TrafficSignalController;
   private vehicleSimulation!: VehicleSimulationController;
   private vehicleInput!: VehicleInputController;
@@ -318,6 +318,10 @@ export class DistrictRoom extends Room<DistrictState> {
     return undefined;
   }
 
+  protected usesTrafficTopology(): boolean {
+    return true;
+  }
+
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
       ? options.runtimeHealth
@@ -356,11 +360,13 @@ export class DistrictRoom extends Room<DistrictState> {
     this.physicsWorld?.free();
     await initializePhysicsEngine();
     this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
-    this.laneGraph = playtest?.laneGraph ?? (
-      mapsDirectory
-        ? LaneGraph.loadFromMapsDirectory(this.world, mapsDirectory)
-        : LaneGraph.load(this.world)
-    );
+    this.laneGraph = this.usesTrafficTopology()
+      ? playtest?.laneGraph ?? (
+        mapsDirectory
+          ? LaneGraph.loadFromMapsDirectory(this.world, mapsDirectory)
+          : LaneGraph.load(this.world)
+      )
+      : undefined;
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
     this.voiceChat = new ProximityVoiceController({
@@ -537,20 +543,29 @@ export class DistrictRoom extends Room<DistrictState> {
       pedestrians: () => this.pedestrians.diagnostics(),
       stimuli: () => this.worldStimuli.snapshot(),
       traffic: () => this.trafficController.diagnostics(),
-      trafficLaneGraph: () => ({
-        schemaVersion: this.laneGraph.schemaVersion,
-        districtId: this.laneGraph.districtId,
-        nodes: this.laneGraph.nodes().map(({id, x, y, junctionId}) => ({id, x, y, junctionId})),
-        edges: this.laneGraph.edges().map(({
-          id,
-          fromNodeId,
-          toNodeId,
-          kind,
-          turn,
-          speedLimit,
-          junctionId
-        }) => ({id, fromNodeId, toNodeId, kind, turn, speedLimit, junctionId}))
-      }),
+      trafficLaneGraph: this.laneGraph
+        ? () => {
+          const laneGraph = this.laneGraph;
+          if (!laneGraph) {
+            throw new Error('Traffic topology became unavailable after room initialization.');
+          }
+          return {
+            schemaVersion: laneGraph.schemaVersion,
+            districtId: laneGraph.districtId,
+            nodes: laneGraph.nodes()
+            .map(({id, x, y, junctionId}) => ({id, x, y, junctionId})),
+            edges: laneGraph.edges().map(({
+              id,
+              fromNodeId,
+              toNodeId,
+              kind,
+              turn,
+              speedLimit,
+              junctionId
+            }) => ({id, fromNodeId, toNodeId, kind, turn, speedLimit, junctionId}))
+          };
+        }
+        : undefined,
       trafficSignals: () => this.trafficSignalController.diagnostics(),
       policeVehicles: () => this.policeVehicleController.diagnostics(),
       policeFleet: () => this.policeResponseFleet.diagnostics(),
@@ -1592,6 +1607,10 @@ export class DistrictPlaytestRoom extends DistrictRoom {
 
 export class DistrictRaceRoom extends DistrictRoom {
   override maxClients = 6;
+
+  protected override usesTrafficTopology(): boolean {
+    return false;
+  }
 
   protected override raceTrack(): ArenaRaceTrackDefinition {
     return INDUSTRIAL_ARENA_CIRCUIT;

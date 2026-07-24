@@ -52,7 +52,6 @@ writeJson(join(targetMaps, 'district-map.metadata.json'), {
   spawn: worldPoint(24, 35)
 });
 writeJson(join(targetMaps, 'surface-manifest.json'), flatSurfaceManifest());
-writeJson(join(targetMaps, 'district-lanes.json'), raceLaneGraph());
 cpSync(join(sourceMaps, 'district-tiles.png'), join(targetMaps, 'district-tiles.png'));
 cpSync(join(sourceMaps, 'district-tiles.png'), join(geometryRoot, 'tiles.png'));
 
@@ -139,44 +138,6 @@ function buildRoadMask(sampledCenterline) {
     }
   }
   return mask;
-}
-
-function raceLaneGraph() {
-  const corridors = controlPoints.map((point, index) => ({
-    id: `circuit-${index + 1}`,
-    speedLimit: 420,
-    direction: 'forward',
-    lanesPerDirection: 1,
-    roadClass: 'arterial',
-    trafficDensity: 0,
-    points: [
-      worldPoint(point.x, point.y),
-      worldPoint(
-        controlPoints[(index + 1) % controlPoints.length].x,
-        controlPoints[(index + 1) % controlPoints.length].y
-      )
-    ]
-  }));
-  const junctions = controlPoints.map((point, index) => ({
-    id: `turn-${index + 1}`,
-    ...worldPoint(point.x, point.y),
-    corridors: [
-      corridors[(index + corridors.length - 1) % corridors.length].id,
-      corridors[index].id
-    ],
-    allowedTurns: ['straight', 'left', 'right']
-  }));
-  return {
-    schemaVersion: 2,
-    districtId: 'industrial-arena-circuit',
-    driveSide: 'right',
-    laneOffset: 0,
-    laneSpacing: 36,
-    allowTerminalTurnarounds: false,
-    corridors,
-    junctions,
-    roadblocks: []
-  };
 }
 
 function generateGeometry(tiledMap, mask) {

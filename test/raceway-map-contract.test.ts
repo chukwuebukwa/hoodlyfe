@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 import test from 'node:test';
+import {DistrictRaceRoom} from '../server/district-room.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {INDUSTRIAL_ARENA_CIRCUIT} from '../shared/content/arena-race.ts';
 
@@ -43,11 +44,25 @@ test('raceway contains only circuit road cells and no authored population', () =
   assert.ok(roads.filter(Boolean).length < roads.length * 0.5, 'course must remain a closed circuit');
   assert.ok(roads.every((road, index) => Boolean(road) === (collisions[index] === 0)));
 
-  const lanes = JSON.parse(
-    readFileSync(`${mapsDirectory}/district-lanes.json`, 'utf8')
-  ) as {corridors: Array<{direction: string; trafficDensity: number}>};
-  assert.ok(lanes.corridors.length >= 12);
-  assert.ok(lanes.corridors.every((corridor) => (
-    corridor.direction === 'forward' && corridor.trafficDensity === 0
-  )));
+  assert.equal(
+    existsSync(`${mapsDirectory}/district-lanes.json`),
+    false,
+    'traffic-free race districts must not ship lane topology'
+  );
+});
+
+test('race room starts without traffic topology', async () => {
+  const room = new DistrictRaceRoom();
+  await room.onCreate({
+    seed: 1,
+    epochMs: 1_000,
+    externalSimulation: true
+  });
+  try {
+    assert.equal((room as any).laneGraph, undefined);
+    assert.equal((room as any).trafficController.laneGraph(), undefined);
+    assert.equal(room.state.npcs.size, 0);
+  } finally {
+    room.onDispose();
+  }
 });
