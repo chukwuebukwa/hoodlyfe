@@ -13,6 +13,8 @@ export interface WeaponPresentation {
   height: number;
   visible: boolean;
   originX: number;
+  distance: number;
+  offsetY: number;
 }
 
 export interface GunshotPresentation {
@@ -56,7 +58,9 @@ export function weaponPresentation(weapon: NetworkPlayer['weapon']): WeaponPrese
     width: presentation.heldWidth,
     height: presentation.heldHeight,
     visible: presentation.heldVisible,
-    originX: presentation.heldOriginX ?? 0.16
+    originX: presentation.heldOriginX ?? 0.16,
+    distance: presentation.heldDistance ?? 8,
+    offsetY: presentation.heldOffsetY ?? 0
   };
 }
 

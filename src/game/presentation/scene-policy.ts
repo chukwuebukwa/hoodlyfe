@@ -79,6 +79,10 @@ export function weaponSpriteVerticalScale(angle: number): 1 | -1 {
   return Math.cos(angle) < 0 ? -1 : 1;
 }
 
+export function weaponDepthOffset(angle: number, occupied: boolean): number {
+  return !occupied && Math.sin(angle) < 0 ? -1 : 2;
+}
+
 export function serverPedestrianAngleToScene(angle: number): number {
   return serverAngleToScene(angle) + Math.PI / 2;
 }

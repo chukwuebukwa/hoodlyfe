@@ -27,6 +27,8 @@ export interface WeaponPresentationDefinition {
   heldHeight: number;
   heldVisible: boolean;
   heldOriginX?: number;
+  heldDistance?: number;
+  heldOffsetY?: number;
   recoilDistance?: number;
   recoilMs?: number;
   muzzleFlashMs?: number;
@@ -199,6 +201,8 @@ export const WEAPONS = Object.freeze({
       heldHeight: 17,
       heldVisible: true,
       heldOriginX: 0.3,
+      heldDistance: 10,
+      heldOffsetY: 4,
       recoilDistance: 5,
       recoilMs: 110,
       muzzleFlashMs: 42,
@@ -229,7 +233,9 @@ export const WEAPONS = Object.freeze({
       heldWidth: 38,
       heldHeight: 21,
       heldVisible: true,
-      heldOriginX: 0.45,
+      heldOriginX: 0.33,
+      heldDistance: 10,
+      heldOffsetY: 5,
       recoilDistance: 3,
       recoilMs: 80,
       muzzleFlashMs: 30,
@@ -260,7 +266,9 @@ export const WEAPONS = Object.freeze({
       heldWidth: 46,
       heldHeight: 11,
       heldVisible: true,
-      heldOriginX: 0.48,
+      heldOriginX: 0.3,
+      heldDistance: 11,
+      heldOffsetY: 5,
       recoilDistance: 9,
       recoilMs: 180,
       muzzleFlashMs: 65,

@@ -14,6 +14,7 @@ import {
   scenePointToServerAimAngle,
   renderedVehicleLampAnchor,
   vehicleLampAnchor,
+  weaponDepthOffset,
   weaponSpriteVerticalScale
 } from '../src/game/presentation/scene-policy.ts';
 import type {WorldGeometryManifest} from '../src/game/presentation/map/geometry-format.ts';
@@ -70,6 +71,14 @@ test('left-facing weapon sprites flip locally without turning upside down', () =
   assert.equal(weaponSpriteVerticalScale(Math.PI), -1);
   assert.equal(weaponSpriteVerticalScale(Math.PI * 0.75), -1);
   assert.equal(weaponSpriteVerticalScale(-Math.PI * 0.75), -1);
+});
+
+test('north-facing weapons render behind an on-foot player without changing passenger depth', () => {
+  assert.equal(weaponDepthOffset(-Math.PI / 2, false), -1);
+  assert.equal(weaponDepthOffset(-Math.PI / 4, false), -1);
+  assert.equal(weaponDepthOffset(0, false), 2);
+  assert.equal(weaponDepthOffset(Math.PI / 2, false), 2);
+  assert.equal(weaponDepthOffset(-Math.PI / 2, true), 2);
 });
 
 test('scene policy derives perspective height and production face shading deterministically', () => {

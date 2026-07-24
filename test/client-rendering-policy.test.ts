@@ -80,25 +80,32 @@ test('projectile presentation preserves weapon style and police override', () =>
 
 test('player weapon models and passenger seats preserve stable presentation anchors', () => {
   assert.deepEqual(weaponPresentation('pistol'), {
-    texture: 'weapon-pistol', width: 24, height: 17, visible: true, originX: 0.3
+    texture: 'weapon-pistol', width: 24, height: 17, visible: true, originX: 0.3,
+    distance: 10, offsetY: 4
   });
   assert.deepEqual(weaponPresentation('smg'), {
-    texture: 'weapon-smg', width: 38, height: 21, visible: true, originX: 0.45
+    texture: 'weapon-smg', width: 38, height: 21, visible: true, originX: 0.33,
+    distance: 10, offsetY: 5
   });
   assert.deepEqual(weaponPresentation('shotgun'), {
-    texture: 'weapon-shotgun', width: 46, height: 11, visible: true, originX: 0.48
+    texture: 'weapon-shotgun', width: 46, height: 11, visible: true, originX: 0.3,
+    distance: 11, offsetY: 5
   });
   assert.deepEqual(weaponPresentation('rocket'), {
-    texture: 'weapon-rocket', width: 48, height: 14, visible: true, originX: 0.16
+    texture: 'weapon-rocket', width: 48, height: 14, visible: true, originX: 0.16,
+    distance: 8, offsetY: 0
   });
   assert.deepEqual(weaponPresentation('grenade'), {
-    texture: 'weapon-grenade', width: 15, height: 15, visible: true, originX: 0.16
+    texture: 'weapon-grenade', width: 15, height: 15, visible: true, originX: 0.16,
+    distance: 8, offsetY: 0
   });
   assert.deepEqual(weaponPresentation('fists'), {
-    texture: 'weapon-fists', width: 1, height: 1, visible: false, originX: 0.16
+    texture: 'weapon-fists', width: 1, height: 1, visible: false, originX: 0.16,
+    distance: 8, offsetY: 0
   });
   assert.deepEqual(weaponPresentation('bat'), {
-    texture: 'weapon-bat', width: 46, height: 12, visible: true, originX: 0.16
+    texture: 'weapon-bat', width: 46, height: 12, visible: true, originX: 0.16,
+    distance: 8, offsetY: 0
   });
   const vehicle = {x: 100, y: 200, angle: 0};
   const frontRight = passengerPresentation(vehicle, 1, 0, 0, 0);

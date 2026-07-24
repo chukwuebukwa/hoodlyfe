@@ -58,6 +58,7 @@ import {
   serverVehicleAngleToScene,
   serverYToScene,
   renderedVehicleLampAnchor,
+  weaponDepthOffset,
   weaponSpriteVerticalScale
 } from './scene-policy.ts';
 import {radialGlow, updateRadialGlow, type RadialGlow} from './effects/glow.ts';
@@ -678,11 +679,13 @@ export class ActorPresentation {
       const weaponAngle = renderAngle + (melee?.weaponRotationOffset ?? 0) + reload.weaponRotationOffset;
       const weaponDistance = melee?.active
         ? melee.weaponDistance
-        : 8 - shot.kickDistance + reload.weaponDistanceOffset;
+        : held.distance - shot.kickDistance + reload.weaponDistanceOffset;
+      const weaponBaseY = baseY + (attachments.occupied ? 0 : held.offsetY);
+      const weaponDepth = weaponDepthOffset(weaponAngle, attachments.occupied);
       rendered.weapon.position.set(
         baseX + Math.cos(weaponAngle) * weaponDistance,
-        serverYToScene(baseY + Math.sin(weaponAngle) * weaponDistance),
-        z + 2
+        serverYToScene(weaponBaseY + Math.sin(weaponAngle) * weaponDistance),
+        z + weaponDepth
       );
       rendered.weapon.rotation.z = serverAngleToScene(weaponAngle);
       rendered.weapon.scale.set(1, weaponSpriteVerticalScale(weaponAngle), 1);
@@ -693,8 +696,8 @@ export class ActorPresentation {
         const muzzleDistance = weaponDistance + held.width * (1 - held.originX) + 2;
         rendered.muzzleFlash.position.set(
           baseX + Math.cos(weaponAngle) * muzzleDistance,
-          serverYToScene(baseY + Math.sin(weaponAngle) * muzzleDistance),
-          z + 2.5
+          serverYToScene(weaponBaseY + Math.sin(weaponAngle) * muzzleDistance),
+          z + weaponDepth + 0.5
         );
         rendered.muzzleFlash.rotation.z = serverAngleToScene(weaponAngle);
         rendered.muzzleFlash.scale.setScalar(shot.flashScale);
