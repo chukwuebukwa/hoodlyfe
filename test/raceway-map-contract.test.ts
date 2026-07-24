@@ -34,13 +34,19 @@ test('raceway contains only circuit road cells and no authored population', () =
   ) as {
     width: number;
     height: number;
+    tilewidth: number;
+    tileheight: number;
     layers: Array<{name: string; data: number[]}>;
   };
   const roads = map.layers.find((layer) => layer.name === 'roads')?.data ?? [];
   const collisions = map.layers.find((layer) => layer.name === 'collisions')?.data ?? [];
+  assert.equal(map.width, 72);
+  assert.equal(map.height, 72);
+  assert.equal(map.tilewidth, 40);
+  assert.equal(map.tileheight, 40);
   assert.equal(roads.length, map.width * map.height);
   assert.equal(collisions.length, roads.length);
-  assert.ok(roads.filter(Boolean).length > 650, 'compact course must have meaningful racing width');
+  assert.ok(roads.filter(Boolean).length > 1_500, 'course must have meaningful racing width');
   assert.ok(roads.filter(Boolean).length < roads.length * 0.5, 'course must remain a closed circuit');
   assert.ok(roads.every((road, index) => Boolean(road) === (collisions[index] === 0)));
 

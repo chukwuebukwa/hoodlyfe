@@ -10,7 +10,7 @@ The first track is `industrial-arena-circuit`:
 - six starting slots;
 - assigned R33/S15 race cars;
 - five-second authoritative countdown;
-- six ordered checkpoints;
+- nine ordered checkpoints;
 - three laps;
 - server-owned position, finish order, lap time, and best lap;
 - twelve-second results phase followed by an automatic restart.
@@ -31,7 +31,7 @@ Open the same URL in additional browser sessions to fill the six-car grid.
 
 ## Regenerating The Circuit
 
-The circuit is generated from a bounded crop of the local Industrial District assets:
+The circuit is generated from the local Industrial District tiles:
 
 ```bash
 npm run map:generate-raceway
@@ -43,7 +43,11 @@ The generator writes:
 - Three geometry chunks and texture atlas;
 - the minimap preview;
 - collision/surface metadata;
-- a closed one-way lane graph.
+- a traffic-free 72x72 map on a 40 px collision grid.
+
+The finer grid produces smoother collision boundaries than the street district's 64 px cells.
+The resulting 2880x2880 course is intentionally wider than the first compact prototype and does
+not include lane topology because arena races do not run ambient traffic.
 
 Track rules, checkpoints, and grid poses live in
 `shared/content/arena-race.ts`. The authoritative lifecycle is isolated in

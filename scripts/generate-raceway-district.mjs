@@ -8,11 +8,11 @@ const targetRoot = join(root, 'public', 'assets', 'districts', 'raceway');
 const targetMaps = join(targetRoot, 'maps');
 const geometryRoot = join(targetMaps, 'geometry');
 
-const size = 40;
+const size = 72;
 const chunkSize = 8;
-const blockSize = 64;
+const blockSize = 40;
 const pixelSize = size * blockSize;
-const trackHalfWidth = 3.15;
+const trackHalfWidth = 5.6;
 const tileIds = Object.freeze({
   asphalt: 506,
   centerlineHorizontal: 503,
@@ -22,25 +22,27 @@ const tileIds = Object.freeze({
   barrier: 453
 });
 
-// Clockwise centerline. This is the single source for art, collision, lanes and race checkpoints.
+// Clockwise centerline. The finer 40 px grid keeps curves and collision boundaries
+// from stepping a full GTA tile at a time while preserving the source tile art.
 const controlPoints = Object.freeze([
-  {x: 20, y: 35},
-  {x: 10, y: 34},
-  {x: 5, y: 29},
-  {x: 5, y: 22},
-  {x: 10, y: 18},
-  {x: 5, y: 13},
-  {x: 7, y: 6},
-  {x: 15, y: 4},
-  {x: 25, y: 5},
-  {x: 34, y: 9},
-  {x: 35, y: 16},
-  {x: 30, y: 20},
-  {x: 35, y: 25},
-  {x: 33, y: 32},
-  {x: 27, y: 35}
+  {x: 40, y: 64},
+  {x: 25, y: 64},
+  {x: 13, y: 59},
+  {x: 8, y: 49},
+  {x: 9, y: 37},
+  {x: 16, y: 27},
+  {x: 14, y: 17},
+  {x: 23, y: 9},
+  {x: 38, y: 7},
+  {x: 53, y: 10},
+  {x: 63, y: 19},
+  {x: 65, y: 31},
+  {x: 60, y: 42},
+  {x: 65, y: 52},
+  {x: 58, y: 61},
+  {x: 49, y: 65}
 ]);
-const centerline = sampleClosedCatmullRom(controlPoints, 12);
+const centerline = sampleClosedCatmullRom(controlPoints, 20);
 const roadMask = buildRoadMask(centerline);
 const map = buildTiledMap(roadMask, centerline);
 
@@ -49,7 +51,7 @@ mkdirSync(join(geometryRoot, 'chunks'), {recursive: true});
 
 writeJson(join(targetMaps, 'district-map.json'), map);
 writeJson(join(targetMaps, 'district-map.metadata.json'), {
-  spawn: worldPoint(24, 35)
+  spawn: worldPoint(44, 64)
 });
 writeJson(join(targetMaps, 'surface-manifest.json'), flatSurfaceManifest());
 cpSync(join(sourceMaps, 'district-tiles.png'), join(targetMaps, 'district-tiles.png'));
@@ -95,14 +97,16 @@ function buildTiledMap(mask, sampledCenterline) {
   }
 
   // The line crosses the full track width at the first checkpoint.
-  for (let row = 31; row <= 39; row++) {
-    if (mask[row * size + 20]) ground[row * size + 20] = tileIds.startLine;
+  for (let row = 57; row <= 71; row++) {
+    if (mask[row * size + 40]) ground[row * size + 40] = tileIds.startLine;
   }
 
   return {
     ...source,
     width: size,
     height: size,
+    tilewidth: blockSize,
+    tileheight: blockSize,
     nextlayerid: 4,
     layers: [
       tileLayer(1, 'ground', ground),
@@ -196,7 +200,7 @@ function generateGeometry(tiledMap, mask) {
     chunks,
     manifest: {
       version: 1,
-      revision: 'raceway-custom-circuit-v2',
+      revision: 'raceway-custom-circuit-v3',
       source: 'raceway/district-map.json',
       blockSize,
       origin: {x: 0, y: 0},

@@ -20,12 +20,13 @@ export interface ArenaRaceTrackDefinition {
   grid: readonly RaceGridPose[];
 }
 
+const RACEWAY_BLOCK_SIZE = 40;
 const tileCenter = (column: number, row: number): {x: number; y: number} => ({
-  x: column * 64 + 32,
-  y: row * 64 + 32
+  x: column * RACEWAY_BLOCK_SIZE + RACEWAY_BLOCK_SIZE / 2,
+  y: row * RACEWAY_BLOCK_SIZE + RACEWAY_BLOCK_SIZE / 2
 });
 
-const START = tileCenter(20, 35);
+const START = tileCenter(40, 64);
 
 export const INDUSTRIAL_ARENA_CIRCUIT: ArenaRaceTrackDefinition = Object.freeze({
   id: 'industrial-arena-circuit',
@@ -33,23 +34,22 @@ export const INDUSTRIAL_ARENA_CIRCUIT: ArenaRaceTrackDefinition = Object.freeze(
   assetRoot: '/assets/districts/raceway',
   laps: 3,
   checkpoints: Object.freeze([
-    {id: 'start-finish', ...START, radius: 120},
-    {id: 'west-sweeper', ...tileCenter(5, 29), radius: 130},
-    {id: 'infield-switchback-one', ...tileCenter(10, 18), radius: 130},
-    {id: 'infield-switchback-two', ...tileCenter(5, 13), radius: 130},
-    {id: 'northwest-hairpin', ...tileCenter(7, 6), radius: 130},
-    {id: 'north-straight', ...tileCenter(25, 5), radius: 130},
-    {id: 'northeast-hairpin', ...tileCenter(34, 9), radius: 130},
-    {id: 'east-switchback-one', ...tileCenter(30, 20), radius: 130},
-    {id: 'east-switchback-two', ...tileCenter(35, 25), radius: 130},
-    {id: 'final-sweeper', ...tileCenter(33, 32), radius: 130}
+    {id: 'start-finish', ...START, radius: 130},
+    {id: 'west-sweeper', ...tileCenter(13, 59), radius: 145},
+    {id: 'west-rise', ...tileCenter(9, 37), radius: 145},
+    {id: 'northwest-complex', ...tileCenter(14, 17), radius: 145},
+    {id: 'north-straight', ...tileCenter(38, 7), radius: 145},
+    {id: 'northeast-sweeper', ...tileCenter(63, 19), radius: 145},
+    {id: 'east-curve', ...tileCenter(60, 42), radius: 145},
+    {id: 'southeast-sweeper', ...tileCenter(65, 52), radius: 145},
+    {id: 'final-curve', ...tileCenter(58, 61), radius: 145}
   ]),
   grid: Object.freeze([
-    {x: tileCenter(22, 34).x, y: tileCenter(22, 34).y, angle: Math.PI},
-    {x: tileCenter(24, 36).x, y: tileCenter(24, 36).y, angle: Math.PI},
-    {x: tileCenter(26, 34).x, y: tileCenter(26, 34).y, angle: Math.PI},
-    {x: tileCenter(28, 36).x, y: tileCenter(28, 36).y, angle: Math.PI},
-    {x: tileCenter(30, 34).x, y: tileCenter(30, 34).y, angle: Math.PI},
-    {x: tileCenter(31, 36).x, y: tileCenter(31, 36).y, angle: Math.PI}
+    {x: tileCenter(43, 62).x, y: tileCenter(43, 62).y, angle: Math.PI},
+    {x: tileCenter(43, 66).x, y: tileCenter(43, 66).y, angle: Math.PI},
+    {x: tileCenter(47, 62).x, y: tileCenter(47, 62).y, angle: Math.PI},
+    {x: tileCenter(47, 66).x, y: tileCenter(47, 66).y, angle: Math.PI},
+    {x: tileCenter(51, 62).x, y: tileCenter(51, 62).y, angle: Math.PI},
+    {x: tileCenter(51, 66).x, y: tileCenter(51, 66).y, angle: Math.PI}
   ])
 });
