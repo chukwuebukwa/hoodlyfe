@@ -1241,9 +1241,7 @@ canvas {
 }
 
 #profile-popup[data-app="home"] {
-  background:
-    linear-gradient(180deg, rgba(3, 8, 12, 0.2), rgba(3, 8, 12, 0.08) 44%, rgba(3, 8, 12, 0.44)),
-    url('/assets/maps/district-preview.png') 49% 45% / auto 110%;
+  background: #000;
 }
 
 #profile-popup[data-app="profile"] {
