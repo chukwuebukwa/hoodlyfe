@@ -458,7 +458,10 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
         : 0xf2c94c;
   const marker = ringMarker(service.radius, color, service.label.toUpperCase());
   if (service.kind === 'repair') {
-    marker.add(createShopBeacon({color: 0x20dcff, intensity: 1.08}));
+    const fixture = new THREE.Group();
+    marker.name = 'pulsing-service-marker';
+    fixture.add(marker, createShopBeacon({color: 0x20dcff, intensity: 1.08}));
+    return fixture;
   }
   return marker;
 }
@@ -547,7 +550,8 @@ function signalPhaseColor(phase: NetworkTrafficSignal['northSouth']): number {
 
 function pulseMarker(group: THREE.Group, nowMs: number, phase: number): void {
   const pulse = 1 + Math.sin(nowMs / 190 + phase) * 0.035;
-  group.scale.setScalar(pulse);
+  const pulseTarget = group.getObjectByName('pulsing-service-marker') ?? group;
+  pulseTarget.scale.setScalar(pulse);
 }
 
 function positionAtSurface(group: THREE.Object3D, x: number, y: number, z: number): void {
