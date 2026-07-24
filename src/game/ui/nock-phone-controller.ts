@@ -31,6 +31,7 @@ export class NockPhoneController {
   private static shared?: NockPhoneController;
   private readonly button: HTMLButtonElement | null;
   private popup?: HTMLElement;
+  private renderedMarkup?: string;
   private activeApp: 'home' | 'profile' | 'wallet' | 'jobs' = 'home';
   private localPlayer?: NetworkPlayer;
   private activityContext?: PhoneActivityContext;
@@ -68,6 +69,7 @@ export class NockPhoneController {
     this.root.removeEventListener('keydown', this.handleKeyDown);
     this.popup?.remove();
     this.popup = undefined;
+    this.renderedMarkup = undefined;
     this.button?.setAttribute('aria-expanded', 'false');
     if (NockPhoneController.shared === this) NockPhoneController.shared = undefined;
   }
@@ -113,15 +115,16 @@ export class NockPhoneController {
     popup.setAttribute('aria-label', 'Game phone');
     this.root.body.append(popup);
     this.popup = popup;
+    this.renderedMarkup = undefined;
     return popup;
   }
 
   private render(): void {
     const popup = this.ensurePopup();
-    popup.dataset.app = this.activeApp;
-    popup.innerHTML = `
+    const clock = currentClock();
+    const markup = `
       <header id="phone-status-bar">
-        <time datetime="${currentClock()}">${currentClock()}</time>
+        <time datetime="${clock}">${clock}</time>
         <span id="phone-dynamic-island" aria-hidden="true"><i></i></span>
         <span id="phone-status-icons" aria-hidden="true">
           <i class="phone-cellular"><b></b><b></b><b></b><b></b></i>
@@ -138,6 +141,10 @@ export class NockPhoneController {
       </main>
       <footer id="phone-home-indicator" aria-hidden="true"><i></i></footer>
     `;
+    popup.dataset.app = this.activeApp;
+    if (markup === this.renderedMarkup) return;
+    popup.innerHTML = markup;
+    this.renderedMarkup = markup;
     const closeButton = popup.querySelector('#profile-close');
     closeButton?.addEventListener('pointerdown', this.handleClosePointerDown);
     closeButton?.addEventListener('click', this.handleCloseClick);
