@@ -21,15 +21,12 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.match(ray.material.fragmentShader, /pool/);
   assert.equal(beacon.getObjectByName('shop-beacon-ground'), undefined);
 
-  assert.ok(volume instanceof THREE.Group);
-  assert.equal(volume.children.length, 5);
-  for (const blade of volume.children) {
-    assert.ok(blade instanceof THREE.Mesh);
-    assert.ok(blade.geometry instanceof THREE.PlaneGeometry);
-    assert.ok(blade.material instanceof THREE.ShaderMaterial);
-    assert.match(blade.material.fragmentShader, /volumeWidth/);
-    assert.match(blade.material.fragmentShader, /edgeSoftness/);
-  }
+  assert.ok(volume instanceof THREE.Mesh);
+  assert.ok(volume.geometry instanceof THREE.ConeGeometry);
+  assert.ok(volume.material instanceof THREE.ShaderMaterial);
+  assert.match(volume.material.fragmentShader, /silhouette/);
+  assert.match(volume.material.fragmentShader, /edgeFade/);
+  assert.equal(beacon.getObjectByName('shop-beacon-volume-blade'), undefined);
 
   assert.ok(light instanceof THREE.PointLight);
   assert.equal(light.color.getHex(), 0x20dcff);

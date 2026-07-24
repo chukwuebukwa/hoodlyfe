@@ -67,9 +67,6 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   beam.position.set(0, -45, -5.5);
   beam.renderOrder = 16;
 
-  const volume = new THREE.Group();
-  volume.name = 'shop-beacon-volume';
-  volume.userData.role = 'shop-beacon-volume';
   const volumeDirection = source.clone().sub(target);
   const volumeLength = volumeDirection.length();
   const volumeMidpoint = source.clone().add(target).multiplyScalar(0.5);
@@ -77,56 +74,60 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
     new THREE.Vector3(0, 1, 0),
     volumeDirection.normalize()
   );
-  for (const angle of [0, Math.PI / 5, Math.PI * 2 / 5, Math.PI * 3 / 5, Math.PI * 4 / 5]) {
-    const blade = new THREE.Mesh(
-      new THREE.PlaneGeometry(210, volumeLength),
-      new THREE.ShaderMaterial({
-        uniforms: {
-          beaconColor: {value: color.clone()},
-          beaconOpacity: {value: 0.075 * intensity}
-        },
-        vertexShader: `
-          varying vec2 beaconUv;
-          void main() {
-            beaconUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 beaconUv;
-          uniform vec3 beaconColor;
-          uniform float beaconOpacity;
-          void main() {
-            vec2 point = beaconUv * 2.0 - 1.0;
-            float travel = 1.0 - beaconUv.y;
-            float volumeWidth = mix(0.012, 0.90, pow(travel, 0.78));
-            float normalizedEdge = abs(point.x) / max(volumeWidth, 0.001);
-            float edgeSoftness = 1.0 - smoothstep(0.24, 1.0, normalizedEdge);
-            float startFade = smoothstep(0.0, 0.025, travel);
-            float endFade = 1.0 - smoothstep(0.82, 1.0, travel);
-            float centerDensity = mix(1.0, 0.58, normalizedEdge);
-            float alpha = edgeSoftness * startFade * endFade
-              * centerDensity * beaconOpacity;
-            gl_FragColor = vec4(beaconColor, alpha);
-          }
-        `,
-        transparent: true,
-        depthTest: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        toneMapped: false
-      })
-    );
-    blade.name = 'shop-beacon-volume-blade';
-    blade.userData.role = 'shop-beacon-volume-blade';
-    blade.position.copy(volumeMidpoint);
-    blade.quaternion.copy(volumeAlignment).multiply(
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle)
-    );
-    blade.renderOrder = 17;
-    volume.add(blade);
-  }
+  const volume = new THREE.Mesh(
+    new THREE.ConeGeometry(96, volumeLength, 48, 1, true),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        beaconColor: {value: color.clone()},
+        beaconOpacity: {value: 0.12 * intensity}
+      },
+      vertexShader: `
+        varying vec2 beaconUv;
+        varying vec3 beaconNormal;
+        varying vec3 beaconViewDirection;
+        void main() {
+          beaconUv = uv;
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          beaconNormal = normalize(normalMatrix * normal);
+          beaconViewDirection = normalize(-viewPosition.xyz);
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec2 beaconUv;
+        varying vec3 beaconNormal;
+        varying vec3 beaconViewDirection;
+        uniform vec3 beaconColor;
+        uniform float beaconOpacity;
+        void main() {
+          float travel = 1.0 - beaconUv.y;
+          float silhouette = abs(dot(
+            normalize(beaconNormal),
+            normalize(beaconViewDirection)
+          ));
+          float edgeFade = smoothstep(0.04, 0.42, silhouette);
+          float startFade = smoothstep(0.0, 0.045, travel);
+          float endFade = 1.0 - smoothstep(0.76, 1.0, travel);
+          float density = mix(1.0, 0.55, travel);
+          float breakup = 0.94 + 0.06 * sin(beaconUv.x * 31.0 + travel * 19.0);
+          float alpha = edgeFade * startFade * endFade
+            * density * breakup * beaconOpacity;
+          gl_FragColor = vec4(beaconColor, alpha);
+        }
+      `,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false
+    })
+  );
+  volume.name = 'shop-beacon-volume';
+  volume.userData.role = 'shop-beacon-volume';
+  volume.position.copy(volumeMidpoint);
+  volume.quaternion.copy(volumeAlignment);
+  volume.renderOrder = 17;
 
   const bloom = radialGlow(28, options.color, 0.42 * intensity, 20);
   bloom.name = 'shop-beacon-bloom';
