@@ -6,6 +6,7 @@ import {createShopBeacon} from '../src/game/presentation/effects/shop-beacon.ts'
 test('shop beacon combines a soft projected ray and strong colored cast', () => {
   const beacon = createShopBeacon({color: 0x20dcff, intensity: 1.08});
   const ray = beacon.getObjectByName('shop-beacon-ray');
+  const volume = beacon.getObjectByName('shop-beacon-volume');
   const light = beacon.getObjectByName('shop-beacon-light');
   const bloom = beacon.getObjectByName('shop-beacon-bloom');
 
@@ -19,6 +20,16 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.match(ray.material.fragmentShader, /beamWidth/);
   assert.match(ray.material.fragmentShader, /pool/);
   assert.equal(beacon.getObjectByName('shop-beacon-ground'), undefined);
+
+  assert.ok(volume instanceof THREE.Group);
+  assert.equal(volume.children.length, 3);
+  for (const blade of volume.children) {
+    assert.ok(blade instanceof THREE.Mesh);
+    assert.ok(blade.geometry instanceof THREE.PlaneGeometry);
+    assert.ok(blade.material instanceof THREE.ShaderMaterial);
+    assert.match(blade.material.fragmentShader, /volumeWidth/);
+    assert.match(blade.material.fragmentShader, /edgeSoftness/);
+  }
 
   assert.ok(light instanceof THREE.PointLight);
   assert.equal(light.color.getHex(), 0x20dcff);
