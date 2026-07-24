@@ -13,8 +13,8 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   group.name = 'shop-beacon';
   group.userData.disableMarkerPulse = true;
 
-  const source = new THREE.Vector3(0, -66, 96);
-  const target = new THREE.Vector3(0, 72, -5);
+  const source = new THREE.Vector3(0, 62, 96);
+  const target = new THREE.Vector3(0, -82, -5);
   const coneRadius = 88;
 
   const beam = new THREE.Mesh(
