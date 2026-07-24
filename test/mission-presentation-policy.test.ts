@@ -269,7 +269,7 @@ test('objective arrow follows the active phase destination without exposing the 
 
 test('objective arrow pose orbits the player, points at the destination, and hides on arrival', () => {
   assert.deepEqual(objectiveArrowPose({x: 10, y: 20}, {x: 110, y: 20}), {
-    x: 62,
+    x: 50,
     y: 20,
     angle: 0,
     distance: 100
@@ -277,7 +277,7 @@ test('objective arrow pose orbits the player, points at the destination, and hid
   const north = objectiveArrowPose({x: 10, y: 20}, {x: 10, y: 120});
   assert.ok(north);
   assert.ok(Math.abs(north.x - 10) < 0.000_001);
-  assert.equal(north.y, 72);
+  assert.equal(north.y, 60);
   assert.equal(north.angle, Math.PI / 2);
   assert.equal(objectiveArrowPose({x: 10, y: 20}, {x: 20, y: 20}), undefined);
 });

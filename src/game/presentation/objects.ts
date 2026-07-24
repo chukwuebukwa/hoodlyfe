@@ -275,7 +275,7 @@ export class WorldObjectPresentation {
       this.surfaceHeightAt(localPose.x, localPose.y, STREET_GROUND_SURFACE_ID) + 40
     );
     this.objectiveArrow.rotation.z = serverAngleToScene(pose.angle);
-    const pulse = 1 + Math.sin(nowMs / 135) * 0.1;
+    const pulse = 1 + Math.sin(nowMs / 320) * 0.02;
     this.objectiveArrow.scale.setScalar(pulse);
   }
 
@@ -547,17 +547,17 @@ function ringMarker(radius: number, color: number, text: string): THREE.Group {
 function objectiveArrowMarker(): THREE.Group {
   const group = new THREE.Group();
   const geometry = new THREE.ShapeGeometry(new THREE.Shape([
-    new THREE.Vector2(18, 0),
-    new THREE.Vector2(-7, 13),
-    new THREE.Vector2(-3, 4),
-    new THREE.Vector2(-17, 4),
-    new THREE.Vector2(-17, -4),
-    new THREE.Vector2(-3, -4),
-    new THREE.Vector2(-7, -13)
+    new THREE.Vector2(11, 0),
+    new THREE.Vector2(-4, 7),
+    new THREE.Vector2(-2, 3),
+    new THREE.Vector2(-10, 3),
+    new THREE.Vector2(-10, -3),
+    new THREE.Vector2(-2, -3),
+    new THREE.Vector2(-4, -7)
   ]));
   const shadow = new THREE.Mesh(geometry, objectiveArrowMaterial(0x050708));
-  shadow.position.set(-2, -2, -1);
-  shadow.scale.setScalar(1.16);
+  shadow.position.set(-1, -1, -1);
+  shadow.scale.setScalar(1.12);
   shadow.renderOrder = 89;
   const arrow = new THREE.Mesh(geometry.clone(), objectiveArrowMaterial(0xf6c945));
   arrow.renderOrder = 90;

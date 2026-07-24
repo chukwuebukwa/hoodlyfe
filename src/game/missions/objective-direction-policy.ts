@@ -15,7 +15,7 @@ export interface ObjectiveArrowPose {
   distance: number;
 }
 
-const OBJECTIVE_ARROW_RADIUS = 52;
+const OBJECTIVE_ARROW_RADIUS = 40;
 const OBJECTIVE_REACHED_DISTANCE = 34;
 
 export function activeObjectiveTarget(
