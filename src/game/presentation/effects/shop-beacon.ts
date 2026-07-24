@@ -4,21 +4,46 @@ import {radialGlow} from './glow.ts';
 export interface ShopBeaconOptions {
   color: number;
   intensity?: number;
+  placement?: ShopBeaconPlacement;
+  radius?: number;
+  footprintSize?: readonly [width: number, height: number];
+  footprintZ?: number;
 }
+
+export interface ShopBeaconPlacement {
+  position: readonly [x: number, y: number, z: number];
+  aimOffset: readonly [x: number, y: number, z: number];
+}
+
+export const REPAIR_SHOP_BEACON_PLACEMENT: ShopBeaconPlacement = {
+  position: [80, 22, 136],
+  aimOffset: [60, -104, -101]
+};
+
+export const REPAIR_ALLEY_BEACON_PLACEMENT: ShopBeaconPlacement = {
+  position: [216, 280, 108],
+  aimOffset: [-70, -96, -73]
+};
+
+const BEACON_LIGHT_OFFSET = new THREE.Vector3(0, -46, -62);
+const BEACON_RADIUS = 88;
+const BEACON_FOOTPRINT_SIZE = [215.6, 176] as const;
 
 export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const color = new THREE.Color(options.color);
   const intensity = options.intensity ?? 1;
+  const placement = options.placement ?? REPAIR_SHOP_BEACON_PLACEMENT;
   const group = new THREE.Group();
   group.name = 'shop-beacon';
   group.userData.disableMarkerPulse = true;
 
-  const source = new THREE.Vector3(0, 62, 96);
-  const target = new THREE.Vector3(0, -82, -5);
-  const coneRadius = 88;
+  const source = new THREE.Vector3().fromArray(placement.position);
+  const target = source.clone().add(new THREE.Vector3().fromArray(placement.aimOffset));
+  const coneRadius = options.radius ?? BEACON_RADIUS;
+  const footprintSize = options.footprintSize ?? BEACON_FOOTPRINT_SIZE;
 
   const beam = new THREE.Mesh(
-    new THREE.PlaneGeometry(coneRadius * 2.05, coneRadius * 1.25),
+    new THREE.PlaneGeometry(footprintSize[0], footprintSize[1]),
     new THREE.ShaderMaterial({
       uniforms: {
         beaconColor: {value: color.clone()},
@@ -55,7 +80,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   );
   beam.name = 'shop-beacon-ray';
   beam.userData.role = 'shop-beacon-ray';
-  beam.position.set(target.x, target.y, -5.5);
+  beam.position.set(target.x, target.y, options.footprintZ ?? -5.5);
   beam.renderOrder = 16;
 
   const volumeDirection = source.clone().sub(target);
@@ -128,7 +153,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const cast = new THREE.PointLight(options.color, 4.6 * intensity, 220, 2);
   cast.name = 'shop-beacon-light';
   cast.userData.role = 'shop-beacon-light';
-  cast.position.set(0, 24, 34);
+  cast.position.copy(source).add(BEACON_LIGHT_OFFSET);
 
   group.add(beam, volume, bloom, cast);
   return group;

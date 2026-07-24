@@ -22,7 +22,10 @@ import {radialGlow, updateRadialGlow} from './effects/glow.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke.ts';
 import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
 import {ProjectileImpactEffects} from './effects/projectile-impacts.ts';
-import {createShopBeacon} from './effects/shop-beacon.ts';
+import {
+  createShopBeacon,
+  REPAIR_ALLEY_BEACON_PLACEMENT
+} from './effects/shop-beacon.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -506,9 +509,15 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
         : 0xf2c94c;
   if (service.kind === 'repair') {
     const fixture = createShopBeacon({color: 0x20dcff, intensity: 1.08});
+    const alleyFixture = createShopBeacon({
+      color: 0x20dcff,
+      intensity: 0.82,
+      placement: REPAIR_ALLEY_BEACON_PLACEMENT
+    });
+    alleyFixture.name = 'repair-alley-beacon';
     const label = textLabel(service.label.toUpperCase(), color);
     label.position.set(0, 84, 3);
-    fixture.add(label);
+    fixture.add(alleyFixture, label);
     return fixture;
   }
   return ringMarker(service.radius, color, service.label.toUpperCase());
