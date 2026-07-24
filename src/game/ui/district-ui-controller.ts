@@ -12,10 +12,11 @@ import {
 } from '../../../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../../shared/protocol/notices.ts';
 import {
-  projectInteractionAffordance,
   serviceMinimapPoints,
-  storefrontMinimapPoints
+  storefrontMinimapPoints,
+  type InteractionAnchor
 } from '../interactions/interaction-presentation-policy.ts';
+import {projectContextPrompt} from '../interactions/context-prompt-policy.ts';
 import {MedicalCarePresentationController} from '../medical/medical-care-presentation-controller.ts';
 import {buildMinimapFrame} from '../minimap-marker-policy.ts';
 import {MinimapRenderer} from '../minimap-renderer.ts';
@@ -38,6 +39,12 @@ import type {ActorRenderPose} from '../rendering/render-types.ts';
 
 const UI_INTERVAL_MS = 100;
 
+interface HudPoint {
+  x: number;
+  y: number;
+  visible: boolean;
+}
+
 export class DistrictUiController {
   private readonly hud = new LocalHudController();
   private readonly radio: RadioSystem;
@@ -58,7 +65,9 @@ export class DistrictUiController {
   private readonly missionPrevious = document.querySelector<HTMLButtonElement>('#mission-prev');
   private readonly missionNext = document.querySelector<HTMLButtonElement>('#mission-next');
   private readonly interactionButton = document.querySelector<HTMLButtonElement>('#vehicle-action-button');
+  private readonly handbrakeHint = document.querySelector<HTMLElement>('#vehicle-handbrake-hint');
   private readonly touchInteractionButton = document.querySelector<HTMLButtonElement>('#interact-button');
+  private interactionAnchor?: InteractionAnchor;
   private selectedTemplate: MissionTemplateId = DEFAULT_MISSION_TEMPLATE_ID;
   private lastUpdateAt = Number.NEGATIVE_INFINITY;
   private readonly removeNotice: () => void;
@@ -69,7 +78,12 @@ export class DistrictUiController {
     worldHeight: number,
     private readonly localPose: () => ActorRenderPose | undefined = () => undefined,
     phone?: NockPhoneController,
-    assetRoot = '/assets'
+    assetRoot = '/assets',
+    private readonly projectWorldPoint: (
+      x: number,
+      y: number,
+      height: number
+    ) => HudPoint | undefined = () => undefined
   ) {
     this.phone = phone ?? new NockPhoneController();
     this.ownsPhone = !phone;
@@ -112,6 +126,7 @@ export class DistrictUiController {
   }
 
   update(state: DistrictNetworkState, nowMs: number): void {
+    this.positionInteraction(state);
     if (nowMs - this.lastUpdateAt < UI_INTERVAL_MS) return;
     this.lastUpdateAt = nowMs;
     const local = state.players.get(this.room.sessionId);
@@ -169,23 +184,59 @@ export class DistrictUiController {
   private updateInteraction(state: DistrictNetworkState): void {
     if (state.race?.trackId) {
       this.interactionButton?.classList.add('hidden');
+      this.handbrakeHint?.classList.add('hidden');
       this.touchInteractionButton?.classList.add('hidden');
+      this.interactionAnchor = undefined;
       return;
     }
     this.touchInteractionButton?.classList.remove('hidden');
-    const affordance = projectInteractionAffordance(state, this.room.sessionId);
-    this.interactionButton?.classList.toggle('hidden', !affordance.visible);
-    if (this.interactionButton && affordance.visible) {
-      this.interactionButton.textContent = affordance.label;
-      this.interactionButton.setAttribute('aria-label', affordance.ariaLabel);
+    const prompt = projectContextPrompt(state, this.room.sessionId, this.selectedTemplate);
+    this.interactionAnchor = prompt.anchor;
+    this.interactionButton?.classList.toggle('hidden', !prompt.visible);
+    this.handbrakeHint?.classList.toggle('hidden', prompt.placement !== 'driving');
+    if (this.interactionButton && prompt.visible) {
+      this.renderContextPrompt(this.interactionButton, 'F', prompt.label);
+      this.interactionButton.setAttribute('aria-label', prompt.ariaLabel);
+      this.interactionButton.dataset.placement = prompt.placement;
+      this.interactionButton.dataset.command = prompt.command;
+      this.interactionButton.dataset.templateId = prompt.templateId ?? '';
     }
     if (this.touchInteractionButton) {
-      this.touchInteractionButton.textContent = affordance.touchLabel;
+      this.touchInteractionButton.textContent = prompt.touchLabel;
       this.touchInteractionButton.setAttribute(
         'aria-label',
-        affordance.visible ? affordance.ariaLabel : 'Interact'
+        prompt.visible ? prompt.ariaLabel : 'Interact'
       );
     }
+    this.positionInteraction(state);
+  }
+
+  private positionInteraction(state: DistrictNetworkState): void {
+    const button = this.interactionButton;
+    const anchor = this.interactionAnchor;
+    if (!button || button.classList.contains('hidden') || !anchor) {
+      button?.classList.remove('context-offscreen');
+      return;
+    }
+    const vehicle = anchor.vehicleId ? state.vehicles.get(anchor.vehicleId) : undefined;
+    const x = vehicle?.x ?? anchor.x;
+    const y = vehicle?.y ?? anchor.y;
+    const point = this.projectWorldPoint(x, y, anchor.vehicleId ? 72 : 48);
+    button.classList.toggle('context-offscreen', !point?.visible);
+    if (!point) return;
+    button.style.left = `${point.x}px`;
+    button.style.top = `${point.y}px`;
+  }
+
+  private renderContextPrompt(button: HTMLButtonElement, key: string, label: string): void {
+    if (button.dataset.key === key && button.dataset.label === label) return;
+    const keyCap = document.createElement('kbd');
+    keyCap.textContent = key;
+    const text = document.createElement('span');
+    text.textContent = label;
+    button.replaceChildren(keyCap, text);
+    button.dataset.key = key;
+    button.dataset.label = label;
   }
 
   private updateMission(state: DistrictNetworkState): void {
@@ -202,7 +253,13 @@ export class DistrictUiController {
     this.missionAction.dataset.action = projection.action;
     this.missionAction.dataset.missionId = projection.missionId;
     this.missionAction.textContent = projection.actionLabel;
-    this.missionAction.classList.toggle('hidden', !projection.action);
+    const contextOwnsMissionStart =
+      projectContextPrompt(state, this.room.sessionId, this.selectedTemplate).command ===
+        'mission-start';
+    this.missionAction.classList.toggle(
+      'hidden',
+      !projection.action || (projection.action === 'start' && contextOwnsMissionStart)
+    );
     this.missionAction.classList.toggle('warning', projection.actionWarning);
   }
 

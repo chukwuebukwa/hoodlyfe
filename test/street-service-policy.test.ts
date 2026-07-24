@@ -13,6 +13,7 @@ import {
   serviceMinimapPoints,
   storefrontMinimapPoints
 } from '../src/game/interactions/interaction-presentation-policy.ts';
+import {projectContextPrompt} from '../src/game/interactions/context-prompt-policy.ts';
 import type {
   DistrictNetworkState,
   NetworkPlayer,
@@ -56,9 +57,10 @@ test('interaction projection gives usable services priority over vehicle actions
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'ammunition',
-    label: 'RESUPPLY $272',
+    label: 'Resupply ($272)',
     touchLabel: 'GEAR',
-    ariaLabel: 'Combat Supply, 272 dollars'
+    ariaLabel: 'Combat Supply, 272 dollars',
+    anchor: {x: 0, y: 0}
   });
 
   player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
@@ -77,9 +79,10 @@ test('interaction projection gives usable services priority over vehicle actions
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'hospital',
-    label: 'TREAT $138',
+    label: 'Get Treatment ($138)',
     touchLabel: 'CARE',
-    ariaLabel: 'Mercy Hospital, 138 dollars'
+    ariaLabel: 'Mercy Hospital, 138 dollars',
+    anchor: {x: 0, y: 0}
   });
   player.health = 100;
 
@@ -95,9 +98,10 @@ test('interaction projection gives usable services priority over vehicle actions
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'clothing',
-    label: 'BROWSE LOOKS',
+    label: 'Browse Looks',
     touchLabel: 'STYLE',
-    ariaLabel: 'Threads, open wardrobe'
+    ariaLabel: 'Threads, open wardrobe',
+    anchor: {x: 0, y: 0}
   });
   state.services.delete('clothing');
   player.spaceId = 'street';
@@ -112,18 +116,86 @@ test('interaction projection gives usable services priority over vehicle actions
   player.vehicleId = vehicle.id;
   player.vehicleSeat = 0;
   assert.equal(projectInteractionAffordance(state, player.id).kind, 'repair');
-  assert.equal(projectInteractionAffordance(state, player.id).label, 'REPAIR $156');
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Repair Car ($156)');
+  assert.deepEqual(projectInteractionAffordance(state, player.id).anchor, {
+    x: 0,
+    y: 0,
+    vehicleId: vehicle.id
+  });
 
   vehicle.health = vehicle.maxHealth;
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'repair',
-    label: 'INSTALL NEON $350',
+    label: 'Install Neon ($350)',
     touchLabel: 'NEON',
-    ariaLabel: 'Repair Garage, 350 dollars'
+    ariaLabel: 'Repair Garage, 350 dollars',
+    anchor: {x: 0, y: 0, vehicleId: vehicle.id}
   });
   vehicle.neonColor = 'cyan';
-  assert.equal(projectInteractionAffordance(state, player.id).label, 'NEON MAGENTA $75');
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Neon Magenta ($75)');
+});
+
+test('vehicle interactions anchor to the selected enterable car', () => {
+  const state = createState();
+  const player = state.players.get('local');
+  assert.ok(player);
+  const vehicle = createVehicle({x: 24, y: 36});
+  state.vehicles.set(vehicle.id, vehicle);
+
+  assert.deepEqual(projectInteractionAffordance(state, player.id).anchor, {
+    x: 24,
+    y: 36,
+    vehicleId: vehicle.id
+  });
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Enter Car');
+
+  vehicle.traffic = true;
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Hijack Car');
+
+  vehicle.traffic = false;
+  vehicle.driverId = 'other';
+  state.players.set('other', createPlayer({
+    id: 'other',
+    vehicleId: vehicle.id,
+    vehicleSeat: 0
+  }));
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Ride Along');
+});
+
+test('context prompts anchor mission starts and keep driving controls in the HUD', () => {
+  const state = createState();
+  state.vehicles.set('near-contact', createVehicle({id: 'near-contact', x: 18, y: 0}));
+  const start = projectContextPrompt(state, 'local', 'boost-and-deliver');
+  assert.deepEqual(start, {
+    visible: true,
+    command: 'mission-start',
+    placement: 'world',
+    label: 'Start Job',
+    touchLabel: 'JOB',
+    ariaLabel: 'Start Freemode job',
+    anchor: {x: 0, y: 0},
+    templateId: 'boost-and-deliver'
+  });
+
+  const player = state.players.get('local');
+  assert.ok(player);
+  player.ammoPistol = 0;
+  state.services.set('ammo', createService());
+  const service = projectContextPrompt(state, player.id, 'boost-and-deliver');
+  assert.equal(service.command, 'interact');
+  assert.equal(service.label, 'Resupply ($322)');
+  state.services.clear();
+  player.ammoPistol = AMMUNITION_CAPACITY.ammoPistol;
+  state.vehicles.delete('near-contact');
+  const vehicle = createVehicle({driverId: player.id});
+  state.vehicles.set(vehicle.id, vehicle);
+  player.vehicleId = vehicle.id;
+  player.vehicleSeat = 0;
+  const exit = projectContextPrompt(state, player.id, 'boost-and-deliver');
+  assert.equal(exit.placement, 'driving');
+  assert.equal(exit.label, 'Exit Car');
+  assert.equal(exit.anchor, undefined);
 });
 
 test('service minimap points preserve authoritative identities and positions', () => {

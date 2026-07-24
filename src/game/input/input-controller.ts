@@ -10,6 +10,8 @@ import {TouchControls} from '../touch-controls.ts';
 import {scenePointToServerAimAngle} from '../presentation/scene-policy.ts';
 import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
 import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
+import {isMissionTemplateId} from '../../../shared/content/mission-catalog.ts';
+import {MISSION_START_MESSAGE} from '../../../shared/protocol/missions.ts';
 import {
   WEAPON_RELOAD_PROTOCOL_VERSION,
   WEAPON_RELOAD_RECEIPT_MESSAGE,
@@ -64,7 +66,7 @@ export class InputController {
     options.canvas.addEventListener('wheel', this.handleWheel, {passive: false});
     this.bindClick('#weapon-prev', () => this.cycleWeapon(-1));
     this.bindClick('#weapon-next', () => this.cycleWeapon(1));
-    this.bindClick('#vehicle-action-button', () => this.options.room.send('interact'));
+    this.bindClick('#vehicle-action-button', this.performContextAction);
     this.bindClick('#reload-button', () => this.requestReload());
     const removeReloadReceipt = options.room.onMessage<WeaponReloadReceipt>(
       WEAPON_RELOAD_RECEIPT_MESSAGE,
@@ -140,7 +142,7 @@ export class InputController {
       this.fireQueued = false;
       this.lastFireAt = nowMs;
     }
-    if (this.touch.consumeInteract()) this.options.room.send('interact');
+    if (this.touch.consumeInteract()) this.performContextAction();
     return input;
   }
 
@@ -161,7 +163,7 @@ export class InputController {
     this.keys.add(event.code);
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) return;
-    if (event.code === 'KeyF') this.options.room.send('interact');
+    if (event.code === 'KeyF') this.performContextAction();
     if (event.code === 'Space') {
       event.preventDefault();
       if (!player.vehicleId || player.vehicleSeat !== 0) {
@@ -216,6 +218,21 @@ export class InputController {
     };
     this.options.room.send(WEAPON_RELOAD_REQUEST_MESSAGE, request);
   }
+
+  private readonly performContextAction = (): void => {
+    const prompt = document.querySelector<HTMLButtonElement>('#vehicle-action-button');
+    const templateId = prompt?.dataset.templateId;
+    if (
+      prompt &&
+      !prompt.classList.contains('hidden') &&
+      prompt.dataset.command === 'mission-start' &&
+      isMissionTemplateId(templateId)
+    ) {
+      this.options.room.send(MISSION_START_MESSAGE, {templateId});
+      return;
+    }
+    this.options.room.send('interact');
+  };
 
   private bindClick(selector: string, action: () => void): void {
     const element = document.querySelector(selector);

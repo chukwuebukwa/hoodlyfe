@@ -222,7 +222,8 @@ export class DistrictClient {
         payload.surfaces.height * payload.blockSize,
         () => this.actors?.playerPose(this.room?.sessionId ?? ''),
         this.phone,
-        this.assetRoot
+        this.assetRoot,
+        this.projectWorldPoint
       );
       this.input = new InputController({
         room: this.room,
@@ -426,7 +427,6 @@ export class DistrictClient {
       this.networkQuality?.update(now);
       this.debug?.update(this.room.state, now);
       this.qa?.update();
-      this.ui?.update(this.room.state, now);
       this.followLocalPlayer();
       const vehiclePose = local?.vehicleId ? this.actors?.vehiclePose(local.vehicleId) : undefined;
       const playerPose = local ? this.actors?.playerPose(this.room.sessionId) : undefined;
@@ -456,6 +456,7 @@ export class DistrictClient {
     }
     this.updateMapStreamingStatus();
     this.applyCamera(performance.now());
+    if (this.room) this.ui?.update(this.room.state, performance.now());
     this.renderer.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.render);
   };
@@ -539,6 +540,28 @@ export class DistrictClient {
       mapSurfaceHeightAt(x, y, payload),
       STREET_GROUND_SURFACE_ID
     );
+  };
+
+  private readonly projectWorldPoint = (
+    x: number,
+    y: number,
+    height: number
+  ): {x: number; y: number; visible: boolean} => {
+    this.camera.updateMatrixWorld();
+    const point = new THREE.Vector3(
+      x,
+      serverYToScene(y),
+      this.surfaceHeightAt(x, y) + height
+    ).project(this.camera);
+    const width = Math.max(1, this.parent.clientWidth);
+    const viewportHeight = Math.max(1, this.parent.clientHeight);
+    return {
+      x: (point.x + 1) * width / 2,
+      y: (1 - point.y) * viewportHeight / 2,
+      visible: point.z >= -1 && point.z <= 1 &&
+        point.x >= -1.08 && point.x <= 1.08 &&
+        point.y >= -1.08 && point.y <= 1.08
+    };
   };
 
   private mapStreamingView(): {halfWidth: number; halfHeight: number} {

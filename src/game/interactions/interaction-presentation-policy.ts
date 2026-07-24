@@ -36,6 +36,13 @@ export interface InteractionAffordance {
   label: string;
   touchLabel: string;
   ariaLabel: string;
+  anchor?: InteractionAnchor;
+}
+
+export interface InteractionAnchor {
+  x: number;
+  y: number;
+  vehicleId?: string;
 }
 
 export function serviceMinimapPoints(
@@ -74,9 +81,10 @@ export function projectInteractionAffordance(
       return {
         visible: true,
         kind: 'clothing',
-        label: 'BROWSE LOOKS',
+        label: 'Browse Looks',
         touchLabel: 'STYLE',
-        ariaLabel: `${service.label}, open wardrobe`
+        ariaLabel: `${service.label}, open wardrobe`,
+        anchor: serviceAnchor(service)
       };
     }
     const quote = serviceQuote(state, player, service);
@@ -87,11 +95,13 @@ export function projectInteractionAffordance(
     const nextNeon = repairVehicle ? nextVehicleNeonColor(repairVehicle.neonColor) : 'cyan';
     const label = service.kind === 'repair'
       ? repairsNeeded
-        ? `REPAIR $${quote}`
+        ? `Repair Car ($${quote})`
         : normalizeVehicleNeonColor(repairVehicle?.neonColor) === 'off'
-          ? `INSTALL NEON $${quote}`
-          : `NEON ${vehicleNeonColorLabel(nextNeon)} $${quote}`
-      : (service.kind === 'hospital' ? `TREAT $${quote}` : `RESUPPLY $${quote}`);
+          ? `Install Neon ($${quote})`
+          : `Neon ${titleCase(vehicleNeonColorLabel(nextNeon))} ($${quote})`
+      : (service.kind === 'hospital'
+          ? `Get Treatment ($${quote})`
+          : `Resupply ($${quote})`);
     return {
       visible: true,
       kind: service.kind,
@@ -99,14 +109,17 @@ export function projectInteractionAffordance(
       touchLabel: service.kind === 'repair'
         ? (repairsNeeded ? 'FIX' : 'NEON')
         : (service.kind === 'hospital' ? 'CARE' : 'GEAR'),
-      ariaLabel: `${service.label}, ${quote} dollars`
+      ariaLabel: `${service.label}, ${quote} dollars`,
+      anchor: repairVehicle
+        ? {x: repairVehicle.x, y: repairVehicle.y, vehicleId: repairVehicle.id}
+        : serviceAnchor(service)
     };
   }
   if (player.vehicleId) {
     return {
       visible: true,
       kind: 'exit-vehicle',
-      label: 'EXIT CAR',
+      label: 'Exit Car',
       touchLabel: 'EXIT',
       ariaLabel: 'Exit vehicle'
     };
@@ -117,27 +130,42 @@ export function projectInteractionAffordance(
     return {
       visible: true,
       kind: 'hijack-vehicle',
-      label: 'HIJACK CAR',
+      label: 'Hijack Car',
       touchLabel: 'TAKE',
-      ariaLabel: 'Hijack vehicle'
+      ariaLabel: 'Hijack vehicle',
+      anchor: vehicleAnchor(nearest)
     };
   }
   if (nearest.driverId) {
     return {
       visible: true,
       kind: 'ride-along',
-      label: 'RIDE ALONG',
+      label: 'Ride Along',
       touchLabel: 'RIDE',
-      ariaLabel: 'Enter vehicle as passenger'
+      ariaLabel: 'Enter vehicle as passenger',
+      anchor: vehicleAnchor(nearest)
     };
   }
   return {
     visible: true,
     kind: 'enter-vehicle',
-    label: 'ENTER CAR',
+    label: 'Enter Car',
     touchLabel: 'CAR',
-    ariaLabel: 'Enter vehicle'
+    ariaLabel: 'Enter vehicle',
+    anchor: vehicleAnchor(nearest)
   };
+}
+
+function serviceAnchor(service: NetworkStreetService): InteractionAnchor {
+  return {x: service.x, y: service.y};
+}
+
+function vehicleAnchor(vehicle: NetworkVehicle): InteractionAnchor {
+  return {x: vehicle.x, y: vehicle.y, vehicleId: vehicle.id};
+}
+
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
 function nearestUsableService(
