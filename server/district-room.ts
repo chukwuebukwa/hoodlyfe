@@ -322,6 +322,10 @@ export class DistrictRoom extends Room<DistrictState> {
     return true;
   }
 
+  protected usesAmbientPopulation(): boolean {
+    return true;
+  }
+
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
       ? options.runtimeHealth
@@ -966,6 +970,7 @@ export class DistrictRoom extends Room<DistrictState> {
       state: this.state,
       world: this.world,
       random: this.random,
+      enabled: this.usesAmbientPopulation(),
       pedestrians: this.pedestrians,
       traffic: this.trafficController,
       worldMinute: () => worldMinuteAt(this.state, this.epochMs + this.simulationClock.nowMs),
@@ -1609,6 +1614,10 @@ export class DistrictRaceRoom extends DistrictRoom {
   override maxClients = 6;
 
   protected override usesTrafficTopology(): boolean {
+    return false;
+  }
+
+  protected override usesAmbientPopulation(): boolean {
     return false;
   }
 

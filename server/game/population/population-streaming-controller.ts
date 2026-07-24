@@ -78,6 +78,7 @@ interface PopulationStreamingControllerOptions {
   state: DistrictState;
   world: CollisionMap;
   random: DeterministicRandom;
+  enabled?: boolean;
   pedestrians: Pick<
     PedestrianController,
     'spawnAmbientAt' | 'canStreamOut' | 'streamOutAmbient'
@@ -167,6 +168,10 @@ export class PopulationStreamingController {
 
   initialize(nowMs = 0): void {
     if (this.initialized) return;
+    if (this.options.enabled === false) {
+      this.initialized = true;
+      return;
+    }
     const targets = streamedPopulationTargets(this.options.world);
     for (let index = 0; index < targets.civilians + targets.police; index++) {
       const id = index < targets.civilians
@@ -202,6 +207,7 @@ export class PopulationStreamingController {
 
   update(anchors: readonly PopulationInterestAnchor[], nowMs: number): void {
     if (!this.initialized) this.initialize(nowMs);
+    if (this.options.enabled === false) return;
     this.zoneProfiles.update();
     const normalized = anchors.filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
     this.anchors = normalized.map((anchor) => ({

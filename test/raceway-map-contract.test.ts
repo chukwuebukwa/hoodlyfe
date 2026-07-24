@@ -59,9 +59,17 @@ test('race room starts without traffic topology', async () => {
     externalSimulation: true
   });
   try {
+    (room as any).completeSimulationTick(1_000);
     assert.equal((room as any).laneGraph, undefined);
     assert.equal((room as any).trafficController.laneGraph(), undefined);
     assert.equal(room.state.npcs.size, 0);
+    assert.equal(room.state.vehicles.size, 0);
+    const population = (room as any).populationStreaming.diagnostics();
+    assert.equal(population.potentialPedestrians, 0);
+    assert.equal(population.activePedestrians, 0);
+    assert.equal(population.potentialTraffic, 0);
+    assert.equal(population.activeTraffic, 0);
+    assert.equal(population.dormantActors, 0);
   } finally {
     room.onDispose();
   }
