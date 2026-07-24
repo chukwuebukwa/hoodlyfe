@@ -12,12 +12,12 @@ export interface PhoneActivityProjection {
 export function projectPhoneActivity(currentWorld: GameWorldId): PhoneActivityProjection {
   if (currentWorld === 'raceway') {
     return {
-      actionLabel: 'Return to city',
-      description: 'Leave the closed circuit and reconnect to the Industrial District.',
+      actionLabel: 'Exit to Freeroam',
+      description: 'Leave the current race and reconnect to the Industrial District freeroam session.',
       destination: 'industrial-district',
       locationLabel: 'Raceway',
-      meta: 'District travel',
-      title: 'Industrial District'
+      meta: 'Exit activity',
+      title: 'Freeroam'
     };
   }
   return {

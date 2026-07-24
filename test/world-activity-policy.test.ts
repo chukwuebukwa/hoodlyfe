@@ -32,9 +32,11 @@ test('phone activity sends street players to the raceway', () => {
   assert.equal(activity.locationLabel, 'Industrial District');
 });
 
-test('phone activity provides a return trip from the raceway', () => {
+test('phone activity lets raceway players exit to freeroam', () => {
   const activity = projectPhoneActivity('raceway');
   assert.equal(activity.destination, 'industrial-district');
-  assert.equal(activity.actionLabel, 'Return to city');
+  assert.equal(activity.actionLabel, 'Exit to Freeroam');
   assert.equal(activity.locationLabel, 'Raceway');
+  assert.equal(activity.meta, 'Exit activity');
+  assert.equal(activity.title, 'Freeroam');
 });

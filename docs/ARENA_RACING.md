@@ -4,7 +4,7 @@
 
 The in-game phone is the primary way to enter the dedicated `district-race` Colyseus room.
 Open **Jobs**, choose **Raceway**, and select **Enter raceway**. The same phone screen
-provides **Return to city** from the circuit.
+provides **Exit to Freeroam** from the circuit, including while a race is active.
 
 `/race` remains available as a direct QA shortcut. The race room does not share ambient traffic,
 police, missions, services, or population with the street district.
@@ -38,7 +38,7 @@ The normal game can exercise the integrated flow without changing routes:
 1. Open the phone.
 2. Select **Jobs**.
 3. Select **Enter raceway**.
-4. After testing the circuit, open **Jobs** and select **Return to city**.
+4. During or after the race, open **Jobs** and select **Exit to Freeroam**.
 
 The runtime joins and validates the destination room before removing the current world
 presentation. It keeps the source room available until the destination client has started, so a
