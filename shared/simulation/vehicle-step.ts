@@ -1,4 +1,7 @@
-import {vehicleDefinition} from '../content/vehicle-catalog.ts';
+import {
+  vehicleDefinition,
+  type VehicleHandlingDefinition
+} from '../content/vehicle-catalog.ts';
 import {SIMULATION_HZ, SIMULATION_STEP_SECONDS} from './timing.ts';
 import {vehicleTyreHandlingModifiers} from './vehicle-tyre-state.ts';
 
@@ -36,8 +39,23 @@ export function integrateVehicleMotion(
   deltaSeconds: number,
   modifiers: VehicleStepModifiers = {}
 ): VehicleMotionState {
+  return integrateVehicleMotionWithHandling(
+    pose,
+    command,
+    vehicleDefinition(kind).handling,
+    deltaSeconds,
+    modifiers
+  );
+}
+
+export function integrateVehicleMotionWithHandling(
+  pose: VehicleMotionInput,
+  command: VehicleControlCommand,
+  handling: VehicleHandlingDefinition,
+  deltaSeconds: number,
+  modifiers: VehicleStepModifiers = {}
+): VehicleMotionState {
   const delta = finiteClamp(deltaSeconds, 0, MAX_VEHICLE_STEP_SECONDS);
-  const handling = vehicleDefinition(kind).handling;
   const throttle = finiteClamp(command.throttle, -1, 1);
   const steering = finiteClamp(
     command.steering + finiteClamp(modifiers.steeringBias ?? 0, -0.25, 0.25),

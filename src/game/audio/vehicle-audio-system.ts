@@ -1,6 +1,8 @@
 import type {DistrictNetworkState, NetworkPlayer, NetworkVehicle} from '../types.ts';
 import {AudioBus} from './audio-bus.ts';
 import {projectPositionalAudio, type AudioListenerPosition} from './positional-audio-policy.ts';
+import {VehicleSkidAudio} from './vehicle-skid-audio.ts';
+import {vehicleSkidAudioPresentation} from './vehicle-skid-audio-policy.ts';
 
 interface SirenVoice {
   source?: AudioBufferSourceNode;
@@ -16,9 +18,13 @@ const SIREN_LOW_HZ = 650;
 const SIREN_HIGH_HZ = 980;
 const SIREN_STEP_MS = 430;
 const SIREN_SAMPLE = '/assets/audio/sfx/siren.wav';
+const SKID_MAX_DISTANCE = 1_150;
+const SKID_BASE_GAIN = 0.58;
+const MAXIMUM_SKID_VOICES = 6;
 
 export class VehicleAudioSystem {
   private readonly bus = new AudioBus();
+  private readonly skids = new Map<string, VehicleSkidAudio>();
   private readonly sirens = new Map<string, SirenVoice>();
   private sirenBuffer?: Promise<AudioBuffer | undefined>;
   private listener?: AudioListenerPosition;
@@ -33,20 +39,68 @@ export class VehicleAudioSystem {
       this.stopAll();
       return;
     }
-    const active = new Set<string>();
+    const activeSirens = new Set<string>();
+    const activeSkids = new Set<string>();
+    const skidCandidates: Array<{
+      vehicleId: string;
+      input: {angle: number; linvelX: number; linvelY: number; destroyed: boolean};
+      volume: number;
+      pan: number;
+      score: number;
+    }> = [];
     vehicles.forEach((vehicle, vehicleId) => {
+      const skidInput = {
+        angle: vehicle.angle,
+        linvelX: vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
+        linvelY: vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
+        destroyed: vehicle.destroyed
+      };
+      const skidPresentation = vehicleSkidAudioPresentation(skidInput);
+      if (skidPresentation.active) {
+        const skidProjection = projectPositionalAudio(
+          this.listener as AudioListenerPosition,
+          {x: vehicle.x, y: vehicle.y, maxDistance: SKID_MAX_DISTANCE},
+          SKID_BASE_GAIN
+        );
+        if (skidProjection.gain > 0.006) {
+          skidCandidates.push({
+            vehicleId,
+            input: skidInput,
+            volume: skidProjection.gain,
+            pan: skidProjection.pan,
+            score: skidProjection.gain * skidPresentation.intensity
+          });
+        }
+      }
+
       if (vehicle.kind !== 'police' || !vehicle.siren || vehicle.destroyed) return;
-      const projection = projectPositionalAudio(
+      const sirenProjection = projectPositionalAudio(
         this.listener as AudioListenerPosition,
         {x: vehicle.x, y: vehicle.y, maxDistance: SIREN_MAX_DISTANCE},
         SIREN_BASE_GAIN
       );
-      if (projection.gain <= 0.006) return;
-      active.add(vehicleId);
-      this.updateSiren(vehicleId, projection.gain, projection.pan);
+      if (sirenProjection.gain <= 0.006) return;
+      activeSirens.add(vehicleId);
+      this.updateSiren(vehicleId, sirenProjection.gain, sirenProjection.pan);
     });
+    skidCandidates.sort((left, right) => right.score - left.score);
+    for (const candidate of skidCandidates.slice(0, MAXIMUM_SKID_VOICES)) {
+      activeSkids.add(candidate.vehicleId);
+      let skid = this.skids.get(candidate.vehicleId);
+      if (!skid) {
+        skid = new VehicleSkidAudio(this.bus);
+        this.skids.set(candidate.vehicleId, skid);
+      }
+      skid.synchronize(candidate.input, {
+        volume: candidate.volume,
+        pan: candidate.pan
+      });
+    }
     for (const vehicleId of this.sirens.keys()) {
-      if (!active.has(vehicleId)) this.stopSiren(vehicleId);
+      if (!activeSirens.has(vehicleId)) this.stopSiren(vehicleId);
+    }
+    for (const vehicleId of this.skids.keys()) {
+      if (!activeSkids.has(vehicleId)) this.stopSkid(vehicleId);
     }
   }
 
@@ -104,6 +158,15 @@ export class VehicleAudioSystem {
 
   private stopAll(): void {
     for (const vehicleId of [...this.sirens.keys()]) this.stopSiren(vehicleId);
+    for (const vehicleId of [...this.skids.keys()]) this.stopSkid(vehicleId);
+  }
+
+  private stopSkid(vehicleId: string, immediate = false): void {
+    const skid = this.skids.get(vehicleId);
+    if (!skid) return;
+    if (immediate) skid.destroy();
+    else skid.synchronize(undefined);
+    this.skids.delete(vehicleId);
   }
 
   private ramp(gain: GainNode, volume: number): void {

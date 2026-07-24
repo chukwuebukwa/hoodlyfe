@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "police",
+  "label": "Police Cruiser",
+  "status": "ready",
+  "class": "emergency",
+  "seats": 4,
+  "radius": 20,
+  "maxHealth": 1200,
+  "mass": 1.12,
+  "collisionDamageScale": 0.82,
+  "collision": {
+    "length": 60,
+    "width": 33
+  },
+  "handling": {
+    "forwardAcceleration": 440,
+    "reverseAcceleration": 300,
+    "coastDeceleration": 155,
+    "brakeDeceleration": 330,
+    "maximumForwardSpeed": 450,
+    "maximumReverseSpeed": 125,
+    "steeringRate": 2.55,
+    "steeringGripFloor": 0.24,
+    "steeringGripSpeed": 115,
+    "lateralGrip": 20,
+    "handbrakeLateralGrip": 1.8,
+    "yawResponse": 13,
+    "handbrakeTurnMultiplier": 1.25,
+    "powerOversteer": 0.03
+  },
+  "traffic": {
+    "cruiseSpeed": 142,
+    "acceleration": 110,
+    "brakeDeceleration": 350,
+    "minimumGap": 26,
+    "followingTime": 0.5,
+    "pedestrianGap": 38,
+    "lookAhead": 290
+  },
+  "population": {
+    "parked": true,
+    "ambientTraffic": false,
+    "weight": 0
+  },
+  "presentation": {
+    "atlasRow": 1,
+    "width": 96,
+    "height": 96,
+    "emergencyLights": true,
+    "offsets": {
+      "closed": {
+        "x": 0.5,
+        "y": 0
+      },
+      "front-left": {
+        "x": -5,
+        "y": 0
+      },
+      "front-right": {
+        "x": 5,
+        "y": 0
+      },
+      "rear-left": {
+        "x": 0,
+        "y": 0
+      },
+      "rear-right": {
+        "x": -0.5,
+        "y": 0.5
+      }
+    }
+  },
+  "generation": {
+    "prompt": "Four-door black and white police cruiser with a readable rooftop light bar.",
+    "model": "legacy-import"
+  }
+}

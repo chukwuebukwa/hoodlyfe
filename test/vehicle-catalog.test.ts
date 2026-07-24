@@ -6,7 +6,7 @@ import {
 } from '../shared/content/vehicle-catalog.ts';
 
 test('vehicle catalog exposes complete, distinct, bounded model definitions', () => {
-  assert.deepEqual(VEHICLE_KINDS, ['sedan', 'police', 'taxi', 'r33', 's15']);
+  assert.deepEqual(VEHICLE_KINDS, ['sedan', 'police', 'taxi', 'r33', 's15', 'suv']);
   const definitions = VEHICLE_KINDS.map(vehicleDefinition);
   for (const definition of definitions) {
     assert.equal(definition.id, VEHICLE_KINDS[definition.presentation.frame]);
@@ -30,5 +30,7 @@ test('vehicle catalog exposes complete, distinct, bounded model definitions', ()
     vehicleDefinition('s15').handling.maximumForwardSpeed >
     vehicleDefinition('sedan').handling.maximumForwardSpeed
   );
+  assert.ok(vehicleDefinition('suv').mass > vehicleDefinition('sedan').mass);
+  assert.equal(vehicleDefinition('suv').seats, 4);
   assert.equal(vehicleDefinition('unknown'), vehicleDefinition('sedan'));
 });

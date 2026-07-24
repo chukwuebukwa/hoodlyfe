@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2026-07-24",
+    "surface": "/vehicles",
+    "macrostructure": "Workbench",
+    "theme": "NOCK0 industrial",
+    "genre": "modern-minimal",
+    "enrichment": "Accepted vehicle source sprites and collision overlays",
+    "navigation": "Internal production pipeline rail",
+    "footer": "Live compiler strip"
+  },
+  {
+    "date": "2026-07-24",
+    "surface": "/vehicles",
+    "macrostructure": "Focused workbench",
+    "theme": "NOCK0 industrial",
+    "genre": "modern-minimal",
+    "enrichment": "Single active vehicle preview",
+    "navigation": "Quiet six-step rail",
+    "footer": "None"
+  },
+  {
+    "date": "2026-07-24",
+    "surface": "/vehicles test drive",
+    "macrostructure": "Full-bleed simulation",
+    "theme": "NOCK0 industrial",
+    "genre": "in-world tooling",
+    "enrichment": "Selected vehicle sprite in a private Three.js parking lot",
+    "navigation": "Keyboard driving controls",
+    "footer": "Compact control legend"
+  }
+]

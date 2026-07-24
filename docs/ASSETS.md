@@ -19,9 +19,23 @@ Ignored outputs include:
 
 The active player, civilian, and police sheets are original AI-assisted pixel art stored under `public/assets/original/sprites/`. Each file is a transparent 216-by-216 PNG containing nine 72-by-72 frames in a 3-by-3 grid. The generated master source is retained under `art/source/characters-master-chroma.png`.
 
-The active vehicle sheet is original AI-assisted pixel art stored at `public/assets/original/sprites/vehicles.png`. It contains civilian, police, and taxi frames in the existing 96-by-96 runtime contract. The generated master source is retained at `art/source/vehicles-master-chroma.png`. Police lights, vehicle damage tinting, smoke, and fire remain runtime effects rather than separate derived assets.
+The live Three.js vehicle renderer draws from `public/assets/custom/actions/vehicle-doors.png`.
+It is a 96-by-96 door atlas with five columns per vehicle kind: closed, front-left open,
+front-right open, rear-left open, and rear-right open. Row order follows
+`VehiclePresentationDefinition.frame` in `shared/content/vehicle-catalog.ts`.
+`public/assets/original/sprites/vehicles.png` is retained as older/base vehicle art and is still
+loaded by the renderer lifecycle, but the current vehicle mesh path uses the door atlas so entry
+and carjacking can swap frames deterministically. Police lights, vehicle damage tinting, smoke, and
+fire remain runtime effects rather than separate derived assets.
 
 These files replace the GTA2-derived pedestrian and vehicle sheets at runtime. The city map remains generated from the local GTA2 installation for compatibility testing.
+
+## Vehicle Skid Audio
+
+The tyre scrub and drift recordings under `public/assets/audio/sfx/skids/` are user-supplied
+NOCK0 source assets. The browser schedules them as overlapping Web Audio one-shots rather than
+hard-looping a WAV file. Both the main game and Vehicle Workshop drive playback from the same
+speed/slip-angle policy; nearby game vehicles use positional attenuation and stereo panning.
 
 ## Local Development
 

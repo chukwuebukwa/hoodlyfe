@@ -44,9 +44,9 @@ test('density and composition selection are deterministic at policy boundaries',
   assert.equal(pedestrianKindForProfile(profile, profile.policeShare - 0.001), 'police');
   assert.equal(pedestrianKindForProfile(profile, profile.policeShare), 'civilian');
   assert.equal(vehicleKindForProfile(profile, 0), 'sedan');
-  assert.equal(vehicleKindForProfile(profile, 0.99), 'taxi');
+  assert.equal(vehicleKindForProfile(profile, 0.99), 'suv');
   for (let index = 0; index <= 100; index++) {
-    assert.ok(['sedan', 'taxi'].includes(vehicleKindForProfile(profile, index / 100)));
+    assert.ok(['sedan', 'taxi', 'suv'].includes(vehicleKindForProfile(profile, index / 100)));
   }
 });
 

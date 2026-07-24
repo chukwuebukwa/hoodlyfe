@@ -49,6 +49,7 @@ class GameRuntimeController implements GameRuntime {
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
   async start(): Promise<void> {
+    this.phone.setAvailable(false);
     const onboarding = loadOnboardingIdentity();
     this.driverName = onboarding.driverName;
     this.playerAppearance = onboarding.appearance;
@@ -68,6 +69,7 @@ class GameRuntimeController implements GameRuntime {
       this.configurePhone(false);
       this.loadingUi.set(0.95, 'Preparing driver');
       this.loadingUi.finish();
+      if (!onboardingRequired) this.phone.setAvailable(true);
       this.showOnboardingAfterStart(onboardingRequired);
     } catch (error) {
       const loadingUi = this.loadingUi;
@@ -87,6 +89,7 @@ class GameRuntimeController implements GameRuntime {
   destroy(): void {
     this.destroyed = true;
     this.phone.setActivityContext(undefined);
+    this.phone.setAvailable(false);
     this.activeSession?.districtClient.destroy();
     this.activeSession?.netcodeRollout.destroy();
     void this.activeSession?.room.leave(true);
@@ -173,6 +176,7 @@ class GameRuntimeController implements GameRuntime {
         appearance: result.appearance,
         auth: result.auth
       });
+      this.phone.setAvailable(true);
     }).catch((error) => {
       console.error(error);
     });

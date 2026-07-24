@@ -1,7 +1,7 @@
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 import {
-  vehicleDefinition,
-  type VehicleKind
+  VEHICLE_KINDS,
+  vehicleDefinition
 } from '../../../shared/content/vehicle-catalog.ts';
 import {
   characterClipFrame,
@@ -11,7 +11,7 @@ import {
 export const ACTION_SPRITE_COLUMNS = 4;
 export const ACTION_SPRITE_ROWS = 3;
 export const VEHICLE_DOOR_COLUMNS = 5;
-export const VEHICLE_DOOR_ROWS = 5;
+export const VEHICLE_DOOR_ROWS = VEHICLE_KINDS.length;
 
 export type CharacterActionSprite = 'walk' | 'melee' | 'dead' | 'vehicle';
 
@@ -29,45 +29,6 @@ export interface VehicleSpriteOffset {
   x: number;
   y: number;
 }
-
-// Recenter the chassis inside each hand-authored 96px atlas frame.
-const VEHICLE_DOOR_FRAME_OFFSETS: Readonly<Record<VehicleKind, readonly VehicleSpriteOffset[]>> = {
-  sedan: [
-    {x: -19.5, y: 7.5},
-    {x: -5, y: 0},
-    {x: 5, y: 0},
-    {x: 1.5, y: 0.5},
-    {x: 15.5, y: 8}
-  ],
-  police: [
-    {x: 0.5, y: 0},
-    {x: -5, y: 0},
-    {x: 5, y: 0},
-    {x: 0, y: 0},
-    {x: -0.5, y: 0.5}
-  ],
-  taxi: [
-    {x: -7.5, y: -11.5},
-    {x: -9.5, y: -12},
-    {x: -1, y: -11},
-    {x: 5, y: -11.5},
-    {x: 4, y: -11.5}
-  ],
-  r33: [
-    {x: 0.5, y: 1},
-    {x: 0.5, y: 1},
-    {x: 0.5, y: 1},
-    {x: 0.5, y: 1},
-    {x: 0.5, y: 1}
-  ],
-  s15: [
-    {x: 0.5, y: 0.5},
-    {x: 0.5, y: 0.5},
-    {x: 0.5, y: 0.5},
-    {x: 0.5, y: 0.5},
-    {x: 0.5, y: 0.5}
-  ]
-};
 
 export function playerActionSprite(
   player: NetworkPlayer,
@@ -148,8 +109,8 @@ export function vehicleDoorSpriteOffset(
   vehicle: Pick<NetworkVehicle, 'kind'>,
   doorFrame: number
 ): VehicleSpriteOffset {
-  const kind = vehicleDefinition(vehicle.kind).id;
-  return VEHICLE_DOOR_FRAME_OFFSETS[kind][doorFrame] ?? VEHICLE_DOOR_FRAME_OFFSETS[kind][0];
+  const offsets = vehicleDefinition(vehicle.kind).presentation.offsets;
+  return offsets[doorFrame] ?? offsets[0] ?? {x: 0, y: 0};
 }
 
 function nextSeat(driverOccupied: boolean, occupied: number[], seats: number): number {

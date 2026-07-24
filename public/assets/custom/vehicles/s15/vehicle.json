@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "s15",
+  "label": "S15 Silvia",
+  "status": "ready",
+  "class": "civilian",
+  "seats": 2,
+  "radius": 18,
+  "maxHealth": 780,
+  "mass": 0.84,
+  "collisionDamageScale": 1.2,
+  "collision": {
+    "length": 60,
+    "width": 29
+  },
+  "handling": {
+    "forwardAcceleration": 565,
+    "reverseAcceleration": 292,
+    "coastDeceleration": 128,
+    "brakeDeceleration": 392,
+    "maximumForwardSpeed": 545,
+    "maximumReverseSpeed": 122,
+    "steeringRate": 3.05,
+    "steeringGripFloor": 0.33,
+    "steeringGripSpeed": 158,
+    "lateralGrip": 16.5,
+    "handbrakeLateralGrip": 0.85,
+    "yawResponse": 9.5,
+    "handbrakeTurnMultiplier": 1.55,
+    "powerOversteer": 0.07
+  },
+  "traffic": {
+    "cruiseSpeed": 156,
+    "acceleration": 124,
+    "brakeDeceleration": 372,
+    "minimumGap": 31,
+    "followingTime": 0.5,
+    "pedestrianGap": 39,
+    "lookAhead": 305
+  },
+  "population": {
+    "parked": true,
+    "ambientTraffic": false,
+    "weight": 1
+  },
+  "presentation": {
+    "atlasRow": 4,
+    "width": 96,
+    "height": 96,
+    "emergencyLights": false,
+    "offsets": {
+      "closed": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "front-left": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "front-right": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "rear-left": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "rear-right": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  },
+  "generation": {
+    "prompt": "White late-1990s Japanese drift coupe with a slim body and restrained rear spoiler.",
+    "model": "legacy-import"
+  }
+}

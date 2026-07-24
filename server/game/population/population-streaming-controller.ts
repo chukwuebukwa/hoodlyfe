@@ -4,7 +4,10 @@ import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts
 import {PEDESTRIAN_RADIUS} from '../pedestrians/pedestrian-config.ts';
 import {trafficLanePoint, type TrafficController} from '../traffic/traffic-controller.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
-import type {VehicleKind} from '../../../shared/content/vehicle-catalog.ts';
+import {
+  CIVILIAN_TRAFFIC_VEHICLE_KINDS,
+  type VehicleKind
+} from '../../../shared/content/vehicle-catalog.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import {
   TRAFFIC_JAM_RETIREMENT,
@@ -32,14 +35,7 @@ export const STREAMED_POLICE_RECORDS = 8;
 export const STREAMED_TRAFFIC_RECORDS = 64;
 const STREAMING_DENSITY_REFERENCE_TILES = 96 * 96;
 const MAXIMUM_STREAMING_DENSITY_SCALE = 8;
-const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = [
-  'sedan',
-  'taxi',
-  'sedan',
-  'sedan',
-  'taxi',
-  'sedan'
-];
+const STREAMED_TRAFFIC_KINDS: readonly VehicleKind[] = CIVILIAN_TRAFFIC_VEHICLE_KINDS;
 
 export const POPULATION_STREAMING = Object.freeze({
   materializeRadius: POPULATION_INTEREST.prewarmRadius,

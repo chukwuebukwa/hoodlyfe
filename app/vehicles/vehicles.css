@@ -1,0 +1,1256 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Focused workbench · theme: NOCK0 industrial · enrichment: source sprites · nav: quiet step rail · footer: none
+ * Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · contrast: pass (40-41) · nav: N7 · footer: none · slop: pass (42-45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50-57)
+ */
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+}
+
+#vehicle-workshop,
+.vw-load-state {
+  min-width: 0;
+  width: 100vw;
+  height: 100vh;
+  color: var(--vw-color-text);
+  background: var(--vw-color-bg);
+  font-family: var(--vw-font-ui);
+  letter-spacing: 0;
+}
+
+#vehicle-workshop *,
+.vw-load-state * {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+#vehicle-workshop {
+  display: grid;
+  grid-template:
+    "toolbar toolbar toolbar" var(--vw-toolbar-height)
+    "pipeline pipeline pipeline" 52px
+    "library stage inspector" minmax(0, 1fr)
+    / 240px minmax(480px, 1fr) 340px;
+  overflow: hidden;
+}
+
+#vehicle-workshop button,
+#vehicle-workshop input,
+#vehicle-workshop select,
+#vehicle-workshop textarea {
+  font: inherit;
+}
+
+#vehicle-workshop button,
+#vehicle-workshop a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#vehicle-workshop button:focus-visible,
+#vehicle-workshop a:focus-visible,
+#vehicle-workshop input:focus-visible,
+#vehicle-workshop select:focus-visible,
+#vehicle-workshop textarea:focus-visible {
+  outline: 2px solid var(--vw-color-focus);
+  outline-offset: 2px;
+}
+
+.vw-load-state {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--vw-space-3);
+}
+
+.vw-load-state > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--vw-color-accent);
+  animation: vw-spin 900ms linear infinite;
+}
+
+.vw-load-state strong {
+  font-size: var(--vw-text-lg);
+}
+
+.vw-load-state span {
+  color: var(--vw-color-muted);
+  font: 700 var(--vw-text-sm)/1.4 var(--vw-font-mono);
+}
+
+.vw-toolbar {
+  grid-area: toolbar;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--vw-space-2);
+  min-width: 0;
+  padding: 0 var(--vw-space-3);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-1);
+}
+
+.vw-toolbar__identity {
+  min-width: 220px;
+}
+
+.vw-toolbar__identity strong {
+  overflow: hidden;
+  color: var(--vw-color-accent);
+  font-size: var(--vw-text-sm);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-toolbar__spacer {
+  flex: 1;
+  min-width: var(--vw-space-2);
+}
+
+.vw-library-toggle {
+  display: none;
+}
+
+.vw-toolbar__status,
+.vw-stage-health,
+.vw-generator-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vw-color-muted);
+  font: 800 var(--vw-text-xs)/1 var(--vw-font-mono);
+  white-space: nowrap;
+}
+
+.vw-toolbar__status > svg,
+.vw-stage-health > svg,
+.vw-generator-state > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.vw-toolbar__status[data-ready="true"],
+.vw-stage-health[data-ready="true"],
+.vw-generator-state[data-ready="true"] {
+  color: var(--vw-color-green);
+}
+
+.vw-toolbar__status[data-error="true"] {
+  color: var(--vw-color-red);
+}
+
+.vw-command,
+.vw-icon-button,
+.vw-wide-command {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border: var(--vw-rule) solid var(--vw-color-border-strong);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-surface-3);
+  color: var(--vw-color-text);
+  font-size: var(--vw-text-sm);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--vw-dur-fast) var(--vw-ease-out),
+    border-color var(--vw-dur-fast) var(--vw-ease-out),
+    background-color var(--vw-dur-fast) var(--vw-ease-out),
+    transform var(--vw-dur-fast) var(--vw-ease-out);
+}
+
+.vw-command {
+  padding: 0 var(--vw-space-3);
+}
+
+.vw-icon-button {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+}
+
+.vw-wide-command {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--vw-space-4);
+}
+
+.vw-command > svg,
+.vw-icon-button > svg,
+.vw-wide-command > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.vw-command:hover,
+.vw-icon-button:hover,
+.vw-wide-command:hover {
+  border-color: var(--vw-color-accent);
+  color: var(--vw-color-accent);
+}
+
+.vw-command:active,
+.vw-icon-button:active,
+.vw-wide-command:active {
+  transform: translateY(1px);
+}
+
+.vw-command:disabled,
+.vw-icon-button:disabled,
+.vw-wide-command:disabled {
+  border-color: var(--vw-color-border);
+  color: var(--vw-color-dim);
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
+.vw-command.is-primary,
+.vw-wide-command.is-primary {
+  border-color: var(--vw-color-accent);
+  background: var(--vw-color-accent);
+  color: var(--vw-color-accent-ink);
+}
+
+.vw-command.is-primary:hover,
+.vw-wide-command.is-primary:hover {
+  background: var(--vw-color-text);
+  color: var(--vw-color-accent-ink);
+}
+
+.vw-pipeline {
+  grid-area: pipeline;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  min-width: 0;
+  padding: 0 var(--vw-space-4);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-1);
+}
+
+.vw-pipeline__segment {
+  display: block;
+  min-width: 0;
+}
+
+.vw-pipeline button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vw-space-1);
+  min-width: 0;
+  width: 100%;
+  height: 52px;
+  padding: 0 var(--vw-space-2);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vw-color-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vw-pipeline button > span {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: var(--vw-rule) solid var(--vw-color-border);
+  border-radius: 50%;
+  color: var(--vw-color-dim);
+  font: 800 var(--vw-text-xs)/1 var(--vw-font-mono);
+}
+
+.vw-pipeline button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.vw-pipeline button b {
+  overflow: hidden;
+  font-size: var(--vw-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-pipeline button:hover {
+  color: var(--vw-color-text);
+}
+
+.vw-pipeline button[data-complete="true"] > span {
+  border-color: var(--vw-color-green);
+  color: var(--vw-color-green);
+}
+
+.vw-pipeline button.is-active {
+  border-bottom-color: var(--vw-color-accent);
+  color: var(--vw-color-text);
+}
+
+.vw-pipeline button.is-active > span {
+  border-color: var(--vw-color-accent);
+  background: var(--vw-color-accent);
+  color: var(--vw-color-accent-ink);
+}
+
+.vw-library {
+  grid-area: library;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  border-right: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-1);
+}
+
+.vw-library > header,
+.vw-inspector > header,
+.vw-stage > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vw-space-3);
+  min-height: 56px;
+  padding: var(--vw-space-2) var(--vw-space-3);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-2);
+}
+
+.vw-library > header > div,
+.vw-inspector > header > div,
+.vw-stage > header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vw-library > header strong,
+.vw-inspector > header strong {
+  font-size: var(--vw-text-sm);
+  font-weight: 900;
+}
+
+.vw-library > header span,
+.vw-inspector > header span {
+  color: var(--vw-color-muted);
+  font: 700 var(--vw-text-xs)/1 var(--vw-font-mono);
+}
+
+.vw-library__list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--vw-space-2);
+  scrollbar-color: var(--vw-color-border-strong) transparent;
+}
+
+.vw-library__list > button {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 10px;
+  align-items: center;
+  gap: var(--vw-space-2);
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: var(--vw-space-1);
+  padding: var(--vw-space-2);
+  border: var(--vw-rule) solid transparent;
+  border-radius: var(--vw-radius-sm);
+  background: transparent;
+  color: var(--vw-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vw-library__list > button:hover {
+  background: var(--vw-color-surface-2);
+}
+
+.vw-library__list > button.is-selected {
+  border-color: var(--vw-color-accent);
+  background: var(--vw-color-surface-2);
+}
+
+.vw-library__thumb {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-bg);
+  image-rendering: pixelated;
+}
+
+.vw-library__thumb img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.vw-library__thumb svg {
+  width: 22px;
+  color: var(--vw-color-dim);
+}
+
+.vw-library__copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.vw-library__copy strong,
+.vw-library__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-library__copy strong {
+  font-size: var(--vw-text-sm);
+}
+
+.vw-library__copy small {
+  color: var(--vw-color-muted);
+  font: 700 var(--vw-text-xs)/1 var(--vw-font-mono);
+}
+
+.vw-library__list i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--vw-color-orange);
+  color: transparent;
+  font: normal 800 0/1 var(--vw-font-mono);
+  text-transform: uppercase;
+}
+
+.vw-library__list i[data-ready="true"] {
+  background: var(--vw-color-green);
+}
+
+.vw-new-vehicle {
+  display: grid;
+  gap: var(--vw-space-2);
+  padding: var(--vw-space-3);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-2);
+}
+
+.vw-new-vehicle label,
+.vw-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--vw-color-muted);
+  font: 800 var(--vw-text-xs)/1.2 var(--vw-font-mono);
+  text-transform: uppercase;
+}
+
+.vw-new-vehicle input,
+.vw-new-vehicle textarea,
+.vw-field input,
+.vw-field textarea,
+.vw-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--vw-space-2);
+  border: var(--vw-rule) solid var(--vw-color-border-strong);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-bg);
+  color: var(--vw-color-text);
+  font: 600 var(--vw-text-sm)/1.4 var(--vw-font-ui);
+  text-transform: none;
+  resize: vertical;
+}
+
+.vw-new-vehicle > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--vw-space-2);
+}
+
+.vw-stage {
+  grid-area: stage;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--vw-color-bg);
+}
+
+.vw-stage.has-frames {
+  grid-template-rows: auto minmax(0, 1fr) 86px;
+}
+
+.vw-stage > header {
+  background: var(--vw-color-surface-1);
+}
+
+.vw-stage > header > div:first-child span {
+  color: var(--vw-color-accent);
+  font: 800 var(--vw-text-xs)/1 var(--vw-font-mono);
+  text-transform: uppercase;
+}
+
+.vw-stage > header > div:first-child strong {
+  overflow: hidden;
+  font-size: var(--vw-text-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-stage > header > div:first-child small {
+  overflow: hidden;
+  max-width: 62ch;
+  color: var(--vw-color-muted);
+  font-size: var(--vw-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-stage__readout {
+  text-align: right;
+}
+
+.vw-stage__readout span {
+  color: var(--vw-color-muted);
+  font-size: var(--vw-text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.vw-stage__readout b {
+  font: 700 var(--vw-text-xs)/1 var(--vw-font-mono);
+}
+
+.vw-stage__canvas {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  background-color: var(--vw-color-bg);
+}
+
+.vw-stage__canvas.is-fit {
+  background-image:
+    linear-gradient(to right, var(--vw-color-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--vw-color-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.vw-stage__vehicle {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: min(60vh, 430px);
+  height: min(60vh, 430px);
+  place-items: center;
+}
+
+.vw-stage__vehicle > img {
+  z-index: 2;
+  width: 288px;
+  height: 288px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.vw-stage__collision {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  border: 1px solid var(--vw-color-orange);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.vw-stage__collision::before,
+.vw-stage__collision::after {
+  position: absolute;
+  background: var(--vw-color-orange);
+  content: "";
+}
+
+.vw-stage__collision::before {
+  top: 50%;
+  left: -4px;
+  width: calc(100% + 8px);
+  height: 1px;
+}
+
+.vw-stage__collision::after {
+  top: -4px;
+  left: 50%;
+  width: 1px;
+  height: calc(100% + 8px);
+}
+
+.vw-axis {
+  position: absolute;
+  z-index: 1;
+  background: var(--vw-color-border-strong);
+  opacity: 0.5;
+}
+
+.vw-axis.is-x {
+  width: 100%;
+  height: 1px;
+}
+
+.vw-axis.is-y {
+  width: 1px;
+  height: 100%;
+}
+
+.vw-stage__missing {
+  display: grid;
+  justify-items: center;
+  gap: var(--vw-space-2);
+  color: var(--vw-color-dim);
+  font: 700 var(--vw-text-sm)/1 var(--vw-font-mono);
+}
+
+.vw-stage__missing svg {
+  width: 34px;
+  height: 34px;
+}
+
+.vw-frame-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  padding: var(--vw-space-2);
+  border-top: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-1);
+}
+
+.vw-frame-strip button {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--vw-space-2);
+  min-width: 0;
+  padding: var(--vw-space-1) var(--vw-space-2);
+  border: 0;
+  border-right: var(--vw-rule) solid var(--vw-color-border);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-bg);
+  color: var(--vw-color-muted);
+  cursor: pointer;
+}
+
+.vw-frame-strip button:hover {
+  border-color: var(--vw-color-border-strong);
+  color: var(--vw-color-text);
+}
+
+.vw-frame-strip button.is-selected {
+  border-color: var(--vw-color-accent);
+  color: var(--vw-color-accent);
+}
+
+.vw-frame-strip button[data-ready="true"] span {
+  border-color: var(--vw-color-green);
+}
+
+.vw-frame-strip button > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  image-rendering: pixelated;
+}
+
+.vw-frame-strip img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.vw-frame-strip svg {
+  width: 18px;
+}
+
+.vw-frame-strip small {
+  overflow: hidden;
+  font: 800 var(--vw-text-xs)/1 var(--vw-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-inspector {
+  grid-area: inspector;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  border-left: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface-1);
+}
+
+.vw-inspector__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--vw-space-6);
+  scrollbar-color: var(--vw-color-border-strong) transparent;
+}
+
+.vw-panel-section {
+  display: grid;
+  gap: var(--vw-space-3);
+  padding: var(--vw-space-4);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+}
+
+.vw-panel-section > header {
+  display: grid;
+  gap: var(--vw-space-1);
+}
+
+.vw-panel-section > header strong {
+  font-size: var(--vw-text-sm);
+}
+
+.vw-panel-section > header p {
+  margin: 0;
+  color: var(--vw-color-muted);
+  font-size: var(--vw-text-xs);
+  line-height: 1.5;
+}
+
+.vw-generator-state {
+  min-height: 34px;
+  padding: 0 var(--vw-space-3);
+  border: var(--vw-rule) solid var(--vw-color-border);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-bg);
+}
+
+.vw-file-input {
+  display: none;
+}
+
+.vw-candidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vw-space-2);
+}
+
+.vw-candidates button {
+  display: grid;
+  gap: var(--vw-space-1);
+  min-width: 0;
+  padding: var(--vw-space-2);
+  border: var(--vw-rule) solid var(--vw-color-border);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-bg);
+  color: var(--vw-color-muted);
+  cursor: pointer;
+}
+
+.vw-candidates button:hover,
+.vw-candidates button.is-selected {
+  border-color: var(--vw-color-accent);
+  color: var(--vw-color-accent);
+}
+
+.vw-candidates img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.vw-candidates span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vw-space-1);
+  min-height: 24px;
+  font: 800 var(--vw-text-xs)/1 var(--vw-font-mono);
+}
+
+.vw-candidates svg {
+  width: 12px;
+}
+
+.vw-number-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vw-space-2);
+}
+
+.vw-toggle {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--vw-space-2);
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.vw-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vw-toggle > span {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border: var(--vw-rule) solid var(--vw-color-border-strong);
+  border-radius: var(--vw-radius-md);
+  background: var(--vw-color-bg);
+}
+
+.vw-toggle > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-muted);
+  content: "";
+  transition: transform var(--vw-dur-fast) var(--vw-ease-out);
+}
+
+.vw-toggle input:checked + span {
+  border-color: var(--vw-color-green);
+  background: var(--vw-color-green);
+}
+
+.vw-toggle input:checked + span::after {
+  background: var(--vw-color-accent-ink);
+  transform: translateX(16px);
+}
+
+.vw-toggle input:focus-visible + span {
+  outline: 2px solid var(--vw-color-focus);
+  outline-offset: 2px;
+}
+
+.vw-toggle b {
+  font-size: var(--vw-text-sm);
+}
+
+.vw-checklist {
+  display: grid;
+  gap: var(--vw-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vw-checklist li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--vw-space-2);
+  min-height: 30px;
+  color: var(--vw-color-muted);
+  font-size: var(--vw-text-sm);
+}
+
+.vw-checklist li svg {
+  width: 16px;
+  color: var(--vw-color-orange);
+}
+
+.vw-checklist li[data-ready="true"] {
+  color: var(--vw-color-text);
+}
+
+.vw-checklist li[data-ready="true"] svg {
+  color: var(--vw-color-green);
+}
+
+.vw-issues {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--vw-space-2);
+  margin: var(--vw-space-4);
+  padding: var(--vw-space-3);
+  border: var(--vw-rule) solid var(--vw-color-red);
+  border-radius: var(--vw-radius-sm);
+  background: var(--vw-color-bg);
+  color: var(--vw-color-red);
+}
+
+.vw-issues > svg {
+  width: 18px;
+}
+
+.vw-issues > div {
+  display: grid;
+  gap: var(--vw-space-1);
+  min-width: 0;
+  font: 700 var(--vw-text-xs)/1.4 var(--vw-font-mono);
+}
+
+.vw-empty-workspace {
+  grid-area: stage / stage / inspector / inspector;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--vw-space-3);
+  color: var(--vw-color-muted);
+}
+
+.vw-empty-workspace svg {
+  width: 52px;
+}
+
+.is-spinning {
+  animation: vw-spin 900ms linear infinite;
+}
+
+@keyframes vw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1180px) {
+  #vehicle-workshop {
+    grid-template:
+      "toolbar toolbar" var(--vw-toolbar-height)
+      "pipeline pipeline" 52px
+      "stage inspector" minmax(0, 1fr)
+      / minmax(420px, 1fr) 340px;
+  }
+
+  .vw-library {
+    position: fixed;
+    z-index: 60;
+    top: calc(var(--vw-toolbar-height) + 52px);
+    bottom: 0;
+    left: 0;
+    width: 286px;
+    transform: translateX(-100%);
+    transition: transform var(--vw-dur-med) var(--vw-ease-out);
+  }
+
+  .vw-library.is-open {
+    transform: translateX(0);
+    box-shadow: 18px 0 48px var(--vw-color-drawer-shadow);
+  }
+
+  .vw-library-toggle {
+    display: inline-flex;
+  }
+
+  .vw-toolbar__identity {
+    min-width: 0;
+  }
+
+  .vw-frame-strip button {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+@media (max-width: 820px) {
+  #vehicle-workshop {
+    min-height: 100dvh;
+    height: auto;
+    grid-template:
+      "toolbar" auto
+      "pipeline" auto
+      "library" auto
+      "stage" minmax(500px, 70dvh)
+      "inspector" auto
+      / minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .vw-toolbar {
+    min-height: var(--vw-toolbar-height);
+    flex-wrap: wrap;
+    padding-block: var(--vw-space-2);
+  }
+
+  .vw-toolbar__status {
+    display: none;
+  }
+
+  .vw-library {
+    position: static;
+    width: auto;
+    max-height: 320px;
+    border-right: 0;
+    border-bottom: var(--vw-rule) solid var(--vw-color-border);
+    transform: none;
+  }
+
+  .vw-library-toggle {
+    display: none;
+  }
+
+  .vw-command {
+    min-height: 44px;
+  }
+
+  .vw-pipeline {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--vw-space-1);
+    padding-block: var(--vw-space-2);
+  }
+
+  .vw-pipeline__segment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vw-pipeline__segment > svg {
+    display: none;
+  }
+
+  .vw-pipeline button {
+    min-height: 44px;
+    height: auto;
+  }
+
+  .vw-stage {
+    min-height: 500px;
+  }
+
+  .vw-inspector {
+    min-height: 520px;
+    border-top: var(--vw-rule) solid var(--vw-color-border);
+    border-left: 0;
+  }
+
+  .vw-inspector__body {
+    overflow: visible;
+  }
+
+}
+
+@media (max-width: 520px) {
+  .vw-toolbar__identity span,
+  .vw-toolbar .vw-command:not(.is-primary) {
+    display: none;
+  }
+
+  .vw-pipeline button {
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding-inline: var(--vw-space-1);
+  }
+
+  .vw-pipeline button > span {
+    width: 24px;
+    height: 24px;
+  }
+
+  .vw-stage__vehicle {
+    width: 100%;
+    height: 360px;
+  }
+
+  .vw-stage__vehicle > img {
+    width: 240px;
+    height: 240px;
+  }
+
+  .vw-frame-strip {
+    height: 92px;
+  }
+
+  .vw-frame-strip button > span {
+    width: 44px;
+    height: 44px;
+  }
+
+  .vw-frame-strip img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .vw-number-grid,
+  .vw-candidates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vw-test-drive {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: 58px minmax(0, 1fr) 48px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--vw-color-bg);
+  color: var(--vw-color-text);
+}
+
+.vw-test-drive > header {
+  display: flex;
+  align-items: center;
+  gap: var(--vw-space-3);
+  padding: 0 var(--vw-space-3);
+  border-bottom: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface);
+}
+
+.vw-test-drive > header > div:first-child {
+  display: grid;
+  min-width: 0;
+}
+
+.vw-test-drive > header > div:first-child span,
+.vw-test-drive__speed span {
+  color: var(--vw-color-muted);
+  font-family: var(--vw-font-mono);
+  font-size: var(--vw-text-xs);
+  text-transform: uppercase;
+}
+
+.vw-test-drive > header > div:first-child strong {
+  overflow: hidden;
+  font-size: var(--vw-text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-test-drive__speed {
+  display: grid;
+  grid-template-columns: 18px auto;
+  align-items: center;
+  column-gap: var(--vw-space-1);
+  margin-left: auto;
+}
+
+.vw-test-drive__speed svg {
+  grid-row: 1 / 3;
+  width: 18px;
+  height: 18px;
+  color: var(--vw-color-accent);
+}
+
+.vw-test-drive__speed strong {
+  color: var(--vw-color-accent);
+  font-family: var(--vw-font-mono);
+  font-size: var(--vw-text-lg);
+  line-height: 1;
+}
+
+.vw-test-drive__drift {
+  min-width: 64px;
+  color: var(--vw-color-muted);
+  font-family: var(--vw-font-mono);
+  font-size: var(--vw-text-xs);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.vw-test-drive__drift[data-active="true"] {
+  color: var(--vw-color-accent);
+}
+
+.vw-test-drive__canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #171b19;
+}
+
+.vw-test-drive__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.vw-test-drive > footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vw-space-4);
+  overflow-x: auto;
+  padding: 0 var(--vw-space-3);
+  border-top: var(--vw-rule) solid var(--vw-color-border);
+  background: var(--vw-color-surface);
+  color: var(--vw-color-muted);
+  font-family: var(--vw-font-mono);
+  font-size: var(--vw-text-sm);
+  white-space: nowrap;
+}
+
+.vw-test-drive kbd {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-right: var(--vw-space-1);
+  padding: 0 var(--vw-space-1);
+  border: var(--vw-rule) solid var(--vw-color-border-strong);
+  background: var(--vw-color-surface-3);
+  color: var(--vw-color-text);
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  .vw-test-drive {
+    grid-template-rows: 54px minmax(0, 1fr) 44px;
+  }
+
+  .vw-test-drive > header {
+    gap: var(--vw-space-2);
+    padding-inline: var(--vw-space-2);
+  }
+
+  .vw-test-drive > header .vw-command {
+    width: 40px;
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+    gap: 0;
+  }
+
+  .vw-test-drive > header .vw-command svg {
+    flex: 0 0 auto;
+    color: var(--vw-color-text);
+  }
+
+  .vw-test-drive__drift {
+    display: none;
+  }
+
+  .vw-test-drive > footer {
+    justify-content: flex-start;
+    gap: var(--vw-space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vw-command,
+  .vw-icon-button,
+  .vw-wide-command,
+  .vw-toggle > span::after {
+    transition-duration: 0ms;
+  }
+
+  .is-spinning,
+  .vw-load-state > svg {
+    animation-duration: 1500ms;
+  }
+}

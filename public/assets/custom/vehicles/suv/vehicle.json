@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "suv",
+  "label": "Compact SUV",
+  "status": "ready",
+  "class": "civilian",
+  "seats": 4,
+  "radius": 22,
+  "maxHealth": 1120,
+  "mass": 1.22,
+  "collisionDamageScale": 0.86,
+  "collision": {
+    "length": 66,
+    "width": 36
+  },
+  "handling": {
+    "forwardAcceleration": 355,
+    "reverseAcceleration": 245,
+    "coastDeceleration": 145,
+    "brakeDeceleration": 300,
+    "maximumForwardSpeed": 382,
+    "maximumReverseSpeed": 105,
+    "steeringRate": 2.08,
+    "steeringGripFloor": 0.2,
+    "steeringGripSpeed": 105,
+    "lateralGrip": 19,
+    "handbrakeLateralGrip": 1.05,
+    "yawResponse": 10,
+    "handbrakeTurnMultiplier": 1.18,
+    "powerOversteer": 0.02
+  },
+  "traffic": {
+    "cruiseSpeed": 104,
+    "acceleration": 74,
+    "brakeDeceleration": 315,
+    "minimumGap": 34,
+    "followingTime": 0.7,
+    "pedestrianGap": 44,
+    "lookAhead": 265
+  },
+  "population": {
+    "parked": true,
+    "ambientTraffic": true,
+    "weight": 2
+  },
+  "presentation": {
+    "atlasRow": 5,
+    "width": 96,
+    "height": 96,
+    "emergencyLights": false,
+    "offsets": {
+      "closed": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "front-left": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "front-right": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "rear-left": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "rear-right": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  },
+  "generation": {
+    "prompt": "Black compact four-door civilian SUV with a broad roof and practical urban proportions.",
+    "model": "gpt-image-2"
+  }
+}

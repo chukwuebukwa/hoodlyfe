@@ -1,0 +1,12 @@
+{
+  "id": "suv",
+  "cellSize": 96,
+  "frames": [
+    "closed",
+    "front-left",
+    "front-right",
+    "rear-left",
+    "rear-right"
+  ],
+  "source": "extracted from public/assets/custom/actions/vehicle-doors.png"
+}

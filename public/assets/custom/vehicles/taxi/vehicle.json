@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "taxi",
+  "label": "Taxi",
+  "status": "ready",
+  "class": "service",
+  "seats": 4,
+  "radius": 20,
+  "maxHealth": 950,
+  "mass": 1.05,
+  "collisionDamageScale": 0.95,
+  "collision": {
+    "length": 57,
+    "width": 32
+  },
+  "handling": {
+    "forwardAcceleration": 360,
+    "reverseAcceleration": 250,
+    "coastDeceleration": 165,
+    "brakeDeceleration": 300,
+    "maximumForwardSpeed": 385,
+    "maximumReverseSpeed": 105,
+    "steeringRate": 2.5,
+    "steeringGripFloor": 0.25,
+    "steeringGripSpeed": 110,
+    "lateralGrip": 17,
+    "handbrakeLateralGrip": 1.3,
+    "yawResponse": 11,
+    "handbrakeTurnMultiplier": 1.38,
+    "powerOversteer": 0.06
+  },
+  "traffic": {
+    "cruiseSpeed": 108,
+    "acceleration": 78,
+    "brakeDeceleration": 310,
+    "minimumGap": 30,
+    "followingTime": 0.64,
+    "pedestrianGap": 40,
+    "lookAhead": 250
+  },
+  "population": {
+    "parked": true,
+    "ambientTraffic": true,
+    "weight": 2
+  },
+  "presentation": {
+    "atlasRow": 2,
+    "width": 96,
+    "height": 96,
+    "emergencyLights": false,
+    "offsets": {
+      "closed": {
+        "x": -7.5,
+        "y": -11.5
+      },
+      "front-left": {
+        "x": -9.5,
+        "y": -12
+      },
+      "front-right": {
+        "x": -1,
+        "y": -11
+      },
+      "rear-left": {
+        "x": 5,
+        "y": -11.5
+      },
+      "rear-right": {
+        "x": 4,
+        "y": -11.5
+      }
+    }
+  },
+  "generation": {
+    "prompt": "Four-door yellow city taxi with a compact rooftop taxi sign.",
+    "model": "legacy-import"
+  }
+}

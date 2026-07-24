@@ -5,10 +5,15 @@ import {
   type DistrictPopulationZone,
   type PopulationMix
 } from '../../../shared/content/district-population-zones.ts';
-import {CIVILIAN_TRAFFIC_VEHICLE_KINDS} from '../../../shared/content/vehicle-catalog.ts';
+import {
+  CIVILIAN_TRAFFIC_VEHICLE_KINDS,
+  vehicleDefinition
+} from '../../../shared/content/vehicle-catalog.ts';
 
 const DAY_MINUTES = 24 * 60;
-const VEHICLE_ORDER: readonly AmbientVehicleKind[] = CIVILIAN_TRAFFIC_VEHICLE_KINDS;
+const VEHICLE_ORDER = CIVILIAN_TRAFFIC_VEHICLE_KINDS.filter(
+  (kind): kind is AmbientVehicleKind => kind !== 'police'
+);
 
 export interface ResolvedPopulationProfile extends PopulationMix {
   zone: DistrictPopulationZone;
@@ -47,12 +52,14 @@ export function populationProfileAt(
     pedestrianDensity: mix(zone.night.pedestrianDensity, zone.day.pedestrianDensity, dayWeight),
     trafficDensity: mix(zone.night.trafficDensity, zone.day.trafficDensity, dayWeight),
     policeShare: mix(zone.night.policeShare, zone.day.policeShare, dayWeight),
-    vehicleWeights: Object.freeze({
-      sedan: mix(zone.night.vehicleWeights.sedan, zone.day.vehicleWeights.sedan, dayWeight),
-      taxi: mix(zone.night.vehicleWeights.taxi, zone.day.vehicleWeights.taxi, dayWeight),
-      r33: mix(zone.night.vehicleWeights.r33, zone.day.vehicleWeights.r33, dayWeight),
-      s15: mix(zone.night.vehicleWeights.s15, zone.day.vehicleWeights.s15, dayWeight)
-    })
+    vehicleWeights: Object.freeze(Object.fromEntries(VEHICLE_ORDER.map((kind) => {
+      const fallback = vehicleDefinition(kind).population.weight;
+      return [kind, mix(
+        zone.night.vehicleWeights[kind] ?? fallback,
+        zone.day.vehicleWeights[kind] ?? fallback,
+        dayWeight
+      )];
+    })) as Record<AmbientVehicleKind, number>)
   };
 }
 
@@ -72,13 +79,19 @@ export function vehicleKindForProfile(
   sample: number
 ): AmbientVehicleKind {
   const total = VEHICLE_ORDER.reduce(
-    (sum, kind) => sum + Math.max(0, finite(profile.vehicleWeights[kind])),
+    (sum, kind) => sum + Math.max(
+      0,
+      finite(profile.vehicleWeights[kind] ?? vehicleDefinition(kind).population.weight)
+    ),
     0
   );
   if (total <= 0) return 'sedan';
   let cursor = clamp01(sample) * total;
   for (const kind of VEHICLE_ORDER) {
-    cursor -= Math.max(0, finite(profile.vehicleWeights[kind]));
+    cursor -= Math.max(
+      0,
+      finite(profile.vehicleWeights[kind] ?? vehicleDefinition(kind).population.weight)
+    );
     if (cursor < 0) return kind;
   }
   return VEHICLE_ORDER[VEHICLE_ORDER.length - 1];

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "date": "2026-07-24",
+  "surface": "/vehicles",
+  "audience": "Internal vehicle artists and developers now; community creators later",
+  "primaryTask": "Create a complete playable vehicle from a text brief or uploaded closed-car image",
+  "tone": "Technical, compact, industrial",
+  "genre": "modern-minimal",
+  "macrostructure": "Focused workbench",
+  "theme": "NOCK0 industrial",
+  "pipeline": [
+    "Brief",
+    "Closed car",
+    "Doors",
+    "Fit",
+    "Tune",
+    "Build"
+  ]
+}

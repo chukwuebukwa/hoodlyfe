@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "sedan",
+  "label": "Sedan",
+  "status": "ready",
+  "class": "civilian",
+  "seats": 4,
+  "radius": 20,
+  "maxHealth": 1000,
+  "mass": 1,
+  "collisionDamageScale": 1,
+  "collision": {
+    "length": 58,
+    "width": 32
+  },
+  "handling": {
+    "forwardAcceleration": 390,
+    "reverseAcceleration": 270,
+    "coastDeceleration": 150,
+    "brakeDeceleration": 280,
+    "maximumForwardSpeed": 410,
+    "maximumReverseSpeed": 115,
+    "steeringRate": 2.35,
+    "steeringGripFloor": 0.22,
+    "steeringGripSpeed": 120,
+    "lateralGrip": 18,
+    "handbrakeLateralGrip": 1.4,
+    "yawResponse": 12,
+    "handbrakeTurnMultiplier": 1.35,
+    "powerOversteer": 0.05
+  },
+  "traffic": {
+    "cruiseSpeed": 118,
+    "acceleration": 85,
+    "brakeDeceleration": 290,
+    "minimumGap": 28,
+    "followingTime": 0.58,
+    "pedestrianGap": 38,
+    "lookAhead": 260
+  },
+  "population": {
+    "parked": true,
+    "ambientTraffic": true,
+    "weight": 6
+  },
+  "presentation": {
+    "atlasRow": 0,
+    "width": 96,
+    "height": 96,
+    "emergencyLights": false,
+    "offsets": {
+      "closed": {
+        "x": -19.5,
+        "y": 7.5
+      },
+      "front-left": {
+        "x": -5,
+        "y": 0
+      },
+      "front-right": {
+        "x": 5,
+        "y": 0
+      },
+      "rear-left": {
+        "x": 1.5,
+        "y": 0.5
+      },
+      "rear-right": {
+        "x": 15.5,
+        "y": 8
+      }
+    }
+  },
+  "generation": {
+    "prompt": "Classic four-door civilian sedan, neutral dark paint, practical city traffic vehicle.",
+    "model": "legacy-import"
+  }
+}

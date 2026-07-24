@@ -19,14 +19,14 @@ test('district bootstrap creates deterministic valid population exactly once', (
   assert.deepEqual(first.population.populate(), {
     civilians: 10,
     police: 3,
-    parkedVehicles: 5,
+    parkedVehicles: 6,
     trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   second.population.populate();
 
   assert.equal(first.state.npcs.size, 13);
-  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 5);
-  assert.equal(first.spawnedVehicles.length, AMBIENT_TRAFFIC_TARGET + 5);
+  assert.equal(first.state.vehicles.size, AMBIENT_TRAFFIC_TARGET + 6);
+  assert.equal(first.spawnedVehicles.length, AMBIENT_TRAFFIC_TARGET + 6);
   assert.equal(first.state.missionContactX, first.world.spawn.x);
   assert.equal(first.state.missionContactY, first.world.spawn.y);
   assert.deepEqual(
@@ -73,7 +73,7 @@ test('district bootstrap creates deterministic valid population exactly once', (
   assert.deepEqual(first.population.populate(), {
     civilians: 10,
     police: 3,
-    parkedVehicles: 5,
+    parkedVehicles: 6,
     trafficVehicles: AMBIENT_TRAFFIC_TARGET
   });
   assert.deepEqual({
@@ -106,11 +106,11 @@ test('district bootstrap can delegate all ambient moving population to streaming
   assert.deepEqual(population.populate(), {
     civilians: 0,
     police: 0,
-    parkedVehicles: 5,
+    parkedVehicles: 6,
     trafficVehicles: 0
   });
   assert.equal(state.npcs.size, 0);
-  assert.equal(state.vehicles.size, 5);
+  assert.equal(state.vehicles.size, 6);
 });
 
 function createPopulation(

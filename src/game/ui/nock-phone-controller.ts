@@ -47,10 +47,19 @@ export class NockPhoneController {
     this.button = root.querySelector<HTMLButtonElement>('#phone-button');
     this.button?.addEventListener('click', this.handleButtonClick);
     root.addEventListener('keydown', this.handleKeyDown);
+    this.setAvailable(false);
   }
 
   isOpen(): boolean {
     return Boolean(this.popup && !this.popup.classList.contains('hidden'));
+  }
+
+  setAvailable(available: boolean): void {
+    if (!this.button) return;
+    this.button.classList.toggle('hidden', !available);
+    this.button.setAttribute('aria-hidden', String(!available));
+    this.button.tabIndex = available ? 0 : -1;
+    if (!available) this.close();
   }
 
   synchronize(state: DistrictNetworkState, localPlayerId: string): void {
@@ -71,6 +80,7 @@ export class NockPhoneController {
     this.popup = undefined;
     this.renderedMarkup = undefined;
     this.button?.setAttribute('aria-expanded', 'false');
+    this.setAvailable(false);
     if (NockPhoneController.shared === this) NockPhoneController.shared = undefined;
   }
 

@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   integrateVehicleMotion,
+  integrateVehicleMotionWithHandling,
   integrateVehiclePose,
   VEHICLE_SIMULATION_STEP_SECONDS,
   vehicleMechanicalStepModifiers,
   vehicleSlipAngle
 } from '../shared/simulation/vehicle-step.ts';
+import {vehicleDefinition} from '../shared/content/vehicle-catalog.ts';
 import {VEHICLE_TYRE} from '../shared/simulation/vehicle-tyre-state.ts';
 
 test('shared vehicle step fails closed on non-finite commands and modifiers', () => {
@@ -44,6 +46,23 @@ test('vehicle motion preserves finite lateral velocity and yaw state', () => {
     linvelY: 0,
     angvel: 0
   });
+});
+
+test('manifest handling integration matches the catalog vehicle step', () => {
+  const command = {throttle: 0.8, steering: -0.35, handbrake: true};
+  const catalogStep = integrateVehicleMotion(
+    motion(),
+    command,
+    'sedan',
+    VEHICLE_SIMULATION_STEP_SECONDS
+  );
+  const manifestStep = integrateVehicleMotionWithHandling(
+    motion(),
+    command,
+    vehicleDefinition('sedan').handling,
+    VEHICLE_SIMULATION_STEP_SECONDS
+  );
+  assert.deepEqual(manifestStep, catalogStep);
 });
 
 test('sports cars develop more handbrake slip than normal cornering and recover', () => {

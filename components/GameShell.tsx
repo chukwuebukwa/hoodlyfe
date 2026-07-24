@@ -160,7 +160,7 @@ const GAME_SHELL_HTML = `
   <div id="vehicle-handbrake-hint" class="hud-layer context-control hidden" aria-hidden="true">
     <kbd>Space</kbd><span>Handbrake</span>
   </div>
-  <button id="phone-button" class="hud-layer" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open phone">
+  <button id="phone-button" class="hud-layer hidden" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open phone" aria-hidden="true">
     <span>NOCK</span>
     <strong>PHONE</strong>
   </button>
