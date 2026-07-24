@@ -12,8 +12,8 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const group = new THREE.Group();
   group.name = 'shop-beacon';
 
-  const source = new THREE.Vector3(0, -78, 74);
-  const target = new THREE.Vector3(0, 18, -5);
+  const source = new THREE.Vector3(0, 62, 68);
+  const target = new THREE.Vector3(0, -58, -5);
   const beamDirection = source.clone().sub(target);
   const beamLength = beamDirection.length();
 
@@ -110,7 +110,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const cast = new THREE.PointLight(options.color, 4.6 * intensity, 220, 2);
   cast.name = 'shop-beacon-light';
   cast.userData.role = 'shop-beacon-light';
-  cast.position.set(0, -4, 34);
+  cast.position.set(0, 24, 34);
 
   group.add(ground, beam, bloom, cast);
   return group;

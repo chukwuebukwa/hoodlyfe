@@ -8,6 +8,7 @@ test('shop beacon combines an additive ray, soft ground projection, and strong c
   const ray = beacon.getObjectByName('shop-beacon-ray');
   const ground = beacon.getObjectByName('shop-beacon-ground');
   const light = beacon.getObjectByName('shop-beacon-light');
+  const bloom = beacon.getObjectByName('shop-beacon-bloom');
 
   assert.ok(ray instanceof THREE.Mesh);
   assert.ok(ray.geometry instanceof THREE.ConeGeometry);
@@ -24,6 +25,10 @@ test('shop beacon combines an additive ray, soft ground projection, and strong c
   assert.ok(light instanceof THREE.PointLight);
   assert.equal(light.color.getHex(), 0x20dcff);
   assert.ok(light.intensity > 4);
+
+  assert.ok(bloom instanceof THREE.Mesh);
+  assert.ok(bloom.position.y > ground.position.y);
+  assert.ok(light.position.y > ground.position.y);
 
   assert.equal(beacon.getObjectByName('shop-beacon-pole'), undefined);
   assert.equal(beacon.getObjectByName('shop-beacon-housing'), undefined);
