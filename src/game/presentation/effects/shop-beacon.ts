@@ -79,14 +79,10 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
         uniform float beaconOpacity;
         void main() {
           vec2 point = beaconUv * 2.0 - 1.0;
-          float progress = clamp((point.y + 1.0) * 0.5, 0.0, 1.0);
-          float beamWidth = mix(0.16, 0.88, progress);
-          float lateral = 1.0 - smoothstep(beamWidth * 0.56, beamWidth, abs(point.x));
-          float longitudinal = smoothstep(-1.0, -0.72, point.y)
-            * (1.0 - smoothstep(0.58, 1.0, point.y));
-          vec2 poolPoint = vec2(point.x * 0.82, (point.y - 0.36) * 0.74);
-          float pool = exp(-3.15 * dot(poolPoint, poolPoint));
-          float alpha = (lateral * longitudinal * 0.46 + pool * 0.68) * beaconOpacity;
+          vec2 poolPoint = vec2(point.x * 0.78, point.y * 1.18);
+          float pool = exp(-3.4 * dot(poolPoint, poolPoint));
+          float edgeFade = 1.0 - smoothstep(0.52, 1.0, length(point));
+          float alpha = pool * edgeFade * 0.72 * beaconOpacity;
           gl_FragColor = vec4(beaconColor, alpha);
         }
       `,

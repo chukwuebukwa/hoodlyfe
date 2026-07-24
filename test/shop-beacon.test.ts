@@ -20,8 +20,8 @@ test('shop beacon combines an additive ray, soft ground projection, and strong c
 
   assert.ok(ground instanceof THREE.Mesh);
   assert.ok(ground.material instanceof THREE.ShaderMaterial);
-  assert.match(ground.material.fragmentShader, /beamWidth/);
   assert.match(ground.material.fragmentShader, /pool/);
+  assert.doesNotMatch(ground.material.fragmentShader, /beamWidth/);
 
   assert.ok(light instanceof THREE.PointLight);
   assert.equal(light.color.getHex(), 0x20dcff);
