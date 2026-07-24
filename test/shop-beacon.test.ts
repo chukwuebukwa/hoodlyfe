@@ -33,8 +33,8 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.ok(light.intensity > 4);
 
   assert.ok(bloom instanceof THREE.Mesh);
-  assert.ok(bloom.position.y > light.position.y);
-  assert.ok(light.position.y > ray.position.y);
+  assert.ok(bloom.position.y < light.position.y);
+  assert.ok(light.position.y < ray.position.y);
   assert.ok(bloom.position.z > ray.position.z);
 
   assert.equal(beacon.getObjectByName('shop-beacon-pole'), undefined);
