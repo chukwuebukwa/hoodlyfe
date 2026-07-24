@@ -95,12 +95,27 @@ test('live projectile impact stops at the target hitbox entry', () => {
   assert.ok(Math.abs(impact.x - 19) < 1e-9);
 });
 
+test('police use a reduced-damage pistol without changing the player pistol', () => {
+  const setup = fixture(() => false);
+  const target = player('target', 34, 0);
+  target.wanted = 2;
+  setup.state.players.set(target.id, target);
+  const bullet = setup.bullet();
+  bullet.ownerId = 'officer';
+  bullet.ownerKind = 'police';
+
+  setup.controller.update(bullet, bullet.id, 0.016, 1_216);
+
+  assert.deepEqual(setup.playerDamages, [13]);
+});
+
 function fixture(blocked: (x: number, y: number) => boolean): {
   state: DistrictState;
   controller: ProjectileController;
   capture: (time: number) => void;
   bullet: () => BulletState;
   impacts: () => ProjectileImpactEvent[];
+  readonly playerDamages: number[];
   readonly playerHits: number;
 } {
   const state = new DistrictState();
@@ -109,6 +124,7 @@ function fixture(blocked: (x: number, y: number) => boolean): {
   const history = new CombatHitboxHistory();
   const events = new GameEventStream();
   let playerHits = 0;
+  const playerDamages: number[] = [];
   const controller = new ProjectileController({
     state,
     world: {isBlockedAt: blocked} as any,
@@ -119,8 +135,9 @@ function fixture(blocked: (x: number, y: number) => boolean): {
       damage: () => undefined
     } as any,
     damage: {
-      player: () => {
+      player: (_target: PlayerState, amount: number) => {
         playerHits++;
+        playerDamages.push(amount);
       },
       npc: () => undefined
     } as any,
@@ -159,6 +176,9 @@ function fixture(blocked: (x: number, y: number) => boolean): {
     },
     get playerHits() {
       return playerHits;
+    },
+    get playerDamages() {
+      return playerDamages;
     }
   };
 }

@@ -1,6 +1,10 @@
 import type {BulletState, DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import {WEAPONS, isBulletWeaponId} from '../../../shared/content/weapon-catalog.ts';
+import {
+  WEAPONS,
+  isBulletWeaponId,
+  type BulletWeaponDefinition
+} from '../../../shared/content/weapon-catalog.ts';
 import {SIMULATION_STEP_MS} from '../../../shared/simulation/timing.ts';
 import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
@@ -15,6 +19,7 @@ import {
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
 const VEHICLE_RADIUS = 20;
+const POLICE_PISTOL_DAMAGE = 13;
 
 interface ProjectileControllerOptions {
   state: DistrictState;
@@ -125,6 +130,7 @@ export class ProjectileController {
 
   update(bullet: BulletState, bulletId: string, deltaSeconds: number, nowMs: number): void {
     const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
+    const damage = projectileDamage(bullet, weapon);
     if (nowMs - bullet.createdAt > weapon.lifetimeMs) {
       this.options.remove(bulletId);
       return;
@@ -173,7 +179,7 @@ export class ProjectileController {
       );
       this.options.damage.player(
         target,
-        weapon.damage,
+        damage,
         bullet.ownerId,
         nowMs,
         'assault',
@@ -204,7 +210,7 @@ export class ProjectileController {
       );
       this.options.vehicles.damage(
         target,
-        this.options.vehicles.weaponDamage(weapon.damage),
+        this.options.vehicles.weaponDamage(damage),
         bullet.ownerId,
         'weapon',
         nowMs,
@@ -227,7 +233,7 @@ export class ProjectileController {
       );
       this.options.damage.npc(
         target,
-        weapon.damage,
+        damage,
         bullet.ownerId,
         nowMs,
         undefined,
@@ -270,6 +276,7 @@ export class ProjectileController {
       return;
     }
     const weapon = WEAPONS[isBulletWeaponId(bullet.weapon) ? bullet.weapon : 'pistol'];
+    const damage = projectileDamage(bullet, weapon);
     if (hit.kind === 'player') {
       const target = this.options.state.players.get(hit.id);
       if (!target?.alive || target.vehicleId || target.id === bullet.ownerId) return;
@@ -277,7 +284,7 @@ export class ProjectileController {
       this.publishImpact(bullet, nowMs, 'player', target.id);
       this.options.damage.player(
         target,
-        weapon.damage,
+        damage,
         bullet.ownerId,
         nowMs,
         'assault',
@@ -295,7 +302,7 @@ export class ProjectileController {
       this.publishImpact(bullet, nowMs, 'vehicle', target.id);
       this.options.vehicles.damage(
         target,
-        this.options.vehicles.weaponDamage(weapon.damage),
+        this.options.vehicles.weaponDamage(damage),
         bullet.ownerId,
         'weapon',
         nowMs,
@@ -309,7 +316,7 @@ export class ProjectileController {
     this.publishImpact(bullet, nowMs, 'npc', target.id);
     this.options.damage.npc(
       target,
-      weapon.damage,
+      damage,
       bullet.ownerId,
       nowMs,
       undefined,
@@ -340,6 +347,12 @@ export class ProjectileController {
       surfaceId
     });
   }
+}
+
+function projectileDamage(bullet: BulletState, weapon: BulletWeaponDefinition): number {
+  return bullet.ownerKind === 'police' && weapon.id === 'pistol'
+    ? POLICE_PISTOL_DAMAGE
+    : weapon.damage;
 }
 
 function bulletImpact(
