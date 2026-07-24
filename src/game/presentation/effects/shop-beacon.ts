@@ -13,11 +13,12 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   group.name = 'shop-beacon';
   group.userData.disableMarkerPulse = true;
 
-  const source = new THREE.Vector3(0, 62, 68);
-  const target = new THREE.Vector3(0, -82, -5);
+  const source = new THREE.Vector3(0, -66, 96);
+  const target = new THREE.Vector3(0, 72, -5);
+  const coneRadius = 88;
 
   const beam = new THREE.Mesh(
-    new THREE.PlaneGeometry(190, 230),
+    new THREE.PlaneGeometry(coneRadius * 2.05, coneRadius * 1.25),
     new THREE.ShaderMaterial({
       uniforms: {
         beaconColor: {value: color.clone()},
@@ -36,21 +37,11 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
         uniform float beaconOpacity;
         void main() {
           vec2 point = beaconUv * 2.0 - 1.0;
-          float travel = 1.0 - beaconUv.y;
-          float beamWidth = mix(0.07, 0.82, pow(travel, 0.82));
-          float edgeSoftness = 1.0 - smoothstep(
-            beamWidth * 0.52,
-            beamWidth,
-            abs(point.x)
-          );
-          float startFade = smoothstep(0.0, 0.10, travel);
-          float endFade = 1.0 - smoothstep(0.72, 1.0, travel);
-          float beamBody = edgeSoftness * startFade * endFade;
-
-          vec2 poolPoint = vec2(point.x * 0.88, (travel - 0.70) * 2.15);
-          float pool = exp(-4.2 * dot(poolPoint, poolPoint));
+          float ellipse = dot(point, point);
+          float edgeSoftness = 1.0 - smoothstep(0.34, 1.0, ellipse);
+          float pool = exp(-2.8 * ellipse);
           float breakup = 0.92 + 0.08 * sin(point.x * 19.0 + point.y * 37.0);
-          float alpha = (beamBody * 0.48 + pool * 0.30) * breakup * beaconOpacity;
+          float alpha = edgeSoftness * pool * breakup * beaconOpacity;
           gl_FragColor = vec4(beaconColor, alpha);
         }
       `,
@@ -64,7 +55,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   );
   beam.name = 'shop-beacon-ray';
   beam.userData.role = 'shop-beacon-ray';
-  beam.position.set(0, -45, -5.5);
+  beam.position.set(target.x, target.y, -5.5);
   beam.renderOrder = 16;
 
   const volumeDirection = source.clone().sub(target);
@@ -75,7 +66,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
     volumeDirection.normalize()
   );
   const volume = new THREE.Mesh(
-    new THREE.ConeGeometry(96, volumeLength, 48, 1, true),
+    new THREE.ConeGeometry(coneRadius, volumeLength, 48, 1, true),
     new THREE.ShaderMaterial({
       uniforms: {
         beaconColor: {value: color.clone()},

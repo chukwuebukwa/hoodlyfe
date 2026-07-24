@@ -17,7 +17,7 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.equal(ray.material.blending, THREE.AdditiveBlending);
   assert.equal(ray.material.depthWrite, false);
   assert.match(ray.material.fragmentShader, /edgeSoftness/);
-  assert.match(ray.material.fragmentShader, /beamWidth/);
+  assert.match(ray.material.fragmentShader, /ellipse/);
   assert.match(ray.material.fragmentShader, /pool/);
   assert.equal(beacon.getObjectByName('shop-beacon-ground'), undefined);
 
@@ -33,8 +33,9 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.ok(light.intensity > 4);
 
   assert.ok(bloom instanceof THREE.Mesh);
-  assert.ok(bloom.position.y > ray.position.y);
-  assert.ok(light.position.y > ray.position.y);
+  assert.ok(bloom.position.y < light.position.y);
+  assert.ok(light.position.y < ray.position.y);
+  assert.ok(bloom.position.z > ray.position.z);
 
   assert.equal(beacon.getObjectByName('shop-beacon-pole'), undefined);
   assert.equal(beacon.getObjectByName('shop-beacon-housing'), undefined);
