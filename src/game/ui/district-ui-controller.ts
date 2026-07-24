@@ -221,7 +221,7 @@ export class DistrictUiController {
     const vehicle = anchor.vehicleId ? state.vehicles.get(anchor.vehicleId) : undefined;
     const x = vehicle?.x ?? anchor.x;
     const y = vehicle?.y ?? anchor.y;
-    const point = this.projectWorldPoint(x, y, anchor.vehicleId ? 72 : 48);
+    const point = this.projectWorldPoint(x, y, anchor.vehicleId ? 96 : 48);
     button.classList.toggle('context-offscreen', !point?.visible);
     if (!point) return;
     button.style.left = `${point.x}px`;
