@@ -102,28 +102,6 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   ground.position.set(0, -4, -5.5);
   ground.renderOrder = 15;
 
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.2, 3.1, 80, 7),
-    new THREE.MeshStandardMaterial({color: 0x15191b, roughness: 0.72, metalness: 0.38})
-  );
-  pole.name = 'shop-beacon-pole';
-  pole.userData.role = 'shop-beacon-pole';
-  pole.rotation.x = Math.PI / 2;
-  pole.position.set(source.x, source.y, 34);
-
-  const housing = new THREE.Mesh(
-    new THREE.BoxGeometry(13, 9, 7),
-    new THREE.MeshStandardMaterial({
-      color: options.color,
-      emissive: options.color,
-      emissiveIntensity: 2.4 * intensity,
-      roughness: 0.28
-    })
-  );
-  housing.name = 'shop-beacon-housing';
-  housing.userData.role = 'shop-beacon-housing';
-  housing.position.copy(source);
-
   const bloom = radialGlow(76, options.color, 0.76 * intensity, 20);
   bloom.name = 'shop-beacon-bloom';
   bloom.userData.role = 'shop-beacon-bloom';
@@ -134,6 +112,6 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   cast.userData.role = 'shop-beacon-light';
   cast.position.set(0, -4, 34);
 
-  group.add(ground, beam, pole, housing, bloom, cast);
+  group.add(ground, beam, bloom, cast);
   return group;
 }

@@ -401,7 +401,12 @@ export class DistrictClient {
         renderServerTime,
         quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
       );
-      this.objects?.synchronize(this.room.state, now, localSpaceId);
+      this.objects?.synchronize(
+        this.room.state,
+        now,
+        localSpaceId,
+        this.actors?.playerPose(this.room.sessionId)
+      );
       const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
       const local = this.room.state.players.get(this.room.sessionId);
       this.observeLocalShot(local, now);
