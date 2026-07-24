@@ -1,5 +1,5 @@
 export const WORLD_CLOCK = Object.freeze({
-  startMinute: 8 * 60,
+  startMinute: 21 * 60,
   gameMinutesPerRealSecond: 0.5,
   cycleRealMinutes: 48
 });

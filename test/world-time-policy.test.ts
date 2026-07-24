@@ -30,9 +30,10 @@ test('world clock replicates one stable authority anchor and derives cyclic time
     startMinute: WORLD_CLOCK.startMinute,
     rate: WORLD_CLOCK.gameMinutesPerRealSecond
   });
-  assert.equal(worldMinuteAt(state, 10_000), 480);
-  assert.equal(worldMinuteAt(state, 130_000), 540);
-  assert.equal(formatWorldTime(worldMinuteAt(state, 10_000 + 48 * 60_000)), '08:00');
+  assert.equal(worldMinuteAt(state, 10_000), 21 * 60);
+  assert.equal(worldMinuteAt(state, 130_000), 22 * 60);
+  assert.equal(formatWorldTime(worldMinuteAt(state, 10_000 + 48 * 60_000)), '21:00');
+  assert.equal(lightingAtMinute(WORLD_CLOCK.startMinute).phase, 'night');
 });
 
 test('road lighting derives edge emitters without placing lights in solid road interiors', () => {

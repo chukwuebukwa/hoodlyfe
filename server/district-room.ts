@@ -187,6 +187,7 @@ interface CycleWeaponMessage {
 }
 
 const RADIO_STATION_IDS = new Set(['station-0', 'station-1', 'station-3', 'radio-off']);
+const PLAYER_STARTING_CASH = 1_000;
 
 interface DistrictRoomOptions extends PlaytestWorldOptions {
   seed?: number | string;
@@ -1316,6 +1317,7 @@ export class DistrictRoom extends Room<DistrictState> {
     const player = new PlayerState();
     player.id = client.sessionId;
     player.armor = 25;
+    player.cash = PLAYER_STARTING_CASH;
     player.name = sanitizeName(options?.name, this.state.players.size + 1);
     player.x = spawn.x;
     player.y = spawn.y;
