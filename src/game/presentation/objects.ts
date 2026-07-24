@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import {projectMissionWorld} from '../missions/mission-presentation-policy.ts';
+import {
+  activeObjectiveTarget,
+  objectiveArrowPose
+} from '../missions/objective-direction-policy.ts';
 import {projectileStyle} from '../rendering/projectile-render-policy.ts';
 import {signalLampPresentation} from '../rendering/traffic-signal-render-policy.ts';
 import {thrownProjectilePresentation} from '../rendering/thrown-projectile-render-policy.ts';
@@ -34,6 +38,7 @@ export class WorldObjectPresentation {
   private readonly fires = new Map<string, THREE.Group>();
   private readonly explosions = new Map<string, TimedExplosion>();
   private readonly signals = new Map<string, THREE.Group>();
+  private objectiveArrow?: THREE.Group;
   private readonly projectileImpacts: ProjectileImpactEffects;
   private readonly grenadeTexture: THREE.Texture;
   private readonly molotovTexture: THREE.Texture;
@@ -76,8 +81,14 @@ export class WorldObjectPresentation {
     return new WorldObjectPresentation(scene, localPlayerId, surfaceHeightAt, grenade, molotov, rocket);
   }
 
-  synchronize(state: DistrictNetworkState, nowMs: number, localSpaceId = 'street'): void {
+  synchronize(
+    state: DistrictNetworkState,
+    nowMs: number,
+    localSpaceId = 'street',
+    localPose?: {x: number; y: number}
+  ): void {
     this.synchronizeMarkers(state, nowMs, localSpaceId);
+    this.synchronizeObjectiveArrow(state, nowMs, localSpaceId, localPose);
     if (localSpaceId !== STREET_SPACE_ID) {
       this.clearStreetTransients();
       return;
@@ -123,6 +134,8 @@ export class WorldObjectPresentation {
     this.explosions.clear();
     this.signals.clear();
     this.projectileImpacts.destroy();
+    if (this.objectiveArrow) disposeObject(this.objectiveArrow);
+    this.objectiveArrow = undefined;
     this.grenadeTexture.dispose();
     this.molotovTexture.dispose();
     this.rocketTexture.dispose();
@@ -229,6 +242,41 @@ export class WorldObjectPresentation {
       }
     }
     removeAbsent(this.markers, present);
+  }
+
+  private synchronizeObjectiveArrow(
+    state: DistrictNetworkState,
+    nowMs: number,
+    localSpaceId: string,
+    localPose?: {x: number; y: number}
+  ): void {
+    const target = localSpaceId === STREET_SPACE_ID
+      ? activeObjectiveTarget(state, this.localPlayerId)
+      : undefined;
+    if (!target || !localPose) {
+      if (this.objectiveArrow) this.objectiveArrow.visible = false;
+      return;
+    }
+    const pose = objectiveArrowPose(localPose, target);
+    if (!pose) {
+      if (this.objectiveArrow) this.objectiveArrow.visible = false;
+      return;
+    }
+    if (!this.objectiveArrow) {
+      this.objectiveArrow = objectiveArrowMarker();
+      this.scene.add(this.objectiveArrow);
+    }
+    this.objectiveArrow.visible = true;
+    this.objectiveArrow.userData.targetId = target.id;
+    positionAtSurface(
+      this.objectiveArrow,
+      pose.x,
+      pose.y,
+      this.surfaceHeightAt(localPose.x, localPose.y, STREET_GROUND_SURFACE_ID) + 40
+    );
+    this.objectiveArrow.rotation.z = serverAngleToScene(pose.angle);
+    const pulse = 1 + Math.sin(nowMs / 135) * 0.1;
+    this.objectiveArrow.scale.setScalar(pulse);
   }
 
   private syncMissionMarker(
@@ -494,6 +542,37 @@ function ringMarker(radius: number, color: number, text: string): THREE.Group {
   label.position.set(0, radius + 18, 3);
   group.add(label);
   return group;
+}
+
+function objectiveArrowMarker(): THREE.Group {
+  const group = new THREE.Group();
+  const geometry = new THREE.ShapeGeometry(new THREE.Shape([
+    new THREE.Vector2(18, 0),
+    new THREE.Vector2(-7, 13),
+    new THREE.Vector2(-3, 4),
+    new THREE.Vector2(-17, 4),
+    new THREE.Vector2(-17, -4),
+    new THREE.Vector2(-3, -4),
+    new THREE.Vector2(-7, -13)
+  ]));
+  const shadow = new THREE.Mesh(geometry, objectiveArrowMaterial(0x050708));
+  shadow.position.set(-2, -2, -1);
+  shadow.scale.setScalar(1.16);
+  shadow.renderOrder = 89;
+  const arrow = new THREE.Mesh(geometry.clone(), objectiveArrowMaterial(0xf6c945));
+  arrow.renderOrder = 90;
+  group.add(shadow, arrow);
+  return group;
+}
+
+function objectiveArrowMaterial(color: number): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color,
+    transparent: false,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
 }
 
 function signalMarker(): THREE.Group {
