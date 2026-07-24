@@ -11,6 +11,7 @@ test('shop beacon combines an additive ray, soft ground projection, and strong c
   const bloom = beacon.getObjectByName('shop-beacon-bloom');
 
   assert.ok(ray instanceof THREE.Mesh);
+  assert.equal(beacon.userData.disableMarkerPulse, true);
   assert.ok(ray.geometry instanceof THREE.ConeGeometry);
   assert.ok(ray.material instanceof THREE.ShaderMaterial);
   assert.equal(ray.material.blending, THREE.AdditiveBlending);

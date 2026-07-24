@@ -11,6 +11,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const intensity = options.intensity ?? 1;
   const group = new THREE.Group();
   group.name = 'shop-beacon';
+  group.userData.disableMarkerPulse = true;
 
   const source = new THREE.Vector3(0, 62, 68);
   const target = new THREE.Vector3(0, -58, -5);

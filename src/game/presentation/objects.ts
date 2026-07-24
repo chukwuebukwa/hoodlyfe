@@ -504,14 +504,14 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
       : service.kind === 'clothing'
         ? 0xff7fb6
         : 0xf2c94c;
-  const marker = ringMarker(service.radius, color, service.label.toUpperCase());
   if (service.kind === 'repair') {
-    const fixture = new THREE.Group();
-    marker.name = 'pulsing-service-marker';
-    fixture.add(marker, createShopBeacon({color: 0x20dcff, intensity: 1.08}));
+    const fixture = createShopBeacon({color: 0x20dcff, intensity: 1.08});
+    const label = textLabel(service.label.toUpperCase(), color);
+    label.position.set(0, 84, 3);
+    fixture.add(label);
     return fixture;
   }
-  return marker;
+  return ringMarker(service.radius, color, service.label.toUpperCase());
 }
 
 function pickupMarker(pickup: NetworkWeaponPickup, texture: THREE.Texture): THREE.Group {
@@ -628,9 +628,9 @@ function signalPhaseColor(phase: NetworkTrafficSignal['northSouth']): number {
 }
 
 function pulseMarker(group: THREE.Group, nowMs: number, phase: number): void {
+  if (group.userData.disableMarkerPulse === true) return;
   const pulse = 1 + Math.sin(nowMs / 190 + phase) * 0.035;
-  const pulseTarget = group.getObjectByName('pulsing-service-marker') ?? group;
-  pulseTarget.scale.setScalar(pulse);
+  group.scale.setScalar(pulse);
 }
 
 function positionAtSurface(group: THREE.Object3D, x: number, y: number, z: number): void {
