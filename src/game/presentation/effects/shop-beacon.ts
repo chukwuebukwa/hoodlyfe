@@ -14,57 +14,13 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   group.userData.disableMarkerPulse = true;
 
   const source = new THREE.Vector3(0, 62, 68);
-  const target = new THREE.Vector3(0, -58, -5);
-  const beamDirection = source.clone().sub(target);
-  const beamLength = beamDirection.length();
 
   const beam = new THREE.Mesh(
-    new THREE.ConeGeometry(58, beamLength, 32, 1, true),
+    new THREE.PlaneGeometry(190, 230),
     new THREE.ShaderMaterial({
       uniforms: {
         beaconColor: {value: color.clone()},
-        beaconOpacity: {value: 0.16 * intensity}
-      },
-      vertexShader: `
-        varying vec2 beaconUv;
-        void main() {
-          beaconUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec2 beaconUv;
-        uniform vec3 beaconColor;
-        uniform float beaconOpacity;
-        void main() {
-          float heightFade = pow(sin(clamp(beaconUv.y, 0.0, 1.0) * 3.14159265), 0.55);
-          float shimmer = 0.94 + 0.06 * sin(beaconUv.x * 43.0 + beaconUv.y * 17.0);
-          gl_FragColor = vec4(beaconColor, beaconOpacity * heightFade * shimmer);
-        }
-      `,
-      transparent: true,
-      depthTest: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      toneMapped: false
-    })
-  );
-  beam.name = 'shop-beacon-ray';
-  beam.userData.role = 'shop-beacon-ray';
-  beam.position.copy(source).add(target).multiplyScalar(0.5);
-  beam.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    beamDirection.normalize()
-  );
-  beam.renderOrder = 16;
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(170, 190),
-    new THREE.ShaderMaterial({
-      uniforms: {
-        beaconColor: {value: color.clone()},
-        beaconOpacity: {value: 0.52 * intensity}
+        beaconOpacity: {value: 0.48 * intensity}
       },
       vertexShader: `
         varying vec2 beaconUv;
@@ -79,10 +35,21 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
         uniform float beaconOpacity;
         void main() {
           vec2 point = beaconUv * 2.0 - 1.0;
-          vec2 poolPoint = vec2(point.x * 0.78, point.y * 1.18);
-          float pool = exp(-3.4 * dot(poolPoint, poolPoint));
-          float edgeFade = 1.0 - smoothstep(0.52, 1.0, length(point));
-          float alpha = pool * edgeFade * 0.72 * beaconOpacity;
+          float travel = 1.0 - beaconUv.y;
+          float beamWidth = mix(0.07, 0.82, pow(travel, 0.82));
+          float edgeSoftness = 1.0 - smoothstep(
+            beamWidth * 0.52,
+            beamWidth,
+            abs(point.x)
+          );
+          float startFade = smoothstep(0.0, 0.10, travel);
+          float endFade = 1.0 - smoothstep(0.72, 1.0, travel);
+          float beamBody = edgeSoftness * startFade * endFade;
+
+          vec2 poolPoint = vec2(point.x * 0.88, (travel - 0.70) * 2.15);
+          float pool = exp(-4.2 * dot(poolPoint, poolPoint));
+          float breakup = 0.92 + 0.08 * sin(point.x * 19.0 + point.y * 37.0);
+          float alpha = (beamBody * 0.48 + pool * 0.30) * breakup * beaconOpacity;
           gl_FragColor = vec4(beaconColor, alpha);
         }
       `,
@@ -94,12 +61,12 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
       toneMapped: false
     })
   );
-  ground.name = 'shop-beacon-ground';
-  ground.userData.role = 'shop-beacon-ground';
-  ground.position.set(0, -4, -5.5);
-  ground.renderOrder = 15;
+  beam.name = 'shop-beacon-ray';
+  beam.userData.role = 'shop-beacon-ray';
+  beam.position.set(0, -45, -5.5);
+  beam.renderOrder = 16;
 
-  const bloom = radialGlow(76, options.color, 0.76 * intensity, 20);
+  const bloom = radialGlow(44, options.color, 0.48 * intensity, 20);
   bloom.name = 'shop-beacon-bloom';
   bloom.userData.role = 'shop-beacon-bloom';
   bloom.position.copy(source);
@@ -109,6 +76,6 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   cast.userData.role = 'shop-beacon-light';
   cast.position.set(0, 24, 34);
 
-  group.add(ground, beam, bloom, cast);
+  group.add(beam, bloom, cast);
   return group;
 }
