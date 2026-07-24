@@ -122,7 +122,11 @@ export class LocalHudController {
     this.noticeTimeout = undefined;
     this.noticeQueue.length = 0;
     this.activeNotice = undefined;
-    this.toast?.classList.remove('visible');
+    if (this.toast) {
+      this.toast.classList.remove('visible');
+      this.toast.removeAttribute('data-tone');
+      this.toast.textContent = '';
+    }
   }
 
   private showNotice(notice: HudNotice): void {

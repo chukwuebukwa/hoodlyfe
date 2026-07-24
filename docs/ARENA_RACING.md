@@ -2,7 +2,11 @@
 
 ## Current Mode
 
-`/race` joins the dedicated `district-race` Colyseus room. It does not share ambient traffic,
+The in-game phone is the primary way to enter the dedicated `district-race` Colyseus room.
+Open **Jobs**, choose **Nock0 Raceway**, and select **Enter raceway**. The same phone screen
+provides **Return to city** from the circuit.
+
+`/race` remains available as a direct QA shortcut. The race room does not share ambient traffic,
 police, missions, services, or population with the street district.
 
 The first track is `industrial-arena-circuit`:
@@ -28,6 +32,22 @@ http://127.0.0.1:5173/race
 ```
 
 Open the same URL in additional browser sessions to fill the six-car grid.
+
+The normal game can exercise the integrated flow without changing routes:
+
+1. Open the phone.
+2. Select **Jobs**.
+3. Select **Enter raceway**.
+4. After testing the circuit, open **Jobs** and select **Return to city**.
+
+The runtime joins and validates the destination room before removing the current world
+presentation. It keeps the source room available until the destination client has started, so a
+failed load can restore the previous district instead of leaving a black screen. Input is blocked
+under the loading transition.
+
+Driver identity and appearance carry across the room change. Cash, inventory, vehicles, heat,
+and activity progress remain authoritative to each room until those systems move to the planned
+persistent account/session service.
 
 ## Regenerating The Circuit
 
@@ -60,8 +80,9 @@ Track rules, checkpoints, and grid poses live in
    lap count, and grid poses.
 3. Add a room subclass that returns the track definition and package maps directory.
 4. Register that room in `server/index.ts`.
-5. Add a route that passes the room name and asset root to `GameRuntimeMount`.
-6. Add controller tests that cross every checkpoint in order and verify cleanup/restart.
+5. Register the world in `src/game/runtime/world-catalog.ts`.
+6. Expose it through an activity projection or matchmaking flow.
+7. Add controller tests that cross every checkpoint in order and verify cleanup/restart.
 
 Race state remains server authoritative. A client may predict its assigned vehicle for immediate
 controls, but it cannot advance checkpoints, complete laps, choose finishing position, or move
