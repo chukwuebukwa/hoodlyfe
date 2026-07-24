@@ -61,7 +61,7 @@ export function LevelEditorToolbar(props: LevelEditorToolbarProps) {
           <ChevronLeft size={17} />
         </Link>
         <div>
-          <strong>NOCK0 LEVEL EDITOR</strong>
+          <strong>LEVEL EDITOR</strong>
           <span>{props.title}</span>
         </div>
         <select

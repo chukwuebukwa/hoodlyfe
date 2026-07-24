@@ -11,7 +11,7 @@ export default function RacePage(): ReactElement {
       <GameRuntimeMount
         roomName="district-race"
         assetRoot="/assets/districts/raceway"
-        runtimeLabel="NOCK0 RACEWAY"
+        runtimeLabel="RACEWAY"
         enableInteriors={false}
       />
     </>

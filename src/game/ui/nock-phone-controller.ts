@@ -95,7 +95,7 @@ export class NockPhoneController {
     popup.className = 'hud-layer hidden';
     popup.setAttribute('role', 'dialog');
     popup.setAttribute('aria-modal', 'false');
-    popup.setAttribute('aria-label', 'Nock phone');
+    popup.setAttribute('aria-label', 'Game phone');
     this.root.body.append(popup);
     this.popup = popup;
     return popup;

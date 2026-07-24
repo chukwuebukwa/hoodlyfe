@@ -8,7 +8,7 @@ const GAME_SHELL_HTML = `
   <div id="game"></div>
   <div id="loading" role="status">
     <div id="loading-panel">
-      <strong id="loading-title">NOCK0</strong>
+      <strong id="loading-title">HOODLYFE</strong>
       <span id="loading-stage">Connecting to Industrial District</span>
       <div id="loading-progress" aria-label="Loading progress">
         <i id="loading-progress-fill"></i>
@@ -18,7 +18,7 @@ const GAME_SHELL_HTML = `
     </div>
   </div>
   <header id="district-label" class="hud-layer">
-    <strong>NOCK0</strong>
+    <strong>HOODLYFE</strong>
     <span>Industrial District</span>
   </header>
   <button

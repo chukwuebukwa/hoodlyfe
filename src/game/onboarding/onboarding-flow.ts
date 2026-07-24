@@ -96,11 +96,11 @@ export function runOnboardingOverlay(
 
   const overlay = document.createElement('section');
   overlay.id = 'onboarding-flow';
-  overlay.setAttribute('aria-label', 'NOCK0 onboarding');
+  overlay.setAttribute('aria-label', 'Game onboarding');
   overlay.innerHTML = `
     <div class="onboarding-window">
       <header class="onboarding-window-header">
-        <div><strong>NOCK0</strong><span>Industrial District</span></div>
+        <div><strong>HOODLYFE</strong><span>Industrial District</span></div>
         <i>Driver Intake</i>
       </header>
       <div class="onboarding-title" data-step="title">

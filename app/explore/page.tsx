@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import {DistrictExplorerApp} from '../../components/district-explorer/DistrictExplorerApp';
 
 export const metadata: Metadata = {
-  title: 'District Explorer | NOCK0',
+  title: 'District Explorer | Hoodlyfe',
   description: 'Local streamed district walk preview'
 };
 

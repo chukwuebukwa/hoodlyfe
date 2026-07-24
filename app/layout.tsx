@@ -4,8 +4,8 @@ import {AppProviders} from './providers';
 import '../src/style.css';
 
 export const metadata: Metadata = {
-  title: 'NOCK0',
-  description: 'NOCK0 multiplayer city prototype'
+  title: 'Hoodlyfe',
+  description: 'Multiplayer city prototype'
 };
 
 export const viewport: Viewport = {

@@ -323,7 +323,7 @@ function renderRecipe(): void {
   required<HTMLElement>('#coverage-summary').textContent = `${lpcLayerDefinitions(recipe).length} LAYERS`;
   required<HTMLElement>('#validation-list').replaceChildren(
     validationItem('4-direction walk atlas'),
-    validationItem('NOCK0 action fallback atlas'),
+    validationItem('Action fallback atlas'),
     validationItem('Replicates through player appearance')
   );
   const stack = required<HTMLElement>('#layer-stack');

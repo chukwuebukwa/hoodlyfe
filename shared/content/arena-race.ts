@@ -30,7 +30,7 @@ const START = tileCenter(40, 64);
 
 export const INDUSTRIAL_ARENA_CIRCUIT: ArenaRaceTrackDefinition = Object.freeze({
   id: 'industrial-arena-circuit',
-  label: 'Nock0 Raceway',
+  label: 'Raceway',
   assetRoot: '/assets/districts/raceway',
   laps: 3,
   checkpoints: Object.freeze([

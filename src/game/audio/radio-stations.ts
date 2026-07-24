@@ -19,7 +19,7 @@ export const RADIO_OFF: RadioStationId = 'radio-off';
 export const RADIO_STATIONS: RadioStation[] = [
   {
     id: 'station-0',
-    label: 'Nock0 FM',
+    label: 'Street FM',
     shortLabel: 'NCK-FM',
     tracks: [
       {

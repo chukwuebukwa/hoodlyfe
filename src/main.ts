@@ -64,7 +64,7 @@ class GameRuntimeController implements GameRuntime {
       const loading = document.querySelector('#loading');
       if (loading) {
         loading.classList.remove('hidden');
-        loadingUi?.setTitle('NOCK0');
+        loadingUi?.setTitle('HOODLYFE');
         loadingUi?.set(1, 'District server unavailable');
       }
       document.querySelector('#connection-state')?.classList.add('offline');
@@ -93,7 +93,7 @@ class GameRuntimeController implements GameRuntime {
     const shell = document.querySelector<HTMLElement>('#game-shell');
     const game = document.querySelector<HTMLElement>('#game');
     if (!shell || !game) throw new Error('Game mount is unavailable.');
-    this.loadingUi?.setTitle('NOCK0');
+    this.loadingUi?.setTitle('HOODLYFE');
     this.loadingUi?.set(0.14, 'Connecting district server');
     const client = new Client(this.options.serverUrl);
     this.activeRoom = await client.joinOrCreate<DistrictNetworkState>(this.options.roomName ?? 'district', {

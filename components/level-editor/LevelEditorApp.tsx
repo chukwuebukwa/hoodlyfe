@@ -375,7 +375,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
       const imported = isLevelEditorBundle(parsed) ? parsed.editorDocument : isLevelEditorDocument(parsed) ? parsed : undefined;
-      if (!imported) throw new Error('File is not a supported NOCK0 level project or game bundle.');
+      if (!imported) throw new Error('File is not a supported level project or game bundle.');
       if (
         imported.map.width !== loaded.sourceDocument.map.width ||
         imported.map.height !== loaded.sourceDocument.map.height ||
