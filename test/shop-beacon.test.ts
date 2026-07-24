@@ -28,8 +28,10 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.ok(volume instanceof THREE.Mesh);
   assert.ok(volume.geometry instanceof THREE.ConeGeometry);
   assert.ok(volume.material instanceof THREE.ShaderMaterial);
-  assert.match(volume.material.fragmentShader, /silhouette/);
-  assert.match(volume.material.fragmentShader, /edgeFade/);
+  assert.match(volume.material.fragmentShader, /startFade/);
+  assert.match(volume.material.fragmentShader, /endFade/);
+  assert.doesNotMatch(volume.material.vertexShader, /beaconViewDirection/);
+  assert.doesNotMatch(volume.material.fragmentShader, /silhouette/);
   assert.equal(beacon.getObjectByName('shop-beacon-volume-blade'), undefined);
 
   assert.ok(light instanceof THREE.PointLight);

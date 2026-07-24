@@ -99,35 +99,22 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
       },
       vertexShader: `
         varying vec2 beaconUv;
-        varying vec3 beaconNormal;
-        varying vec3 beaconViewDirection;
         void main() {
           beaconUv = uv;
-          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-          beaconNormal = normalize(normalMatrix * normal);
-          beaconViewDirection = normalize(-viewPosition.xyz);
-          gl_Position = projectionMatrix * viewPosition;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
         varying vec2 beaconUv;
-        varying vec3 beaconNormal;
-        varying vec3 beaconViewDirection;
         uniform vec3 beaconColor;
         uniform float beaconOpacity;
         void main() {
           float travel = 1.0 - beaconUv.y;
-          float silhouette = abs(dot(
-            normalize(beaconNormal),
-            normalize(beaconViewDirection)
-          ));
-          float edgeFade = smoothstep(0.04, 0.42, silhouette);
           float startFade = smoothstep(0.0, 0.045, travel);
           float endFade = 1.0 - smoothstep(0.76, 1.0, travel);
           float density = mix(1.0, 0.55, travel);
           float breakup = 0.94 + 0.06 * sin(beaconUv.x * 31.0 + travel * 19.0);
-          float alpha = edgeFade * startFade * endFade
-            * density * breakup * beaconOpacity;
+          float alpha = startFade * endFade * density * breakup * beaconOpacity;
           gl_FragColor = vec4(beaconColor, alpha);
         }
       `,
