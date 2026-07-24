@@ -15,7 +15,7 @@ import {
 import {compileLaneNetwork} from '../../../shared/traffic/lane-network-compiler.ts';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
-export type ValidationEntityKind = 'map' | 'spawn' | 'corridor' | 'junction' | 'roadblock';
+export type ValidationEntityKind = 'map' | 'spawn' | 'beacon' | 'corridor' | 'junction' | 'roadblock';
 
 export interface ValidationIssue {
   id: string;
@@ -78,6 +78,7 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
   }
 
   validateSpawns(document, issues);
+  validateBeacons(document, issues);
   validateCorridors(document, issues);
   validateJunctions(document, issues);
   validateCompiledIntersections(document, issues);
@@ -92,6 +93,42 @@ export function validateLevelDocument(document: LevelEditorDocument): Validation
       info: issues.filter((issue) => issue.severity === 'info').length
     }
   };
+}
+
+function validateBeacons(document: LevelEditorDocument, issues: ValidationIssue[]): void {
+  const ids = new Set<string>();
+  for (const beacon of document.beacons ?? []) {
+    if (beacon.id.trim().length === 0) {
+      add(issues, 'error', 'beacon-id-empty', 'Colored beacon ids cannot be empty.', 'beacon', beacon.id, beacon);
+    }
+    if (ids.has(beacon.id)) {
+      add(issues, 'error', 'beacon-id-duplicate', `Duplicate colored beacon id: ${beacon.id}.`, 'beacon', beacon.id, beacon);
+    }
+    ids.add(beacon.id);
+    if (!insideWorld(document, beacon)) {
+      add(issues, 'error', 'beacon-source-outside-map', `${beacon.label} source is outside the map.`, 'beacon', beacon.id, beacon);
+    }
+    const target = {x: beacon.targetX, y: beacon.targetY};
+    if (!insideWorld(document, target)) {
+      add(issues, 'error', 'beacon-target-outside-map', `${beacon.label} target is outside the map.`, 'beacon', beacon.id, target);
+    }
+    if (!/^#[0-9a-f]{6}$/i.test(beacon.color)) {
+      add(issues, 'error', 'beacon-color-invalid', `${beacon.label} requires a six-digit hex color.`, 'beacon', beacon.id, beacon);
+    }
+    for (const [property, value] of [
+      ['intensity', beacon.intensity],
+      ['radius', beacon.radius],
+      ['footprint width', beacon.footprintWidth],
+      ['footprint height', beacon.footprintHeight]
+    ] as const) {
+      if (!Number.isFinite(value) || value <= 0) {
+        add(issues, 'error', 'beacon-style-invalid', `${beacon.label} ${property} must be positive.`, 'beacon', beacon.id, beacon);
+      }
+    }
+    if (Math.hypot(beacon.targetX - beacon.x, beacon.targetY - beacon.y) < 1) {
+      add(issues, 'warning', 'beacon-zero-aim', `${beacon.label} source and target overlap.`, 'beacon', beacon.id, beacon);
+    }
+  }
 }
 
 function validateCompiledIntersections(document: LevelEditorDocument, issues: ValidationIssue[]): void {

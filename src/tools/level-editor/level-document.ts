@@ -1,3 +1,8 @@
+import {
+  isColoredBeaconDefinition,
+  type ColoredBeaconDefinition
+} from '../../../shared/content/colored-beacons.ts';
+
 export const LEVEL_EDITOR_SCHEMA_VERSION = 1;
 
 export type EditableTileLayer = 'collision' | 'roads';
@@ -96,6 +101,7 @@ export interface LevelEditorDocument {
   };
   lanes: LaneGraphDocument;
   spawns: EditorSpawn[];
+  beacons?: ColoredBeaconDefinition[];
 }
 
 export interface TiledLayer {
@@ -130,6 +136,7 @@ export interface DistrictMapMetadata {
 export interface SourceArtifacts {
   map: TiledMapDocument;
   metadata: DistrictMapMetadata;
+  beacons?: ColoredBeaconDefinition[];
 }
 
 export interface LevelEditorBundle {
@@ -140,13 +147,15 @@ export interface LevelEditorBundle {
     'public/assets/maps/district-map.json': TiledMapDocument;
     'public/assets/maps/district-map.metadata.json': DistrictMapMetadata;
     'public/assets/maps/district-lanes.json': LaneGraphDocument;
+    'public/assets/maps/district-beacons.json': ColoredBeaconDefinition[];
   };
 }
 
 export function assembleLevelDocument(
   map: TiledMapDocument,
   metadata: DistrictMapMetadata,
-  lanes: LaneGraphDocument
+  lanes: LaneGraphDocument,
+  beacons: readonly ColoredBeaconDefinition[] = []
 ): LevelEditorDocument {
   assertMapContract(map, metadata);
   return {
@@ -165,6 +174,7 @@ export function assembleLevelDocument(
       roads: [...requiredTileLayer(map, 'roads').data!]
     },
     lanes: structuredClone(lanes),
+    beacons: structuredClone([...beacons]),
     spawns: [{
       id: 'player-default',
       label: 'Default player spawn',
@@ -206,7 +216,8 @@ export function createArtifactBundle(
     files: {
       'public/assets/maps/district-map.json': map,
       'public/assets/maps/district-map.metadata.json': metadata,
-      'public/assets/maps/district-lanes.json': structuredClone(document.lanes)
+      'public/assets/maps/district-lanes.json': structuredClone(document.lanes),
+      'public/assets/maps/district-beacons.json': structuredClone(document.beacons ?? [])
     }
   };
 }
@@ -220,7 +231,14 @@ export function isLevelEditorDocument(value: unknown): value is LevelEditorDocum
     Array.isArray(candidate.layers?.collision) &&
     Array.isArray(candidate.layers?.roads) &&
     Array.isArray(candidate.lanes?.corridors) &&
-    Array.isArray(candidate.spawns);
+    Array.isArray(candidate.spawns) &&
+    (
+      candidate.beacons === undefined ||
+      (
+        Array.isArray(candidate.beacons) &&
+        candidate.beacons.every(isColoredBeaconDefinition)
+      )
+    );
 }
 
 export function isLevelEditorBundle(value: unknown): value is LevelEditorBundle {
@@ -231,7 +249,8 @@ export function isLevelEditorBundle(value: unknown): value is LevelEditorBundle 
     isLevelEditorDocument(candidate.editorDocument) &&
     Boolean(candidate.files?.['public/assets/maps/district-map.json']) &&
     Boolean(candidate.files?.['public/assets/maps/district-map.metadata.json']) &&
-    Boolean(candidate.files?.['public/assets/maps/district-lanes.json']);
+    Boolean(candidate.files?.['public/assets/maps/district-lanes.json']) &&
+    Array.isArray(candidate.files?.['public/assets/maps/district-beacons.json']);
 }
 
 export function tileIndex(document: LevelEditorDocument, tileX: number, tileY: number): number {

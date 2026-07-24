@@ -17,6 +17,41 @@ test('selection follows an entity id through undo and redo documents', () => {
   );
 });
 
+test('beacon source and target handle selections survive undo and redo', () => {
+  const before = fixture('west-avenue');
+  const after = structuredClone(before);
+  before.beacons = [beacon('repair-entrance')];
+  after.beacons = [beacon('repair-entrance-renamed')];
+
+  assert.deepEqual(
+    reconcileSelection({kind: 'beacon', id: 'repair-entrance-renamed', handle: 'target'}, after, before),
+    {kind: 'beacon', id: 'repair-entrance', handle: 'target'}
+  );
+  assert.deepEqual(
+    reconcileSelection({kind: 'beacon', id: 'repair-entrance', handle: 'source'}, before, after),
+    {kind: 'beacon', id: 'repair-entrance-renamed', handle: 'source'}
+  );
+});
+
+function beacon(id: string) {
+  return {
+    id,
+    label: 'Repair entrance',
+    enabled: true,
+    x: 32,
+    y: 32,
+    z: 110,
+    targetX: 64,
+    targetY: 64,
+    targetZ: 35,
+    color: '#20dcff',
+    intensity: 0.82,
+    radius: 88,
+    footprintWidth: 215.6,
+    footprintHeight: 176
+  };
+}
+
 function fixture(corridorId: string): LevelEditorDocument {
   return {
     schemaVersion: LEVEL_EDITOR_SCHEMA_VERSION,

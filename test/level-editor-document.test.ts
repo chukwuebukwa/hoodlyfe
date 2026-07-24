@@ -8,17 +8,20 @@ import {
   type LaneGraphDocument,
   type TiledMapDocument
 } from '../src/tools/level-editor/level-document.ts';
+import type {ColoredBeaconDefinition} from '../shared/content/colored-beacons.ts';
 import {compilePlaytestWorld} from '../server/editor/playtest-world-loader.ts';
 
 test('level editor round-trip changes owned layers without touching ground art', async () => {
   const source = await loadArtifacts();
-  const document = assembleLevelDocument(source.map, source.metadata, source.lanes);
+  const document = assembleLevelDocument(source.map, source.metadata, source.lanes, source.beacons);
   const groundBefore = structuredClone(source.map.layers.find((layer) => layer.name === 'ground'));
   document.layers.collision[0] = document.layers.collision[0] === 0 ? 1 : 0;
   document.layers.roads[1] = document.layers.roads[1] === 0 ? 1 : 0;
   document.spawns[0].x = 8256;
   document.lanes.corridors[0].speedLimit = 88;
   document.lanes.corridors[0].direction = 'forward';
+  document.beacons![0].targetX += 24;
+  document.beacons![0].intensity = 0.91;
 
   const bundle = createArtifactBundle(document, source, '2026-07-19T00:00:00.000Z');
 
@@ -29,6 +32,11 @@ test('level editor round-trip changes owned layers without touching ground art',
   assert.equal(bundle.files['public/assets/maps/district-map.metadata.json'].spawn.x, 8256);
   assert.equal(bundle.files['public/assets/maps/district-lanes.json'].corridors[0].speedLimit, 88);
   assert.equal(bundle.files['public/assets/maps/district-lanes.json'].corridors[0].direction, 'forward');
+  assert.equal(
+    bundle.files['public/assets/maps/district-beacons.json'][0].targetX,
+    document.beacons![0].targetX
+  );
+  assert.equal(bundle.files['public/assets/maps/district-beacons.json'][0].intensity, 0.91);
   assert.equal(bundle.editorDocument.lanes.corridors[0].direction, 'forward');
   assert.equal(bundle.generatedAt, '2026-07-19T00:00:00.000Z');
 });
@@ -41,7 +49,7 @@ test('level editor rejects incompatible map metadata', async () => {
 
 test('Preview compiles the saved one-way carriageways into the authoritative world', async () => {
   const source = await loadArtifacts();
-  const document = assembleLevelDocument(source.map, source.metadata, source.lanes);
+  const document = assembleLevelDocument(source.map, source.metadata, source.lanes, source.beacons);
   const junctionPairs = new Map<string, string[]>();
   for (const corridor of document.lanes.corridors) {
     const junctionIds = document.lanes.junctions
@@ -77,13 +85,15 @@ async function loadArtifacts(): Promise<{
   map: TiledMapDocument;
   metadata: DistrictMapMetadata;
   lanes: LaneGraphDocument;
+  beacons: ColoredBeaconDefinition[];
 }> {
-  const [map, metadata, lanes] = await Promise.all([
+  const [map, metadata, lanes, beacons] = await Promise.all([
     readJson<TiledMapDocument>('public/assets/maps/district-map.json'),
     readJson<DistrictMapMetadata>('public/assets/maps/district-map.metadata.json'),
-    readJson<LaneGraphDocument>('public/assets/maps/district-lanes.json')
+    readJson<LaneGraphDocument>('public/assets/maps/district-lanes.json'),
+    readJson<ColoredBeaconDefinition[]>('public/assets/maps/district-beacons.json')
   ]);
-  return {map, metadata, lanes};
+  return {map, metadata, lanes, beacons};
 }
 
 async function readJson<T>(path: string): Promise<T> {

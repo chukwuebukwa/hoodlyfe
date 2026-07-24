@@ -120,6 +120,31 @@ test('validation rejects empty entity ids before export', () => {
   assert.ok(codes.has('corridor-id-empty'));
 });
 
+test('validation catches invalid colored beacon placement and appearance', () => {
+  const document = fixture();
+  document.beacons = [{
+    id: 'test-beacon',
+    label: 'Test beacon',
+    enabled: true,
+    x: -1,
+    y: 32,
+    z: 110,
+    targetX: 32,
+    targetY: 32,
+    targetZ: 35,
+    color: 'cyan',
+    intensity: 0,
+    radius: 88,
+    footprintWidth: 0,
+    footprintHeight: 176
+  }];
+
+  const codes = new Set(validateLevelDocument(document).issues.map((issue) => issue.code));
+  assert.ok(codes.has('beacon-source-outside-map'));
+  assert.ok(codes.has('beacon-color-invalid'));
+  assert.ok(codes.has('beacon-style-invalid'));
+});
+
 test('validation blocks roadblocks that reference an omitted corridor direction', () => {
   const document = fixture();
   document.layers.collision.fill(0);

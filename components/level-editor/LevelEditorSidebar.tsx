@@ -6,6 +6,7 @@ import {
   Eraser,
   GitFork,
   Hand,
+  Lightbulb,
   MapPin,
   MousePointer2,
   Route,
@@ -39,6 +40,7 @@ const TOOLS: Array<{tool: EditorTool; label: string; shortcut: string; icon: typ
   {tool: 'corridor', label: 'Draw lane corridor', shortcut: 'C', icon: Route},
   {tool: 'junction', label: 'Place junction', shortcut: 'J', icon: GitFork},
   {tool: 'spawn', label: 'Place spawn', shortcut: 'S', icon: MapPin},
+  {tool: 'beacon', label: 'Place colored beacon', shortcut: 'L', icon: Lightbulb},
   {tool: 'roadblock', label: 'Place roadblock', shortcut: 'K', icon: TrafficCone}
 ];
 
@@ -83,6 +85,7 @@ function LayerPanel(props: LevelEditorSidebarProps) {
         <LayerToggle label={`Lane corridors (${props.document.lanes.corridors.length})`} color="#40d9ef" checked={props.preferences.layers.corridors} onChange={(value) => setLayer('corridors', value)} />
         <LayerToggle label={`Junctions (${props.document.lanes.junctions.length})`} color="#56e39f" checked={props.preferences.layers.junctions} onChange={(value) => setLayer('junctions', value)} />
         <LayerToggle label={`Spawns (${props.document.spawns.length})`} color="#f2c94c" checked={props.preferences.layers.spawns} onChange={(value) => setLayer('spawns', value)} />
+        <LayerToggle label={`Colored beacons (${props.document.beacons?.length ?? 0})`} color="#20dcff" checked={props.preferences.layers.beacons} onChange={(value) => setLayer('beacons', value)} />
         <LayerToggle label={`Roadblocks (${props.document.lanes.roadblocks?.length ?? 0})`} color="#ff6f61" checked={props.preferences.layers.roadblocks} onChange={(value) => setLayer('roadblocks', value)} />
         <LayerToggle label="Tile grid" color="#d7dcde" checked={props.preferences.layers.grid} onChange={(value) => setLayer('grid', value)} />
       </div>
@@ -150,6 +153,9 @@ function ObjectList({document, selection, onSelectionChange, filter}: Pick<Level
     <div className="le-object-list">
       <ObjectGroup label="Spawns" icon={MapPin}>
         {document.spawns.filter((spawn) => matches(spawn.id, spawn.label, spawn.kind)).map((spawn) => <ObjectButton key={spawn.id} active={selection?.kind === 'spawn' && selection.id === spawn.id} label={spawn.label} meta={spawn.kind} onClick={() => onSelectionChange({kind: 'spawn', id: spawn.id})} />)}
+      </ObjectGroup>
+      <ObjectGroup label="Colored beacons" icon={Lightbulb}>
+        {(document.beacons ?? []).filter((beacon) => matches(beacon.id, beacon.label, beacon.color)).map((beacon) => <ObjectButton key={beacon.id} active={selection?.kind === 'beacon' && selection.id === beacon.id} label={beacon.label} meta={`${beacon.color} · ${beacon.intensity.toFixed(2)}x`} onClick={() => onSelectionChange({kind: 'beacon', id: beacon.id})} />)}
       </ObjectGroup>
       <ObjectGroup label="Corridors" icon={Route}>
         {document.lanes.corridors.filter((corridor) => matches(corridor.id)).map((corridor) => <ObjectButton key={corridor.id} active={selection?.kind === 'corridor' && selection.id === corridor.id} label={corridor.id} meta={`${corridor.points.length} pts · ${(corridor.direction ?? 'both').toUpperCase()}`} onClick={() => onSelectionChange({kind: 'corridor', id: corridor.id})} />)}

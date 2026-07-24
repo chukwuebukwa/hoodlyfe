@@ -409,6 +409,16 @@
   line-height: 1.45;
 }
 
+#level-editor input[type="color"] {
+  width: 100%;
+  height: 36px;
+  padding: 3px;
+  border: 1px solid var(--le-border-strong);
+  border-radius: var(--le-radius);
+  background: var(--le-bg);
+  cursor: pointer;
+}
+
 .le-range-label {
   grid-template-columns: 1fr auto !important;
   align-items: center;

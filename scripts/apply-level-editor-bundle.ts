@@ -48,7 +48,8 @@ function validateBundle(bundle: LevelEditorBundle): void {
   const map = bundle.files['public/assets/maps/district-map.json'];
   const metadata = bundle.files['public/assets/maps/district-map.metadata.json'];
   const lanes = bundle.files['public/assets/maps/district-lanes.json'];
-  const assembled = assembleLevelDocument(map, metadata, lanes);
+  const beacons = bundle.files['public/assets/maps/district-beacons.json'];
+  const assembled = assembleLevelDocument(map, metadata, lanes, beacons);
   if (
     assembled.map.width !== bundle.editorDocument.map.width ||
     assembled.map.height !== bundle.editorDocument.map.height ||
@@ -62,6 +63,9 @@ function validateBundle(bundle: LevelEditorBundle): void {
   }
   if (!sameJson(assembled.lanes, bundle.editorDocument.lanes)) {
     throw new Error('Bundle lane graph does not match its editor document.');
+  }
+  if (!sameJson(assembled.beacons, bundle.editorDocument.beacons ?? [])) {
+    throw new Error('Bundle colored beacons do not match its editor document.');
   }
   const playerSpawn = bundle.editorDocument.spawns.find((spawn) => spawn.kind === 'player' && spawn.enabled);
   if (playerSpawn && (

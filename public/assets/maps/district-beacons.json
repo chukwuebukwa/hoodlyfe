@@ -1,0 +1,34 @@
+[
+  {
+    "id": "repair-entrance",
+    "label": "Repair entrance",
+    "enabled": true,
+    "x": 8956.34457541877,
+    "y": 8128.57345934523,
+    "z": 143,
+    "targetX": 9016.34457541877,
+    "targetY": 8232.57345934523,
+    "targetZ": 42,
+    "color": "#20dcff",
+    "intensity": 1.08,
+    "radius": 88,
+    "footprintWidth": 215.6,
+    "footprintHeight": 176
+  },
+  {
+    "id": "repair-alley",
+    "label": "Repair alley",
+    "enabled": true,
+    "x": 9092.34457541877,
+    "y": 7870.57345934523,
+    "z": 115,
+    "targetX": 9022.34457541877,
+    "targetY": 7966.57345934523,
+    "targetZ": 42,
+    "color": "#20dcff",
+    "intensity": 0.82,
+    "radius": 88,
+    "footprintWidth": 215.6,
+    "footprintHeight": 176
+  }
+]

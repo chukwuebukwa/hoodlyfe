@@ -1,59 +1,39 @@
-# Shop Beacon Authoring
+# Colored Beacon Authoring
 
-Shop beacons separate fixture placement from shader construction. Do not edit the
-cone, footprint, bloom, and point-light positions independently.
+Colored beacons are level data. Use `/editor` instead of editing renderer
+coordinates. The game loads the exported
+`public/assets/maps/district-beacons.json` file and derives the cone, footprint,
+bloom, and real light from each fixture.
 
-## Placement model
+## Editor workflow
 
-Each fixture uses one `ShopBeaconPlacement` object:
+1. Select **Place colored beacon** or press `L`, then click near the fixture.
+2. Drag the square **Source** handle onto the wall or mounting point.
+3. Drag the round **Target** handle to aim the cone and place its pool of light.
+4. Use Source height and Target height to control the downward angle.
+5. Tune color, intensity, radius, and footprint size in the inspector.
+6. Export the level bundle and apply it with the existing level-editor apply
+   script.
 
-```ts
-{
-  position: [80, 22, 136],
-  aimOffset: [60, -104, -101]
-}
-```
+Moving the source translates only the mount. Dragging the body translates the
+source and target together. Dragging the target changes aim and footprint without
+moving the mount. This replaces the old workflow of synchronizing three unrelated
+sets of coordinates.
 
-- `position` is the mounted light source. Change this one tuple to translate the
-  whole fixture.
-- `aimOffset` is the cone target relative to `position`. Change its first value
-  to aim left or right, its second value to aim nearer or farther across the map,
-  and its third value to aim higher or lower.
+The district currently has two cyan fixtures: the repair entrance and repair
+alley. Both are normal objects in the **Colored beacons** editor layer.
 
-The renderer derives the cone target, midpoint, orientation, footprint position,
-source glow, and point-light position from these two tuples. Cone radius,
-footprint shape, and point-light calibration are renderer defaults, not values
-that every fixture author must synchronize.
+## Data model
 
-## Adding more fixtures
+Each exported fixture stores:
 
-Define another placement object and pass it to `createShopBeacon`:
+- source world position: `x`, `y`, `z`
+- target world position: `targetX`, `targetY`, `targetZ`
+- appearance: `color`, `intensity`, `radius`, `footprintWidth`,
+  `footprintHeight`
 
-```ts
-const placement: ShopBeaconPlacement = {
-  position: [0, 0, 110],
-  aimOffset: [0, -120, -105]
-};
-
-createShopBeacon({color: 0xff4fd8, intensity: 0.9, placement});
-```
-
-Keep fixtures sparse. Reuse the same renderer and vary data instead of copying
-shader or mesh code. Adding another matching fixture requires only a mount
-position, an aim offset, a color, and optionally an intensity.
-
-The repair alley is the first additional fixture authored through this model:
-
-```ts
-{
-  position: [216, 280, 108],
-  aimOffset: [-70, -96, -73]
-}
-```
-
-It is mounted on the alley's right wall and aimed diagonally back through the
-passage. It shares the repair entrance's cyan color but uses a lower mounting
-height and lower intensity.
+The renderer owns all internal offsets and shader construction. Authors should
+not position the cone mesh, footprint shader, bloom, or point light separately.
 
 ## Lessons learned
 
@@ -64,10 +44,10 @@ height and lower intensity.
 4. Verify both the gameplay camera and an angled debug camera; flat artifacts and
    misplaced volume are not equally visible from both.
 5. Never pulse or scale the parent of a fixed environmental light.
-6. Use configuration data for additional lights so the system scales beyond one
-   hand-tuned repair-shop fixture.
+6. Use level-editor objects for additional lights so the system scales beyond
+   one hand-tuned repair-shop fixture.
 7. Treat a successful compile as part of the feedback loop. A temporarily invalid
    coordinate edit can leave the browser displaying the previous valid bundle.
-8. Keep rendering calibration inside the renderer. Fixture data should describe
-   where a light is mounted and where it aims—not repeat internal offsets and
-   shader dimensions.
+8. Keep rendering calibration inside the renderer. Fixture data describes where
+   a light is mounted, where it aims, and the few appearance controls an author
+   actually needs.

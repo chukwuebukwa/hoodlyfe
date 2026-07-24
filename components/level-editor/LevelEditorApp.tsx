@@ -59,6 +59,7 @@ import {
   districtMapAsset,
   type DistrictDefinition
 } from '../../shared/content/district-catalog.ts';
+import type {ColoredBeaconDefinition} from '../../shared/content/colored-beacons.ts';
 
 interface LoadedEditor {
   district: DistrictDefinition;
@@ -196,6 +197,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
       if (key === 'c') setTool('corridor');
       if (key === 'j') setTool('junction');
       if (key === 's' && !command) setTool('spawn');
+      if (key === 'l') setTool('beacon');
       if (key === 'k') setTool('roadblock');
     }
     window.addEventListener('keydown', onKeyDown);
@@ -233,6 +235,7 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
       if (issue.entityKind === 'spawn') setSelection({kind: 'spawn', id: issue.entityId});
       if (issue.entityKind === 'corridor') setSelection({kind: 'corridor', id: issue.entityId});
       if (issue.entityKind === 'junction') setSelection({kind: 'junction', id: issue.entityId});
+      if (issue.entityKind === 'beacon') setSelection({kind: 'beacon', id: issue.entityId});
       if (issue.entityKind === 'roadblock') setSelection({kind: 'roadblock', id: issue.entityId});
     }
     if (issue.point) requestView('focus', issue.point);
@@ -381,7 +384,8 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
         imported.map.height !== loaded.sourceDocument.map.height ||
         imported.map.tileSize !== loaded.sourceDocument.map.tileSize
       ) throw new Error('Imported level dimensions do not match the current district source.');
-      onExecute(documentCommand(`Import ${file.name}`, documentRef.current, structuredClone(imported)));
+      const normalized = {...structuredClone(imported), beacons: structuredClone(imported.beacons ?? [])};
+      onExecute(documentCommand(`Import ${file.name}`, documentRef.current, normalized));
       setSelection(undefined);
       setStatus(`Imported ${file.name}.`);
     } catch (error) {
@@ -437,6 +441,10 @@ function LevelEditorWorkspace({loaded}: {loaded: LoadedEditor}) {
           setSelection(next);
           setHighlightedLaneEdge(undefined);
           if (next && next.kind !== 'cell') setInspectorOpen(true);
+          if (next?.kind === 'beacon') {
+            const beacon = (documentRef.current.beacons ?? []).find(({id}) => id === next.id);
+            if (beacon) requestView('focus', {x: beacon.x, y: beacon.y});
+          }
         }}
         onPreferencesChange={setPreferences}
         onGenerateRoadNetwork={onGenerateRoadNetwork}
@@ -486,14 +494,16 @@ async function loadEditor(): Promise<LoadedEditor> {
   const requested = districtDefinition(requestedId);
   const district = availableDistricts.find((candidate) => candidate.id === requested.id) ?? availableDistricts[0];
   if (!district) throw new Error('No converted district assets are available.');
-  const [map, metadata, authoredLanes] = await Promise.all([
+  const [map, metadata, authoredLanes, authoredBeacons] = await Promise.all([
     fetchJson<TiledMapDocument>(districtMapAsset(district, 'district-map.json')),
     fetchJson<DistrictMapMetadata>(districtMapAsset(district, 'district-map.metadata.json')),
-    fetchOptionalJson<LaneGraphDocument>(districtMapAsset(district, 'district-lanes.json'))
+    fetchOptionalJson<LaneGraphDocument>(districtMapAsset(district, 'district-lanes.json')),
+    fetchOptionalJson<ColoredBeaconDefinition[]>(districtMapAsset(district, 'district-beacons.json'))
   ]);
   const lanes = authoredLanes ?? emptyLaneGraph(district.id);
-  const source = {map, metadata};
-  const assembled = assembleLevelDocument(map, metadata, lanes);
+  const beacons = authoredBeacons ?? [];
+  const source = {map, metadata, beacons};
+  const assembled = assembleLevelDocument(map, metadata, lanes, beacons);
   const sourceDocument = {...assembled, title: district.label};
   const draft = await loadLevelDraft(sourceDocument).catch(() => undefined);
   return {
@@ -503,7 +513,9 @@ async function loadEditor(): Promise<LoadedEditor> {
     authoredLanes: Boolean(authoredLanes),
     source,
     sourceDocument,
-    initialDocument: draft?.document ?? sourceDocument,
+    initialDocument: draft?.document
+      ? {...draft.document, beacons: draft.document.beacons ?? []}
+      : sourceDocument,
     restoredAt: draft?.savedAt
   };
 }
@@ -552,6 +564,7 @@ async function fetchOptionalJson<T>(path: string): Promise<T | undefined> {
 function deleteSelection(document: LevelEditorDocument, selection: Exclude<EditorSelection, undefined>): LevelEditorDocument {
   if (selection.kind === 'cell') return document;
   if (selection.kind === 'spawn') return {...document, spawns: document.spawns.filter((spawn) => spawn.id !== selection.id)};
+  if (selection.kind === 'beacon') return {...document, beacons: (document.beacons ?? []).filter((beacon) => beacon.id !== selection.id)};
   if (selection.kind === 'junction') return {...document, lanes: {...document.lanes, junctions: document.lanes.junctions.filter((junction) => junction.id !== selection.id)}};
   if (selection.kind === 'roadblock') return {...document, lanes: {...document.lanes, roadblocks: (document.lanes.roadblocks ?? []).filter((roadblock) => roadblock.id !== selection.id)}};
   return {

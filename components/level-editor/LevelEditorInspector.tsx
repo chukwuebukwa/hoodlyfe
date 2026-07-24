@@ -14,6 +14,7 @@ import type {
 import {selectionKey, type EditorSelection} from '../../src/tools/level-editor/editor-ui.ts';
 import {synchronizeJunctionIntersections} from '../../src/tools/level-editor/lane-authoring-geometry.ts';
 import {compileLaneNetwork} from '../../shared/traffic/lane-network-compiler.ts';
+import type {ColoredBeaconDefinition} from '../../shared/content/colored-beacons.ts';
 
 interface LevelEditorInspectorProps {
   document: LevelEditorDocument;
@@ -47,6 +48,11 @@ function InspectorBody(props: LevelEditorInspectorProps) {
     const selectedId = props.selection.id;
     const spawn = props.document.spawns.find((candidate) => candidate.id === selectedId);
     return spawn ? <SpawnInspector {...props} spawn={spawn} /> : <MissingSelection />;
+  }
+  if (props.selection.kind === 'beacon') {
+    const selectedId = props.selection.id;
+    const beacon = (props.document.beacons ?? []).find((candidate) => candidate.id === selectedId);
+    return beacon ? <BeaconInspector {...props} beacon={beacon} /> : <MissingSelection />;
   }
   if (props.selection.kind === 'corridor') {
     const selectedId = props.selection.id;
@@ -127,6 +133,53 @@ function SpawnInspector(props: LevelEditorInspectorProps & {spawn: EditorSpawn})
           <NumberField label="X" value={spawn.x} onCommit={(x) => update('Move spawn', {x})} />
           <NumberField label="Y" value={spawn.y} onCommit={(y) => update('Move spawn', {y})} />
           <NumberField label="Angle deg" value={radiansToDegrees(spawn.angle)} onCommit={(angle) => update('Rotate spawn', {angle: degreesToRadians(angle)})} />
+        </div>
+      </InspectorSection>
+    </>
+  );
+}
+
+function BeaconInspector(props: LevelEditorInspectorProps & {beacon: ColoredBeaconDefinition}) {
+  const {beacon} = props;
+  function update(label: string, patch: Partial<ColoredBeaconDefinition>, nextId?: string): void {
+    props.onCommit(label, (document) => ({
+      ...document,
+      beacons: (document.beacons ?? []).map((candidate) => (
+        candidate.id === beacon.id ? {...candidate, ...patch} : candidate
+      ))
+    }));
+    if (nextId) props.onSelectionChange({kind: 'beacon', id: nextId});
+  }
+  return (
+    <>
+      <InspectorSection title="Colored beacon">
+        <TextField label="ID" value={beacon.id} onCommit={(value) => update('Rename colored beacon', {id: value}, value)} />
+        <TextField label="Label" value={beacon.label} onCommit={(value) => update('Rename colored beacon label', {label: value})} />
+        <CheckField label="Enabled" checked={beacon.enabled} onCommit={(enabled) => update('Toggle colored beacon', {enabled})} />
+      </InspectorSection>
+      <InspectorSection title="Source">
+        <div className="le-field-grid">
+          <NumberField label="X" value={beacon.x} onCommit={(x) => update('Move beacon source', {x})} />
+          <NumberField label="Y" value={beacon.y} onCommit={(y) => update('Move beacon source', {y})} />
+          <NumberField label="Height" value={beacon.z} min={0} onCommit={(z) => update('Change beacon height', {z})} />
+        </div>
+        <button className="le-wide-command" type="button" onClick={() => props.onSelectionChange({kind: 'beacon', id: beacon.id, handle: 'source'})}>Select source handle</button>
+      </InspectorSection>
+      <InspectorSection title="Target">
+        <div className="le-field-grid">
+          <NumberField label="X" value={beacon.targetX} onCommit={(targetX) => update('Aim colored beacon', {targetX})} />
+          <NumberField label="Y" value={beacon.targetY} onCommit={(targetY) => update('Aim colored beacon', {targetY})} />
+          <NumberField label="Height" value={beacon.targetZ} min={0} onCommit={(targetZ) => update('Aim colored beacon', {targetZ})} />
+        </div>
+        <button className="le-wide-command" type="button" onClick={() => props.onSelectionChange({kind: 'beacon', id: beacon.id, handle: 'target'})}>Select target handle</button>
+      </InspectorSection>
+      <InspectorSection title="Appearance">
+        <ColorField label="Color" value={beacon.color} onCommit={(color) => update('Change beacon color', {color})} />
+        <div className="le-field-grid">
+          <NumberField label="Intensity" value={beacon.intensity} min={0.01} onCommit={(intensity) => update('Change beacon intensity', {intensity})} />
+          <NumberField label="Cone radius" value={beacon.radius} min={1} onCommit={(radius) => update('Change beacon radius', {radius})} />
+          <NumberField label="Footprint width" value={beacon.footprintWidth} min={1} onCommit={(footprintWidth) => update('Change beacon footprint', {footprintWidth})} />
+          <NumberField label="Footprint height" value={beacon.footprintHeight} min={1} onCommit={(footprintHeight) => update('Change beacon footprint', {footprintHeight})} />
         </div>
       </InspectorSection>
     </>
@@ -288,6 +341,10 @@ function NumberField({label, value, min, max, onCommit}: {label: string; value: 
     const next = Number(event.target.value);
     if (Number.isFinite(next) && next !== value) onCommit(next);
   }} /></label>;
+}
+
+function ColorField({label, value, onCommit}: {label: string; value: string; onCommit(value: string): void}) {
+  return <label className="le-field">{label}<input key={value} type="color" defaultValue={value} onBlur={(event) => event.target.value !== value && onCommit(event.target.value)} /></label>;
 }
 
 function TextAreaField({label, value, onCommit}: {label: string; value: string; onCommit(value: string): void}) {

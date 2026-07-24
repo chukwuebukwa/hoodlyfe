@@ -42,6 +42,10 @@ import {
   type CompiledLaneNetwork
 } from '../../shared/traffic/lane-network-compiler.ts';
 import {corridorLaneOffset, offsetPolyline} from '../../shared/traffic/lane-geometry.ts';
+import {
+  DEFAULT_COLORED_BEACON_STYLE,
+  type ColoredBeaconDefinition
+} from '../../shared/content/colored-beacons.ts';
 
 export interface CanvasViewCommand {
   id: number;
@@ -239,6 +243,7 @@ export function LevelEditorCanvas({
     }
     if (highlightedLaneEdgeRef.current) drawCompiledLaneEdge(context, highlightedLaneEdgeRef.current, viewport.scale);
     if (preferencesRef.current.layers.spawns) drawSpawns(context, activeDocument, viewport.scale, selectionRef.current);
+    if (preferencesRef.current.layers.beacons) drawBeacons(context, activeDocument, viewport.scale, selectionRef.current);
     if (preferencesRef.current.layers.roadblocks) drawRoadblocks(context, activeDocument, viewport.scale, selectionRef.current);
     drawDraftCorridor(context, draftCorridorRef.current, cursorWorldRef.current, viewport.scale);
     context.restore();
@@ -301,6 +306,10 @@ export function LevelEditorCanvas({
     }
     if (toolRef.current === 'spawn') {
       createSpawn(world);
+      return;
+    }
+    if (toolRef.current === 'beacon') {
+      createBeacon(world);
       return;
     }
     if (toolRef.current === 'roadblock') {
@@ -472,6 +481,33 @@ export function LevelEditorCanvas({
     callbacksRef.current.onStatus(`Added ${spawn.label}.`);
   }
 
+  function createBeacon(world: Point2D): void {
+    const before = documentRef.current;
+    const source = snapPoint(world, preferencesRef.current.snapSize);
+    const target = snapPoint({x: source.x, y: source.y + 120}, preferencesRef.current.snapSize);
+    const id = uniqueId('colored-beacon', (before.beacons ?? []).map((beacon) => beacon.id));
+    const beacon: ColoredBeaconDefinition = {
+      id,
+      label: titleCase(id),
+      enabled: true,
+      x: source.x,
+      y: source.y,
+      z: DEFAULT_COLORED_BEACON_STYLE.z,
+      targetX: target.x,
+      targetY: target.y,
+      targetZ: DEFAULT_COLORED_BEACON_STYLE.targetZ,
+      color: DEFAULT_COLORED_BEACON_STYLE.color,
+      intensity: DEFAULT_COLORED_BEACON_STYLE.intensity,
+      radius: DEFAULT_COLORED_BEACON_STYLE.radius,
+      footprintWidth: DEFAULT_COLORED_BEACON_STYLE.footprintWidth,
+      footprintHeight: DEFAULT_COLORED_BEACON_STYLE.footprintHeight
+    };
+    const after = {...before, beacons: [...(before.beacons ?? []), beacon]};
+    callbacksRef.current.onExecute(documentCommand('Add colored beacon', before, after));
+    callbacksRef.current.onSelectionChange({kind: 'beacon', id, handle: 'target'});
+    callbacksRef.current.onStatus(`Added ${beacon.label}. Drag its target handle to aim it.`);
+  }
+
   function createRoadblock(world: Point2D): void {
     const before = documentRef.current;
     const point = snapPoint(world, preferencesRef.current.snapSize);
@@ -501,6 +537,7 @@ export function LevelEditorCanvas({
     const before = documentRef.current;
     let after = before;
     if (selected.kind === 'spawn') after = {...before, spawns: before.spawns.filter((spawn) => spawn.id !== selected.id)};
+    if (selected.kind === 'beacon') after = {...before, beacons: (before.beacons ?? []).filter((beacon) => beacon.id !== selected.id)};
     if (selected.kind === 'corridor') {
       const corridors = before.lanes.corridors.filter((corridor) => corridor.id !== selected.id);
       const junctions = repairJunctionIntersections(
@@ -943,6 +980,73 @@ function drawSpawns(context: CanvasRenderingContext2D, document: LevelEditorDocu
   }
 }
 
+function drawBeacons(context: CanvasRenderingContext2D, document: LevelEditorDocument, scale: number, selection: EditorSelection): void {
+  for (const beacon of document.beacons ?? []) {
+    if (!beacon.enabled) continue;
+    const selected = selection?.kind === 'beacon' && selection.id === beacon.id;
+    const source = {x: beacon.x, y: beacon.y};
+    const target = {x: beacon.targetX, y: beacon.targetY};
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const normal = {x: -dy / length, y: dx / length};
+
+    context.save();
+    context.fillStyle = beacon.color;
+    context.strokeStyle = selected ? '#ffffff' : beacon.color;
+    context.lineWidth = (selected ? 3 : 1.5) / scale;
+
+    context.globalAlpha = 0.13 * Math.min(1.5, beacon.intensity);
+    context.beginPath();
+    context.moveTo(source.x, source.y);
+    context.lineTo(target.x + normal.x * beacon.radius, target.y + normal.y * beacon.radius);
+    context.lineTo(target.x - normal.x * beacon.radius, target.y - normal.y * beacon.radius);
+    context.closePath();
+    context.fill();
+    context.stroke();
+
+    context.globalAlpha = 0.18 * Math.min(1.5, beacon.intensity);
+    context.beginPath();
+    context.ellipse(
+      target.x,
+      target.y,
+      beacon.footprintWidth / 2,
+      beacon.footprintHeight / 2,
+      0,
+      0,
+      Math.PI * 2
+    );
+    context.fill();
+    context.setLineDash([6 / scale, 5 / scale]);
+    context.stroke();
+
+    context.globalAlpha = 1;
+    context.setLineDash([8 / scale, 5 / scale]);
+    context.beginPath();
+    context.moveTo(source.x, source.y);
+    context.lineTo(target.x, target.y);
+    context.stroke();
+    context.setLineDash([]);
+
+    const sourceRadius = (selected && selection.handle === 'source' ? 10 : 7) / scale;
+    context.beginPath();
+    context.rect(source.x - sourceRadius, source.y - sourceRadius, sourceRadius * 2, sourceRadius * 2);
+    context.fill();
+    context.stroke();
+
+    const targetRadius = (selected && selection.handle === 'target' ? 11 : 8) / scale;
+    context.beginPath();
+    context.arc(target.x, target.y, targetRadius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+
+    if (scale >= 0.12) {
+      drawLabel(context, beacon.label, {x: source.x, y: source.y - 16 / scale}, scale, beacon.color);
+    }
+  }
+}
+
 function drawRoadblocks(context: CanvasRenderingContext2D, document: LevelEditorDocument, scale: number, selection: EditorSelection): void {
   for (const roadblock of document.lanes.roadblocks ?? []) {
     const selected = selection?.kind === 'roadblock' && selection.id === roadblock.id;
@@ -1008,6 +1112,41 @@ function hitTest(
   preferences: EditorPreferences
 ): EditorSelection {
   const threshold = ENTITY_HIT_RADIUS_PX / scale;
+  if (preferences.layers.beacons) {
+    let best: {id: string; handle: 'source' | 'target'; distance: number} | undefined;
+    for (const beacon of document.beacons ?? []) {
+      if (!beacon.enabled) continue;
+      for (const candidate of [
+        {handle: 'source' as const, point: {x: beacon.x, y: beacon.y}},
+        {handle: 'target' as const, point: {x: beacon.targetX, y: beacon.targetY}}
+      ]) {
+        const candidateDistance = distance(candidate.point, world);
+        if (candidateDistance <= threshold && (!best || candidateDistance < best.distance)) {
+          best = {id: beacon.id, handle: candidate.handle, distance: candidateDistance};
+        }
+      }
+    }
+    if (best) return {kind: 'beacon', id: best.id, handle: best.handle};
+    let body: {id: string; distance: number} | undefined;
+    for (const beacon of document.beacons ?? []) {
+      if (!beacon.enabled) continue;
+      const source = {x: beacon.x, y: beacon.y};
+      const target = {x: beacon.targetX, y: beacon.targetY};
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const lengthSquared = dx * dx + dy * dy;
+      const progress = lengthSquared === 0
+        ? 0
+        : ((world.x - source.x) * dx + (world.y - source.y) * dy) / lengthSquared;
+      if (progress < 0 || progress > 1) continue;
+      const lineDistance = distanceToSegment(world, source, target);
+      const beamHalfWidth = beacon.radius * progress + threshold;
+      if (lineDistance <= beamHalfWidth && (!body || lineDistance < body.distance)) {
+        body = {id: beacon.id, distance: lineDistance};
+      }
+    }
+    if (body) return {kind: 'beacon', id: body.id};
+  }
   if (preferences.layers.spawns) {
     const spawn = nearest(document.spawns, world, threshold);
     if (spawn) return {kind: 'spawn', id: spawn.id};
@@ -1056,6 +1195,28 @@ function moveSelection(
       ? {...spawn, ...snapPoint({x: spawn.x + dx, y: spawn.y + dy}, snapSize)}
       : spawn);
     return {...document, spawns};
+  }
+  if (selection.kind === 'beacon') {
+    const beacons = (document.beacons ?? []).map((beacon) => {
+      if (beacon.id !== selection.id) return beacon;
+      if (selection.handle === 'target') {
+        const target = snapPoint({x: beacon.targetX + dx, y: beacon.targetY + dy}, snapSize);
+        return {...beacon, targetX: target.x, targetY: target.y};
+      }
+      if (selection.handle === 'source') {
+        return {...beacon, ...snapPoint({x: beacon.x + dx, y: beacon.y + dy}, snapSize)};
+      }
+      const source = snapPoint({x: beacon.x + dx, y: beacon.y + dy}, snapSize);
+      const moveX = source.x - beacon.x;
+      const moveY = source.y - beacon.y;
+      return {
+        ...beacon,
+        ...source,
+        targetX: beacon.targetX + moveX,
+        targetY: beacon.targetY + moveY
+      };
+    });
+    return {...document, beacons};
   }
   if (selection.kind === 'junction') {
     const junction = document.lanes.junctions.find((candidate) => candidate.id === selection.id);

@@ -10,10 +10,12 @@ export type EditorTool =
   | 'corridor'
   | 'junction'
   | 'spawn'
+  | 'beacon'
   | 'roadblock';
 
 export type EditorSelection =
   | {kind: 'spawn'; id: string}
+  | {kind: 'beacon'; id: string; handle?: 'source' | 'target'}
   | {kind: 'corridor'; id: string; pointIndex?: number}
   | {kind: 'junction'; id: string}
   | {kind: 'roadblock'; id: string}
@@ -27,6 +29,7 @@ export interface LayerVisibility {
   corridors: boolean;
   junctions: boolean;
   spawns: boolean;
+  beacons: boolean;
   roadblocks: boolean;
   grid: boolean;
 }
@@ -58,6 +61,7 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
     corridors: true,
     junctions: true,
     spawns: true,
+    beacons: true,
     roadblocks: true,
     grid: false
   },
@@ -74,6 +78,9 @@ export function selectionKey(selection: EditorSelection): string {
   if (selection.kind === 'corridor' && selection.pointIndex !== undefined) {
     return `${selection.kind}:${selection.id}:${selection.pointIndex}`;
   }
+  if (selection.kind === 'beacon' && selection.handle) {
+    return `${selection.kind}:${selection.id}:${selection.handle}`;
+  }
   return `${selection.kind}:${selection.id}`;
 }
 
@@ -89,13 +96,18 @@ export function reconcileSelection(
   const previousIndex = previousItems.findIndex((item) => item.id === selection.id);
   const replacement = nextItems[previousIndex];
   if (!replacement) return undefined;
-  return selection.kind === 'corridor'
-    ? {kind: 'corridor', id: replacement.id, pointIndex: selection.pointIndex}
-    : {kind: selection.kind, id: replacement.id};
+  if (selection.kind === 'corridor') {
+    return {kind: 'corridor', id: replacement.id, pointIndex: selection.pointIndex};
+  }
+  if (selection.kind === 'beacon') {
+    return {kind: 'beacon', id: replacement.id, handle: selection.handle};
+  }
+  return {kind: selection.kind, id: replacement.id};
 }
 
 function entityItems(document: LevelEditorDocument, kind: Exclude<NonNullable<EditorSelection>['kind'], 'cell'>): Array<{id: string}> {
   if (kind === 'spawn') return document.spawns;
+  if (kind === 'beacon') return document.beacons ?? [];
   if (kind === 'corridor') return document.lanes.corridors;
   if (kind === 'junction') return document.lanes.junctions;
   return document.lanes.roadblocks ?? [];

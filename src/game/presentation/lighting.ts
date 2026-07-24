@@ -14,6 +14,12 @@ import {
   mergeLightEmitters,
   type RoadMask
 } from './map/road-light-policy.ts';
+import {
+  coloredBeaconHex,
+  parseColoredBeaconDefinitions,
+  type ColoredBeaconDefinition
+} from '../../../shared/content/colored-beacons.ts';
+import {createShopBeacon} from './effects/shop-beacon.ts';
 
 interface FixtureLight {
   definition: StreetLightFixture;
@@ -26,6 +32,7 @@ export class LightingPresentation {
   private readonly ambient = new THREE.AmbientLight(0xffffff, 0.45);
   private readonly sun = new THREE.DirectionalLight();
   private readonly fixtureLights: FixtureLight[];
+  private readonly beaconGroups: THREE.Group[];
   private debugMinute = developmentTimeOverride();
   private readonly timeControls = document.querySelector<HTMLElement>('#debug-time-controls');
   private readonly timeInput = document.querySelector<HTMLInputElement>('#debug-time-input');
@@ -36,7 +43,8 @@ export class LightingPresentation {
   private constructor(
     private readonly scene: THREE.Scene,
     surfaceHeightAt: (x: number, y: number) => number,
-    fixtures: readonly StreetLightFixture[]
+    fixtures: readonly StreetLightFixture[],
+    beacons: readonly ColoredBeaconDefinition[]
   ) {
     this.hemisphere.name = 'world-hemisphere';
     this.sun.name = 'world-sun';
@@ -55,6 +63,27 @@ export class LightingPresentation {
       this.scene.add(glow, light);
       return {definition: fixture, glow, light};
     });
+    this.beaconGroups = beacons.filter(({enabled}) => enabled).map((definition) => {
+      const group = createShopBeacon({
+        color: coloredBeaconHex(definition.color),
+        intensity: definition.intensity,
+        radius: definition.radius,
+        footprintSize: [definition.footprintWidth, definition.footprintHeight],
+        footprintZ: surfaceHeightAt(definition.targetX, definition.targetY) + 1.5,
+        placement: {
+          position: [definition.x, serverYToScene(definition.y), definition.z],
+          aimOffset: [
+            definition.targetX - definition.x,
+            serverYToScene(definition.targetY) - serverYToScene(definition.y),
+            definition.targetZ - definition.z
+          ]
+        }
+      });
+      group.name = `colored-beacon:${definition.id}`;
+      group.userData.beaconId = definition.id;
+      this.scene.add(group);
+      return group;
+    });
   }
 
   static async create(
@@ -63,14 +92,21 @@ export class LightingPresentation {
     mapUrl = '/assets/maps/district-map.json',
     authoredFixtures: readonly StreetLightFixture[] = STREET_LIGHT_FIXTURES
   ): Promise<LightingPresentation> {
-    const response = await fetch(mapUrl);
+    const beaconUrl = mapUrl.replace(/district-map\.json$/, 'district-beacons.json');
+    const [response, beaconResponse] = await Promise.all([
+      fetch(mapUrl),
+      fetch(beaconUrl)
+    ]);
     if (!response.ok) throw new Error(`Road lighting mask failed to load (${response.status}).`);
+    const beacons = beaconResponse.ok
+      ? parseColoredBeaconDefinitions(await beaconResponse.json())
+      : [];
     const generated = deriveRoadLightEmitters(await response.json() as RoadMask, {
       coverageRadius: 168,
       existing: authoredFixtures
     });
     const fixtures = mergeLightEmitters(authoredFixtures, generated);
-    return new LightingPresentation(scene, surfaceHeightAt, fixtures);
+    return new LightingPresentation(scene, surfaceHeightAt, fixtures, beacons);
   }
 
   update(
@@ -84,6 +120,7 @@ export class LightingPresentation {
     const minute = this.debugMinute ?? worldMinuteAt(clock, nowMs);
     const lighting = lightingAtMinute(minute);
     const interior = localSpaceId !== STREET_SPACE_ID;
+    for (const beacon of this.beaconGroups) beacon.visible = !interior;
     this.scene.background = new THREE.Color(interior ? 0x080a0c : lighting.skyColor);
     if (!(this.scene.fog instanceof THREE.FogExp2)) {
       this.scene.fog = new THREE.FogExp2(lighting.skyColor, 0.000035);
@@ -126,6 +163,7 @@ export class LightingPresentation {
       fixture.glow.material.dispose();
       fixture.light.dispose();
     }
+    for (const beacon of this.beaconGroups) disposeBeacon(beacon);
     this.timeInput?.removeEventListener('input', this.handleTimeInput);
     this.liveButton?.removeEventListener('click', this.handleLiveTime);
     this.timeControls?.classList.add('hidden');
@@ -159,6 +197,20 @@ export class LightingPresentation {
       fixture.light.intensity = intensity * 1.8;
     }
   }
+}
+
+function disposeBeacon(beacon: THREE.Group): void {
+  beacon.removeFromParent();
+  beacon.traverse((child) => {
+    if (child instanceof THREE.PointLight) {
+      child.dispose();
+      return;
+    }
+    if (!(child instanceof THREE.Mesh)) return;
+    child.geometry.dispose();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) material.dispose();
+  });
 }
 
 function developmentTimeOverride(): number | undefined {
