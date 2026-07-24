@@ -18,6 +18,7 @@ import {radialGlow, updateRadialGlow} from './effects/glow.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke.ts';
 import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
 import {ProjectileImpactEffects} from './effects/projectile-impacts.ts';
+import {createShopBeacon} from './effects/shop-beacon.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -455,7 +456,11 @@ function serviceMarker(service: NetworkStreetService): THREE.Group {
       : service.kind === 'clothing'
         ? 0xff7fb6
         : 0xf2c94c;
-  return ringMarker(service.radius, color, service.label.toUpperCase());
+  const marker = ringMarker(service.radius, color, service.label.toUpperCase());
+  if (service.kind === 'repair') {
+    marker.add(createShopBeacon({color: 0x20dcff, intensity: 1.08}));
+  }
+  return marker;
 }
 
 function pickupMarker(pickup: NetworkWeaponPickup, texture: THREE.Texture): THREE.Group {
