@@ -2527,8 +2527,9 @@ canvas {
 }
 
 #voice-hud {
-  right: 18px;
-  bottom: 106px;
+  right: auto;
+  bottom: 18px;
+  left: 246px;
   display: grid;
   width: 82px;
   justify-items: stretch;
