@@ -2785,9 +2785,9 @@ canvas {
 
 #vehicle-action-button[data-placement="driving"] {
   top: auto !important;
-  right: 18px;
-  bottom: 202px;
-  left: auto !important;
+  right: auto;
+  bottom: 230px;
+  left: 18px !important;
   transform: none;
 }
 
@@ -2819,8 +2819,9 @@ canvas {
 }
 
 #vehicle-handbrake-hint {
-  right: 18px;
-  bottom: 160px;
+  right: auto;
+  bottom: 188px;
+  left: 18px;
   z-index: 42;
   display: flex;
   min-height: 36px;
