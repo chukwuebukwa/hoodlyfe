@@ -41,6 +41,22 @@ export function cameraZoom(viewportWidth: number): number {
   return viewportWidth < 700 ? 1.05 : 1.15;
 }
 
+export function drivingCameraZoom(speed: number): number {
+  const speedRatio = Math.max(0, Math.min(1, (Math.abs(speed) - 80) / 370));
+  const easedSpeed = speedRatio * speedRatio * (3 - 2 * speedRatio);
+  return 1.65 - easedSpeed * 0.55;
+}
+
+export function smoothDrivingCameraZoom(
+  currentZoom: number,
+  targetZoom: number,
+  deltaSeconds: number
+): number {
+  const response = targetZoom < currentZoom ? 4.2 : 2.6;
+  const blend = 1 - Math.exp(-Math.max(0, deltaSeconds) * response);
+  return currentZoom + (targetZoom - currentZoom) * blend;
+}
+
 export function cameraFollowPolicy(mode: CameraFollowMode): CameraFollowPolicy {
   if (mode === 'vehicle') return {lerpX: 0.12, lerpY: 0.12, centerOnAcquire: false};
   return {lerpX: 0.14, lerpY: 0.14, centerOnAcquire: true};

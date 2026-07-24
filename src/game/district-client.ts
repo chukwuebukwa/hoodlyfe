@@ -33,7 +33,9 @@ import type {
 } from './presentation/map/geometry-format.ts';
 import {
   cameraRecoilOffset,
+  drivingCameraZoom,
   explorerCameraPose,
+  smoothDrivingCameraZoom,
   type CameraFollowMode,
   type CameraPresentationMode
 } from './camera/camera-policy.ts';
@@ -61,7 +63,7 @@ export class DistrictClient {
   private lastAuthorityInputAt = Number.NEGATIVE_INFINITY;
   private lastAuthorityInput = {x: Number.NaN, y: Number.NaN, handbrake: false};
   private frame = 0;
-  private zoom = 1.65;
+  private zoom = drivingCameraZoom(0);
   private baseHeight = 1;
   private center = new THREE.Vector3();
   private dragging = false;
@@ -404,6 +406,10 @@ export class DistrictClient {
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
         : undefined;
+      if (this.cameraMode === 'overhead') {
+        const targetZoom = drivingCameraZoom(localVehicle?.speed ?? 0);
+        this.zoom = smoothDrivingCameraZoom(this.zoom, targetZoom, delta);
+      }
       if (local?.alive) {
         if (
           now - this.lastAuthorityInputAt >= 50 ||

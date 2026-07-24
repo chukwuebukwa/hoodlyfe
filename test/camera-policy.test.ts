@@ -5,7 +5,9 @@ import {
   cameraRecoilOffset,
   cameraTargetKey,
   cameraZoom,
-  explorerCameraPose
+  drivingCameraZoom,
+  explorerCameraPose,
+  smoothDrivingCameraZoom
 } from '../src/game/camera/camera-policy.ts';
 
 test('camera policy keeps responsive zoom and distinct player/vehicle follow modes', () => {
@@ -22,6 +24,20 @@ test('camera policy keeps responsive zoom and distinct player/vehicle follow mod
     centerOnAcquire: false
   });
   assert.equal(cameraTargetKey('vehicle', 'taxi-4'), 'vehicle:taxi-4');
+});
+
+test('driving camera smoothly pulls back as vehicle speed rises', () => {
+  assert.equal(drivingCameraZoom(0), 1.65);
+  assert.equal(drivingCameraZoom(80), 1.65);
+  assert.ok(drivingCameraZoom(250) < 1.5);
+  assert.ok(Math.abs(drivingCameraZoom(450) - 1.1) < 0.000001);
+  assert.ok(Math.abs(drivingCameraZoom(-450) - 1.1) < 0.000001);
+
+  const pullingBack = smoothDrivingCameraZoom(1.65, 1.1, 1 / 60);
+  assert.ok(pullingBack < 1.65 && pullingBack > 1.1);
+  const returning = smoothDrivingCameraZoom(1.1, 1.65, 1 / 60);
+  assert.ok(returning > 1.1 && returning < 1.65);
+  assert.ok(1.65 - pullingBack > returning - 1.1);
 });
 
 test('camera recoil follows shot direction, camera mode, passengers, and reduced motion', () => {
