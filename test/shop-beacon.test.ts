@@ -22,7 +22,7 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.equal(beacon.getObjectByName('shop-beacon-ground'), undefined);
 
   assert.ok(volume instanceof THREE.Group);
-  assert.equal(volume.children.length, 3);
+  assert.equal(volume.children.length, 5);
   for (const blade of volume.children) {
     assert.ok(blade instanceof THREE.Mesh);
     assert.ok(blade.geometry instanceof THREE.PlaneGeometry);

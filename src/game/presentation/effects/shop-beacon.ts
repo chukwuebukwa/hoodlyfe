@@ -14,7 +14,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   group.userData.disableMarkerPulse = true;
 
   const source = new THREE.Vector3(0, 62, 68);
-  const target = new THREE.Vector3(0, -58, -5);
+  const target = new THREE.Vector3(0, -82, -5);
 
   const beam = new THREE.Mesh(
     new THREE.PlaneGeometry(190, 230),
@@ -77,13 +77,13 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
     new THREE.Vector3(0, 1, 0),
     volumeDirection.normalize()
   );
-  for (const angle of [0, Math.PI / 3, Math.PI * 2 / 3]) {
+  for (const angle of [0, Math.PI / 5, Math.PI * 2 / 5, Math.PI * 3 / 5, Math.PI * 4 / 5]) {
     const blade = new THREE.Mesh(
-      new THREE.PlaneGeometry(126, volumeLength),
+      new THREE.PlaneGeometry(210, volumeLength),
       new THREE.ShaderMaterial({
         uniforms: {
           beaconColor: {value: color.clone()},
-          beaconOpacity: {value: 0.13 * intensity}
+          beaconOpacity: {value: 0.075 * intensity}
         },
         vertexShader: `
           varying vec2 beaconUv;
@@ -99,11 +99,11 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
           void main() {
             vec2 point = beaconUv * 2.0 - 1.0;
             float travel = 1.0 - beaconUv.y;
-            float volumeWidth = mix(0.015, 0.58, pow(travel, 0.82));
+            float volumeWidth = mix(0.012, 0.90, pow(travel, 0.78));
             float normalizedEdge = abs(point.x) / max(volumeWidth, 0.001);
             float edgeSoftness = 1.0 - smoothstep(0.24, 1.0, normalizedEdge);
             float startFade = smoothstep(0.0, 0.025, travel);
-            float endFade = 1.0 - smoothstep(0.70, 1.0, travel);
+            float endFade = 1.0 - smoothstep(0.82, 1.0, travel);
             float centerDensity = mix(1.0, 0.58, normalizedEdge);
             float alpha = edgeSoftness * startFade * endFade
               * centerDensity * beaconOpacity;
