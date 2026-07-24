@@ -10,6 +10,11 @@ import {
 import type {DistrictNetworkState} from './game/types.ts';
 import {NetcodeRolloutController} from './game/network/netcode-rollout-controller.ts';
 import {NockPhoneController} from './game/ui/nock-phone-controller.ts';
+import {
+  gameWorldDefinition,
+  gameWorldIdForRoom,
+  type GameWorldId
+} from './game/runtime/world-catalog.ts';
 
 export interface StartGameRuntimeOptions {
   serverUrl: string;
@@ -32,32 +37,38 @@ export async function startGameRuntime(options: StartGameRuntimeOptions): Promis
 }
 
 class GameRuntimeController implements GameRuntime {
-  private activeRoom: Room<DistrictNetworkState> | undefined;
-  private activeDistrictClient: {start(): Promise<void>; destroy(): void} | undefined;
+  private activeSession: WorldSession | undefined;
   private loadingUi: LoadingController | undefined;
-  private netcodeRollout: NetcodeRolloutController | undefined;
   private readonly phone = NockPhoneController.forDocument();
+  private driverName = 'Driver';
+  private playerAppearance?: PlayerAppearance;
+  private playerAuth?: ClientAuthPayload;
+  private transition?: Promise<void>;
+  private destroyed = false;
 
   constructor(private readonly options: StartGameRuntimeOptions) {}
 
   async start(): Promise<void> {
     const onboarding = loadOnboardingIdentity();
-    const driverName = onboarding.driverName;
-    const playerAppearance = onboarding.appearance;
-    const playerAuth = this.options.auth ?? onboarding.auth;
+    this.driverName = onboarding.driverName;
+    this.playerAppearance = onboarding.appearance;
+    this.playerAuth = this.options.auth ?? onboarding.auth;
     const onboardingRequired = shouldShowOnboarding();
     const nameElement = document.querySelector('#driver-name');
-    const districtLabel = document.querySelector<HTMLElement>('#district-label span');
-    if (districtLabel && this.options.runtimeLabel) {
-      districtLabel.textContent = this.options.runtimeLabel;
-    }
+    const initialWorld = this.initialWorld();
+    this.applyWorldLabel(initialWorld);
     this.loadingUi = createLoadingController();
-    if (nameElement) nameElement.textContent = driverName;
+    this.loadingUi.begin(initialWorld.loadingTitle, 'Selecting street renderer');
+    if (nameElement) nameElement.textContent = this.driverName;
 
     try {
       this.loadingUi.set(0.06, 'Selecting street renderer');
-      await this.startDistrictClient(driverName, playerAppearance, playerAuth, onboardingRequired);
-      this.showOnboardingAfterStart(driverName, playerAppearance, playerAuth, onboardingRequired);
+      const room = await this.joinWorld(initialWorld, onboardingRequired);
+      this.activeSession = await this.createWorldSession(initialWorld, room);
+      this.configurePhone(false);
+      this.loadingUi.set(0.95, 'Preparing driver');
+      this.loadingUi.finish();
+      this.showOnboardingAfterStart(onboardingRequired);
     } catch (error) {
       const loadingUi = this.loadingUi;
       this.destroy();
@@ -74,82 +85,90 @@ class GameRuntimeController implements GameRuntime {
   }
 
   destroy(): void {
-    this.activeDistrictClient?.destroy();
-    this.activeDistrictClient = undefined;
-    this.netcodeRollout?.destroy();
-    this.netcodeRollout = undefined;
-    void this.activeRoom?.leave(true);
-    this.activeRoom = undefined;
+    this.destroyed = true;
+    this.phone.setActivityContext(undefined);
+    this.activeSession?.districtClient.destroy();
+    this.activeSession?.netcodeRollout.destroy();
+    void this.activeSession?.room.leave(true);
+    this.activeSession = undefined;
     this.loadingUi?.destroy();
     this.loadingUi = undefined;
   }
 
-  private async startDistrictClient(
-    driverName: string,
-    playerAppearance: PlayerAppearance,
-    playerAuth: ClientAuthPayload,
-    onboardingRequired: boolean
-  ): Promise<void> {
-    const shell = document.querySelector<HTMLElement>('#game-shell');
-    const game = document.querySelector<HTMLElement>('#game');
-    if (!shell || !game) throw new Error('Game mount is unavailable.');
-    this.loadingUi?.setTitle('HOODLYFE');
-    this.loadingUi?.set(0.14, 'Connecting district server');
-    const client = new Client(this.options.serverUrl);
-    this.activeRoom = await client.joinOrCreate<DistrictNetworkState>(this.options.roomName ?? 'district', {
-      ...this.options.roomOptions,
-      name: driverName,
-      appearance: playerAppearance,
-      auth: playerAuth,
-      spectator: onboardingRequired
-    });
-    const room = this.activeRoom;
-    if (!room.state?.players) {
-      await new Promise<void>((resolve, reject) => {
-        const onState = (state: DistrictNetworkState) => {
-          if (!state?.players) return;
-          room.onStateChange.remove(onState);
-          room.onLeave.remove(onLeave);
-          resolve();
-        };
-        const onLeave = (code: number) => {
-          room.onStateChange.remove(onState);
-          room.onLeave.remove(onLeave);
-          reject(new Error(`District room closed before initial state (${code}).`));
-        };
-        room.onStateChange(onState);
-        room.onLeave(onLeave);
-      });
-    }
-    this.startNetworkControllers(room);
-    this.loadingUi?.set(0.42, 'District room joined');
-    this.loadingUi?.set(0.56, 'Loading GTA2 geometry');
-    const {DistrictClient} = await import('./game/district-client.ts');
-    this.loadingUi?.set(0.72, 'Building roads and rooftops');
-    this.activeDistrictClient = new DistrictClient(
-      game,
-      this.activeRoom,
-      this.netcodeRollout,
-      this.phone,
-      this.options.assetRoot,
-      this.options.enableInteriors
-    );
-    await this.activeDistrictClient.start();
-    this.loadingUi?.set(0.95, 'Preparing driver');
-    this.loadingUi?.finish();
+  private initialWorld(): RuntimeWorldDefinition {
+    const id = gameWorldIdForRoom(this.options.roomName);
+    const catalog = id ? gameWorldDefinition(id) : undefined;
+    return {
+      id,
+      roomName: this.options.roomName ?? catalog?.roomName ?? 'district',
+      roomOptions: this.options.roomOptions,
+      assetRoot: this.options.assetRoot ?? catalog?.assetRoot ?? '/assets',
+      runtimeLabel: this.options.runtimeLabel ?? catalog?.runtimeLabel ?? 'Industrial District',
+      loadingTitle: catalog?.loadingTitle ?? 'HOODLYFE',
+      enableInteriors: this.options.enableInteriors ?? catalog?.enableInteriors ?? true
+    };
   }
 
-  private showOnboardingAfterStart(
-    driverName: string,
-    playerAppearance: PlayerAppearance,
-    playerAuth: ClientAuthPayload,
-    onboardingRequired: boolean
-  ): void {
-    if (!this.activeRoom || !onboardingRequired) return;
-    void runOnboardingOverlay(driverName, playerAppearance, playerAuth).then((result) => {
+  private async joinWorld(
+    world: RuntimeWorldDefinition,
+    spectator = false
+  ): Promise<Room<DistrictNetworkState>> {
+    if (!this.playerAppearance || !this.playerAuth) {
+      throw new Error('Player identity is unavailable.');
+    }
+    this.loadingUi?.set(0.14, `Connecting ${world.runtimeLabel}`);
+    const client = new Client(this.options.serverUrl);
+    const room = await client.joinOrCreate<DistrictNetworkState>(world.roomName, {
+      ...world.roomOptions,
+      name: this.driverName,
+      appearance: this.playerAppearance,
+      auth: this.playerAuth,
+      spectator
+    });
+    await waitForInitialState(room);
+    return room;
+  }
+
+  private async createWorldSession(
+    world: RuntimeWorldDefinition,
+    room: Room<DistrictNetworkState>
+  ): Promise<WorldSession> {
+    const game = document.querySelector<HTMLElement>('#game');
+    if (!game) throw new Error('Game mount is unavailable.');
+    const netcodeRollout = new NetcodeRolloutController(room);
+    let districtClient: DistrictClientRuntime | undefined;
+    this.loadingUi?.set(0.42, `${world.runtimeLabel} room joined`);
+    this.loadingUi?.set(0.56, `Loading ${world.runtimeLabel} geometry`);
+    const {DistrictClient} = await import('./game/district-client.ts');
+    this.loadingUi?.set(0.72, 'Building roads and rooftops');
+    try {
+      districtClient = new DistrictClient(
+        game,
+        room,
+        netcodeRollout,
+        this.phone,
+        world.assetRoot,
+        world.enableInteriors
+      );
+      await districtClient.start();
+      return {world, room, districtClient, netcodeRollout};
+    } catch (error) {
+      districtClient?.destroy();
+      netcodeRollout.destroy();
+      throw error;
+    }
+  }
+
+  private showOnboardingAfterStart(onboardingRequired: boolean): void {
+    const session = this.activeSession;
+    if (!session || !onboardingRequired || !this.playerAppearance || !this.playerAuth) return;
+    void runOnboardingOverlay(this.driverName, this.playerAppearance, this.playerAuth).then((result) => {
+      this.driverName = result.driverName;
+      this.playerAppearance = result.appearance;
+      this.playerAuth = result.auth;
       const nameElement = document.querySelector('#driver-name');
       if (nameElement) nameElement.textContent = result.driverName;
-      this.activeRoom?.send(PLAYER_SPAWN_MESSAGE, {
+      session.room.send(PLAYER_SPAWN_MESSAGE, {
         name: result.driverName,
         appearance: result.appearance,
         auth: result.auth
@@ -159,16 +178,133 @@ class GameRuntimeController implements GameRuntime {
     });
   }
 
-  private startNetworkControllers(room: Room<DistrictNetworkState>): void {
-    this.netcodeRollout?.destroy();
-    this.netcodeRollout = new NetcodeRolloutController(room);
+  private configurePhone(busy: boolean): void {
+    const worldId = this.activeSession?.world.id;
+    if (!worldId) {
+      this.phone.setActivityContext(undefined);
+      return;
+    }
+    this.phone.setActivityContext({
+      busy,
+      currentWorld: worldId,
+      onTravel: (destination) => this.transitionTo(destination)
+    });
+  }
+
+  private transitionTo(destination: GameWorldId): Promise<void> {
+    if (this.activeSession?.world.id === destination) return Promise.resolve();
+    if (this.transition) return this.transition;
+    const transition = this.performTransition(destination);
+    this.transition = transition.finally(() => {
+      this.transition = undefined;
+    });
+    return this.transition;
+  }
+
+  private async performTransition(destination: GameWorldId): Promise<void> {
+    const source = this.activeSession;
+    if (!source || this.destroyed) return;
+    const targetWorld = runtimeWorld(gameWorldDefinition(destination));
+    const shell = document.querySelector<HTMLElement>('#game-shell');
+    shell?.setAttribute('data-transitioning', 'true');
+    this.configurePhone(true);
+    this.loadingUi?.begin(targetWorld.loadingTitle, `Traveling to ${targetWorld.runtimeLabel}`);
+    let targetRoom: Room<DistrictNetworkState> | undefined;
+    let targetSession: WorldSession | undefined;
+    let sourcePresentationDestroyed = false;
+    try {
+      targetRoom = await this.joinWorld(targetWorld);
+      if (this.destroyed) {
+        await targetRoom.leave(true);
+        return;
+      }
+      this.loadingUi?.set(0.46, 'Destination reserved');
+      source.districtClient.destroy();
+      source.netcodeRollout.destroy();
+      sourcePresentationDestroyed = true;
+      targetSession = await this.createWorldSession(targetWorld, targetRoom);
+      if (this.destroyed) {
+        targetSession.districtClient.destroy();
+        targetSession.netcodeRollout.destroy();
+        await targetRoom.leave(true);
+        return;
+      }
+      this.activeSession = targetSession;
+      this.applyWorldLabel(targetWorld);
+      this.configurePhone(false);
+      this.loadingUi?.set(0.95, 'Destination ready');
+      this.loadingUi?.finish(`Entering ${targetWorld.runtimeLabel}`);
+      void source.room.leave(true).catch((error) => {
+        console.error('Failed to close the previous district room.', error);
+      });
+    } catch (error) {
+      targetSession?.districtClient.destroy();
+      targetSession?.netcodeRollout.destroy();
+      if (targetRoom && targetRoom !== targetSession?.room) {
+        await targetRoom.leave(true).catch(() => undefined);
+      } else {
+        await targetSession?.room.leave(true).catch(() => undefined);
+      }
+      if (!this.destroyed && sourcePresentationDestroyed) {
+        this.loadingUi?.set(0.58, 'Restoring previous district');
+        try {
+          this.activeSession = await this.createWorldSession(source.world, source.room);
+        } catch (restoreError) {
+          this.activeSession = undefined;
+          await source.room.leave(true).catch(() => undefined);
+          this.loadingUi?.set(1, 'District server unavailable');
+          console.error(restoreError);
+          showRuntimeNotice('Travel failed and the previous district could not be restored.', 'warning');
+          return;
+        }
+      } else if (!this.destroyed) {
+        this.activeSession = source;
+      }
+      if (!this.destroyed) {
+        this.applyWorldLabel(source.world);
+        this.configurePhone(false);
+        this.loadingUi?.finish('Travel unavailable');
+        showRuntimeNotice('Travel unavailable. You remain in the current district.', 'warning');
+      }
+      console.error(error);
+    } finally {
+      shell?.setAttribute('data-transitioning', 'false');
+    }
+  }
+
+  private applyWorldLabel(world: RuntimeWorldDefinition): void {
+    const districtLabel = document.querySelector<HTMLElement>('#district-label span');
+    if (districtLabel) districtLabel.textContent = world.runtimeLabel;
   }
 }
 
+interface DistrictClientRuntime {
+  start(): Promise<void>;
+  destroy(): void;
+}
+
+interface RuntimeWorldDefinition {
+  id?: GameWorldId;
+  roomName: string;
+  roomOptions?: Record<string, string>;
+  assetRoot: string;
+  runtimeLabel: string;
+  loadingTitle: string;
+  enableInteriors: boolean;
+}
+
+interface WorldSession {
+  world: RuntimeWorldDefinition;
+  room: Room<DistrictNetworkState>;
+  districtClient: DistrictClientRuntime;
+  netcodeRollout: NetcodeRolloutController;
+}
+
 interface LoadingController {
+  begin(title: string, stage: string): void;
   setTitle(title: string): void;
   set(progress: number, stage: string): void;
-  finish(): void;
+  finish(stage?: string): void;
   destroy(): void;
 }
 
@@ -187,6 +323,7 @@ function createLoadingController(): LoadingController {
   ];
   let current = 0;
   let tipIndex = 0;
+  let hideTimer: number | undefined;
   const tipTimer = window.setInterval(() => {
     if (!tip || root?.classList.contains('hidden')) return;
     tipIndex = (tipIndex + 1) % tips.length;
@@ -201,19 +338,60 @@ function createLoadingController(): LoadingController {
   };
 
   return {
+    begin: (titleText, stageText) => {
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer);
+      hideTimer = undefined;
+      current = 0;
+      root?.classList.remove('hidden');
+      if (title) title.textContent = titleText;
+      apply(0, stageText);
+    },
     setTitle: (value) => {
       if (title) title.textContent = value;
     },
     set: apply,
-    finish: () => {
-      apply(1, 'Entering district');
-      window.setTimeout(() => {
+    finish: (stageText = 'Entering district') => {
+      apply(1, stageText);
+      hideTimer = window.setTimeout(() => {
         root?.classList.add('hidden');
-        window.clearInterval(tipTimer);
+        hideTimer = undefined;
       }, 250);
     },
     destroy: () => {
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer);
       window.clearInterval(tipTimer);
     }
   };
+}
+
+function runtimeWorld(world: ReturnType<typeof gameWorldDefinition>): RuntimeWorldDefinition {
+  return {...world};
+}
+
+async function waitForInitialState(room: Room<DistrictNetworkState>): Promise<void> {
+  if (room.state?.players) return;
+  await new Promise<void>((resolve, reject) => {
+    const onState = (state: DistrictNetworkState) => {
+      if (!state?.players) return;
+      room.onStateChange.remove(onState);
+      room.onLeave.remove(onLeave);
+      resolve();
+    };
+    const onLeave = (code: number) => {
+      room.onStateChange.remove(onState);
+      room.onLeave.remove(onLeave);
+      reject(new Error(`District room closed before initial state (${code}).`));
+    };
+    room.onStateChange(onState);
+    room.onLeave(onLeave);
+  });
+}
+
+function showRuntimeNotice(message: string, tone: 'info' | 'warning'): void {
+  const toast = document.querySelector<HTMLElement>('#event-toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.dataset.tone = tone;
+  toast.classList.add('visible');
+  window.setTimeout(() => toast.classList.remove('visible'), 2_400);
 }

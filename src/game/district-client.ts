@@ -237,6 +237,7 @@ export class DistrictClient {
         surfaceZ: () => this.center.z,
         isBlocked: () =>
           this.settingsOpen ||
+          document.querySelector<HTMLElement>('#game-shell')?.dataset.transitioning === 'true' ||
           (this.ui?.isInputBlocked() ?? false) ||
           (
             Boolean(this.room?.state.race?.trackId) &&

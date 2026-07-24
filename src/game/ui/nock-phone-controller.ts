@@ -8,7 +8,9 @@ import {
   type LpcOption
 } from '../../../shared/content/lpc-character-catalog.ts';
 import {loadSavedAppearance} from '../appearance/appearance-storage.ts';
+import type {GameWorldId} from '../runtime/world-catalog.ts';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
+import {projectPhoneActivity} from './phone-activity-policy.ts';
 import {phoneGlyph, type PhoneGlyphName} from './phone-glyphs.ts';
 
 const DRIVER_NAME_KEY = 'nock0-driver-name';
@@ -19,12 +21,19 @@ const WALLET_ADDRESS_KEYS = [
   'privy-wallet-address'
 ];
 
+export interface PhoneActivityContext {
+  busy: boolean;
+  currentWorld: GameWorldId;
+  onTravel: (destination: GameWorldId) => Promise<void> | void;
+}
+
 export class NockPhoneController {
   private static shared?: NockPhoneController;
   private readonly button: HTMLButtonElement | null;
   private popup?: HTMLElement;
-  private activeApp: 'home' | 'profile' | 'wallet' = 'home';
+  private activeApp: 'home' | 'profile' | 'wallet' | 'jobs' = 'home';
   private localPlayer?: NetworkPlayer;
+  private activityContext?: PhoneActivityContext;
 
   static forDocument(root: Document = document): NockPhoneController {
     if (!NockPhoneController.shared) {
@@ -45,6 +54,12 @@ export class NockPhoneController {
 
   synchronize(state: DistrictNetworkState, localPlayerId: string): void {
     this.localPlayer = state.players.get(localPlayerId);
+    if (this.isOpen()) this.render();
+  }
+
+  setActivityContext(context: PhoneActivityContext | undefined): void {
+    this.activityContext = context;
+    if (!context && this.activeApp === 'jobs') this.activeApp = 'home';
     if (this.isOpen()) this.render();
   }
 
@@ -74,7 +89,7 @@ export class NockPhoneController {
     }
   };
 
-  private open(app: 'home' | 'profile' | 'wallet'): void {
+  private open(app: 'home' | 'profile' | 'wallet' | 'jobs'): void {
     this.activeApp = app;
     this.ensurePopup();
     this.popup?.classList.remove('hidden');
@@ -119,6 +134,7 @@ export class NockPhoneController {
         ${this.renderHome()}
         ${this.renderProfile()}
         ${this.renderWallet()}
+        ${this.renderJobs()}
       </main>
       <footer id="phone-home-indicator" aria-hidden="true"><i></i></footer>
     `;
@@ -131,21 +147,30 @@ export class NockPhoneController {
     popup.querySelector('#wallet-copy-address')?.addEventListener('click', this.handleCopyWalletAddress);
     popup.querySelector('#wallet-refresh')?.addEventListener('click', this.handleRefreshClick);
     popup.querySelector('#profile-refresh')?.addEventListener('click', this.handleRefreshClick);
+    popup.querySelector('#phone-activity-action')?.addEventListener(
+      'click',
+      this.handleActivityClick
+    );
   }
 
   private renderHome(): string {
     const hidden = this.activeApp === 'home' ? '' : ' hidden';
+    const locationLabel = this.activityContext
+      ? projectPhoneActivity(this.activityContext.currentWorld).locationLabel
+      : 'Industrial District';
     return `
       <section id="phone-home" class="${hidden}">
         <div id="phone-home-date">
           <span>${weekdayLabel()}</span>
           <strong>${calendarDay()}</strong>
-          <small>Industrial District</small>
+          <small>${escapeHtml(locationLabel)}</small>
         </div>
         <div id="phone-app-grid" aria-label="Apps">
           ${appButton('profile', 'profile', 'profile', 'Profile')}
           ${appButton('wallet', 'wallet', 'wallet', 'Wallet')}
-          ${disabledAppButton('briefcase-business', 'jobs', 'Jobs')}
+          ${this.activityContext
+            ? appButton('jobs', 'briefcase-business', 'jobs', 'Jobs')
+            : disabledAppButton('briefcase-business', 'jobs', 'Jobs')}
           ${disabledAppButton('map', 'maps', 'Maps')}
           ${disabledAppButton('car-front', 'garage', 'Garage')}
           ${disabledAppButton('settings', 'settings', 'Settings')}
@@ -256,6 +281,50 @@ export class NockPhoneController {
     `;
   }
 
+  private renderJobs(): string {
+    const hidden = this.activeApp === 'jobs' ? '' : ' hidden';
+    const context = this.activityContext;
+    if (!context) {
+      return `
+        <section id="phone-jobs-app-screen" class="${hidden}">
+          <header id="jobs-app-header">
+            <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
+          </header>
+          <div id="jobs-body">
+            <h1>Jobs</h1>
+            <p class="phone-activity-empty">Activities are unavailable in this session.</p>
+          </div>
+        </section>
+      `;
+    }
+    const activity = projectPhoneActivity(context.currentWorld);
+    return `
+      <section id="phone-jobs-app-screen" class="${hidden}">
+        <header id="jobs-app-header">
+          <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
+          <span>${escapeHtml(activity.locationLabel)}</span>
+        </header>
+        <div id="jobs-body">
+          <h1>Jobs</h1>
+          <section class="phone-activity-card">
+            <i>${phoneGlyph('car-front')}</i>
+            <div>
+              <small>${escapeHtml(activity.meta)}</small>
+              <strong>${escapeHtml(activity.title)}</strong>
+              <p>${escapeHtml(activity.description)}</p>
+            </div>
+            <button
+              id="phone-activity-action"
+              type="button"
+              data-destination="${activity.destination}"
+              ${context.busy ? 'disabled' : ''}
+            >${context.busy ? 'Traveling…' : escapeHtml(activity.actionLabel)}</button>
+          </section>
+        </div>
+      </section>
+    `;
+  }
+
   private readonly handleCloseClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -273,10 +342,22 @@ export class NockPhoneController {
     const target = event.currentTarget;
     if (!(target instanceof HTMLButtonElement)) return;
     const app = target.dataset.app;
-    if (app === 'home' || app === 'profile' || app === 'wallet') {
+    if (app === 'home' || app === 'profile' || app === 'wallet' || app === 'jobs') {
       this.activeApp = app;
       this.render();
     }
+  };
+
+  private readonly handleActivityClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.currentTarget;
+    const context = this.activityContext;
+    if (!(target instanceof HTMLButtonElement) || !context || context.busy) return;
+    const destination = target.dataset.destination;
+    if (destination !== 'industrial-district' && destination !== 'raceway') return;
+    this.close();
+    void context.onTravel(destination);
   };
 
   private readonly handleRefreshClick = (event: Event): void => {
@@ -328,7 +409,7 @@ function readProfileSnapshot(player?: NetworkPlayer): {
 }
 
 function appButton(
-  app: 'profile' | 'wallet',
+  app: 'profile' | 'wallet' | 'jobs',
   icon: PhoneGlyphName,
   iconClass: string,
   label: string
