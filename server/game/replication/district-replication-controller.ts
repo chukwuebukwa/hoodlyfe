@@ -203,17 +203,6 @@ export class DistrictReplicationController {
     for (const signal of this.state.trafficSignals.values()) {
       this.addDesired(desired, signal, 2, distance(x, y, signal.x, signal.y), `signal:${signal.id}`);
     }
-    for (const ball of this.state.soccerBalls.values()) {
-      this.addTransientIfRelevant(
-        desired,
-        projection,
-        ball,
-        x,
-        y,
-        false,
-        `soccer-ball:${ball.id}`
-      );
-    }
     for (const mission of this.state.missions.values()) {
       this.addDesired(desired, mission, 1, 0, `mission:${mission.id}`);
       if (!mission.participants.has(playerId)) continue;

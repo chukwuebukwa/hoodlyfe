@@ -7,7 +7,7 @@ import {
   PhysicsWorld,
   type PhysicsBodyState,
   type PhysicsWorldGeometry
-} from '../../shared/physics/physics-world.ts';
+} from '../../engine/adapters/surface-physics.ts';
 import {VEHICLE_KINDS} from '../../shared/content/vehicle-catalog.ts';
 
 const TOTAL_TICKS = 300;

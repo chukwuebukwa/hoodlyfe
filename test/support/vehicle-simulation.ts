@@ -2,7 +2,7 @@ import {VehicleSimulationController} from '../../server/game/vehicles/vehicle-si
 import {
   initializePhysicsEngine,
   PhysicsWorld
-} from '../../shared/physics/physics-world.ts';
+} from '../../engine/adapters/surface-physics.ts';
 import {attachTestPlayerControl} from './player-control.ts';
 import {attachTestTrafficController} from './traffic-controller.ts';
 import {attachTestVehicleAccess} from './vehicle-access.ts';

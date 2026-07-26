@@ -111,7 +111,7 @@ function fixture(blocked: (x: number, y: number) => boolean): {
   let playerHits = 0;
   const controller = new ProjectileController({
     state,
-    world: {isBlockedAt: blocked} as any,
+    world: {isBlockedAt: blocked, traceSegment: fakeTraceSegment(blocked)} as any,
     history,
     access: {occupants: () => []} as any,
     vehicles: {
@@ -169,4 +169,23 @@ function player(id: string, x: number, y: number): PlayerState {
   value.x = x;
   value.y = y;
   return value;
+}
+
+function fakeTraceSegment(blocked: (x: number, y: number) => boolean) {
+  return (ax: number, ay: number, bx: number, by: number) => {
+    const distance = Math.hypot(bx - ax, by - ay);
+    const steps = Math.max(1, Math.ceil(distance));
+    for (let step = 1; step <= steps; step++) {
+      if (!blocked(ax + (bx - ax) * (step / steps), ay + (by - ay) * (step / steps))) continue;
+      let low = (step - 1) / steps;
+      let high = step / steps;
+      for (let i = 0; i < 40; i++) {
+        const mid = (low + high) / 2;
+        if (blocked(ax + (bx - ax) * mid, ay + (by - ay) * mid)) high = mid;
+        else low = mid;
+      }
+      return {t: high, x: ax + (bx - ax) * high, y: ay + (by - ay) * high, normalX: 0, normalY: 0};
+    }
+    return undefined;
+  };
 }

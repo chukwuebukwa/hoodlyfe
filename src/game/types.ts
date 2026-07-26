@@ -209,17 +209,6 @@ export interface NetworkVehicle {
   neonColor?: VehicleNeonColor;
 }
 
-export interface NetworkSoccerBall {
-  id: string;
-  surfaceId?: string;
-  x: number;
-  y: number;
-  angle: number;
-  linvelX: number;
-  linvelY: number;
-  angvel: number;
-}
-
 export interface NetworkStinger {
   id: string;
   roadblockId: string;
@@ -306,7 +295,6 @@ export interface DistrictNetworkState {
   trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
-  soccerBalls?: Map<string, NetworkSoccerBall>;
   stingers?: Map<string, NetworkStinger>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;

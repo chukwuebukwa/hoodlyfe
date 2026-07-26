@@ -1,4 +1,4 @@
-import {initializePhysicsEngine} from '../../../shared/physics/physics-world.ts';
+import {initializePhysicsEngine} from '../../../engine/adapters/surface-physics.ts';
 import {
   geometryFromTiledMap,
   runDeterminismTrace,

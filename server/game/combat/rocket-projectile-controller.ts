@@ -140,15 +140,8 @@ export class RocketProjectileController {
   }
 
   private worldImpact(startX: number, startY: number, endX: number, endY: number): Impact | undefined {
-    const distance = Math.hypot(endX - startX, endY - startY);
-    const steps = Math.max(1, Math.ceil(distance / ROCKET_PROJECTILE.collisionStep));
-    for (let step = 1; step <= steps; step++) {
-      const progress = step / steps;
-      const x = startX + (endX - startX) * progress;
-      const y = startY + (endY - startY) * progress;
-      if (this.options.world.isBlockedAt(x, y)) return {progress, x, y};
-    }
-    return undefined;
+    const hit = this.options.world.traceSegment(startX, startY, endX, endY);
+    return hit ? {progress: hit.t, x: hit.x, y: hit.y} : undefined;
   }
 
   private detonate(

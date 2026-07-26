@@ -16,7 +16,7 @@ The server simulation was already deterministic by construction:
 - `FixedStepClock` advances the world in fixed 16.67 ms ticks.
 - `DeterministicRandom` is stateless and keyed by `(seed, stream, key)`, so random draws
   do not depend on call order.
-- The Rapier physics world registers bodies in deterministic order at a fixed timestep.
+- The engine physics world registers bodies in deterministic order at a fixed timestep.
 - Clients send intent only; all gameplay outcomes are server-owned.
 
 The journal adds the two missing pieces: a record of the non-deterministic inputs (client
@@ -79,7 +79,8 @@ changes.
 ## Caveats
 
 - Replay requires the same build: same surface manifest (`collisionRevision` is checked
-  into the header), same Rapier WASM build, same simulation code. A journal from an older
+  into the header), same JS engine, same simulation code (the bespoke engine is pure
+  TypeScript — no WASM is involved). A journal from an older
   git revision should be replayed on that revision.
 - Non-simulation messages (pings, wardrobe reads, debug subscriptions, netcode manifest
   requests) are intentionally not recorded.

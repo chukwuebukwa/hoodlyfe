@@ -10,7 +10,6 @@ import type {NetcodeRolloutSnapshot} from '../network/netcode-rollout-controller
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
 import type {MapStreamingSnapshot} from '../presentation/map/chunk-streamer.ts';
-import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
 
 const DRAW_INTERVAL_MS = 100;
@@ -180,16 +179,6 @@ export class DebugController {
         this.surfaceHeightAt,
         vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
         vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed
-      ));
-    }
-    for (const ball of state.soccerBalls?.values() ?? []) {
-      this.group.add(entityGlyph(
-        ball.x,
-        ball.y,
-        ball.angle,
-        SOCCER_BALL_RADIUS,
-        0x60f28b,
-        this.surfaceHeightAt
       ));
     }
     const laneGraph = this.snapshot?.trafficLaneGraph;

@@ -423,28 +423,6 @@ defineTypes(VehicleState, {
   neonColor: 'string'
 });
 
-export class SoccerBallState extends Schema {
-  id = '';
-  surfaceId = STREET_GROUND_SURFACE_ID;
-  x = 0;
-  y = 0;
-  angle = 0;
-  linvelX = 0;
-  linvelY = 0;
-  angvel = 0;
-}
-
-defineTypes(SoccerBallState, {
-  id: 'string',
-  surfaceId: 'string',
-  x: 'number',
-  y: 'number',
-  angle: 'number',
-  linvelX: 'number',
-  linvelY: 'number',
-  angvel: 'number'
-});
-
 export class StingerState extends Schema {
   id = '';
   roadblockId = '';
@@ -663,7 +641,6 @@ export class DistrictState extends Schema {
   trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
-  soccerBalls = new MapSchema<SoccerBallState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
   race = new ArenaRaceState();
@@ -689,7 +666,6 @@ defineTypes(DistrictState, {
   trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
-  soccerBalls: {map: SoccerBallState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
   race: ArenaRaceState,
@@ -714,7 +690,6 @@ for (const field of [
   'trafficSignals',
   'npcs',
   'vehicles',
-  'soccerBalls',
   'missions',
   'race',
   'services',

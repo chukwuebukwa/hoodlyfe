@@ -284,7 +284,9 @@ tick, position, and speed as authority without replaying damage or other side ef
 
 This checkpoint originally used a shared oriented-box contact kernel. The completed
 Rapier migration supersedes that implementation: server authority and client replay now
-use `PhysicsWorld`, while server controllers alone apply damage and other outcomes. See
+use `PhysicsWorld`, while server controllers alone apply damage and other outcomes. (The
+Rapier implementation was itself replaced by the bespoke deterministic engine in
+`engine/` in July 2026; `PhysicsWorld` now lives at `engine/adapters/surface-physics.ts`.) See
 `COLLISION_ARCHITECTURE.md` for the current ownership boundary.
 
 Authority now has explicit fixed-tick phases. Every vehicle first advances its body and

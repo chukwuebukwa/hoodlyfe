@@ -5,7 +5,6 @@ import {
   DistrictState,
   NpcState,
   PlayerState,
-  SoccerBallState,
   VehicleState
 } from '../server/state.ts';
 import {physicsBodyKey} from '../shared/simulation/humanoid-body-drive.ts';
@@ -90,42 +89,6 @@ test('controller reconciles actor eligibility while ordinary ticks retain body i
   room.physicsWorld.free();
 });
 
-test('simulated soccer ball bodies retain velocity and identity after an impulse', () => {
-  const room = new DistrictRoom() as any;
-  room.world = {canOccupy: () => true, surfaceAfterMove: (surfaceId: string) => surfaceId};
-  room.setState(new DistrictState());
-  const ball = new SoccerBallState();
-  ball.id = 'ball';
-  ball.x = 1_000;
-  ball.y = 1_000;
-  room.state.soccerBalls.set(ball.id, ball);
-  const controller = attachTestVehicleSimulation(room);
-
-  step(controller);
-  const key = physicsBodyKey('prop', ball.id);
-  const identity = controller.physicsBodyIdentity(key);
-  assert.deepEqual(controller.physicsDiagnostics().lifecycle.tick, operations({created: 1}));
-
-  controller.beginTick();
-  assert.equal(controller.queueSoccerBallImpulse(ball.id, 900, 0), true);
-  controller.stepPhysics(VEHICLE_SIMULATION_STEP_SECONDS, 1_100);
-  const afterKick = ball.x;
-  assert.ok(afterKick > 1_000);
-  assert.ok(ball.linvelX > 0);
-  assert.equal(controller.physicsBodyIdentity(key), identity);
-  assert.deepEqual(controller.physicsDiagnostics().lifecycle.tick, operations());
-
-  step(controller);
-  assert.ok(ball.x > afterKick);
-  assert.equal(controller.physicsBodyIdentity(key), identity);
-  assert.deepEqual(controller.physicsDiagnostics().lifecycle.tick, operations());
-
-  room.state.soccerBalls.delete(ball.id);
-  step(controller);
-  assert.deepEqual(controller.physicsDiagnostics().lifecycle.tick, operations({removed: 1}));
-  controller.disposePhysics();
-  room.physicsWorld.free();
-});
 
 function step(controller: ReturnType<typeof attachTestVehicleSimulation>): void {
   controller.beginTick();

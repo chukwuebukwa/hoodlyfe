@@ -9,7 +9,7 @@ import {DeterministicRandom} from '../server/game/world/deterministic-random.ts'
 import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
 import {vehicleConfig, VEHICLE_RADIUS} from '../server/game/vehicles/vehicle-config.ts';
 import {CollisionMap} from '../server/world-map.ts';
-import {interactionShapesOverlap} from '../shared/physics/interaction-contact-geometry.ts';
+import {boxesOverlap} from '../engine/geometry/overlap.ts';
 import {
   SIMULATION_HZ,
   SIMULATION_STEP_MS,
@@ -333,15 +333,15 @@ function diagnosticMovement(
 function vehicleBoxesOverlap(left: VehicleState, right: VehicleState): boolean {
   const leftCollision = vehicleConfig(left.kind).collision;
   const rightCollision = vehicleConfig(right.kind).collision;
-  return interactionShapesOverlap({
-    shape: 'box',
+  return boxesOverlap({
+    kind: 'box',
     x: left.x,
     y: left.y,
     angle: left.angle,
     halfLength: leftCollision.length / 2,
     halfWidth: leftCollision.width / 2
   }, {
-    shape: 'box',
+    kind: 'box',
     x: right.x,
     y: right.y,
     angle: right.angle,

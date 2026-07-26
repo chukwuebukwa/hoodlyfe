@@ -1,5 +1,7 @@
 # Persistent Server Physics Research and Rollout Report
 
+*Historical record (July 2026): describes the Rapier era. Rapier was replaced by the bespoke deterministic engine in `engine/` — see `engine/README.md`. The persistent-body lifecycle contract established here (registry reconcile, teleport tolerance 0.001, per-surface worlds) carried over to the engine implementation.*
+
 Date: 2026-07-19
 
 ## Decision

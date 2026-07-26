@@ -5,7 +5,7 @@ import {
   type PhysicsActorDescriptor,
   type PhysicsLifecycleOperations
 } from '../server/game/vehicles/physics-body-registry.ts';
-import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
+import {initializePhysicsEngine, PhysicsWorld} from '../engine/adapters/surface-physics.ts';
 
 await initializePhysicsEngine();
 

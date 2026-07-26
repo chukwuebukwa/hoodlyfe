@@ -10,7 +10,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import next from 'next';
 import {DistrictPlaytestRoom, DistrictRaceRoom, DistrictRoom} from './district-room.ts';
-import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
+import {initializePhysicsEngine} from '../engine/adapters/surface-physics.ts';
 import {CollisionMap} from './world-map.ts';
 import {RuntimeHealthMonitor} from './runtime-health.ts';
 

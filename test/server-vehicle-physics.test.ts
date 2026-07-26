@@ -12,7 +12,7 @@ import {
   initializePhysicsEngine,
   PhysicsWorld,
   type PhysicsWorldGeometry
-} from '../shared/physics/physics-world.ts';
+} from '../engine/adapters/surface-physics.ts';
 import type {VehicleMotionState} from '../shared/simulation/vehicle-step.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
 
@@ -25,7 +25,8 @@ before(async () => {
   await initializePhysicsEngine();
 });
 
-// Stage-1 acceptance (RAPIER_MIGRATION_ADAPTATION_CONTRACT.md): trajectories within
+// Stage-1 acceptance of the physics migration (behavior contract unchanged through
+// the engine migration): trajectories within
 // 2 px of the handling kernel over 12 s per kind on open road.
 test('driven vehicles reproduce kernel trajectories through the engine per kind', () => {
   for (const kind of VEHICLE_KINDS) {

@@ -1,4 +1,4 @@
-import type {PhysicsBodyState, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
+import type {PhysicsBodyState, PhysicsWorld} from '../../../engine/adapters/surface-physics.ts';
 
 export type PhysicsActorType = 'vehicle' | 'player' | 'pedestrian' | 'prop';
 export type PhysicsBodyControl = 'authored' | 'simulated';
@@ -135,8 +135,6 @@ export class PhysicsBodyRegistry {
     const world = this.worldForSurface(descriptor.surfaceId);
     if (descriptor.actorType === 'vehicle') {
       world.registerVehicle(descriptor.key, vehicleKind(descriptor.shapeKey), descriptor.state);
-    } else if (descriptor.actorType === 'prop') {
-      world.registerSoccerBall(descriptor.key, soccerBallRadius(descriptor.shapeKey), descriptor.state);
     } else {
       world.registerHumanoid(descriptor.key, humanoidRadius(descriptor.shapeKey), descriptor.state);
     }
@@ -183,16 +181,6 @@ function humanoidRadius(shapeKey: string): number {
   return radius;
 }
 
-function soccerBallRadius(shapeKey: string): number {
-  if (!shapeKey.startsWith('soccer-ball:')) {
-    throw new Error(`Invalid soccer ball shape key: ${shapeKey}`);
-  }
-  const radius = Number(shapeKey.slice('soccer-ball:'.length));
-  if (!Number.isFinite(radius) || radius <= 0) {
-    throw new Error(`Invalid soccer ball radius in shape key: ${shapeKey}`);
-  }
-  return radius;
-}
 
 function emptyOperations(): PhysicsLifecycleOperations {
   return {created: 0, removed: 0, migrated: 0, replaced: 0, teleported: 0};

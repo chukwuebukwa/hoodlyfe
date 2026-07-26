@@ -4,7 +4,6 @@ import type {
   DistrictNetworkState,
   NetworkNpc,
   NetworkPlayer,
-  NetworkSoccerBall,
   NetworkStinger,
   NetworkVehicle
 } from '../types.ts';
@@ -287,17 +286,6 @@ export class ActorPresentation {
         presentationNowMs
       );
     });
-    state.soccerBalls?.forEach((ball, id) => {
-      if (localSpaceId !== 'street') return;
-      present.add(`soccer-ball:${id}`);
-      this.synchronizeSoccerBall(
-        `soccer-ball:${id}`,
-        ball,
-        state.serverTimeMs ?? 0,
-        renderServerTimeMs,
-        estimatedServerTimeMs
-      );
-    });
     state.stingers?.forEach((stinger, id) => {
       if (localSpaceId !== 'street') return;
       present.add(`stinger:${id}`);
@@ -330,52 +318,6 @@ export class ActorPresentation {
     rendered.mesh.rotation.z = serverAngleToScene(stinger.angle);
     rendered.mesh.visible = segmentCount > 0;
     rendered.mesh.userData.stinger = stinger;
-  }
-
-  private synchronizeSoccerBall(
-    id: string,
-    ball: NetworkSoccerBall,
-    serverTimeMs: number,
-    renderServerTimeMs: number,
-    estimatedServerTimeMs: number
-  ): void {
-    const rendered = this.obtain(id, () => ({
-      mesh: soccerBallMesh(),
-      motion: createRemoteMotionTimeline('prop')
-    }));
-    if (serverTimeMs > 0) {
-      rendered.motion?.push({
-        timeMs: serverTimeMs,
-        x: ball.x,
-        y: ball.y,
-        angle: ball.angle,
-        velocityX: ball.linvelX,
-        velocityY: ball.linvelY,
-        surfaceId: ball.surfaceId ?? STREET_GROUND_SURFACE_ID
-      });
-    }
-    const buffered = this.remoteTimelinesEnabled()
-      ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
-      : undefined;
-    if (buffered) this.onRemoteTimeline?.(buffered);
-    const x = buffered?.x ?? ball.x;
-    const y = buffered?.y ?? ball.y;
-    const angle = buffered?.angle ?? ball.angle;
-    positionEntity(
-      rendered.mesh,
-      x,
-      y,
-      this.surfaceHeightAt(
-        x,
-        y,
-        buffered?.surfaceId ?? ball.surfaceId ?? STREET_GROUND_SURFACE_ID
-      ) + 7,
-      buffered ? 1 : 0.45
-    );
-    rendered.mesh.rotation.z = serverAngleToScene(angle);
-    rendered.mesh.userData.worldX = x;
-    rendered.mesh.userData.worldY = y;
-    rendered.mesh.userData.soccerBall = ball;
   }
 
   vehiclePose(vehicleId: string): VehicleRenderPose | undefined {
@@ -1243,61 +1185,7 @@ function policeStingerMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMat
   return mesh;
 }
 
-function soccerBallMesh(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const context = canvas.getContext('2d');
-  if (context) paintSoccerBall(context, canvas.width / 2, canvas.height / 2, 52);
-  const texture = new THREE.CanvasTexture(canvas);
-  configureTexture(texture);
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    alphaTest: 0.08,
-    depthTest: true,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), material);
-  mesh.renderOrder = 14;
-  return mesh;
-}
 
-function paintSoccerBall(
-  context: CanvasRenderingContext2D,
-  centerX: number,
-  centerY: number,
-  radius: number
-): void {
-  context.save();
-  context.beginPath();
-  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-  context.clip();
-  context.fillStyle = '#f4f4ed';
-  context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-  context.strokeStyle = '#202522';
-  context.lineWidth = 5;
-  context.beginPath();
-  context.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
-  context.stroke();
-  const centerPatch = polygonPoints(centerX, centerY, 17, 5, -Math.PI / 2);
-  fillPolygon(context, centerPatch, '#1d2421');
-  for (let index = 0; index < 5; index++) {
-    const angle = -Math.PI / 2 + index * Math.PI * 2 / 5;
-    const patchX = centerX + Math.cos(angle) * 43;
-    const patchY = centerY + Math.sin(angle) * 43;
-    const patch = polygonPoints(patchX, patchY, 15, 5, angle + Math.PI);
-    fillPolygon(context, patch, '#1d2421');
-    context.beginPath();
-    context.moveTo(centerPatch[index].x, centerPatch[index].y);
-    context.lineTo(patchX, patchY);
-    context.strokeStyle = '#49504c';
-    context.lineWidth = 3;
-    context.stroke();
-  }
-  context.restore();
-}
 
 function polygonPoints(
   centerX: number,

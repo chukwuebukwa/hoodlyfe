@@ -29,7 +29,7 @@
     "start": "npm run dev",
     "test:netcode": "tsx --test test/combat-fire-command-controller.test.ts test/combat-fire-command-sender.test.ts test/combat-fire-protocol.test.ts test/combat-hitbox-history.test.ts test/projectile-lag-compensation.test.ts test/debug-shell-contract.test.ts test/netcode-rollout-config.test.ts test/netcode-rollout-controller.test.ts test/netcode-rollout-protocol.test.ts test/network-quality-controller.test.ts test/on-foot-step.test.ts test/remote-motion-timeline.test.ts test/remote-timeline-impairment.test.ts test/remote-timeline-policy.test.ts test/vehicle-humanoid-server-contact.test.ts test/vehicle-server-contact-phase.test.ts test/vehicle-step.test.ts",
     "start:prod": "NODE_ENV=production tsx server/index.ts",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test 'test/**/*.test.ts'"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
@@ -37,7 +37,6 @@
     "@colyseus/core": "0.16.24",
     "@colyseus/schema": "3.0.76",
     "@colyseus/ws-transport": "0.16.5",
-    "@dimforge/rapier2d-compat": "0.19.3",
     "colyseus.js": "0.16.22",
     "cors": "2.8.5",
     "express": "4.21.2",
@@ -59,6 +58,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.185.1",
     "concurrently": "9.2.1",
+    "fast-check": "^4.9.0",
     "playwright-core": "^1.61.1",
     "typescript": "5.9.3",
     "vite": "7.3.6"

@@ -8,7 +8,6 @@ import {
 } from './client-input-policy.ts';
 import {TouchControls} from '../touch-controls.ts';
 import {scenePointToServerAimAngle} from '../presentation/scene-policy.ts';
-import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
 import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import {
   WEAPON_RELOAD_PROTOCOL_VERSION,
@@ -162,12 +161,7 @@ export class InputController {
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) return;
     if (event.code === 'KeyF') this.options.room.send('interact');
-    if (event.code === 'Space') {
-      event.preventDefault();
-      if (!player.vehicleId || player.vehicleSeat !== 0) {
-        this.options.room.send(SOCCER_BALL_KICK_MESSAGE);
-      }
-    }
+    if (event.code === 'Space') event.preventDefault();
     if (event.code === 'KeyQ') this.cycleWeapon(-1);
     if (event.code === 'KeyE') this.cycleWeapon(1);
     if (event.code === 'KeyR') this.requestReload();

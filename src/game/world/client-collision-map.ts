@@ -3,6 +3,12 @@ import {
   clientInteriorDefinition,
   type InteriorObstacle
 } from '../../../shared/content/interior-catalog.ts';
+import {
+  createTileWorld,
+  circleFitsInTiles,
+  isBlockedAt as tileBlockedAt,
+  type TileWorld
+} from '../../../engine/world/tile-world.ts';
 
 interface TiledLayer {name: string; data: number[];}
 interface TiledCollisionMap {
@@ -24,6 +30,7 @@ const INTERIOR_WALL_INSET = 14;
 
 export class ClientCollisionMap {
   private readonly collisions: number[];
+  private readonly tiles: TileWorld;
 
   constructor(private readonly map: TiledCollisionMap) {
     const layer = map.layers.find((candidate) => candidate.name === 'collisions');
@@ -31,6 +38,13 @@ export class ClientCollisionMap {
       throw new Error('Industrial District is missing a valid client collisions layer.');
     }
     this.collisions = layer.data;
+    this.tiles = createTileWorld({
+      width: map.width,
+      height: map.height,
+      tileWidth: map.tilewidth,
+      tileHeight: map.tileheight,
+      collisions: layer.data
+    });
   }
 
   static async load(url = '/assets/maps/district-map.json'): Promise<ClientCollisionMap> {
@@ -67,19 +81,11 @@ export class ClientCollisionMap {
 
   canOccupy(spaceId: string, x: number, y: number, radius: number): boolean {
     if (spaceId !== STREET_SPACE_ID) return this.canOccupyInterior(spaceId, x, y, radius);
-    const diagonal = radius * 0.72;
-    return [
-      [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
-      [x - diagonal, y - diagonal], [x + diagonal, y - diagonal],
-      [x - diagonal, y + diagonal], [x + diagonal, y + diagonal]
-    ].every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY));
+    return circleFitsInTiles(this.tiles, x, y, radius);
   }
 
   isBlockedAt(x: number, y: number): boolean {
-    const column = Math.floor(x / this.map.tilewidth);
-    const row = Math.floor(y / this.map.tileheight);
-    if (column < 0 || row < 0 || column >= this.map.width || row >= this.map.height) return true;
-    return this.collisions[row * this.map.width + column] !== 0;
+    return tileBlockedAt(this.tiles, x, y);
   }
 
   private canOccupyInterior(spaceId: string, x: number, y: number, radius: number): boolean {

@@ -1,4 +1,4 @@
-import type {PhysicsWorld} from '../physics/physics-world.ts';
+import type {PhysicsWorld} from '../../engine/adapters/surface-physics.ts';
 import type {OnFootPose} from './on-foot-step.ts';
 
 export function physicsBodyKey(

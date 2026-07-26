@@ -76,7 +76,7 @@ export class ProjectileController {
           resolved: true
         };
       }
-      const worldProgress = firstBlockedProgress(this.options.world, startX, startY, endX, endY);
+      const worldHit = this.options.world.traceSegment(startX, startY, endX, endY);
       const historical = this.options.history?.querySegment({
         requestedServerTimeMs: window.effectiveServerTimeMs + (step + 1) * stepMs,
         nowMs: input.nowMs,
@@ -88,7 +88,7 @@ export class ProjectileController {
         surfaceId: nextSurface,
         excludedIds: input.excludedIds
       });
-      if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
+      if (historical?.hit && (worldHit === undefined || historical.hit.progress < worldHit.t)) {
         bullet.x = interpolate(startX, endX, historical.hit.progress);
         bullet.y = interpolate(startY, endY, historical.hit.progress);
         bullet.surfaceId = nextSurface;
@@ -100,9 +100,9 @@ export class ProjectileController {
           resolved: true
         };
       }
-      if (worldProgress !== undefined) {
-        bullet.x = interpolate(startX, endX, worldProgress);
-        bullet.y = interpolate(startY, endY, worldProgress);
+      if (worldHit !== undefined) {
+        bullet.x = worldHit.x;
+        bullet.y = worldHit.y;
         bullet.surfaceId = nextSurface;
         this.publishImpact(bullet, input.nowMs, 'world');
         this.options.state.bullets.delete(bullet.id);
@@ -135,15 +135,15 @@ export class ProjectileController {
     const nextX = bullet.x + Math.cos(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     const nextY = bullet.y + Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     const nextSurface = this.surfaceAfterMove(bullet, previousX, previousY, nextX, nextY);
-    if (!nextSurface || this.options.world.isBlockedAt(nextX, nextY)) {
-      const progress = firstBlockedProgress(this.options.world, previousX, previousY, nextX, nextY) ?? 1;
+    const worldHit = this.options.world.traceSegment(previousX, previousY, nextX, nextY);
+    if (!nextSurface || worldHit) {
       this.publishImpact(
         bullet,
         nowMs,
         'world',
         undefined,
-        interpolate(previousX, nextX, progress),
-        interpolate(previousY, nextY, progress),
+        worldHit?.x ?? nextX,
+        worldHit?.y ?? nextY,
         nextSurface
       );
       this.options.remove(bulletId);
@@ -359,25 +359,6 @@ function bulletImpact(
     sourceX: targetX - Math.cos(bullet.angle),
     sourceY: targetY - Math.sin(bullet.angle)
   };
-}
-
-function firstBlockedProgress(
-  world: CollisionMap,
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number
-): number | undefined {
-  const distance = Math.hypot(endX - startX, endY - startY);
-  const steps = Math.max(1, Math.ceil(distance / 4));
-  for (let step = 1; step <= steps; step++) {
-    const progress = step / steps;
-    if (world.isBlockedAt(
-      startX + (endX - startX) * progress,
-      startY + (endY - startY) * progress
-    )) return progress;
-  }
-  return undefined;
 }
 
 function circleHitProgress(

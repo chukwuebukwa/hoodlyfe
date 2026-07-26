@@ -4,7 +4,7 @@
 // This remains the authoritative
 // vehicle-motion boundary; presentation clients consume its replicated result.
 
-import type {PhysicsBodyState, PhysicsWorld} from '../physics/physics-world.ts';
+import type {PhysicsBodyState, PhysicsWorld} from '../../engine/adapters/surface-physics.ts';
 import {
   integrateVehicleMotion,
   type VehicleControlCommand,
@@ -12,10 +12,6 @@ import {
   type VehicleMotionState,
   type VehicleStepModifiers
 } from './vehicle-step.ts';
-
-// Attempted-vs-achieved gaps under this are unobstructed motion; above it, a world
-// contact. Well above f32 noise, well below one tick of driving displacement.
-const WORLD_CONTACT_SHORTFALL = 1;
 
 export interface VehicleBodyCapture {
   pose: VehicleMotionState;
@@ -80,12 +76,9 @@ export function captureVehicleBody(
   const state = world.capture(key);
   if (!state) return undefined;
   const angle = normalizeAngle(state.rotation);
-  const collidedWithWorld = world.hasStaticImpact(
-    key,
-    desired.linvelX,
-    desired.linvelY
-  ) &&
-    Math.hypot(desired.x - state.x, desired.y - state.y) > WORLD_CONTACT_SHORTFALL;
+  // The engine resolver reports true static impacts with approach speed, so
+  // no attempted-vs-achieved displacement heuristic is needed anymore.
+  const collidedWithWorld = world.hasStaticImpact(key, desired.linvelX, desired.linvelY);
   return {
     pose: {
       x: state.x,

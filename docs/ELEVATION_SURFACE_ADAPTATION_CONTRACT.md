@@ -7,7 +7,7 @@ Status: Stages 0–2 complete; Stages 3–4 in progress
 ## Objective
 
 Represent stacked roads, bridges, ramps, roofs, and interior floors without replacing
-the deterministic Rapier2D simulation. XY never selects elevation. Authority selects a
+the deterministic 2D engine simulation. XY never selects elevation. Authority selects a
 stable surface ID; shared map data derives height and collision.
 
 ## Domain terms
@@ -50,15 +50,16 @@ manifest separately from render meshes. The manifest contains:
 - a positive collision revision shared by server and client.
 
 The manifest is renderer-neutral. Three.js consumes height; server navigation and
-spawning consume topology; Rapier consumes per-surface static geometry. These are
+spawning consume topology; the engine consumes per-surface static geometry. These are
 projections of one artifact, not separately authored maps.
 
 ## Runtime ownership
 
 - `SurfaceMap` validates the manifest and owns height, occupancy, adjacency, and
   transition queries.
-- `PhysicsWorld` hides the Rapier worlds used by physical surfaces. Simulation callers
-  submit located bodies and do not manage Rapier worlds directly.
+- `PhysicsWorld` (`engine/adapters/surface-physics.ts`) hides the per-surface engine
+  worlds used by physical surfaces. Simulation callers submit located bodies and do not
+  manage engine worlds directly.
 - Gameplay controllers own desired motion and execute-once outcomes.
 - Navigation modules route surface-aware locations through the same topology.
 - Replication and interaction snapshots carry authoritative surface identity.
@@ -69,7 +70,7 @@ projections of one artifact, not separately authored maps.
 1. Controllers compute desired XY motion for an entity's current surface.
 2. `SurfaceMap` detects a swept authored transition, if any.
 3. The physics module registers the entity in the selected surface world and steps
-   Rapier once at 30 Hz.
+   the engine once at 30 Hz.
 4. Authority writes back XY and `surfaceId`; Z remains derived.
 5. Contacts and gameplay queries consider only compatible surfaces.
 6. Clients interpolate snapshots only within the replicated authoritative surface.
@@ -105,7 +106,7 @@ projections of one artifact, not separately authored maps.
 
 ### Stage 4 — layered physics
 
-- Partition Rapier statics and bodies by surface behind `PhysicsWorld`.
+- Partition physics statics and bodies by surface behind `PhysicsWorld`.
 - Transfer bodies only through authored transitions at fixed-step boundaries.
 - Delete the temporary `layerId` alias and the flat collision-map path.
 
@@ -114,7 +115,7 @@ projections of one artifact, not separately authored maps.
 - Production actors now spawn with explicit surface identity instead of remaining on one
   placeholder sheet. Spawn selection enumerates `(XY, surfaceId)` candidates; existing
   actors never infer a new surface from XY.
-- Server Rapier steps are partitioned by `surfaceId`, reusing one world sequentially.
+- Server physics steps are partitioned by `surfaceId`, reusing one world sequentially.
   Flat collision statics apply only to the manifest's default sheet; elevated sheets use
   manifest occupancy, so walls below cannot block them.
 - Dynamic rendering, traffic and pedestrian movement, lane and road navigation,
@@ -149,8 +150,9 @@ It must prove:
 - Clamping actor height hides the symptom but preserves ambiguous authority.
 - Marking every elevated XY cell blocked destroys bridges and elevated roads.
 - Reusing `spaceId` for elevation conflates physical sheets with privacy/replication.
-- Rapier3D is deferred until gameplay requires falling, jumping, roll, or airborne rigid
-  bodies. Sheet-based top-down traversal does not justify replacing Rapier2D.
+- Full 3D physics remains deferred until gameplay requires falling, jumping, roll, or
+  airborne rigid bodies. Sheet-based top-down traversal does not justify replacing the
+  2D engine.
 
 ## Rollback
 

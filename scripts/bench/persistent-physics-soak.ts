@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {performance} from 'node:perf_hooks';
 import {PhysicsBodyRegistry, type PhysicsActorDescriptor} from '../../server/game/vehicles/physics-body-registry.ts';
-import {initializePhysicsEngine, PhysicsWorld, type PhysicsWorldGeometry} from '../../shared/physics/physics-world.ts';
+import {initializePhysicsEngine, PhysicsWorld, type PhysicsWorldGeometry} from '../../engine/adapters/surface-physics.ts';
 
 const TICKS = positiveInteger(process.env.PHYSICS_SOAK_TICKS, 60_000);
 const BODY_COUNT = positiveInteger(process.env.PHYSICS_SOAK_BODIES, 90);

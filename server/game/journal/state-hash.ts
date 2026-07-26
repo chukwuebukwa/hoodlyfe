@@ -58,10 +58,6 @@ const TRAFFIC_SIGNAL_FIELDS = [
   'id', 'x', 'y', 'northSouth', 'eastWest', 'nextChangeAt'
 ] as const;
 
-const SOCCER_BALL_FIELDS = [
-  'id', 'surfaceId', 'x', 'y', 'angle', 'linvelX', 'linvelY', 'angvel'
-] as const;
-
 export function hashDistrictState(state: DistrictState): number {
   const stream = new HashStream();
   stream.number(state.worldTimeStartedAt);
@@ -77,7 +73,6 @@ export function hashDistrictState(state: DistrictState): number {
   hashCollection(stream, state.weaponPickups, WEAPON_PICKUP_FIELDS);
   hashCollection(stream, state.cashPickups, CASH_PICKUP_FIELDS);
   hashCollection(stream, state.trafficSignals, TRAFFIC_SIGNAL_FIELDS);
-  hashCollection(stream, state.soccerBalls, SOCCER_BALL_FIELDS);
   stream.number(state.missions.size);
   stream.number(state.services.size);
   stream.number(state.stingers.size);

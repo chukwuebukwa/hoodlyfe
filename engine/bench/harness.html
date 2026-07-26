@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Engine crash-feel harness</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; display: flex; height: 100vh; font: 13px/1.45 ui-monospace, monospace; background: #101014; color: #d8d8e0; }
+    #panel { width: 320px; padding: 14px 16px; overflow-y: auto; background: #17171d; border-right: 1px solid #2a2a33; flex-shrink: 0; }
+    #stage { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+    canvas { max-width: 100%; max-height: 100vh; background: #0b0b0e; }
+    h1 { font-size: 14px; margin: 0 0 10px; }
+    h2 { font-size: 12px; margin: 16px 0 6px; color: #9a9ab0; text-transform: uppercase; letter-spacing: 0.06em; }
+    select, button { font: inherit; background: #22222c; color: inherit; border: 1px solid #34343f; border-radius: 4px; padding: 4px 8px; }
+    button { cursor: pointer; }
+    button:hover { background: #2b2b37; }
+    .row { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; align-items: center; }
+    .slider { display: grid; grid-template-columns: 1fr 56px; gap: 8px; align-items: center; margin: 4px 0; }
+    .slider label { grid-column: 1 / 3; color: #b8b8c8; }
+    .slider input[type=range] { width: 100%; }
+    .slider output { text-align: right; color: #8fd4ff; }
+    #description { color: #9a9ab0; margin: 6px 0 0; }
+    #divergence { white-space: pre; color: #ffd28f; }
+    .legend span { display: inline-block; margin-right: 12px; }
+    .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; vertical-align: -1px; }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h1>Crash-feel harness</h1>
+    <h2>Scenario</h2>
+    <div class="row"><select id="scenario"></select></div>
+    <p id="description"></p>
+    <div class="row">
+      <button id="playpause">Pause</button>
+      <button id="restart">Restart</button>
+      <button id="steponce">Step</button>
+      <select id="speed">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="trails" checked> Trails</label>
+    </div>
+    <div class="row" id="tickline">tick 0</div>
+    <h2>Contact tuning</h2>
+    <div id="sliders"></div>
+    <div class="row">
+      <button id="resetTuning">Reset to defaults</button>
+      <button id="copyTuning">Copy JSON</button>
+    </div>
+    <h2>Notes</h2>
+    <p id="notes" style="color:#9a9ab0">Tuning changes apply live from the current tick. Copy JSON and paste over DEFAULT_CONTACT_TUNING to adopt.</p>
+  </div>
+  <div id="stage"><canvas id="canvas"></canvas></div>
+  <script type="module" src="/engine/bench/harness-main.ts"></script>
+</body>
+</html>

@@ -4,10 +4,12 @@ import type {InteriorController} from '../interiors/interior-controller.ts';
 import type {OnFootInputBatchMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {
   ON_FOOT_PLAYER_RADIUS,
-  integrateOnFootPose,
-  onFootMovementScale,
-  stepInteriorOnFootPose
+  onFootMovementScale
 } from '../../../shared/simulation/on-foot-step.ts';
+import {
+  integrateCharacterPose,
+  stepCharacterAxisSlide
+} from '../../../engine/solvers/character.ts';
 
 export const PLAYER_RADIUS = ON_FOOT_PLAYER_RADIUS;
 
@@ -122,8 +124,8 @@ export class PlayerControlController {
       movementScale: onFootMovementScale(player.action, player.weapon, player.attackCombo)
     };
     const moved = player.spaceId === 'street'
-      ? integrateOnFootPose(pose, command, deltaSeconds, modifiers)
-      : stepInteriorOnFootPose(
+      ? integrateCharacterPose(pose, command, deltaSeconds, modifiers)
+      : stepCharacterAxisSlide(
         pose,
         command,
         deltaSeconds,

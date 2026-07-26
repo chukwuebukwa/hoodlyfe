@@ -1,6 +1,6 @@
-// Browser-leg determinism validation (stage-2 gate in
-// RAPIER_MIGRATION_ADAPTATION_CONTRACT.md): the same trace must be bit-identical
-// between Node and Chromium because both load the same inlined WASM binary.
+// Browser-leg determinism validation (stage-2 gate of the physics migration; the
+// behavior contract is unchanged through the engine migration): the same trace must
+// be bit-identical between Node and Chromium because both run the same simulation code.
 // Run: npx tsx scripts/spike/browser-determinism.ts
 
 import {readdirSync, readFileSync, existsSync} from 'node:fs';
@@ -8,7 +8,7 @@ import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'vite';
 import {chromium} from 'playwright-core';
-import {initializePhysicsEngine} from '../../shared/physics/physics-world.ts';
+import {initializePhysicsEngine} from '../../engine/adapters/surface-physics.ts';
 import {
   geometryFromTiledMap,
   runDeterminismTrace,

@@ -70,7 +70,7 @@ test('player-driven cars mitigate crash damage without reducing weapon damage', 
 
 test('district projectile resolution damages vehicles and consumes the bullet', () => {
   const room = new DistrictRoom() as any;
-  room.world = {isBlockedAt: () => false};
+  room.world = {isBlockedAt: () => false, traceSegment: () => undefined};
   room.setState(new DistrictState());
   attachTestVehicleAccess(room);
   attachTestVehicleSimulation(room);

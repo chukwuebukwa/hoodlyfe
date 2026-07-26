@@ -2,6 +2,15 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
 import {
+  createTileWorld,
+  circleFitsInTiles,
+  isBlockedAt as tileBlockedAt,
+  traceTiles,
+  type TileWorld
+} from '../engine/world/tile-world.ts';
+import {hasLineOfSight as tileLineOfSight} from '../engine/adapters/line-of-sight.ts';
+import type {RayHit} from '../engine/geometry/raycast.ts';
+import {
   STREET_GROUND_SURFACE_ID,
   SurfaceMap,
   type SurfaceActorKind,
@@ -59,6 +68,7 @@ export class CollisionMap {
   readonly spawn: {x: number; y: number};
   readonly surfaces: SurfaceMap;
   private readonly collisions: number[];
+  private readonly tiles: TileWorld;
   private readonly openCells: Array<{column: number; row: number}>;
   private readonly roads: number[];
   private readonly roadCells: RoadNode[];
@@ -75,6 +85,13 @@ export class CollisionMap {
     this.tileHeight = map.tileheight;
     this.surfaces = surfaces ? expandDefaultSurface(map, surfaces) : new SurfaceMap(flatSurfaceManifest(map));
     this.collisions = collisionLayer.data;
+    this.tiles = createTileWorld({
+      width: map.width,
+      height: map.height,
+      tileWidth: map.tilewidth,
+      tileHeight: map.tileheight,
+      collisions: collisionLayer.data
+    });
     const roadLayer = map.layers.find((layer) => layer.name === 'roads');
     this.roads = roadLayer?.data.length === map.width * map.height
       ? roadLayer.data
@@ -127,12 +144,12 @@ export class CollisionMap {
   }
 
   isBlockedAt(x: number, y: number): boolean {
-    const column = Math.floor(x / this.tileWidth);
-    const row = Math.floor(y / this.tileHeight);
-    if (column < 0 || row < 0 || column >= this.width || row >= this.height) {
-      return true;
-    }
-    return this.collisions[row * this.width + column] !== 0;
+    return tileBlockedAt(this.tiles, x, y);
+  }
+
+  /** First wall hit along the segment (exact grid DDA), or undefined if clear. */
+  traceSegment(fromX: number, fromY: number, toX: number, toY: number): RayHit | undefined {
+    return traceTiles(this.tiles, fromX, fromY, toX, toY);
   }
 
   canOccupy(
@@ -142,18 +159,7 @@ export class CollisionMap {
     surfaceId?: string,
     actorKind: SurfaceActorKind = 'player'
   ): boolean {
-    const diagonal = radius * 0.72;
-    const samples = [
-      [x - radius, y],
-      [x + radius, y],
-      [x, y - radius],
-      [x, y + radius],
-      [x - diagonal, y - diagonal],
-      [x + diagonal, y - diagonal],
-      [x - diagonal, y + diagonal],
-      [x + diagonal, y + diagonal]
-    ];
-    if (!samples.every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY))) return false;
+    if (!circleFitsInTiles(this.tiles, x, y, radius)) return false;
     return surfaceId
       ? this.surfaces.canOccupy(surfaceId, x, y, radius, actorKind)
       : this.surfaces.surfaceIdsAt(x, y, actorKind).some((candidate) => (
@@ -413,18 +419,7 @@ export class CollisionMap {
   }
 
   hasLineOfSight(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    const distance = Math.hypot(toX - fromX, toY - fromY);
-    const steps = Math.max(1, Math.ceil(distance / 24));
-    for (let step = 1; step < steps; step++) {
-      const progress = step / steps;
-      if (this.isBlockedAt(
-        fromX + (toX - fromX) * progress,
-        fromY + (toY - fromY) * progress
-      )) {
-        return false;
-      }
-    }
-    return true;
+    return tileLineOfSight(this.tiles, fromX, fromY, toX, toY);
   }
 
   private isRoadCell(column: number, row: number): boolean {

@@ -4,7 +4,6 @@ import type {
   DistrictState,
   NpcState,
   PlayerState,
-  SoccerBallState,
   VehicleState
 } from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
@@ -25,10 +24,9 @@ import {
   planVehicleBodyDrive
 } from '../../../shared/simulation/vehicle-body-drive.ts';
 import type {VehicleMotionState} from '../../../shared/simulation/vehicle-step.ts';
-import type {PhysicsBodyState, PhysicsContact, PhysicsWorld} from '../../../shared/physics/physics-world.ts';
+import type {PhysicsBodyState, PhysicsContact, PhysicsWorld} from '../../../engine/adapters/surface-physics.ts';
 import {physicsBodyKey} from '../../../shared/simulation/humanoid-body-drive.ts';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
-import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import {
   PhysicsBodyRegistry,
   type PhysicsActorDescriptor,
@@ -132,7 +130,6 @@ export class VehicleSimulationController {
   private readonly damageSystem = new VehicleDamageSystem();
   private readonly fireSources = new Map<string, {sourceId: string; sourceKind: VehicleDamageSource}>();
   private readonly pendingPhysicsDrives: PendingPhysicsDrive[] = [];
-  private readonly pendingSoccerBallImpulses = new Map<string, {x: number; y: number}>();
   private readonly physicsStepCostSamples: number[] = [];
   private readonly previousBodies = new Map<
     string,
@@ -177,14 +174,6 @@ export class VehicleSimulationController {
           surfaceId: npc.surfaceId
         });
       }
-    }
-    for (const ball of this.options.state.soccerBalls.values()) {
-      this.previousBodies.set(physicsBodyKey('prop', ball.id), {
-        x: ball.x,
-        y: ball.y,
-        angle: ball.angle,
-        surfaceId: ball.surfaceId
-      });
     }
     this.options.traffic.beginTick(nowMs);
   }
@@ -244,12 +233,11 @@ export class VehicleSimulationController {
       vehicles: VehicleState[];
       players: PlayerState[];
       npcs: NpcState[];
-      soccerBalls: SoccerBallState[];
     }>();
     const actorsFor = (surfaceId: string) => {
       let actors = actorsBySurface.get(surfaceId);
       if (!actors) {
-        actors = {vehicles: [], players: [], npcs: [], soccerBalls: []};
+        actors = {vehicles: [], players: [], npcs: []};
         actorsBySurface.set(surfaceId, actors);
       }
       return actors;
@@ -266,9 +254,6 @@ export class VehicleSimulationController {
       if (npc.alive) {
         actorsFor(npc.surfaceId).npcs.push(npc);
       }
-    }
-    for (const ball of this.options.state.soccerBalls.values()) {
-      actorsFor(ball.surfaceId).soccerBalls.push(ball);
     }
     this.pruneImpactRecords(nowMs);
     const pending = new Map(this.pendingPhysicsDrives.map((drive) => [drive.vehicle.id, drive]));
@@ -291,12 +276,10 @@ export class VehicleSimulationController {
     }
     this.latestContactCount = results.reduce((sum, result) => sum + result.physicsContacts, 0);
     this.pendingPhysicsDrives.length = 0;
-    this.pendingSoccerBallImpulses.clear();
     return Object.freeze({
       vehicles: Object.freeze(results.flatMap((result) => result.vehicles)),
       players: Object.freeze(results.flatMap((result) => result.players)),
       npcs: Object.freeze(results.flatMap((result) => result.npcs)),
-      soccerBalls: Object.freeze(results.flatMap((result) => result.soccerBalls)),
       contacts: results.reduce((sum, result) => sum + result.contacts, 0),
       damagingContacts: results.reduce((sum, result) => sum + result.damagingContacts, 0)
     });
@@ -308,7 +291,6 @@ export class VehicleSimulationController {
       vehicles: VehicleState[];
       players: PlayerState[];
       npcs: NpcState[];
-      soccerBalls: SoccerBallState[];
     },
     pending: ReadonlyMap<string, PendingPhysicsDrive>,
     attempts: ReadonlyMap<string, PhysicsAttempt>,
@@ -318,12 +300,6 @@ export class VehicleSimulationController {
     const vehicles = actors.vehicles.sort((left, right) => left.id.localeCompare(right.id));
     const players = actors.players.sort((left, right) => left.id.localeCompare(right.id));
     const npcs = actors.npcs.sort((left, right) => left.id.localeCompare(right.id));
-    const soccerBalls = actors.soccerBalls.sort((left, right) => left.id.localeCompare(right.id));
-
-    for (const ball of soccerBalls) {
-      const impulse = this.pendingSoccerBallImpulses.get(ball.id);
-      if (impulse) physics.applyImpulse(physicsBodyKey('prop', ball.id), impulse.x, impulse.y);
-    }
 
     physics.step();
 
@@ -420,47 +396,6 @@ export class VehicleSimulationController {
         npc.y = state.y;
       }
     }
-    for (const ball of soccerBalls) {
-      const key = physicsBodyKey('prop', ball.id);
-      const state = physics.capture(key);
-      if (!state) continue;
-      const previous = this.previousBodies.get(key) ?? ball;
-      const nextSurfaceId = this.options.world.surfaceAfterMove(
-        previous.surfaceId,
-        previous.x,
-        previous.y,
-        state.x,
-        state.y,
-        SOCCER_BALL_RADIUS,
-        'prop'
-      );
-      if (!nextSurfaceId) {
-        const reset = {
-          x: previous.x,
-          y: previous.y,
-          rotation: previous.angle,
-          linvelX: 0,
-          linvelY: 0,
-          angvel: 0
-        };
-        physics.teleport(key, reset);
-        ball.x = reset.x;
-        ball.y = reset.y;
-        ball.angle = reset.rotation;
-        ball.linvelX = 0;
-        ball.linvelY = 0;
-        ball.angvel = 0;
-        continue;
-      }
-      ball.x = state.x;
-      ball.y = state.y;
-      ball.angle = state.rotation;
-      ball.linvelX = state.linvelX;
-      ball.linvelY = state.linvelY;
-      ball.angvel = state.angvel;
-      ball.surfaceId = nextSurfaceId;
-    }
-
     let contacts = 0;
     let damagingContacts = 0;
     const physicsContacts = physics.contacts();
@@ -479,7 +414,6 @@ export class VehicleSimulationController {
       vehicles: Object.freeze(movedVehicles),
       players: Object.freeze(players),
       npcs: Object.freeze(npcs),
-      soccerBalls: Object.freeze(soccerBalls),
       contacts,
       damagingContacts,
       physicsContacts: physicsContacts.length
@@ -491,7 +425,6 @@ export class VehicleSimulationController {
       vehicles: VehicleState[];
       players: PlayerState[];
       npcs: NpcState[];
-      soccerBalls: SoccerBallState[];
     }>,
     pending: ReadonlyMap<string, PendingPhysicsDrive>,
     deltaSeconds: number
@@ -591,24 +524,6 @@ export class VehicleSimulationController {
           state: attempt
         });
       }
-      for (const ball of [...actors.soccerBalls].sort((left, right) => left.id.localeCompare(right.id))) {
-        descriptors.push({
-          key: physicsBodyKey('prop', ball.id),
-          actorType: 'prop',
-          entityId: ball.id,
-          surfaceId,
-          shapeKey: `soccer-ball:${SOCCER_BALL_RADIUS}`,
-          control: 'simulated',
-          state: {
-            x: ball.x,
-            y: ball.y,
-            rotation: ball.angle,
-            linvelX: ball.linvelX,
-            linvelY: ball.linvelY,
-            angvel: ball.angvel
-          }
-        });
-      }
     }
     return {descriptors, attemptsBySurface};
   }
@@ -666,20 +581,9 @@ export class VehicleSimulationController {
     return this.bodyRegistry.bodyIdentity(key);
   }
 
-  queueSoccerBallImpulse(ballId: string, impulseX: number, impulseY: number): boolean {
-    if (!this.options.state.soccerBalls.has(ballId)) return false;
-    if (!Number.isFinite(impulseX) || !Number.isFinite(impulseY)) return false;
-    const pending = this.pendingSoccerBallImpulses.get(ballId) ?? {x: 0, y: 0};
-    pending.x += impulseX;
-    pending.y += impulseY;
-    this.pendingSoccerBallImpulses.set(ballId, pending);
-    return true;
-  }
-
   disposePhysics(): void {
     this.bodyRegistry.clear();
     this.physicsBySurface.clear();
-    this.pendingSoccerBallImpulses.clear();
   }
 
   private applyVehicleContact(

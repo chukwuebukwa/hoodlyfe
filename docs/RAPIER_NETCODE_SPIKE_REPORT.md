@@ -1,5 +1,7 @@
 # Rapier2d Netcode Feasibility Spike Report
 
+*Historical record (July 2026): describes the Rapier era. Rapier was replaced by the bespoke deterministic engine in `engine/` — see `engine/README.md`.*
+
 Date: 2026-07-19
 Harness: `scripts/spike/rapier-netcode-spike.ts` (`npx tsx scripts/spike/rapier-netcode-spike.ts`)
 Engine: `@dimforge/rapier2d-compat` 0.19.3 (inlined WASM, same binary loads in Node and browser)

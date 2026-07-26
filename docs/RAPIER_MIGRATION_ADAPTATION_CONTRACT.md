@@ -1,5 +1,7 @@
 # Multiplayer Adaptation Contract: Rapier2d Physics Migration
 
+*Historical record (July 2026): describes the Rapier era. Rapier was replaced by the bespoke deterministic engine in `engine/` — see `engine/README.md`.*
+
 Date: 2026-07-19
 
 Status: Code migration complete; production soak pending

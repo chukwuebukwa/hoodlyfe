@@ -67,10 +67,6 @@ import {
   validateNetcodeRolloutRequest,
   type NetcodeRolloutRequest
 } from '../shared/protocol/netcode-rollout.ts';
-import {
-  SOCCER_BALL_KICK_MESSAGE,
-  type SoccerBallKickMessage
-} from '../shared/protocol/soccer-ball.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
@@ -129,10 +125,9 @@ import {ActorBurnController} from './game/combat/actor-burn-controller.ts';
 import {RocketProjectileController} from './game/combat/rocket-projectile-controller.ts';
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
-import {SoccerBallController} from './game/props/soccer-ball-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
-import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
+import {initializePhysicsEngine, PhysicsWorld} from '../engine/adapters/surface-physics.ts';
 import {
   PlayerControlController,
   PLAYER_RADIUS,
@@ -274,7 +269,6 @@ export class DistrictRoom extends Room<DistrictState> {
   private rocketProjectileController!: RocketProjectileController;
   private weaponPickupController!: WeaponPickupController;
   private cashPickupController!: CashPickupController;
-  private soccerBallController!: SoccerBallController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
@@ -738,15 +732,6 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
-    this.soccerBallController = new SoccerBallController({
-      state: this.state,
-      world: this.world,
-      queueImpulse: (ballId, impulseX, impulseY) => this.vehicleSimulation.queueSoccerBallImpulse(
-        ballId,
-        impulseX,
-        impulseY
-      )
-    });
     this.explosionController = new ExplosionController({
       state: this.state,
       events: this.events,
@@ -1156,7 +1141,6 @@ export class DistrictRoom extends Room<DistrictState> {
       this.serviceController.initialize();
       this.medicalController.initialize();
       this.weaponPickupController.initialize();
-      this.soccerBallController.initialize();
       this.trafficSignalController.initialize(this.simulationClock.nowMs);
       this.population.populate();
       this.populationStreaming.initialize(this.simulationClock.nowMs);
@@ -1265,9 +1249,6 @@ export class DistrictRoom extends Room<DistrictState> {
         this.simulationClock.tick
       );
     });
-    this.registerJournaledCommand<SoccerBallKickMessage>(SOCCER_BALL_KICK_MESSAGE, (client, message) => {
-      this.soccerBallController.kick(client.sessionId, this.simulationClock.nowMs, message);
-    });
     this.registerJournaledCommand<MissionStartMessage>(MISSION_START_MESSAGE, (client, message) => {
       this.missionController.start(client.sessionId, message?.templateId);
     });
@@ -1358,7 +1339,6 @@ export class DistrictRoom extends Room<DistrictState> {
     this.wardrobeController.clearPlayer(client.sessionId);
     this.medicalController.clearPlayer(client.sessionId);
     this.interactionController.clearPlayer(client.sessionId);
-    this.soccerBallController.clearPlayer(client.sessionId);
     this.fireControl.clearPlayer(client.sessionId);
     this.combatFireCommands.clearPlayer(client.sessionId);
     this.weaponRuntime.cancelReload(client.sessionId);
