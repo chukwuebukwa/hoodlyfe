@@ -57,6 +57,9 @@ export function parseVehicleManifest(raw: unknown, source = 'vehicle.json'): Veh
   const presentation = recordField(raw, 'presentation', source);
   const generation = recordField(raw, 'generation', source);
   const offsets = recordField(presentation, 'offsets', source);
+  const lights = isRecord(presentation.lights) ? presentation.lights : undefined;
+  const collisionLength = numberField(collision, 'length', source, 1);
+  const collisionWidth = numberField(collision, 'width', source, 1);
 
   const manifest: VehicleWorkshopManifest = {
     version: 1,
@@ -70,8 +73,8 @@ export function parseVehicleManifest(raw: unknown, source = 'vehicle.json'): Veh
     mass: numberField(raw, 'mass', source, 0.01),
     collisionDamageScale: numberField(raw, 'collisionDamageScale', source, 0),
     collision: {
-      length: numberField(collision, 'length', source, 1),
-      width: numberField(collision, 'width', source, 1)
+      length: collisionLength,
+      width: collisionWidth
     },
     handling: {
       forwardAcceleration: numberField(handling, 'forwardAcceleration', source, 0),
@@ -108,6 +111,15 @@ export function parseVehicleManifest(raw: unknown, source = 'vehicle.json'): Veh
       width: numberField(presentation, 'width', source, 1),
       height: numberField(presentation, 'height', source, 1),
       emergencyLights: booleanField(presentation, 'emergencyLights', source),
+      lights: lights ? {
+        front: finiteNumberField(lights, 'front', source),
+        rear: finiteNumberField(lights, 'rear', source),
+        halfWidth: numberField(lights, 'halfWidth', source, 0)
+      } : {
+        front: collisionLength * 0.5 - 1,
+        rear: -collisionLength * 0.5 + 1,
+        halfWidth: collisionWidth * 0.32
+      },
       offsets: Object.fromEntries(VEHICLE_SOURCE_FRAMES.map((frame) => {
         const offset = recordField(offsets, frame, source);
         return [frame, {

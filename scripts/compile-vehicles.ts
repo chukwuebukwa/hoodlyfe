@@ -84,6 +84,7 @@ function generatedCatalog(manifests: VehicleWorkshopManifest[]) {
         width: manifest.presentation.width,
         height: manifest.presentation.height,
         emergencyLights: manifest.presentation.emergencyLights,
+        lights: manifest.presentation.lights,
         offsets: VEHICLE_SOURCE_FRAMES.map((frame) => manifest.presentation.offsets[frame])
       }
     }]))

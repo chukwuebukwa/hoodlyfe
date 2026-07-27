@@ -46,6 +46,11 @@ export interface VehiclePresentationDefinition {
   readonly width: number;
   readonly height: number;
   readonly emergencyLights: boolean;
+  readonly lights: {
+    readonly front: number;
+    readonly rear: number;
+    readonly halfWidth: number;
+  };
   readonly offsets: readonly VehicleSpriteOffsetDefinition[];
 }
 

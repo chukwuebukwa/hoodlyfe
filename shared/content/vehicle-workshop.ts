@@ -65,6 +65,11 @@ export interface VehicleWorkshopManifest {
     width: number;
     height: number;
     emergencyLights: boolean;
+    lights: {
+      front: number;
+      rear: number;
+      halfWidth: number;
+    };
     offsets: Record<VehicleSourceFrame, VehicleFrameOffset>;
   };
   generation: {

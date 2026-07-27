@@ -55,8 +55,8 @@ test('neon glow follows replicated color, proximity, operation, and darkness', (
   const cyan = vehicleNeonPresentation(vehicle({neonColor: 'cyan'}), 1, true);
   assert.equal(cyan.active, true);
   assert.equal(cyan.color, 0x39e7ff);
-  assert.ok(Math.abs(cyan.opacity - 0.76) < 0.0001);
-  assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'magenta'}), 0, true).opacity, 0.34);
+  assert.ok(Math.abs(cyan.opacity - 0.9) < 0.0001);
+  assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'magenta'}), 0, true).opacity, 0.46);
   assert.equal(vehicleNeonPresentation(vehicle({neonColor: 'lime'}), 1, false).active, false);
   assert.equal(vehicleNeonPresentation(
     vehicle({neonColor: 'violet', driverId: '', traffic: false}),

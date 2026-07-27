@@ -16,6 +16,9 @@ test('vehicle catalog exposes complete, distinct, bounded model definitions', ()
     assert.ok(definition.mass > 0);
     assert.ok(definition.collision.length > definition.collision.width);
     assert.ok(definition.collision.width > 0);
+    assert.ok(definition.presentation.lights.front > 0);
+    assert.ok(definition.presentation.lights.rear < 0);
+    assert.ok(definition.presentation.lights.halfWidth > 0);
     assert.ok(definition.handling.maximumForwardSpeed > definition.traffic.cruiseSpeed);
     assert.ok(definition.traffic.brakeDeceleration > definition.traffic.acceleration);
   }
@@ -33,4 +36,12 @@ test('vehicle catalog exposes complete, distinct, bounded model definitions', ()
   assert.ok(vehicleDefinition('suv').mass > vehicleDefinition('sedan').mass);
   assert.equal(vehicleDefinition('suv').seats, 4);
   assert.equal(vehicleDefinition('unknown'), vehicleDefinition('sedan'));
+});
+
+test('S15 lamp anchors follow its visible body instead of its collision envelope', () => {
+  assert.deepEqual(vehicleDefinition('s15').presentation.lights, {
+    front: 41,
+    rear: -41,
+    halfWidth: 14.5
+  });
 });

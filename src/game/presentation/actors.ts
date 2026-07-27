@@ -76,6 +76,16 @@ import {
   vehicleUnderglowRotation,
   type VehicleUnderglow
 } from './effects/vehicle-underglow.ts';
+import {
+  updateVehicleHeadlights,
+  vehicleHeadlights,
+  type VehicleHeadlights
+} from './effects/vehicle-headlights.ts';
+import {
+  updateVehicleTaillights,
+  vehicleTaillights,
+  type VehicleTaillights
+} from './effects/vehicle-taillights.ts';
 
 interface RenderedEntity {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -86,8 +96,8 @@ interface RenderedEntity {
   smoke?: THREE.Object3D;
   fire?: THREE.Object3D;
   blood?: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  headlight?: RadialGlow;
-  taillight?: RadialGlow;
+  headlight?: VehicleHeadlights;
+  taillight?: VehicleTaillights;
   emergencyRed?: RadialGlow;
   emergencyBlue?: RadialGlow;
   underglow?: VehicleUnderglow;
@@ -425,9 +435,9 @@ export class ActorPresentation {
       if (!vehicle) continue;
       const presentation = vehicleLightPresentation(vehicle, nightIntensity, nearby.has(id));
       rendered.headlight.visible = presentation.active && presentation.frontOpacity > 0.01;
-      updateRadialGlow(rendered.headlight, 0xfff2c7, presentation.frontOpacity);
+      updateVehicleHeadlights(rendered.headlight, 0xfff2c7, presentation.frontOpacity);
       rendered.taillight.visible = presentation.active && presentation.rearOpacity > 0.01;
-      updateRadialGlow(rendered.taillight, presentation.rearColor, presentation.rearOpacity);
+      updateVehicleTaillights(rendered.taillight, presentation.rearColor, presentation.rearOpacity);
       if (rendered.underglow) {
         const neon = vehicleNeonPresentation(vehicle, nightIntensity, nearby.has(id));
         rendered.underglow.visible = neon.active;
@@ -889,8 +899,16 @@ export class ActorPresentation {
         seed: id.length * 3.17,
         smokeWeight: 0.74
       }),
-      headlight: radialGlow(84, 0xfff2c7, 0, 12),
-      taillight: radialGlow(34, 0xff1f2f, 0, 10),
+      headlight: vehicleHeadlights(
+        definition.collision.length,
+        definition.collision.width,
+        definition.presentation.lights.halfWidth
+      ),
+      taillight: vehicleTaillights(
+        definition.collision.length,
+        definition.collision.width,
+        definition.presentation.lights.halfWidth
+      ),
       underglow: vehicleUnderglow(
         definition.collision.length,
         definition.collision.width
@@ -962,6 +980,7 @@ export class ActorPresentation {
   }
 
   private positionVehicleEffects(rendered: RenderedEntity, vehicle: NetworkVehicle): void {
+    const definition = vehicleDefinition(vehicle.kind);
     if (rendered.underglow) {
       rendered.underglow.position.set(
         rendered.mesh.position.x,
@@ -974,31 +993,29 @@ export class ActorPresentation {
       rendered.mesh.position.x,
       rendered.mesh.position.y,
       rendered.mesh.rotation.z,
-      52
+      definition.presentation.lights.front
     );
     const rearLamp = renderedVehicleLampAnchor(
       rendered.mesh.position.x,
       rendered.mesh.position.y,
       rendered.mesh.rotation.z,
-      -34
+      definition.presentation.lights.rear
     );
     if (rendered.headlight) {
       rendered.headlight.position.set(
         frontLamp.x,
         frontLamp.y,
-        rendered.mesh.position.z + 1
+        rendered.mesh.position.z - 1
       );
       rendered.headlight.rotation.z = frontLamp.rotation;
-      rendered.headlight.scale.set(1.45, 0.52, 1);
     }
     if (rendered.taillight) {
       rendered.taillight.position.set(
         rearLamp.x,
         rearLamp.y,
-        rendered.mesh.position.z + 1
+        rendered.mesh.position.z - 1
       );
       rendered.taillight.rotation.z = rearLamp.rotation;
-      rendered.taillight.scale.set(1.15, 0.52, 1);
     }
     const angle = frontLamp.rotation;
     const emergency = emergencyLightPresentation(vehicle, performance.now());

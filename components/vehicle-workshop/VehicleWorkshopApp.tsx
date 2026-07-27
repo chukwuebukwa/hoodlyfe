@@ -635,6 +635,25 @@ function FitPanel(props: InspectorProps) {
           <Save aria-hidden="true" /> Save fit
         </button>
       </PanelSection>
+      <PanelSection title="Lamp anchors" description="Place the light sources at the visible bumpers rather than the collision envelope.">
+        <NumberGrid>
+          <NumberField label="Front" value={draft.presentation.lights.front} step={0.5} onChange={(front) => setDraft({
+            ...draft,
+            presentation: {...draft.presentation, lights: {...draft.presentation.lights, front}}
+          })} />
+          <NumberField label="Rear" value={draft.presentation.lights.rear} step={0.5} onChange={(rear) => setDraft({
+            ...draft,
+            presentation: {...draft.presentation, lights: {...draft.presentation.lights, rear}}
+          })} />
+          <NumberField label="Half width" value={draft.presentation.lights.halfWidth} step={0.5} onChange={(halfWidth) => setDraft({
+            ...draft,
+            presentation: {...draft.presentation, lights: {...draft.presentation.lights, halfWidth}}
+          })} />
+        </NumberGrid>
+        <button type="button" className="vw-wide-command is-primary" onClick={() => props.onManifest(draft)} disabled={Boolean(props.busy)}>
+          <Save aria-hidden="true" /> Save lamp anchors
+        </button>
+      </PanelSection>
     </>
   );
 }

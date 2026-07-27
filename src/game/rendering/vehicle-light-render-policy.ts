@@ -74,6 +74,6 @@ export function vehicleNeonPresentation(
   return {
     active: true,
     color: vehicleNeonColorHex(neonColor),
-    opacity: 0.34 + darkness * 0.42
+    opacity: 0.46 + darkness * 0.44
   };
 }

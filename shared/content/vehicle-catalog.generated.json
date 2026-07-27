@@ -57,6 +57,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": false,
+        "lights": {
+          "front": 28,
+          "rear": -28,
+          "halfWidth": 10.24
+        },
         "offsets": [
           {
             "x": -19.5,
@@ -129,6 +134,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": true,
+        "lights": {
+          "front": 29,
+          "rear": -29,
+          "halfWidth": 10.56
+        },
         "offsets": [
           {
             "x": 0.5,
@@ -201,6 +211,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": false,
+        "lights": {
+          "front": 27.5,
+          "rear": -27.5,
+          "halfWidth": 10.24
+        },
         "offsets": [
           {
             "x": -7.5,
@@ -273,6 +288,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": false,
+        "lights": {
+          "front": 30,
+          "rear": -30,
+          "halfWidth": 9.6
+        },
         "offsets": [
           {
             "x": 0.5,
@@ -345,6 +365,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": false,
+        "lights": {
+          "front": 41,
+          "rear": -41,
+          "halfWidth": 14.5
+        },
         "offsets": [
           {
             "x": 0.5,
@@ -417,6 +442,11 @@
         "width": 96,
         "height": 96,
         "emergencyLights": false,
+        "lights": {
+          "front": 32,
+          "rear": -32,
+          "halfWidth": 11.52
+        },
         "offsets": [
           {
             "x": 0.5,

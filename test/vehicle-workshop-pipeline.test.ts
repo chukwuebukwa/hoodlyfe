@@ -27,6 +27,7 @@ test('vehicle manifests are the complete ordered source for generated runtime da
     assert.deepEqual(generated.presentation.offsets, VEHICLE_SOURCE_FRAMES.map((frame) => (
       manifest.presentation.offsets[frame]
     )));
+    assert.deepEqual(generated.presentation.lights, manifest.presentation.lights);
   }
 });
 

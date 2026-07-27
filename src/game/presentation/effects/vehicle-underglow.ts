@@ -25,20 +25,33 @@ export function vehicleUnderglow(length: number, width: number): VehicleUnderglo
       uniform float glowOpacity;
       void main() {
         vec2 point = glowUv * 2.0 - 1.0;
-        vec2 ellipsePoint = point * vec2(0.78, 1.02);
+        vec2 ellipsePoint = point * vec2(0.72, 0.78);
         float radiusSquared = dot(ellipsePoint, ellipsePoint);
 
-        // A broad Gaussian pool reads as light reflected by the road instead of a flat decal.
-        float roadHalo = exp(-3.2 * radiusSquared);
-        float radialEdge = 1.0 - smoothstep(0.76, 1.08, sqrt(radiusSquared));
+        // Keep a wide, low-energy road spill beyond the bodywork.
+        float roadHalo = exp(-2.35 * radiusSquared);
+        vec2 capsulePoint = vec2(max(abs(point.x) - 0.28, 0.0), point.y);
+        float capsuleDistance = length(capsulePoint);
+        float radialEdge = 1.0 - smoothstep(0.28, 0.86, capsuleDistance);
+        float horizontalEdge = 1.0 - smoothstep(0.74, 1.0, abs(point.x));
+        float verticalEdge = 1.0 - smoothstep(0.74, 1.0, abs(point.y));
+        float boundaryFade = horizontalEdge * verticalEdge;
 
-        // A dim pair of tubes under the rocker panels gives the halo a believable source.
-        float railDistance = abs(abs(point.y) - 0.38);
-        float sideRails = exp(-68.0 * railDistance * railDistance);
-        sideRails *= exp(-2.8 * pow(abs(point.x), 4.0));
+        // Defined rocker-panel tubes provide a readable source instead of an indistinct blur.
+        float railDistance = abs(abs(point.y) - 0.31);
+        float railLength = 1.0 - smoothstep(0.58, 0.73, abs(point.x));
+        float railCore = exp(-620.0 * railDistance * railDistance) * railLength;
+        float railBloom = exp(-52.0 * railDistance * railDistance) * railLength;
+        float chassisCore = exp(-5.8 * pow(abs(point.x), 4.0))
+          * exp(-34.0 * pow(abs(point.y), 4.0));
 
-        float alpha = (roadHalo * 0.68 + sideRails * 0.16) * radialEdge * glowOpacity;
-        vec3 emittedColor = glowColor * (0.76 + sideRails * 0.24);
+        float alpha = (
+          roadHalo * 0.48
+          + railBloom * 0.24
+          + railCore * 0.62
+          + chassisCore * 0.2
+        ) * radialEdge * boundaryFade * glowOpacity;
+        vec3 emittedColor = glowColor * (0.88 + railCore * 0.32);
         gl_FragColor = vec4(emittedColor, alpha);
       }
     `,
@@ -50,7 +63,7 @@ export function vehicleUnderglow(length: number, width: number): VehicleUnderglo
     toneMapped: false
   });
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(Math.max(1, length * 1.42), Math.max(1, width * 2.05)),
+    new THREE.PlaneGeometry(Math.max(1, length * 1.65), Math.max(1, width * 3.05)),
     material
   );
   mesh.renderOrder = 8;
