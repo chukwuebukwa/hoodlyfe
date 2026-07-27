@@ -41,6 +41,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   const target = source.clone().add(new THREE.Vector3().fromArray(placement.aimOffset));
   const coneRadius = options.radius ?? BEACON_RADIUS;
   const footprintSize = options.footprintSize ?? BEACON_FOOTPRINT_SIZE;
+  const volumeScale = coneRadius / BEACON_RADIUS;
 
   const beam = new THREE.Mesh(
     new THREE.PlaneGeometry(footprintSize[0], footprintSize[1]),
@@ -83,15 +84,15 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   beam.position.set(target.x, target.y, options.footprintZ ?? -5.5);
   beam.renderOrder = 16;
 
-  const volumeDirection = source.clone().sub(target);
-  const volumeLength = volumeDirection.length();
   const volumeMidpoint = source.clone().add(target).multiplyScalar(0.5);
-  const volumeAlignment = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    volumeDirection.normalize()
-  );
   const volume = new THREE.Mesh(
-    new THREE.ConeGeometry(coneRadius, volumeLength, 48, 1, true),
+    beaconVolumeGeometry(
+      source,
+      target,
+      volumeMidpoint,
+      footprintSize[0] * volumeScale,
+      footprintSize[1] * volumeScale
+    ),
     new THREE.ShaderMaterial({
       uniforms: {
         beaconColor: {value: color.clone()},
@@ -119,7 +120,7 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
         }
       `,
       transparent: true,
-      depthTest: true,
+      depthTest: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -129,7 +130,6 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
   volume.name = 'shop-beacon-volume';
   volume.userData.role = 'shop-beacon-volume';
   volume.position.copy(volumeMidpoint);
-  volume.quaternion.copy(volumeAlignment);
   volume.renderOrder = 17;
 
   const bloom = radialGlow(28, options.color, 0.42 * intensity, 20);
@@ -144,4 +144,49 @@ export function createShopBeacon(options: ShopBeaconOptions): THREE.Group {
 
   group.add(beam, volume, bloom, cast);
   return group;
+}
+
+function beaconVolumeGeometry(
+  source: THREE.Vector3,
+  target: THREE.Vector3,
+  origin: THREE.Vector3,
+  baseWidth: number,
+  baseHeight: number
+): THREE.BufferGeometry {
+  const segments = 48;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const sourceLocal = source.clone().sub(origin);
+  const halfWidth = baseWidth / 2;
+  const halfHeight = baseHeight / 2;
+
+  for (let index = 0; index < segments; index++) {
+    const start = index / segments;
+    const end = (index + 1) / segments;
+    const startAngle = start * Math.PI * 2;
+    const endAngle = end * Math.PI * 2;
+    const startPoint = new THREE.Vector3(
+      target.x + Math.cos(startAngle) * halfWidth,
+      target.y + Math.sin(startAngle) * halfHeight,
+      target.z
+    ).sub(origin);
+    const endPoint = new THREE.Vector3(
+      target.x + Math.cos(endAngle) * halfWidth,
+      target.y + Math.sin(endAngle) * halfHeight,
+      target.z
+    ).sub(origin);
+
+    positions.push(
+      sourceLocal.x, sourceLocal.y, sourceLocal.z,
+      startPoint.x, startPoint.y, startPoint.z,
+      endPoint.x, endPoint.y, endPoint.z
+    );
+    uvs.push(0.5, 1, start, 0, end, 0);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeBoundingSphere();
+  return geometry;
 }

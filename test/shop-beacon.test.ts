@@ -26,13 +26,23 @@ test('shop beacon combines a soft projected ray and strong colored cast', () => 
   assert.equal(beacon.getObjectByName('shop-beacon-ground'), undefined);
 
   assert.ok(volume instanceof THREE.Mesh);
-  assert.ok(volume.geometry instanceof THREE.ConeGeometry);
+  assert.ok(volume.geometry instanceof THREE.BufferGeometry);
+  assert.equal(volume.geometry instanceof THREE.ConeGeometry, false);
   assert.ok(volume.material instanceof THREE.ShaderMaterial);
+  assert.equal(volume.material.depthTest, false);
   assert.match(volume.material.fragmentShader, /startFade/);
   assert.match(volume.material.fragmentShader, /endFade/);
   assert.doesNotMatch(volume.material.vertexShader, /beaconViewDirection/);
   assert.doesNotMatch(volume.material.fragmentShader, /silhouette/);
   assert.equal(beacon.getObjectByName('shop-beacon-volume-blade'), undefined);
+
+  const volumePositions = volume.geometry.getAttribute('position');
+  assert.equal(volumePositions.count, 48 * 3);
+  const baseHeights = new Set<number>();
+  for (let index = 0; index < volumePositions.count; index++) {
+    if (index % 3 !== 0) baseHeights.add(volumePositions.getZ(index));
+  }
+  assert.deepEqual([...baseHeights], [-50.5]);
 
   assert.ok(light instanceof THREE.PointLight);
   assert.equal(light.color.getHex(), 0x20dcff);
