@@ -42,6 +42,73 @@ const GAME_SHELL_HTML = `
       </label>
     </section>
   </div>
+  <div id="storefront-overlay" class="hidden" aria-hidden="true">
+    <section id="storefront-panel" role="dialog" aria-modal="true" aria-labelledby="storefront-title">
+      <header class="storefront-header">
+        <div>
+          <span>Vehicle Service</span>
+          <strong id="storefront-title">Repair Garage</strong>
+        </div>
+        <div class="storefront-header__account">
+          <span>Available cash</span>
+          <strong id="storefront-balance">$0</strong>
+        </div>
+        <button id="storefront-close" type="button" aria-label="Close storefront">&times;</button>
+      </header>
+
+      <nav class="storefront-rail" aria-label="Garage departments">
+        <button type="button" data-storefront-category="service" aria-pressed="true">
+          <span>01</span>
+          <strong>Service</strong>
+        </button>
+        <button type="button" data-storefront-category="lighting" aria-pressed="false">
+          <span>02</span>
+          <strong>Lighting</strong>
+        </button>
+      </nav>
+
+      <section class="storefront-stage" aria-label="Vehicle preview">
+        <div id="storefront-preview"></div>
+        <header class="storefront-vehicle">
+          <div>
+            <span>Current vehicle</span>
+            <strong id="storefront-vehicle-label">Vehicle</strong>
+            <small id="storefront-vehicle-meta">—</small>
+          </div>
+          <div class="storefront-condition">
+            <span>Condition <strong id="storefront-condition-value">100%</strong></span>
+            <div aria-hidden="true"><i id="storefront-condition-fill"></i></div>
+          </div>
+        </header>
+        <dl class="storefront-diagnostics">
+          <div><dt>Engine</dt><dd id="storefront-engine-value">Clear</dd></div>
+          <div><dt>Body</dt><dd id="storefront-body-value">Clear</dd></div>
+          <div><dt>Preview</dt><dd>Live</dd></div>
+        </dl>
+      </section>
+
+      <aside class="storefront-inspector">
+        <header>
+          <span>Available options</span>
+          <strong>Choose one</strong>
+        </header>
+        <div id="storefront-products" aria-label="Store products"></div>
+        <section class="storefront-selection" aria-live="polite">
+          <span>Selected</span>
+          <strong id="storefront-selection-label">Select an option</strong>
+          <p id="storefront-selection-description">Preview a product before purchase.</p>
+          <div>
+            <span>Price</span>
+            <strong id="storefront-selection-price">—</strong>
+          </div>
+        </section>
+        <footer>
+          <p id="storefront-status" role="status" data-tone="neutral"></p>
+          <button id="storefront-purchase" type="button" disabled>Select an option</button>
+        </footer>
+      </aside>
+    </section>
+  </div>
   <aside id="debug-panel" class="hud-layer hidden" aria-label="Simulation debug information">
     <header>
       <strong>Simulation</strong>

@@ -6,10 +6,20 @@ import {
 } from '../../../shared/content/street-services.ts';
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import {
-  nextVehicleNeonColor,
+  VEHICLE_NEON_COLORS,
+  isVehicleNeonColor,
+  normalizeVehicleNeonColor,
   vehicleNeonColorLabel,
   vehicleNeonUpgradeQuote
 } from '../../../shared/content/vehicle-neon.ts';
+import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
+import {
+  STOREFRONT_PROTOCOL_VERSION,
+  type StorefrontProduct,
+  type StorefrontPurchaseMessage,
+  type StorefrontResultMessage,
+  type StorefrontSnapshot
+} from '../../../shared/protocol/storefront.ts';
 import {StreetServiceState, type DistrictState, type PlayerState, type VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import type {StreetEconomyPort, StreetEconomyResult} from '../economy/street-economy-controller.ts';
@@ -28,6 +38,7 @@ interface StreetServiceControllerOptions {
   restockPlayer: (playerId: string) => void;
   medical: Pick<MedicalCareController, 'canTreat' | 'treat'>;
   openWardrobe: (playerId: string, serviceId: string) => void;
+  openStorefront: (playerId: string, snapshot: StorefrontSnapshot) => void;
   notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
 }
 
@@ -86,7 +97,7 @@ export class StreetServiceController {
       const kind = service.kind as StreetServiceKind;
       if (this.distanceToService(player, kind, service.x, service.y) > service.radius) continue;
       if (kind === 'repair' && this.canOfferRepair(player)) {
-        return this.repair(player, service, nowMs);
+        return this.openRepairStorefront(player, service);
       }
       if (kind === 'ammunition' && this.canOfferAmmunition(player)) {
         return this.restock(player, service, nowMs);
@@ -101,6 +112,33 @@ export class StreetServiceController {
     return false;
   }
 
+  purchase(
+    playerId: string,
+    request: StorefrontPurchaseMessage,
+    nowMs: number
+  ): StorefrontResultMessage {
+    const player = this.options.state.players.get(playerId);
+    const service = this.options.state.services.get(request.storeId);
+    const vehicle = this.options.state.vehicles.get(request.vehicleId);
+    const invalid = this.validateRepairStorefront(player, service, vehicle);
+    if (invalid) return this.result(request.sequence, 'unavailable', invalid);
+    if (!player || !service || !vehicle) {
+      return this.result(request.sequence, 'invalid', 'Garage session is no longer valid.');
+    }
+
+    if (request.productId === 'repair.full') {
+      return this.purchaseRepair(player, service, vehicle, request, nowMs);
+    }
+    if (!request.productId.startsWith('neon.')) {
+      return this.result(request.sequence, 'invalid', 'Unknown garage product.');
+    }
+    const color = request.productId.slice('neon.'.length);
+    if (!isVehicleNeonColor(color)) {
+      return this.result(request.sequence, 'invalid', 'Unknown neon color.');
+    }
+    return this.purchaseNeon(player, service, vehicle, color, request, nowMs);
+  }
+
   private canOfferRepair(player: PlayerState): boolean {
     if (!player.vehicleId || player.vehicleSeat !== 0) return false;
     return this.options.state.vehicles.has(player.vehicleId);
@@ -110,48 +148,125 @@ export class StreetServiceController {
     return !player.vehicleId && combatResupplyQuote(player) > 0;
   }
 
-  private repair(player: PlayerState, service: StreetServiceState, nowMs: number): boolean {
+  private openRepairStorefront(player: PlayerState, service: StreetServiceState): boolean {
     const vehicle = this.options.state.vehicles.get(player.vehicleId);
     if (!vehicle) return false;
-    if (player.wanted > 0) {
-      this.options.notice(player.id, 'Lose police heat before using the repair garage.', 'warning');
+    const invalid = this.validateRepairStorefront(player, service, vehicle);
+    if (invalid) {
+      this.options.notice(player.id, invalid, 'warning');
       return true;
     }
-    if (vehicle.destroyed || vehicle.onFire) {
-      this.options.notice(player.id, 'This vehicle is too dangerous to repair.', 'warning');
-      return true;
-    }
-    if (Math.abs(vehicle.speed) > 12) {
-      this.options.notice(player.id, 'Stop the vehicle inside the repair garage.', 'warning');
-      return true;
-    }
+    this.options.openStorefront(player.id, this.repairStorefrontSnapshot(player, service, vehicle));
+    return true;
+  }
+
+  private purchaseRepair(
+    player: PlayerState,
+    service: StreetServiceState,
+    vehicle: VehicleState,
+    request: StorefrontPurchaseMessage,
+    nowMs: number
+  ): StorefrontResultMessage {
     const repairQuote = vehicleRepairQuote(vehicle);
-    const neonUpgrade = repairQuote <= 0;
-    const nextNeonColor = nextVehicleNeonColor(vehicle.neonColor);
-    const quote = neonUpgrade ? vehicleNeonUpgradeQuote(vehicle.neonColor) : repairQuote;
+    if (repairQuote <= 0) {
+      return this.result(
+        request.sequence,
+        'unavailable',
+        'Vehicle is already fully repaired.',
+        this.repairStorefrontSnapshot(player, service, vehicle)
+      );
+    }
     const result = this.options.economy.debit(
       player.id,
-      quote,
-      neonUpgrade ? 'vehicle-neon' : 'vehicle-repair',
-      `service:${service.id}:${player.id}:${vehicle.id}:${this.options.clock().tick}`,
+      repairQuote,
+      'vehicle-repair',
+      this.purchaseKey(service.id, player.id, request),
       nowMs
     );
     if (result.status !== 'applied') {
-      this.noticeFailure(player.id, result, quote);
-      return true;
-    }
-    if (neonUpgrade) {
-      vehicle.neonColor = nextNeonColor;
-      this.options.notice(
-        player.id,
-        `${vehicleNeonColorLabel(nextNeonColor)} neon installed -$${result.transaction?.amount ?? quote}`,
-        'success'
+      return this.purchaseFailure(
+        request.sequence,
+        result,
+        repairQuote,
+        this.repairStorefrontSnapshot(player, service, vehicle)
       );
-    } else {
-      this.options.repairVehicle(vehicle);
-      this.options.notice(player.id, `Vehicle repaired -$${result.transaction?.amount ?? quote}`, 'success');
     }
-    return true;
+    this.options.repairVehicle(vehicle);
+    const charged = result.transaction?.amount ?? repairQuote;
+    this.options.notice(player.id, `Vehicle repaired -$${charged}`, 'success');
+    return this.result(
+      request.sequence,
+      'applied',
+      `Vehicle repaired for $${charged}.`,
+      this.repairStorefrontSnapshot(player, service, vehicle)
+    );
+  }
+
+  private purchaseNeon(
+    player: PlayerState,
+    service: StreetServiceState,
+    vehicle: VehicleState,
+    color: ReturnType<typeof normalizeVehicleNeonColor>,
+    request: StorefrontPurchaseMessage,
+    nowMs: number
+  ): StorefrontResultMessage {
+    const repairQuote = vehicleRepairQuote(vehicle);
+    if (repairQuote > 0) {
+      return this.result(
+        request.sequence,
+        'unavailable',
+        'Repair the vehicle before installing lighting.',
+        this.repairStorefrontSnapshot(player, service, vehicle)
+      );
+    }
+    const current = normalizeVehicleNeonColor(vehicle.neonColor);
+    if (current === color) {
+      return this.result(
+        request.sequence,
+        'unavailable',
+        `${vehicleNeonColorLabel(color)} is already equipped.`,
+        this.repairStorefrontSnapshot(player, service, vehicle)
+      );
+    }
+    if (color === 'off') {
+      vehicle.neonColor = 'off';
+      this.options.notice(player.id, 'Vehicle neon removed.', 'success');
+      return this.result(
+        request.sequence,
+        'applied',
+        'Vehicle neon removed.',
+        this.repairStorefrontSnapshot(player, service, vehicle)
+      );
+    }
+    const quote = vehicleNeonUpgradeQuote(current);
+    const result = this.options.economy.debit(
+      player.id,
+      quote,
+      'vehicle-neon',
+      this.purchaseKey(service.id, player.id, request),
+      nowMs
+    );
+    if (result.status !== 'applied') {
+      return this.purchaseFailure(
+        request.sequence,
+        result,
+        quote,
+        this.repairStorefrontSnapshot(player, service, vehicle)
+      );
+    }
+    vehicle.neonColor = color;
+    const charged = result.transaction?.amount ?? quote;
+    this.options.notice(
+      player.id,
+      `${vehicleNeonColorLabel(color)} neon installed -$${charged}`,
+      'success'
+    );
+    return this.result(
+      request.sequence,
+      'applied',
+      `${vehicleNeonColorLabel(color)} neon installed for $${charged}.`,
+      this.repairStorefrontSnapshot(player, service, vehicle)
+    );
   }
 
   private restock(player: PlayerState, service: StreetServiceState, nowMs: number): boolean {
@@ -188,6 +303,124 @@ export class StreetServiceController {
     this.options.notice(playerId, message, 'warning');
   }
 
+  private repairStorefrontSnapshot(
+    player: PlayerState,
+    service: StreetServiceState,
+    vehicle: VehicleState
+  ): StorefrontSnapshot {
+    const repairQuote = vehicleRepairQuote(vehicle);
+    const currentNeon = normalizeVehicleNeonColor(vehicle.neonColor);
+    const lightingBlocked = repairQuote > 0;
+    const products: StorefrontProduct[] = [{
+      id: 'repair.full',
+      category: 'service',
+      label: 'Full Repair',
+      description: 'Restore body panels, engine condition, and vehicle health.',
+      price: repairQuote,
+      available: repairQuote > 0,
+      selected: false,
+      unavailableReason: repairQuote > 0 ? undefined : 'Vehicle is already repaired.'
+    }, {
+      id: 'neon.off',
+      category: 'lighting',
+      label: 'No Neon',
+      description: 'Remove the installed underglow.',
+      price: 0,
+      available: !lightingBlocked && currentNeon !== 'off',
+      selected: currentNeon === 'off',
+      unavailableReason: lightingBlocked ? 'Repair vehicle first.' : undefined,
+      swatch: 'off'
+    }, ...VEHICLE_NEON_COLORS.map((color): StorefrontProduct => ({
+      id: `neon.${color}`,
+      category: 'lighting',
+      label: `${titleCase(color)} Neon`,
+      description: 'Install a road-facing underglow kit.',
+      price: currentNeon === color ? 0 : vehicleNeonUpgradeQuote(currentNeon),
+      available: !lightingBlocked && currentNeon !== color,
+      selected: currentNeon === color,
+      unavailableReason: lightingBlocked ? 'Repair vehicle first.' : undefined,
+      swatch: color
+    }))];
+    const definition = vehicleDefinition(vehicle.kind);
+    return {
+      protocolVersion: STOREFRONT_PROTOCOL_VERSION,
+      storeId: service.id,
+      kind: 'repair',
+      label: service.label,
+      balance: player.cash,
+      vehicle: {
+        id: vehicle.id,
+        kind: definition.id,
+        label: definition.label,
+        health: vehicle.health,
+        maxHealth: vehicle.maxHealth,
+        engineDamage: vehicle.engineDamage,
+        bodyDamage: vehicle.damageFront + vehicle.damageRear + vehicle.damageLeft + vehicle.damageRight,
+        currentNeon
+      },
+      products
+    };
+  }
+
+  private validateRepairStorefront(
+    player: PlayerState | undefined,
+    service: StreetServiceState | undefined,
+    vehicle: VehicleState | undefined
+  ): string | undefined {
+    if (!player?.alive || !service || service.kind !== 'repair' || !vehicle) {
+      return 'Garage session is no longer valid.';
+    }
+    if (player.vehicleId !== vehicle.id || player.vehicleSeat !== 0) {
+      return 'You must be driving this vehicle.';
+    }
+    if (service.spaceId !== player.spaceId) return 'Vehicle is outside the repair garage.';
+    if (this.distanceToService(player, 'repair', service.x, service.y) > service.radius) {
+      return 'Vehicle left the repair garage.';
+    }
+    if (player.wanted > 0) return 'Lose police heat before using the repair garage.';
+    if (vehicle.destroyed || vehicle.onFire) return 'This vehicle is too dangerous to service.';
+    if (Math.abs(vehicle.speed) > 12) return 'Stop the vehicle inside the repair garage.';
+    return undefined;
+  }
+
+  private purchaseFailure(
+    sequence: number,
+    economyResult: StreetEconomyResult,
+    quote: number,
+    snapshot: StorefrontSnapshot
+  ): StorefrontResultMessage {
+    if (economyResult.status === 'duplicate') {
+      return this.result(sequence, 'duplicate', 'Purchase was already processed.', snapshot);
+    }
+    if (economyResult.status === 'insufficient-funds') {
+      return this.result(sequence, 'insufficient-funds', `Not enough cash. Price is $${quote}.`, snapshot);
+    }
+    return this.result(sequence, 'unavailable', 'Service unavailable. Try again.', snapshot);
+  }
+
+  private purchaseKey(
+    serviceId: string,
+    playerId: string,
+    request: StorefrontPurchaseMessage
+  ): string {
+    return `storefront:${serviceId}:${playerId}:${request.sequence}:${request.productId}`;
+  }
+
+  private result(
+    sequence: number,
+    status: StorefrontResultMessage['status'],
+    message: string,
+    snapshot?: StorefrontSnapshot
+  ): StorefrontResultMessage {
+    return {
+      protocolVersion: STOREFRONT_PROTOCOL_VERSION,
+      sequence,
+      status,
+      message,
+      snapshot
+    };
+  }
+
   private distanceToService(
     player: PlayerState,
     kind: StreetServiceKind,
@@ -219,4 +452,8 @@ export class StreetServiceController {
     service.radius = STREET_SERVICE_RADIUS[kind];
     this.options.state.services.set(id, service);
   }
+}
+
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

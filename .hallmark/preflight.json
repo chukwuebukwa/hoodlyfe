@@ -1,19 +1,30 @@
 {
   "version": 1,
-  "date": "2026-07-24",
-  "surface": "/vehicles",
-  "audience": "Internal vehicle artists and developers now; community creators later",
-  "primaryTask": "Create a complete playable vehicle from a text brief or uploaded closed-car image",
-  "tone": "Technical, compact, industrial",
-  "genre": "modern-minimal",
-  "macrostructure": "Focused workbench",
-  "theme": "NOCK0 industrial",
-  "pipeline": [
-    "Brief",
-    "Closed car",
-    "Doors",
-    "Fit",
-    "Tune",
-    "Build"
-  ]
+  "project": "NOCK0 repair storefront",
+  "surface": "in-game operational overlay",
+  "audience": "players servicing and customizing a vehicle",
+  "existingSystem": {
+    "css": "src/style.css",
+    "tokens": "tokens.css",
+    "fonts": ["Avenir Next Condensed", "SFMono-Regular"],
+    "motionLibrary": "none"
+  },
+  "macrostructure": "focused service bay",
+  "tone": "industrial operational",
+  "anchorHue": "signal yellow",
+  "sections": [
+    "garage header",
+    "service rail",
+    "vehicle stage",
+    "purchase inspector",
+    "balance and action"
+  ],
+  "expectedFiles": [
+    "components/GameShell.tsx",
+    "src/style.css",
+    "tokens.css",
+    "src/game/ui/storefront-controller.ts",
+    "src/game/ui/vehicle-storefront-preview.ts"
+  ],
+  "deletions": []
 }

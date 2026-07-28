@@ -1,8 +1,7 @@
 import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {
   combatResupplyQuote,
-  medicalTreatmentQuote,
-  vehicleRepairQuote
+  medicalTreatmentQuote
 } from '../../../shared/content/street-services.ts';
 import type {MinimapPointInput} from '../minimap-marker-policy.ts';
 import type {
@@ -12,12 +11,6 @@ import type {
   NetworkVehicle
 } from '../types.ts';
 import {STREET_SPACE_ID, clientInteriorDefinitions} from '../../../shared/content/interior-catalog.ts';
-import {
-  nextVehicleNeonColor,
-  normalizeVehicleNeonColor,
-  vehicleNeonColorLabel,
-  vehicleNeonUpgradeQuote
-} from '../../../shared/content/vehicle-neon.ts';
 
 export type InteractionAffordanceKind =
   | 'hidden'
@@ -87,32 +80,32 @@ export function projectInteractionAffordance(
         anchor: serviceAnchor(service)
       };
     }
-    const quote = serviceQuote(state, player, service);
     const repairVehicle = service.kind === 'repair'
       ? state.vehicles.get(player.vehicleId)
       : undefined;
-    const repairsNeeded = repairVehicle ? vehicleRepairQuote(repairVehicle) > 0 : false;
-    const nextNeon = repairVehicle ? nextVehicleNeonColor(repairVehicle.neonColor) : 'cyan';
-    const label = service.kind === 'repair'
-      ? repairsNeeded
-        ? `Repair Car ($${quote})`
-        : normalizeVehicleNeonColor(repairVehicle?.neonColor) === 'off'
-          ? `Install Neon ($${quote})`
-          : `Neon ${titleCase(vehicleNeonColorLabel(nextNeon))} ($${quote})`
-      : (service.kind === 'hospital'
+    if (service.kind === 'repair') {
+      return {
+        visible: true,
+        kind: 'repair',
+        label: 'Open Garage',
+        touchLabel: 'SHOP',
+        ariaLabel: `${service.label}, open storefront`,
+        anchor: repairVehicle
+          ? {x: repairVehicle.x, y: repairVehicle.y, vehicleId: repairVehicle.id}
+          : serviceAnchor(service)
+      };
+    }
+    const quote = serviceQuote(player, service);
+    const label = service.kind === 'hospital'
           ? `Get Treatment ($${quote})`
-          : `Resupply ($${quote})`);
+          : `Resupply ($${quote})`;
     return {
       visible: true,
       kind: service.kind,
       label,
-      touchLabel: service.kind === 'repair'
-        ? (repairsNeeded ? 'FIX' : 'NEON')
-        : (service.kind === 'hospital' ? 'CARE' : 'GEAR'),
+      touchLabel: service.kind === 'hospital' ? 'CARE' : 'GEAR',
       ariaLabel: `${service.label}, ${quote} dollars`,
-      anchor: repairVehicle
-        ? {x: repairVehicle.x, y: repairVehicle.y, vehicleId: repairVehicle.id}
-        : serviceAnchor(service)
+      anchor: serviceAnchor(service)
     };
   }
   if (player.vehicleId) {
@@ -164,10 +157,6 @@ function vehicleAnchor(vehicle: NetworkVehicle): InteractionAnchor {
   return {x: vehicle.x, y: vehicle.y, vehicleId: vehicle.id};
 }
 
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-}
-
 function nearestUsableService(
   state: DistrictNetworkState,
   player: NetworkPlayer
@@ -201,15 +190,9 @@ function nearestUsableService(
 }
 
 function serviceQuote(
-  state: DistrictNetworkState,
   player: NetworkPlayer,
   service: NetworkStreetService
 ): number {
-  if (service.kind === 'repair') {
-    const vehicle = state.vehicles.get(player.vehicleId) as NetworkVehicle;
-    const repairQuote = vehicleRepairQuote(vehicle);
-    return repairQuote > 0 ? repairQuote : vehicleNeonUpgradeQuote(vehicle.neonColor);
-  }
   if (service.kind === 'hospital') return medicalTreatmentQuote(player.health);
   if (service.kind === 'clothing') return 0;
   return combatResupplyQuote(player);
