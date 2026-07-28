@@ -14,6 +14,11 @@ import {
   VEHICLE_NEON_INSTALL_PRICE,
   VEHICLE_NEON_RECOLOR_PRICE
 } from '../shared/content/vehicle-neon.ts';
+import {
+  STOREFRONT_PROTOCOL_VERSION,
+  type StorefrontPurchaseMessage,
+  type StorefrontSnapshot
+} from '../shared/protocol/storefront.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {
   STREET_SPACE_ID,
@@ -51,7 +56,7 @@ test('street services initialize once at collision-safe authoritative locations'
   assert.ok(clothing);
 });
 
-test('repair garage atomically charges and restores an eligible vehicle', () => {
+test('repair garage opens a storefront without charging, then atomically repairs', () => {
   const fixture = createFixture();
   fixture.services.initialize();
   fixture.player.cash = 1000;
@@ -64,6 +69,17 @@ test('repair garage atomically charges and restores an eligible vehicle', () => 
   const quote = vehicleRepairQuote(vehicle);
 
   assert.equal(fixture.services.interact(fixture.player.id, 1000), true);
+  assert.equal(fixture.player.cash, 1000);
+  assert.equal(vehicle.health, 700);
+  assert.equal(fixture.storefrontOpens.length, 1);
+  assert.equal(fixture.storefrontOpens[0]?.snapshot.products[0]?.price, quote);
+
+  const result = fixture.services.purchase(
+    fixture.player.id,
+    purchase(fixture.storefrontOpens[0]!.snapshot, 1, 'repair.full'),
+    1001
+  );
+  assert.equal(result.status, 'applied');
   assert.equal(fixture.player.cash, 1000 - quote);
   assert.equal(vehicle.health, vehicle.maxHealth);
   assert.equal(vehicle.engineDamage, 0);
@@ -73,7 +89,7 @@ test('repair garage atomically charges and restores an eligible vehicle', () => 
   assert.equal(fixture.economy.size, 1);
 });
 
-test('repair garage installs and recolors replicated vehicle neon after repairs are complete', () => {
+test('repair garage installs an explicitly selected neon color and can remove it', () => {
   const fixture = createFixture();
   fixture.services.initialize();
   fixture.player.cash = 1000;
@@ -89,18 +105,47 @@ test('repair garage installs and recolors replicated vehicle neon after repairs 
   fixture.player.vehicleSeat = 0;
 
   assert.equal(fixture.services.interact(fixture.player.id, 1500), true);
-  assert.equal(vehicle.neonColor, 'cyan');
+  const snapshot = fixture.storefrontOpens[0]?.snapshot;
+  assert.ok(snapshot);
+  assert.equal(vehicle.neonColor, 'off');
+  assert.equal(
+    fixture.services.purchase(
+      fixture.player.id,
+      purchase(snapshot, 1, 'neon.violet'),
+      1501
+    ).status,
+    'applied'
+  );
+  assert.equal(vehicle.neonColor, 'violet');
   assert.equal(fixture.player.cash, 1000 - VEHICLE_NEON_INSTALL_PRICE);
-  assert.equal(fixture.notices.at(-1)?.message, 'CYAN neon installed -$350');
+  assert.equal(fixture.notices.at(-1)?.message, 'VIOLET neon installed -$350');
 
   fixture.setTick(18);
-  assert.equal(fixture.services.interact(fixture.player.id, 1600), true);
-  assert.equal(vehicle.neonColor, 'magenta');
+  assert.equal(
+    fixture.services.purchase(
+      fixture.player.id,
+      purchase(snapshot, 2, 'neon.amber'),
+      1600
+    ).status,
+    'applied'
+  );
+  assert.equal(vehicle.neonColor, 'amber');
   assert.equal(
     fixture.player.cash,
     1000 - VEHICLE_NEON_INSTALL_PRICE - VEHICLE_NEON_RECOLOR_PRICE
   );
-  assert.equal(fixture.notices.at(-1)?.message, 'MAGENTA neon installed -$75');
+  assert.equal(fixture.notices.at(-1)?.message, 'AMBER neon installed -$75');
+
+  assert.equal(
+    fixture.services.purchase(
+      fixture.player.id,
+      purchase(snapshot, 3, 'neon.off'),
+      1601
+    ).status,
+    'applied'
+  );
+  assert.equal(vehicle.neonColor, 'off');
+  assert.equal(fixture.economy.size, 2);
 });
 
 test('repair rejection preserves cash and damage while consuming the interaction', () => {
@@ -211,6 +256,7 @@ function createFixture() {
   let restocks = 0;
   const notices: Array<{playerId: string; message: string; tone: string}> = [];
   const wardrobeOpens: Array<{playerId: string; serviceId: string}> = [];
+  const storefrontOpens: Array<{playerId: string; snapshot: StorefrontSnapshot}> = [];
   const economy = new StreetEconomyController({state, events, clock: () => ({tick})});
   const services = new StreetServiceController({
     state,
@@ -240,6 +286,7 @@ function createFixture() {
       treat: () => false
     },
     openWardrobe: (playerId, serviceId) => wardrobeOpens.push({playerId, serviceId}),
+    openStorefront: (playerId, snapshot) => storefrontOpens.push({playerId, snapshot}),
     notice: (playerId, message, tone) => notices.push({playerId, message, tone})
   });
   return {
@@ -250,9 +297,24 @@ function createFixture() {
     services,
     notices,
     wardrobeOpens,
+    storefrontOpens,
     repairCount: () => repairs,
     restockCount: () => restocks,
     setTick: (value: number) => { tick = value; }
+  };
+}
+
+function purchase(
+  snapshot: StorefrontSnapshot,
+  sequence: number,
+  productId: StorefrontPurchaseMessage['productId']
+): StorefrontPurchaseMessage {
+  return {
+    protocolVersion: STOREFRONT_PROTOCOL_VERSION,
+    sequence,
+    storeId: snapshot.storeId,
+    vehicleId: snapshot.vehicle.id,
+    productId
   };
 }
 

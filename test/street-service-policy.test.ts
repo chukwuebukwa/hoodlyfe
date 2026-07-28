@@ -116,25 +116,19 @@ test('interaction projection gives usable services priority over vehicle actions
   }));
   player.vehicleId = vehicle.id;
   player.vehicleSeat = 0;
-  assert.equal(projectInteractionAffordance(state, player.id).kind, 'repair');
-  assert.equal(projectInteractionAffordance(state, player.id).label, 'Repair Car ($156)');
-  assert.deepEqual(projectInteractionAffordance(state, player.id).anchor, {
-    x: 0,
-    y: 0,
-    vehicleId: vehicle.id
-  });
-
-  vehicle.health = vehicle.maxHealth;
   assert.deepEqual(projectInteractionAffordance(state, player.id), {
     visible: true,
     kind: 'repair',
-    label: 'Install Neon ($350)',
-    touchLabel: 'NEON',
-    ariaLabel: 'Repair Garage, 350 dollars',
+    label: 'Open Garage',
+    touchLabel: 'SHOP',
+    ariaLabel: 'Repair Garage, open storefront',
     anchor: {x: 0, y: 0, vehicleId: vehicle.id}
   });
+
+  vehicle.health = vehicle.maxHealth;
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Open Garage');
   vehicle.neonColor = 'cyan';
-  assert.equal(projectInteractionAffordance(state, player.id).label, 'Neon Magenta ($75)');
+  assert.equal(projectInteractionAffordance(state, player.id).label, 'Open Garage');
 });
 
 test('vehicle interactions anchor to the selected enterable car', () => {

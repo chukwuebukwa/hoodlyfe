@@ -32,6 +32,7 @@ import {NockPhoneController} from './nock-phone-controller.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import type {ActorRenderPose} from '../rendering/render-types.ts';
+import {StorefrontController} from './storefront-controller.ts';
 
 const UI_INTERVAL_MS = 100;
 
@@ -49,6 +50,7 @@ export class DistrictUiController {
   private readonly voice: ProximityVoiceSystem;
   private readonly medical: MedicalCarePresentationController;
   private readonly appearance: AppearanceCreatorController;
+  private readonly storefront: StorefrontController;
   private readonly phone: NockPhoneController;
   private readonly ownsPhone: boolean;
   private readonly minimap?: MinimapRenderer;
@@ -86,6 +88,7 @@ export class DistrictUiController {
     this.voice = new ProximityVoiceSystem(room);
     this.medical = new MedicalCarePresentationController(room);
     this.appearance = new AppearanceCreatorController(room, room.sessionId);
+    this.storefront = new StorefrontController(room);
     const canvas = document.querySelector<HTMLCanvasElement>('#minimap-canvas');
     if (canvas) {
       this.minimap = new MinimapRenderer(
@@ -105,7 +108,7 @@ export class DistrictUiController {
   }
 
   isInputBlocked(): boolean {
-    return this.appearance.isOpen() || this.phone.isOpen();
+    return this.appearance.isOpen() || this.phone.isOpen() || this.storefront.isOpen();
   }
 
   playerVoiceActivity(playerId: string): number {
@@ -134,6 +137,7 @@ export class DistrictUiController {
     );
     this.medical.synchronize(local);
     this.appearance.synchronize(state);
+    this.storefront.synchronize(state);
     this.phone.synchronize(state, this.room.sessionId);
     this.updateInteraction(state);
     if (onStreet) {
@@ -163,6 +167,7 @@ export class DistrictUiController {
     this.room.onError.remove(this.handleDisconnected);
     this.medical.destroy();
     this.appearance.destroy();
+    this.storefront.destroy();
     if (this.ownsPhone) this.phone.destroy();
     this.radio.destroy();
     this.sfx.destroy();
@@ -172,7 +177,7 @@ export class DistrictUiController {
   }
 
   private updateInteraction(state: DistrictNetworkState): void {
-    if (state.race?.trackId || state.deathmatch?.arenaId) {
+    if (state.race?.trackId || state.deathmatch?.arenaId || this.storefront.isOpen()) {
       this.interactionButton?.classList.add('hidden');
       this.handbrakeHint?.classList.add('hidden');
       this.touchInteractionButton?.classList.add('hidden');

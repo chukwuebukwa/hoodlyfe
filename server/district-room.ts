@@ -22,6 +22,13 @@ import {
   WARDROBE_STATE_MESSAGE
 } from '../shared/protocol/wardrobe.ts';
 import {
+  STOREFRONT_OPEN_MESSAGE,
+  STOREFRONT_PURCHASE_MESSAGE,
+  STOREFRONT_RESULT_MESSAGE,
+  isStorefrontPurchaseMessage,
+  type StorefrontPurchaseMessage
+} from '../shared/protocol/storefront.ts';
+import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
   MISSION_LAUNCH_MESSAGE,
@@ -896,6 +903,10 @@ export class DistrictRoom extends Room<DistrictState> {
         sendWardrobeState(playerId);
         client?.send(WARDROBE_OPEN_MESSAGE, {serviceId});
       },
+      openStorefront: (playerId, snapshot) => {
+        const client = this.clients.find((candidate) => candidate.sessionId === playerId);
+        client?.send(STOREFRONT_OPEN_MESSAGE, {snapshot});
+      },
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
     });
     this.interactionController = new PlayerInteractionController({
@@ -1290,6 +1301,16 @@ export class DistrictRoom extends Room<DistrictState> {
       });
     });
     this.onMessage(WARDROBE_REQUEST_MESSAGE, (client) => sendWardrobeState(client.sessionId));
+    this.registerJournaledCommand<StorefrontPurchaseMessage>(
+      STOREFRONT_PURCHASE_MESSAGE,
+      (client, message) => {
+        if (!isStorefrontPurchaseMessage(message)) return;
+        client.send(
+          STOREFRONT_RESULT_MESSAGE,
+          this.serviceController.purchase(client.sessionId, message, this.simulationClock.nowMs)
+        );
+      }
+    );
     this.registerJournaledCommand<MedicalCareMessage>(MEDICAL_CARE_MESSAGE, (client, message) => {
       if (!isMedicalCareKind(message?.kind)) return;
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);

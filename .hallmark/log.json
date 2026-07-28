@@ -28,5 +28,17 @@
     "enrichment": "Selected vehicle sprite in a private Three.js parking lot",
     "navigation": "Keyboard driving controls",
     "footer": "Compact control legend"
+  },
+  {
+    "date": "2026-07-27",
+    "surface": "in-game repair storefront",
+    "macrostructure": "Focused service bay",
+    "theme": "NOCK0 industrial",
+    "genre": "in-world operational overlay",
+    "enrichment": "Production Three.js vehicle lighting preview",
+    "navigation": "Two-department service rail",
+    "footer": "Authoritative purchase action",
+    "critique": "P5 H5 E5 S5 R5 V4",
+    "slopTest": "pass"
   }
 ]
