@@ -2362,48 +2362,12 @@ canvas {
 }
 
 #mission-selector {
-  display: grid;
   flex: 1 1 auto;
   min-width: 0;
-  grid-template-columns: 20px minmax(0, 1fr) 20px;
-  align-items: center;
-  gap: 5px;
-}
-
-#mission-prev,
-#mission-next {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 2px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  font: 900 10px/1 inherit;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-#mission-prev {
-  grid-column: 1;
-}
-
-#mission-next {
-  grid-column: 3;
-}
-
-#mission-prev:hover,
-#mission-prev:focus-visible,
-#mission-next:hover,
-#mission-next:focus-visible {
-  color: #050505;
-  background: #f2c94c;
-  outline: none;
 }
 
 #mission-title {
-  grid-column: 2;
-  grid-row: 1;
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: #f2c94c;

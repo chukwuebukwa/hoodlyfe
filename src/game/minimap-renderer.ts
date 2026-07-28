@@ -127,8 +127,14 @@ function drawMarker(
   timeMs: number,
   locationIcons: ReadonlyMap<LocationMarkerKind, HTMLImageElement>
 ): void {
-  const color = markerColor(marker.kind, timeMs);
-  const size = marker.kind === 'local-player' ? 10 : (marker.kind === 'objective' ? 9 : 8);
+  const color = markerColor(marker.kind, timeMs, marker.color);
+  const size = marker.kind === 'local-player'
+    ? 10
+    : marker.kind === 'contact'
+      ? 12
+      : marker.kind === 'objective'
+        ? 9
+        : 8;
   context.save();
   context.translate(x, y);
   if (isDirectional(marker.kind)) context.rotate(marker.angle + Math.PI / 2);
@@ -162,9 +168,23 @@ function drawMarker(
   }
   context.stroke();
   context.fill();
+  drawContactLetter(context, marker, size);
   drawLocationGlyph(context, marker.kind, size);
   drawClampedRing(context, color, clamped, size + 4);
   context.restore();
+}
+
+function drawContactLetter(
+  context: CanvasRenderingContext2D,
+  marker: MinimapMarker,
+  size: number
+): void {
+  if (marker.kind !== 'contact' || !marker.label) return;
+  context.fillStyle = '#050708';
+  context.font = `900 ${Math.round(size * 1.25)}px Inter, Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(marker.label, 0, 1);
 }
 
 function drawClampedRing(
@@ -225,7 +245,12 @@ function isDirectional(kind: MinimapMarker['kind']): boolean {
   return kind === 'local-player' || kind === 'remote-player' || kind === 'police' || kind === 'hostile';
 }
 
-function markerColor(kind: MinimapMarker['kind'], timeMs: number): string {
+function markerColor(
+  kind: MinimapMarker['kind'],
+  timeMs: number,
+  override?: number
+): string {
+  if (override !== undefined) return `#${override.toString(16).padStart(6, '0')}`;
   if (kind === 'local-player') return '#ffffff';
   if (kind === 'remote-player') return '#62d7ff';
   if (kind === 'police') return Math.floor(timeMs / 180) % 2 === 0 ? '#ff4455' : '#4d7cff';

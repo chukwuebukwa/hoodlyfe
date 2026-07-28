@@ -51,6 +51,8 @@ export interface MinimapPointInput {
   x: number;
   y: number;
   angle?: number;
+  label?: string;
+  color?: number;
 }
 
 export interface MinimapMarker {
@@ -62,6 +64,8 @@ export interface MinimapMarker {
   distance: number;
   clamped: boolean;
   priority: number;
+  label?: string;
+  color?: number;
 }
 
 export interface MinimapFrame {
@@ -150,7 +154,7 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
   for (const point of input.points ?? []) {
     const distance = Math.hypot(point.x - localPosition.x, point.y - localPosition.y);
     if (point.kind !== 'objective' && !isPermanentLocation(point.kind) && distance > range * 1.25) continue;
-    markers.push(markerFor(
+    const marker = markerFor(
       `${point.kind}:${point.id}`,
       point.kind,
       point.x,
@@ -161,7 +165,10 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
       range,
       point.kind === 'objective' ? 90 : (point.kind === 'hostile' ? 65 :
         (point.kind === 'pickup' || point.kind === 'cash' ? 45 : 40))
-    ));
+    );
+    if (point.label) marker.label = point.label;
+    if (point.color !== undefined) marker.color = point.color;
+    markers.push(marker);
   }
 
   markers.sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id));
@@ -176,7 +183,8 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
 }
 
 function isPermanentLocation(kind: MinimapPointInput['kind']): boolean {
-  return kind === 'ammunition' || kind === 'clothing' || kind === 'hospital' || kind === 'repair';
+  return kind === 'contact' || kind === 'ammunition' || kind === 'clothing' ||
+    kind === 'hospital' || kind === 'repair';
 }
 
 export function drivingRange(speed: number): number {

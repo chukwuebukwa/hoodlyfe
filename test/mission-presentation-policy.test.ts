@@ -17,28 +17,38 @@ import type {
   NetworkVehicle
 } from '../src/game/types.ts';
 import {cloneAppearance} from '../shared/content/appearance-catalog.ts';
+import {
+  MISSION_CONTACTS,
+  missionContact,
+  type MissionTemplateId
+} from '../shared/content/mission-catalog.ts';
 
 test('mission HUD projects street contact and deterministic nearby crew joining', () => {
   const state = createState();
+  const local = state.players.get('local');
+  assert.ok(local);
   const contact = projectMissionHud(state, 'local');
   assert.equal(contact.visible, true);
   assert.equal(contact.action, 'start');
   assert.equal(contact.timer, 'AVAILABLE');
-  const getaway = projectMissionHud(state, 'local', 'getaway-run');
+  moveToContact(local, 'getaway-run');
+  const getaway = projectMissionHud(state, 'local');
   assert.equal(getaway.title, 'Getaway Run');
-  assert.equal(getaway.templateSelectorVisible, true);
   assert.match(getaway.objective, /route/);
-  const rush = projectMissionHud(state, 'local', 'checkpoint-rush');
+  moveToContact(local, 'checkpoint-rush');
+  const rush = projectMissionHud(state, 'local');
   assert.equal(rush.title, 'Crew Checkpoint Rush');
   assert.match(rush.objective, /crew vehicle/);
-  const holdout = projectMissionHud(state, 'local', 'crew-holdout');
+  moveToContact(local, 'crew-holdout');
+  const holdout = projectMissionHud(state, 'local');
   assert.equal(holdout.title, 'Crew Holdout');
   assert.match(holdout.objective, /three escalating waves/);
-  const mostWanted = projectMissionHud(state, 'local', 'most-wanted');
+  moveToContact(local, 'most-wanted');
+  const mostWanted = projectMissionHud(state, 'local');
   assert.equal(mostWanted.title, 'Most Wanted');
   assert.match(mostWanted.objective, /crime boss/);
 
-  const leader = createPlayer({id: 'leader', name: 'Leader', x: 100, y: 0});
+  const leader = createPlayer({id: 'leader', name: 'Leader', x: local.x + 100, y: local.y});
   state.players.set('leader', leader);
   const mission = createMission({leaderId: 'leader'});
   mission.participants.set('leader', participant(leader, 'leader'));
@@ -48,7 +58,7 @@ test('mission HUD projects street contact and deterministic nearby crew joining'
   assert.equal(joinable.missionId, mission.id);
   assert.equal(joinable.objective, 'Leader is forming a crew.');
 
-  leader.x = 400;
+  leader.x = local.x + 400;
   assert.equal(projectMissionHud(state, 'local').action, 'start');
   mission.maximumParticipants = 1;
   assert.equal(projectMissionHud(state, 'local').action, 'start');
@@ -87,6 +97,7 @@ test('mission world and minimap share target and delivery phase projection', () 
   state.missions.set(mission.id, mission);
   state.vehicles.set('target', createVehicle());
 
+  assert.deepEqual(projectMissionWorld(state, 'local').contacts, MISSION_CONTACTS);
   assert.deepEqual(projectMissionWorld(state, 'local').target, {x: 80, y: 90, angle: 0.5});
   assert.equal(missionMinimapPoints(state, 'local').at(-1)?.id, `${mission.id}:target`);
 
@@ -104,7 +115,9 @@ test('mission world and minimap share target and delivery phase projection', () 
   mission.checkpointRadius = 82;
   assert.deepEqual(projectMissionWorld(state, 'local').checkpoint, {x: 320, y: 440, radius: 82});
   assert.equal(
-    missionMinimapPoints(state, 'local').find((point) => point.id.includes('checkpoint'))?.x,
+    missionMinimapPoints(state, 'local').find((point) => (
+      point.id === `${mission.id}:checkpoint:1`
+    ))?.x,
     320
   );
 });
@@ -141,7 +154,7 @@ test('target-free checkpoint HUD and world projection expose only the shared rou
   });
   assert.deepEqual(
     missionMinimapPoints(state, 'local').map((point) => point.id),
-    ['freemode-contact', `${mission.id}:checkpoint:2`]
+    [...MISSION_CONTACTS.map((contact) => contact.id), `${mission.id}:checkpoint:2`]
   );
 });
 
@@ -283,8 +296,9 @@ test('objective arrow pose orbits the player, points at the destination, and hid
 });
 
 function createState(): DistrictNetworkState {
+  const contact = missionContact('boost-and-deliver');
   return {
-    players: new Map([['local', createPlayer()]]),
+    players: new Map([['local', createPlayer({x: contact.x, y: contact.y})]]),
     bullets: new Map(),
     thrownProjectiles: new Map(),
     fires: new Map(),
@@ -297,6 +311,12 @@ function createState(): DistrictNetworkState {
     missionContactX: 0,
     missionContactY: 0
   };
+}
+
+function moveToContact(player: NetworkPlayer, templateId: MissionTemplateId): void {
+  const contact = missionContact(templateId);
+  player.x = contact.x;
+  player.y = contact.y;
 }
 
 function createMission(overrides: Partial<NetworkMission> = {}): NetworkMission {

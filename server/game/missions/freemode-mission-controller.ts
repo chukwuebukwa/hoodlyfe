@@ -2,6 +2,9 @@ import type {GameNotice} from '../../../shared/protocol/notices.ts';
 import {
   DEFAULT_MISSION_TEMPLATE_ID,
   isMissionTemplateId,
+  MISSION_CONTACT_RADIUS,
+  MISSION_CONTACTS,
+  missionContact,
   missionCheckpointCount,
   missionHoldDuration,
   missionTemplate
@@ -25,7 +28,6 @@ import {
 } from './mission-encounter-system.ts';
 
 const VEHICLE_RADIUS = 20;
-const CONTACT_RADIUS = 130;
 const JOIN_RADIUS = 260;
 const TERMINAL_RETENTION_MS = 4500;
 
@@ -85,6 +87,7 @@ export class FreemodeMissionController {
     }
     const templateId = rawTemplateId;
     const definition = missionTemplate(templateId);
+    const contact = missionContact(templateId);
     if (
       definition.encounter &&
       (!this.options.spawnMissionHostile ||
@@ -94,8 +97,12 @@ export class FreemodeMissionController {
       this.options.notice(playerId, 'That combat job is temporarily unavailable.', 'warning');
       return;
     }
-    if (Math.hypot(player.x - state.missionContactX, player.y - state.missionContactY) > CONTACT_RADIUS) {
-      this.options.notice(playerId, 'Meet the orange contact to start work.', 'warning');
+    if (Math.hypot(player.x - contact.x, player.y - contact.y) > MISSION_CONTACT_RADIUS) {
+      this.options.notice(
+        playerId,
+        `Meet the ${contact.letter} marker to start ${definition.label}.`,
+        'warning'
+      );
       return;
     }
     const clock = this.options.clock();
@@ -171,8 +178,9 @@ export class FreemodeMissionController {
     const mission = this.system.get(id);
     if (!player?.alive || !mission) return;
     const leader = state.players.get(mission.leaderId);
-    const joinX = leader?.x ?? state.missionContactX;
-    const joinY = leader?.y ?? state.missionContactY;
+    const contact = missionContact(mission.templateId);
+    const joinX = leader?.x ?? contact.x;
+    const joinY = leader?.y ?? contact.y;
     if (Math.hypot(player.x - joinX, player.y - joinY) > JOIN_RADIUS) {
       this.options.notice(playerId, 'Move closer to the crew leader to join.', 'warning');
       return;
@@ -284,7 +292,9 @@ export class FreemodeMissionController {
       fallback = candidate;
       if (
         Math.hypot(candidate.x - target.x, candidate.y - target.y) >= 650 &&
-        Math.hypot(candidate.x - state.missionContactX, candidate.y - state.missionContactY) >= 380
+        MISSION_CONTACTS.every((contact) => (
+          Math.hypot(candidate.x - contact.x, candidate.y - contact.y) >= 380
+        ))
       ) {
         return candidate;
       }

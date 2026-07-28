@@ -1,7 +1,10 @@
 import type {MinimapPointInput} from '../minimap-marker-policy.ts';
 import {
   DEFAULT_MISSION_TEMPLATE_ID,
+  MISSION_CONTACTS,
+  missionContactNear,
   missionTemplate,
+  type MissionContactDefinition,
   type MissionTemplateId
 } from '../../../shared/content/mission-catalog.ts';
 import type {
@@ -24,11 +27,10 @@ export interface MissionHudProjection {
   actionWarning: boolean;
   missionId: string;
   templateId: MissionTemplateId;
-  templateSelectorVisible: boolean;
 }
 
 export interface MissionWorldProjection {
-  contact: {x: number; y: number};
+  contacts: readonly MissionContactDefinition[];
   target?: {x: number; y: number; angle: number};
   checkpoint?: {x: number; y: number; radius: number};
   hold?: {x: number; y: number; radius: number; contested: boolean};
@@ -37,20 +39,16 @@ export interface MissionWorldProjection {
 
 export function projectMissionHud(
   state: DistrictNetworkState,
-  localPlayerId: string,
-  offeredTemplateId: MissionTemplateId = DEFAULT_MISSION_TEMPLATE_ID
+  localPlayerId: string
 ): MissionHudProjection {
   const local = state.players?.get(localPlayerId);
   if (!local) return hiddenHud();
   const active = selectLocalMission(state, localPlayerId);
   const joinable = active ? undefined : selectJoinableMission(state, local);
-  const nearContact = Math.hypot(
-    local.x - state.missionContactX,
-    local.y - state.missionContactY
-  ) <= 130;
-  if (!active && !joinable && !nearContact) return hiddenHud();
+  const nearbyContact = active || joinable ? undefined : missionContactNear(local.x, local.y);
+  if (!active && !joinable && !nearbyContact) return hiddenHud();
   const mission = active ?? joinable;
-  const templateId = mission?.templateId ?? offeredTemplateId;
+  const templateId = mission?.templateId ?? nearbyContact!.templateId;
   const definition = missionTemplate(templateId);
   const base = {
     visible: true,
@@ -63,8 +61,7 @@ export function projectMissionHud(
       ? missionMeta(mission)
       : `FREEMODE | $${definition.baseReward}`,
     missionId: mission?.id ?? '',
-    templateId,
-    templateSelectorVisible: !mission
+    templateId
   };
   if (!mission) {
     return {...base, action: 'start', actionLabel: 'START JOB', actionWarning: false};
@@ -90,7 +87,7 @@ export function projectMissionWorld(
   localPlayerId: string
 ): MissionWorldProjection {
   const projection: MissionWorldProjection = {
-    contact: {x: state.missionContactX, y: state.missionContactY}
+    contacts: MISSION_CONTACTS
   };
   const mission = activeWorldMission(state, localPlayerId);
   if (!mission) return projection;
@@ -131,12 +128,14 @@ export function missionMinimapPoints(
   state: DistrictNetworkState,
   localPlayerId: string
 ): MinimapPointInput[] {
-  const points: MinimapPointInput[] = [{
-    id: 'freemode-contact',
+  const points: MinimapPointInput[] = MISSION_CONTACTS.map((contact) => ({
+    id: contact.id,
     kind: 'contact',
-    x: state.missionContactX,
-    y: state.missionContactY
-  }];
+    x: contact.x,
+    y: contact.y,
+    label: contact.letter,
+    color: contact.color
+  }));
   const mission = activeWorldMission(state, localPlayerId);
   if (!mission) return points;
   if (mission.phase === 'deliver') {
@@ -324,7 +323,6 @@ function hiddenHud(): MissionHudProjection {
     actionLabel: '',
     actionWarning: false,
     missionId: '',
-    templateId: DEFAULT_MISSION_TEMPLATE_ID,
-    templateSelectorVisible: false
+    templateId: DEFAULT_MISSION_TEMPLATE_ID
   };
 }

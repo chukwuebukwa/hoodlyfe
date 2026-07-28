@@ -141,9 +141,7 @@ const GAME_SHELL_HTML = `
   <aside id="mission-hud" class="hud-layer hidden" aria-label="Freemode job">
     <header>
       <div id="mission-selector">
-        <button id="mission-prev" type="button" aria-label="Previous Freemode job">&lt;</button>
         <strong id="mission-title">BOOST AND DELIVER</strong>
-        <button id="mission-next" type="button" aria-label="Next Freemode job">&gt;</button>
       </div>
       <span id="mission-timer">00:00</span>
     </header>

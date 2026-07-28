@@ -12,6 +12,15 @@ export type MissionRewardPolicy = 'vehicle-condition' | 'fixed';
 export type MissionHostileWeapon = 'pistol' | 'smg';
 export type MissionEncounterRole = 'guard' | 'target';
 
+export interface MissionContactDefinition {
+  id: string;
+  templateId: MissionTemplateId;
+  letter: string;
+  color: number;
+  x: number;
+  y: number;
+}
+
 export const MISSION_TARGET_MODES: readonly MissionTargetMode[] = Object.freeze([
   'reserved-traffic-vehicle',
   'crew-members'
@@ -63,6 +72,7 @@ export interface MissionTemplateDefinition {
   id: MissionTemplateId;
   label: string;
   summary: string;
+  contact: MissionContactDefinition;
   baseReward: number;
   durationMs: number;
   formationDurationMs: number;
@@ -75,6 +85,7 @@ export interface MissionTemplateDefinition {
 }
 
 export const DEFAULT_MISSION_TEMPLATE_ID: MissionTemplateId = 'boost-and-deliver';
+export const MISSION_CONTACT_RADIUS = 130;
 
 export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTemplateDefinition>> =
   Object.freeze({
@@ -82,6 +93,14 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       id: 'boost-and-deliver',
       label: 'Boost and Deliver',
       summary: 'Steal a marked traffic vehicle, lose the heat, and deliver it intact.',
+      contact: Object.freeze({
+        id: 'mission-contact:boost-and-deliver',
+        templateId: 'boost-and-deliver',
+        letter: 'B',
+        color: 0xff9d3f,
+        x: 8372,
+        y: 8371
+      }),
       baseReward: 750,
       durationMs: 180_000,
       formationDurationMs: 15_000,
@@ -104,6 +123,14 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       id: 'getaway-run',
       label: 'Getaway Run',
       summary: 'Take the marked car through the route, shake the police, and deliver it.',
+      contact: Object.freeze({
+        id: 'mission-contact:getaway-run',
+        templateId: 'getaway-run',
+        letter: 'G',
+        color: 0x55d6ff,
+        x: 2592,
+        y: 9312
+      }),
       baseReward: 1_100,
       durationMs: 210_000,
       formationDurationMs: 15_000,
@@ -132,6 +159,14 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       id: 'checkpoint-rush',
       label: 'Crew Checkpoint Rush',
       summary: 'Get any crew vehicle through the shared checkpoint route before time runs out.',
+      contact: Object.freeze({
+        id: 'mission-contact:checkpoint-rush',
+        templateId: 'checkpoint-rush',
+        letter: 'R',
+        color: 0xf6c945,
+        x: 12448,
+        y: 6368
+      }),
       baseReward: 900,
       durationMs: 150_000,
       formationDurationMs: 15_000,
@@ -151,6 +186,14 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       id: 'crew-holdout',
       label: 'Crew Holdout',
       summary: 'Hold the marked block and clear three escalating waves of armed attackers.',
+      contact: Object.freeze({
+        id: 'mission-contact:crew-holdout',
+        templateId: 'crew-holdout',
+        letter: 'H',
+        color: 0xff5e4d,
+        x: 8376,
+        y: 8984
+      }),
       baseReward: 1_200,
       durationMs: 180_000,
       formationDurationMs: 15_000,
@@ -182,6 +225,14 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
       id: 'most-wanted',
       label: 'Most Wanted',
       summary: 'Raid a guarded hideout and eliminate the marked crime boss.',
+      contact: Object.freeze({
+        id: 'mission-contact:most-wanted',
+        templateId: 'most-wanted',
+        letter: 'M',
+        color: 0xd979ff,
+        x: 13088,
+        y: 13600
+      }),
       baseReward: 1_500,
       durationMs: 180_000,
       formationDurationMs: 15_000,
@@ -221,12 +272,36 @@ export const MISSION_TEMPLATES: Readonly<Record<MissionTemplateId, MissionTempla
     })
   });
 
+export const MISSION_CONTACTS: readonly MissionContactDefinition[] = Object.freeze(
+  MISSION_TEMPLATE_IDS.map((templateId) => MISSION_TEMPLATES[templateId].contact)
+);
+
 export function isMissionTemplateId(value: unknown): value is MissionTemplateId {
   return typeof value === 'string' && MISSION_TEMPLATE_IDS.includes(value as MissionTemplateId);
 }
 
 export function missionTemplate(id: MissionTemplateId): MissionTemplateDefinition {
   return MISSION_TEMPLATES[id];
+}
+
+export function missionContact(id: MissionTemplateId): MissionContactDefinition {
+  return missionTemplate(id).contact;
+}
+
+export function missionContactNear(
+  x: number,
+  y: number,
+  radius = MISSION_CONTACT_RADIUS
+): MissionContactDefinition | undefined {
+  let nearest: MissionContactDefinition | undefined;
+  let nearestDistance = Math.max(0, radius);
+  for (const contact of MISSION_CONTACTS) {
+    const distance = Math.hypot(contact.x - x, contact.y - y);
+    if (distance > nearestDistance) continue;
+    nearest = contact;
+    nearestDistance = distance;
+  }
+  return nearest;
 }
 
 export function missionCheckpointCount(id: MissionTemplateId): number {
@@ -241,11 +316,4 @@ export function missionHoldDuration(id: MissionTemplateId): number {
       ? Math.max(maximum, Math.max(0, Math.floor(objective.durationMs ?? 0)))
       : maximum
   ), 0);
-}
-
-export function cycleMissionTemplate(id: MissionTemplateId, direction: -1 | 1): MissionTemplateId {
-  const index = MISSION_TEMPLATE_IDS.indexOf(id);
-  return MISSION_TEMPLATE_IDS[
-    (index + direction + MISSION_TEMPLATE_IDS.length) % MISSION_TEMPLATE_IDS.length
-  ];
 }

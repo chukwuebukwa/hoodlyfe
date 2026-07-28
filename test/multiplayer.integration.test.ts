@@ -46,6 +46,7 @@ import {
   STREAMED_TRAFFIC_RECORDS
 } from '../server/game/population/population-streaming-controller.ts';
 import {INTERIORS, STREET_SPACE_ID} from '../shared/content/interior-catalog.ts';
+import {missionContact} from '../shared/content/mission-catalog.ts';
 
 const hasLocalAssets = existsSync(resolve('public/assets/maps/district-map.json'));
 
@@ -518,11 +519,12 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     first.state.npcs.size > 0
   ));
 
+  const holdoutContact = missionContact('crew-holdout');
   await movePlayerTo(
     second,
     second.sessionId,
-    second.state.missionContactX,
-    second.state.missionContactY,
+    holdoutContact.x,
+    holdoutContact.y,
     125,
     world
   );

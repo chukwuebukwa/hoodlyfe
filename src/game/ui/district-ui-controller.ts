@@ -1,9 +1,5 @@
 import type {Room} from 'colyseus.js';
-import {
-  DEFAULT_MISSION_TEMPLATE_ID,
-  cycleMissionTemplate,
-  type MissionTemplateId
-} from '../../../shared/content/mission-catalog.ts';
+import {isMissionTemplateId} from '../../../shared/content/mission-catalog.ts';
 import {
   MISSION_ABANDON_MESSAGE,
   MISSION_JOIN_MESSAGE,
@@ -62,13 +58,10 @@ export class DistrictUiController {
   private readonly missionObjective = document.querySelector('#mission-objective');
   private readonly missionMeta = document.querySelector('#mission-meta');
   private readonly missionAction = document.querySelector<HTMLButtonElement>('#mission-action');
-  private readonly missionPrevious = document.querySelector<HTMLButtonElement>('#mission-prev');
-  private readonly missionNext = document.querySelector<HTMLButtonElement>('#mission-next');
   private readonly interactionButton = document.querySelector<HTMLButtonElement>('#vehicle-action-button');
   private readonly handbrakeHint = document.querySelector<HTMLElement>('#vehicle-handbrake-hint');
   private readonly touchInteractionButton = document.querySelector<HTMLButtonElement>('#interact-button');
   private interactionAnchor?: InteractionAnchor;
-  private selectedTemplate: MissionTemplateId = DEFAULT_MISSION_TEMPLATE_ID;
   private lastUpdateAt = Number.NEGATIVE_INFINITY;
   private readonly removeNotice: () => void;
 
@@ -103,8 +96,6 @@ export class DistrictUiController {
       );
     }
     this.missionAction?.addEventListener('click', this.handleMissionAction);
-    this.missionPrevious?.addEventListener('click', this.handlePreviousMission);
-    this.missionNext?.addEventListener('click', this.handleNextMission);
     this.removeNotice = room.onMessage<GameNotice>(GAME_NOTICE_MESSAGE, (notice) => {
       this.hud.show(notice.message, notice.tone);
     });
@@ -167,8 +158,6 @@ export class DistrictUiController {
 
   destroy(): void {
     this.missionAction?.removeEventListener('click', this.handleMissionAction);
-    this.missionPrevious?.removeEventListener('click', this.handlePreviousMission);
-    this.missionNext?.removeEventListener('click', this.handleNextMission);
     this.removeNotice();
     this.room.onLeave.remove(this.handleDisconnected);
     this.room.onError.remove(this.handleDisconnected);
@@ -191,7 +180,7 @@ export class DistrictUiController {
       return;
     }
     this.touchInteractionButton?.classList.remove('hidden');
-    const prompt = projectContextPrompt(state, this.room.sessionId, this.selectedTemplate);
+    const prompt = projectContextPrompt(state, this.room.sessionId);
     this.interactionAnchor = prompt.anchor;
     this.interactionButton?.classList.toggle('hidden', !prompt.visible);
     this.handbrakeHint?.classList.toggle('hidden', prompt.placement !== 'driving');
@@ -241,22 +230,20 @@ export class DistrictUiController {
   }
 
   private updateMission(state: DistrictNetworkState): void {
-    const projection = projectMissionHud(state, this.room.sessionId, this.selectedTemplate);
+    const projection = projectMissionHud(state, this.room.sessionId);
     this.missionHud?.classList.toggle('hidden', !projection.visible);
     if (!projection.visible) return;
     if (this.missionTitle) this.missionTitle.textContent = projection.title;
     if (this.missionTimer) this.missionTimer.textContent = projection.timer;
     if (this.missionObjective) this.missionObjective.textContent = projection.objective;
     if (this.missionMeta) this.missionMeta.textContent = projection.meta;
-    this.missionPrevious?.classList.toggle('hidden', !projection.templateSelectorVisible);
-    this.missionNext?.classList.toggle('hidden', !projection.templateSelectorVisible);
     if (!this.missionAction) return;
     this.missionAction.dataset.action = projection.action;
     this.missionAction.dataset.missionId = projection.missionId;
+    this.missionAction.dataset.templateId = projection.templateId;
     this.missionAction.textContent = projection.actionLabel;
     const contextOwnsMissionStart =
-      projectContextPrompt(state, this.room.sessionId, this.selectedTemplate).command ===
-        'mission-start';
+      projectContextPrompt(state, this.room.sessionId).command === 'mission-start';
     this.missionAction.classList.toggle(
       'hidden',
       !projection.action || (projection.action === 'start' && contextOwnsMissionStart)
@@ -293,8 +280,6 @@ export class DistrictUiController {
       this.missionMeta.textContent = `P${Math.max(1, entrant.position)}/${race.entrants?.size ?? 1}` +
         (entrant.bestLapMs > 0 ? ` | BEST ${formatRaceTime(entrant.bestLapMs)}` : '');
     }
-    this.missionPrevious?.classList.add('hidden');
-    this.missionNext?.classList.add('hidden');
     this.missionAction?.classList.add('hidden');
   }
 
@@ -331,8 +316,6 @@ export class DistrictUiController {
         ` | ${entrant.kills} K / ${entrant.deaths} D` +
         (entrant.streak > 1 ? ` | ${entrant.streak} STREAK` : '');
     }
-    this.missionPrevious?.classList.add('hidden');
-    this.missionNext?.classList.add('hidden');
     this.missionAction?.classList.add('hidden');
   }
 
@@ -362,8 +345,11 @@ export class DistrictUiController {
     event.stopPropagation();
     const action = this.missionAction?.dataset.action;
     const missionId = this.missionAction?.dataset.missionId ?? '';
+    const templateId = this.missionAction?.dataset.templateId;
     if (action === 'start') {
-      this.room.send(MISSION_START_MESSAGE, {templateId: this.selectedTemplate});
+      if (isMissionTemplateId(templateId)) {
+        this.room.send(MISSION_START_MESSAGE, {templateId});
+      }
     } else if (action === 'join') {
       this.room.send(MISSION_JOIN_MESSAGE, {missionId});
     } else if (action === 'launch') {
@@ -371,18 +357,6 @@ export class DistrictUiController {
     } else if (action === 'abandon') {
       this.room.send(MISSION_ABANDON_MESSAGE, {missionId});
     }
-  };
-
-  private readonly handlePreviousMission = (event: Event): void => {
-    event.stopPropagation();
-    this.selectedTemplate = cycleMissionTemplate(this.selectedTemplate, -1);
-    this.lastUpdateAt = Number.NEGATIVE_INFINITY;
-  };
-
-  private readonly handleNextMission = (event: Event): void => {
-    event.stopPropagation();
-    this.selectedTemplate = cycleMissionTemplate(this.selectedTemplate, 1);
-    this.lastUpdateAt = Number.NEGATIVE_INFINITY;
   };
 
   private readonly handleDisconnected = (code?: number): void => {

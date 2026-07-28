@@ -8,6 +8,7 @@ import {CollisionMap} from '../server/world-map.ts';
 import {attachTestVehicleAccess} from './support/vehicle-access.ts';
 import {attachTestTrafficController} from './support/traffic-controller.ts';
 import {attachTestVehicleSimulation} from './support/vehicle-simulation.ts';
+import {missionContact} from '../shared/content/mission-catalog.ts';
 
 test('district mission adapter completes shared work, pays once, and releases its target', () => {
   const room = new DistrictRoom() as any;
@@ -36,8 +37,9 @@ test('district mission adapter completes shared work, pays once, and releases it
     )
   });
 
-  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
-  const support = createPlayer('support', room.world.spawn.x + 24, room.world.spawn.y);
+  const contact = missionContact('boost-and-deliver');
+  const leader = createPlayer('leader', contact.x, contact.y);
+  const support = createPlayer('support', contact.x + 24, contact.y);
   room.state.players.set(leader.id, leader);
   room.state.players.set(support.id, support);
   room.playerControl.register(leader.id);
@@ -53,6 +55,8 @@ test('district mission adapter completes shared work, pays once, and releases it
   room.state.vehicles.set(target.id, target);
   room.trafficController.register(target.id, trafficSpawn, 110);
 
+  room.missionController.start(leader.id, 'getaway-run');
+  assert.equal(room.state.missions.size, 0);
   room.missionController.start(leader.id);
   const missionState = [...room.state.missions.values()][0];
   assert.ok(missionState);
@@ -126,7 +130,8 @@ test('district mission adapter generates and completes an authoritative Getaway 
     )
   });
 
-  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  const contact = missionContact('getaway-run');
+  const leader = createPlayer('leader', contact.x, contact.y);
   room.state.players.set(leader.id, leader);
   room.playerControl.register(leader.id);
   const spawn = room.world.trafficSpawn(120, 20);
@@ -206,7 +211,8 @@ test('district mission adapter runs a target-free shared checkpoint job with any
     )
   });
 
-  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  const contact = missionContact('checkpoint-rush');
+  const leader = createPlayer('leader', contact.x, contact.y);
   room.state.players.set(leader.id, leader);
   room.playerControl.register(leader.id);
   room.missionController.start(leader.id, 'checkpoint-rush');
@@ -281,7 +287,8 @@ test('district mission adapter owns three hostile waves and completes Crew Holdo
     despawnMissionNpc: (actorId) => room.state.npcs.delete(actorId)
   });
 
-  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
+  const contact = missionContact('crew-holdout');
+  const leader = createPlayer('leader', contact.x, contact.y);
   room.state.players.set(leader.id, leader);
   room.playerControl.register(leader.id);
   room.missionController.start(leader.id, 'crew-holdout');
@@ -367,8 +374,9 @@ test('district mission adapter scales guards, marks one boss, pays, and cleans M
     assignHostileTarget: () => undefined,
     despawnMissionNpc: (actorId) => room.state.npcs.delete(actorId)
   });
-  const leader = createPlayer('leader', room.world.spawn.x, room.world.spawn.y);
-  const support = createPlayer('support', room.world.spawn.x + 20, room.world.spawn.y);
+  const contact = missionContact('most-wanted');
+  const leader = createPlayer('leader', contact.x, contact.y);
+  const support = createPlayer('support', contact.x + 20, contact.y);
   room.state.players.set(leader.id, leader);
   room.state.players.set(support.id, support);
   room.missionController.start(leader.id, 'most-wanted');

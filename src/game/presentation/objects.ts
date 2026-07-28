@@ -217,7 +217,18 @@ export class WorldObjectPresentation {
     }
     if (!state.race?.trackId) {
       const mission = projectMissionWorld(state, this.localPlayerId);
-      this.syncMissionMarker(present, 'mission:contact', mission.contact.x, mission.contact.y, 24, 0xff9d3f, 'FREEMODE', nowMs);
+      for (const contact of mission.contacts) {
+        this.syncMissionMarker(
+          present,
+          contact.id,
+          contact.x,
+          contact.y,
+          24,
+          contact.color,
+          contact.letter,
+          nowMs
+        );
+      }
       if (mission.delivery) {
         this.syncMissionMarker(present, 'mission:delivery', mission.delivery.x, mission.delivery.y, mission.delivery.radius, 0x63df8a, 'DELIVERY', nowMs);
       }

@@ -14,6 +14,7 @@ import {
   storefrontMinimapPoints
 } from '../src/game/interactions/interaction-presentation-policy.ts';
 import {projectContextPrompt} from '../src/game/interactions/context-prompt-policy.ts';
+import {missionContact} from '../shared/content/mission-catalog.ts';
 import type {
   DistrictNetworkState,
   NetworkPlayer,
@@ -165,24 +166,33 @@ test('vehicle interactions anchor to the selected enterable car', () => {
 
 test('context prompts anchor mission starts and keep driving controls in the HUD', () => {
   const state = createState();
-  state.vehicles.set('near-contact', createVehicle({id: 'near-contact', x: 18, y: 0}));
-  const start = projectContextPrompt(state, 'local', 'boost-and-deliver');
+  const player = state.players.get('local');
+  assert.ok(player);
+  const contact = missionContact('boost-and-deliver');
+  player.x = contact.x;
+  player.y = contact.y;
+  state.vehicles.set('near-contact', createVehicle({
+    id: 'near-contact',
+    x: contact.x + 18,
+    y: contact.y
+  }));
+  const start = projectContextPrompt(state, 'local');
   assert.deepEqual(start, {
     visible: true,
     command: 'mission-start',
     placement: 'world',
     label: 'Start Job',
     touchLabel: 'JOB',
-    ariaLabel: 'Start Freemode job',
-    anchor: {x: 0, y: 0},
+    ariaLabel: 'Start Boost and Deliver',
+    anchor: {x: contact.x, y: contact.y},
     templateId: 'boost-and-deliver'
   });
 
-  const player = state.players.get('local');
-  assert.ok(player);
+  player.x = 0;
+  player.y = 0;
   player.ammoPistol = 0;
   state.services.set('ammo', createService());
-  const service = projectContextPrompt(state, player.id, 'boost-and-deliver');
+  const service = projectContextPrompt(state, player.id);
   assert.equal(service.command, 'interact');
   assert.equal(service.label, 'Resupply ($322)');
   state.services.clear();
@@ -192,7 +202,7 @@ test('context prompts anchor mission starts and keep driving controls in the HUD
   state.vehicles.set(vehicle.id, vehicle);
   player.vehicleId = vehicle.id;
   player.vehicleSeat = 0;
-  const exit = projectContextPrompt(state, player.id, 'boost-and-deliver');
+  const exit = projectContextPrompt(state, player.id);
   assert.equal(exit.placement, 'driving');
   assert.equal(exit.label, 'Exit Car');
   assert.equal(exit.anchor, undefined);

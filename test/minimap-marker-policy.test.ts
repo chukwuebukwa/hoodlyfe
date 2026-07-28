@@ -114,3 +114,25 @@ test('permanent GTA-style locations remain edge-clamped outside radar range', ()
     assert.equal(marker.clamped, true);
   }
 });
+
+test('mission contacts preserve their letter and color while edge-clamped', () => {
+  const frame = buildMinimapFrame({
+    localPlayerId: 'local',
+    players,
+    vehicles,
+    npcs,
+    points: [{
+      id: 'mission-contact:holdout',
+      kind: 'contact',
+      x: 2400,
+      y: 100,
+      label: 'H',
+      color: 0xff5e4d
+    }]
+  });
+  const marker = frame?.markers.find((candidate) => candidate.kind === 'contact');
+  assert.ok(marker);
+  assert.equal(marker.label, 'H');
+  assert.equal(marker.color, 0xff5e4d);
+  assert.equal(marker.clamped, true);
+});

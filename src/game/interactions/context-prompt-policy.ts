@@ -1,4 +1,7 @@
-import type {MissionTemplateId} from '../../../shared/content/mission-catalog.ts';
+import {
+  missionContact,
+  type MissionTemplateId
+} from '../../../shared/content/mission-catalog.ts';
 import type {DistrictNetworkState} from '../types.ts';
 import {
   projectInteractionAffordance,
@@ -19,11 +22,10 @@ export interface ContextPromptProjection {
 
 export function projectContextPrompt(
   state: DistrictNetworkState,
-  localPlayerId: string,
-  offeredTemplateId: MissionTemplateId
+  localPlayerId: string
 ): ContextPromptProjection {
   const interaction = projectInteractionAffordance(state, localPlayerId);
-  const mission = projectMissionHud(state, localPlayerId, offeredTemplateId);
+  const mission = projectMissionHud(state, localPlayerId);
   if (
     mission.action === 'start' &&
     (
@@ -33,15 +35,16 @@ export function projectContextPrompt(
       interaction.kind === 'ride-along'
     )
   ) {
+    const contact = missionContact(mission.templateId);
     return {
       visible: true,
       command: 'mission-start',
       placement: 'world',
       label: 'Start Job',
       touchLabel: 'JOB',
-      ariaLabel: 'Start Freemode job',
-      anchor: {x: state.missionContactX, y: state.missionContactY},
-      templateId: offeredTemplateId
+      ariaLabel: `Start ${mission.title}`,
+      anchor: {x: contact.x, y: contact.y},
+      templateId: mission.templateId
     };
   }
   if (interaction.visible) {
