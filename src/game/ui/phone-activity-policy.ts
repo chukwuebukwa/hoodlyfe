@@ -7,25 +7,43 @@ export interface PhoneActivityProjection {
   locationLabel: string;
   meta: string;
   title: string;
+  glyph: 'car-front' | 'crosshair' | 'map';
 }
 
 export function projectPhoneActivity(currentWorld: GameWorldId): PhoneActivityProjection {
-  if (currentWorld === 'raceway') {
-    return {
+  return projectPhoneActivities(currentWorld)[0];
+}
+
+export function projectPhoneActivities(currentWorld: GameWorldId): PhoneActivityProjection[] {
+  if (currentWorld !== 'industrial-district') {
+    return [{
       actionLabel: 'Exit to Freeroam',
-      description: 'Leave the current race and reconnect to the Industrial District freeroam session.',
+      description: 'Leave the current activity and reconnect to the Industrial District freeroam session.',
       destination: 'industrial-district',
-      locationLabel: 'Raceway',
+      locationLabel: currentWorld === 'raceway' ? 'Raceway' : 'Foundry Yard',
       meta: 'Exit activity',
-      title: 'Freeroam'
-    };
+      title: 'Freeroam',
+      glyph: 'map'
+    }];
   }
-  return {
-    actionLabel: 'Enter raceway',
-    description: 'Travel to a traffic-free circuit with an authoritative six-driver race session.',
-    destination: 'raceway',
-    locationLabel: 'Industrial District',
-    meta: '1-6 drivers · 3 laps',
-    title: 'Raceway'
-  };
+  return [
+    {
+      actionLabel: 'Enter raceway',
+      description: 'Travel to a traffic-free circuit with an authoritative six-driver race session.',
+      destination: 'raceway',
+      locationLabel: 'Industrial District',
+      meta: '1-6 drivers · 3 laps',
+      title: 'Raceway',
+      glyph: 'car-front'
+    },
+    {
+      actionLabel: 'Enter deathmatch',
+      description: 'Fight in Foundry Yard. First to 15 eliminations wins the match payout.',
+      destination: 'deathmatch',
+      locationLabel: 'Industrial District',
+      meta: '1-8 players · first to 15',
+      title: 'Deathmatch',
+      glyph: 'crosshair'
+    }
+  ];
 }

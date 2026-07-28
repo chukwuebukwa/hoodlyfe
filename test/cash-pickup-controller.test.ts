@@ -93,7 +93,18 @@ test('drop capacity and full collector balances fail closed without losing money
   assert.equal(blocked.cash, 100);
 });
 
-function createFixture(overrides: {maximumBalance?: number} = {}) {
+test('competitive modes can disable death cash drops', () => {
+  const fixture = createFixture({deathDropsEnabled: false});
+  const victim = addPlayer(fixture.state, 'victim', 1_000, 40, 60);
+  fixture.controller.observeEvents([killed(victim.id, 12, 2_000)]);
+  assert.equal(victim.cash, 1_000);
+  assert.equal(fixture.state.cashPickups.size, 0);
+});
+
+function createFixture(overrides: {
+  maximumBalance?: number;
+  deathDropsEnabled?: boolean;
+} = {}) {
   const state = new DistrictState();
   const events = new GameEventStream();
   const notices: string[] = [];
@@ -102,7 +113,9 @@ function createFixture(overrides: {maximumBalance?: number} = {}) {
     state,
     events,
     clock: () => ({tick: ++tick}),
-    ...overrides
+    ...(overrides.maximumBalance === undefined
+      ? {}
+      : {maximumBalance: overrides.maximumBalance})
   });
   const controller = new CashPickupController({
     state,
@@ -112,6 +125,7 @@ function createFixture(overrides: {maximumBalance?: number} = {}) {
     } as unknown as CollisionMap,
     economy,
     events,
+    deathDropsEnabled: () => overrides.deathDropsEnabled ?? true,
     clock: () => ({tick}),
     nearbyPlayers: () => [...state.players.values()],
     notice: (playerId, message) => notices.push(`${playerId}:${message}`)

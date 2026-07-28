@@ -146,7 +146,8 @@ export class DistrictUiController {
     this.phone.synchronize(state, this.room.sessionId);
     this.updateInteraction(state);
     if (onStreet) {
-      if (state.race?.trackId) this.updateRace(state);
+      if (state.deathmatch?.arenaId) this.updateDeathmatch(state);
+      else if (state.race?.trackId) this.updateRace(state);
       else this.updateMission(state);
     } else {
       this.missionHud?.classList.add('hidden');
@@ -182,7 +183,7 @@ export class DistrictUiController {
   }
 
   private updateInteraction(state: DistrictNetworkState): void {
-    if (state.race?.trackId) {
+    if (state.race?.trackId || state.deathmatch?.arenaId) {
       this.interactionButton?.classList.add('hidden');
       this.handbrakeHint?.classList.add('hidden');
       this.touchInteractionButton?.classList.add('hidden');
@@ -297,6 +298,44 @@ export class DistrictUiController {
     this.missionAction?.classList.add('hidden');
   }
 
+  private updateDeathmatch(state: DistrictNetworkState): void {
+    const match = state.deathmatch;
+    const entrant = match?.entrants?.get(this.room.sessionId);
+    this.missionHud?.classList.toggle('hidden', !match || !entrant);
+    if (!match || !entrant) return;
+    const serverNow = state.serverTimeMs ?? 0;
+    const countdown = Math.max(0, Math.ceil((match.countdownEndsAt - serverNow) / 1_000));
+    const remaining = match.phase === 'active'
+      ? Math.max(0, match.endsAt - serverNow)
+      : match.remainingMs;
+    if (this.missionTitle) this.missionTitle.textContent = match.arenaLabel.toUpperCase();
+    if (this.missionTimer) {
+      this.missionTimer.textContent = match.phase === 'countdown'
+        ? String(countdown)
+        : formatRaceTime(remaining);
+    }
+    if (this.missionObjective) {
+      this.missionObjective.textContent = match.phase === 'countdown'
+        ? 'Choose your weapon. Get ready.'
+        : match.phase === 'results'
+          ? match.winnerId === entrant.playerId
+            ? 'Victory.'
+            : `${match.winnerName || 'No winner'} wins.`
+          : match.phase === 'waiting'
+            ? 'Waiting for combatants.'
+            : `First to ${match.scoreLimit} eliminations`;
+    }
+    if (this.missionMeta) {
+      this.missionMeta.textContent =
+        `P${Math.max(1, entrant.position)}/${match.entrants?.size ?? 1}` +
+        ` | ${entrant.kills} K / ${entrant.deaths} D` +
+        (entrant.streak > 1 ? ` | ${entrant.streak} STREAK` : '');
+    }
+    this.missionPrevious?.classList.add('hidden');
+    this.missionNext?.classList.add('hidden');
+    this.missionAction?.classList.add('hidden');
+  }
+
   private updateMinimap(state: DistrictNetworkState, nowMs: number): void {
     const local = state.players.get(this.room.sessionId);
     const frame = buildMinimapFrame({
@@ -306,7 +345,9 @@ export class DistrictUiController {
       vehicles: state.vehicles?.values() ?? [],
       npcs: state.npcs?.values() ?? [],
       points: [
-        ...(state.race?.trackId ? [] : missionMinimapPoints(state, this.room.sessionId)),
+        ...(state.race?.trackId || state.deathmatch?.arenaId
+          ? []
+          : missionMinimapPoints(state, this.room.sessionId)),
         ...raceMinimapPoints(state, this.room.sessionId),
         ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID),
         ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),

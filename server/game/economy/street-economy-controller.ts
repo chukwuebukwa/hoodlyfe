@@ -7,6 +7,7 @@ export type StreetEconomyReason =
   | 'civilian-kill'
   | 'police-kill'
   | 'mission-payout'
+  | 'activity-payout'
   | 'death-drop'
   | 'cash-pickup'
   | 'ammunition'

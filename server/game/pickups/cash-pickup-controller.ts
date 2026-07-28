@@ -9,6 +9,7 @@ interface CashPickupControllerOptions {
   world: CollisionMap;
   economy: StreetEconomyPort;
   events: GameEventStream;
+  deathDropsEnabled?: () => boolean;
   clock: () => {tick: number};
   nearbyPlayers: (x: number, y: number, radius: number) => PlayerState[];
   notice: (playerId: string, message: string, tone: 'success' | 'warning') => void;
@@ -20,6 +21,7 @@ export class CashPickupController {
   observeEvents(events: readonly GameEvent[]): void {
     for (const event of events) {
       if (event.type !== 'entity.killed' || event.entityKind !== 'player') continue;
+      if (this.options.deathDropsEnabled?.() === false) continue;
       this.createDeathDrop(event.entityId, event.tick, event.nowMs);
     }
   }

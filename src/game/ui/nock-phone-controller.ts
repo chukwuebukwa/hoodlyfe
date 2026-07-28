@@ -10,7 +10,7 @@ import {
 import {loadSavedAppearance} from '../appearance/appearance-storage.ts';
 import type {GameWorldId} from '../runtime/world-catalog.ts';
 import type {DistrictNetworkState, NetworkPlayer} from '../types.ts';
-import {projectPhoneActivity} from './phone-activity-policy.ts';
+import {projectPhoneActivities, projectPhoneActivity} from './phone-activity-policy.ts';
 import {phoneGlyph, type PhoneGlyphName} from './phone-glyphs.ts';
 
 const DRIVER_NAME_KEY = 'nock0-driver-name';
@@ -164,10 +164,9 @@ export class NockPhoneController {
     popup.querySelector('#wallet-copy-address')?.addEventListener('click', this.handleCopyWalletAddress);
     popup.querySelector('#wallet-refresh')?.addEventListener('click', this.handleRefreshClick);
     popup.querySelector('#profile-refresh')?.addEventListener('click', this.handleRefreshClick);
-    popup.querySelector('#phone-activity-action')?.addEventListener(
-      'click',
-      this.handleActivityClick
-    );
+    popup.querySelectorAll<HTMLButtonElement>('.phone-activity-action').forEach((button) => {
+      button.addEventListener('click', this.handleActivityClick);
+    });
   }
 
   private renderHome(): string {
@@ -314,29 +313,32 @@ export class NockPhoneController {
         </section>
       `;
     }
-    const activity = projectPhoneActivity(context.currentWorld);
+    const activities = projectPhoneActivities(context.currentWorld);
+    const locationLabel = activities[0]?.locationLabel ?? 'Activities';
     return `
       <section id="phone-jobs-app-screen" class="${hidden}">
         <header id="jobs-app-header">
           <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
-          <span>${escapeHtml(activity.locationLabel)}</span>
+          <span>${escapeHtml(locationLabel)}</span>
         </header>
         <div id="jobs-body">
           <h1>Jobs</h1>
-          <section class="phone-activity-card">
-            <i>${phoneGlyph('car-front')}</i>
-            <div>
-              <small>${escapeHtml(activity.meta)}</small>
-              <strong>${escapeHtml(activity.title)}</strong>
-              <p>${escapeHtml(activity.description)}</p>
-            </div>
-            <button
-              id="phone-activity-action"
-              type="button"
-              data-destination="${activity.destination}"
-              ${context.busy ? 'disabled' : ''}
-            >${context.busy ? 'Traveling…' : escapeHtml(activity.actionLabel)}</button>
-          </section>
+          ${activities.map((activity) => `
+            <section class="phone-activity-card">
+              <i>${phoneGlyph(activity.glyph)}</i>
+              <div>
+                <small>${escapeHtml(activity.meta)}</small>
+                <strong>${escapeHtml(activity.title)}</strong>
+                <p>${escapeHtml(activity.description)}</p>
+              </div>
+              <button
+                class="phone-activity-action"
+                type="button"
+                data-destination="${activity.destination}"
+                ${context.busy ? 'disabled' : ''}
+              >${context.busy ? 'Traveling…' : escapeHtml(activity.actionLabel)}</button>
+            </section>
+          `).join('')}
         </div>
       </section>
     `;
@@ -372,7 +374,11 @@ export class NockPhoneController {
     const context = this.activityContext;
     if (!(target instanceof HTMLButtonElement) || !context || context.busy) return;
     const destination = target.dataset.destination;
-    if (destination !== 'industrial-district' && destination !== 'raceway') return;
+    if (
+      destination !== 'industrial-district' &&
+      destination !== 'raceway' &&
+      destination !== 'deathmatch'
+    ) return;
     this.close();
     void context.onTravel(destination);
   };

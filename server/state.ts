@@ -651,6 +651,64 @@ defineTypes(ArenaRaceState, {
   entrants: {map: RaceEntrantState}
 });
 
+export class DeathmatchEntrantState extends Schema {
+  playerId = '';
+  playerName = '';
+  kills = 0;
+  deaths = 0;
+  score = 0;
+  streak = 0;
+  position = 1;
+  alive = true;
+}
+
+defineTypes(DeathmatchEntrantState, {
+  playerId: 'string',
+  playerName: 'string',
+  kills: 'number',
+  deaths: 'number',
+  score: 'number',
+  streak: 'number',
+  position: 'number',
+  alive: 'boolean'
+});
+
+export class ArenaDeathmatchState extends Schema {
+  arenaId = '';
+  arenaLabel = '';
+  phase = 'waiting';
+  matchNumber = 1;
+  scoreLimit = 15;
+  matchDurationMs = 0;
+  countdownEndsAt = 0;
+  startedAt = 0;
+  endsAt = 0;
+  finishedAt = 0;
+  resultsEndsAt = 0;
+  remainingMs = 0;
+  winnerId = '';
+  winnerName = '';
+  entrants = new MapSchema<DeathmatchEntrantState>();
+}
+
+defineTypes(ArenaDeathmatchState, {
+  arenaId: 'string',
+  arenaLabel: 'string',
+  phase: 'string',
+  matchNumber: 'number',
+  scoreLimit: 'number',
+  matchDurationMs: 'number',
+  countdownEndsAt: 'number',
+  startedAt: 'number',
+  endsAt: 'number',
+  finishedAt: 'number',
+  resultsEndsAt: 'number',
+  remainingMs: 'number',
+  winnerId: 'string',
+  winnerName: 'string',
+  entrants: {map: DeathmatchEntrantState}
+});
+
 export class DistrictState extends Schema {
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
@@ -667,6 +725,7 @@ export class DistrictState extends Schema {
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
   race = new ArenaRaceState();
+  deathmatch = new ArenaDeathmatchState();
   worldTimeStartedAt = 0;
   worldTimeStartMinute = 0;
   worldTimeRate = 0;
@@ -693,6 +752,7 @@ defineTypes(DistrictState, {
   missions: {map: MissionState},
   services: {map: StreetServiceState},
   race: ArenaRaceState,
+  deathmatch: ArenaDeathmatchState,
   worldTimeStartedAt: 'number',
   worldTimeStartMinute: 'number',
   worldTimeRate: 'number',
@@ -717,6 +777,7 @@ for (const field of [
   'soccerBalls',
   'missions',
   'race',
+  'deathmatch',
   'services',
   'stingers'
 ] as const) {

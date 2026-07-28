@@ -243,6 +243,10 @@ export class DistrictClient {
           (
             Boolean(this.room?.state.race?.trackId) &&
             this.room?.state.race?.phase !== 'racing'
+          ) ||
+          (
+            Boolean(this.room?.state.deathmatch?.arenaId) &&
+            this.room?.state.deathmatch?.phase !== 'active'
           ),
         onFire: (angle) => {
           this.combatFire?.send(angle);

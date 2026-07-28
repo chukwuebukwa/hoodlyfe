@@ -311,6 +311,7 @@ export interface DistrictNetworkState {
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
   race?: NetworkArenaRace;
+  deathmatch?: NetworkArenaDeathmatch;
   worldTimeStartedAt?: number;
   worldTimeStartMinute?: number;
   worldTimeRate?: number;
@@ -347,4 +348,33 @@ export interface NetworkArenaRace {
   finishedAt: number;
   resultsEndsAt: number;
   entrants: Map<string, NetworkRaceEntrant>;
+}
+
+export interface NetworkDeathmatchEntrant {
+  playerId: string;
+  playerName: string;
+  kills: number;
+  deaths: number;
+  score: number;
+  streak: number;
+  position: number;
+  alive: boolean;
+}
+
+export interface NetworkArenaDeathmatch {
+  arenaId: string;
+  arenaLabel: string;
+  phase: 'waiting' | 'countdown' | 'active' | 'results';
+  matchNumber: number;
+  scoreLimit: number;
+  matchDurationMs: number;
+  countdownEndsAt: number;
+  startedAt: number;
+  endsAt: number;
+  finishedAt: number;
+  resultsEndsAt: number;
+  remainingMs: number;
+  winnerId: string;
+  winnerName: string;
+  entrants: Map<string, NetworkDeathmatchEntrant>;
 }

@@ -4,11 +4,13 @@ import sharp from 'sharp';
 
 const root = resolve(import.meta.dirname, '..');
 const sourceMaps = join(root, 'public', 'assets', 'maps');
-const targetRoot = join(root, 'public', 'assets', 'districts', 'raceway');
+const deathmatchMode = process.argv.includes('--deathmatch');
+const districtName = deathmatchMode ? 'deathmatch' : 'raceway';
+const targetRoot = join(root, 'public', 'assets', 'districts', districtName);
 const targetMaps = join(targetRoot, 'maps');
 const geometryRoot = join(targetMaps, 'geometry');
 
-const size = 72;
+const size = deathmatchMode ? 48 : 72;
 const chunkSize = 8;
 const blockSize = 40;
 const pixelSize = size * blockSize;
@@ -43,21 +45,21 @@ const controlPoints = Object.freeze([
   {x: 49, y: 65}
 ]);
 const centerline = sampleClosedCatmullRom(controlPoints, 20);
-const roadMask = buildRoadMask(centerline);
-const map = buildTiledMap(roadMask, centerline);
+const walkableMask = deathmatchMode ? buildArenaMask() : buildRoadMask(centerline);
+const map = buildTiledMap(walkableMask, deathmatchMode ? [] : centerline);
 
 rmSync(targetRoot, {recursive: true, force: true});
 mkdirSync(join(geometryRoot, 'chunks'), {recursive: true});
 
 writeJson(join(targetMaps, 'district-map.json'), map);
 writeJson(join(targetMaps, 'district-map.metadata.json'), {
-  spawn: worldPoint(44, 64)
+  spawn: deathmatchMode ? worldPoint(7, 7) : worldPoint(44, 64)
 });
 writeJson(join(targetMaps, 'surface-manifest.json'), flatSurfaceManifest());
 cpSync(join(sourceMaps, 'district-tiles.png'), join(targetMaps, 'district-tiles.png'));
 cpSync(join(sourceMaps, 'district-tiles.png'), join(geometryRoot, 'tiles.png'));
 
-const geometry = generateGeometry(map, roadMask);
+const geometry = generateGeometry(map, walkableMask);
 writeJson(join(geometryRoot, 'world.json'), geometry.manifest);
 for (const chunk of geometry.chunks) {
   writeJson(join(geometryRoot, 'chunks', `${chunk.column}-${chunk.row}.json`), chunk);
@@ -65,8 +67,9 @@ for (const chunk of geometry.chunks) {
 await renderPreview(map.layers.find((layer) => layer.name === 'ground').data);
 
 console.log(
-  `Generated custom raceway: ${geometry.chunks.length} chunks, ` +
-  `${geometry.manifest.triangleCount} triangles, ${roadMask.filter(Boolean).length} track tiles.`
+  `Generated ${deathmatchMode ? 'deathmatch arena' : 'custom raceway'}: ` +
+  `${geometry.chunks.length} chunks, ${geometry.manifest.triangleCount} triangles, ` +
+  `${walkableMask.filter(Boolean).length} walkable tiles.`
 );
 
 function buildTiledMap(mask, sampledCenterline) {
@@ -80,7 +83,7 @@ function buildTiledMap(mask, sampledCenterline) {
       if (!mask[index]) continue;
       ground[index] = tileIds.asphalt;
       collisions[index] = 0;
-      roads[index] = 1;
+      roads[index] = deathmatchMode ? 0 : 1;
     }
   }
 
@@ -97,8 +100,10 @@ function buildTiledMap(mask, sampledCenterline) {
   }
 
   // The line crosses the full track width at the first checkpoint.
-  for (let row = 57; row <= 71; row++) {
-    if (mask[row * size + 40]) ground[row * size + 40] = tileIds.startLine;
+  if (!deathmatchMode) {
+    for (let row = 57; row <= 71; row++) {
+      if (mask[row * size + 40]) ground[row * size + 40] = tileIds.startLine;
+    }
   }
 
   return {
@@ -139,6 +144,34 @@ function buildRoadMask(sampledCenterline) {
       mask[row * size + column] = sampledCenterline.some((point) => (
         Math.hypot(center.x - point.x, center.y - point.y) <= trackHalfWidth
       ));
+    }
+  }
+  return mask;
+}
+
+function buildArenaMask() {
+  const mask = new Array(size * size).fill(false);
+  for (let row = 3; row < size - 3; row++) {
+    for (let column = 3; column < size - 3; column++) {
+      mask[row * size + column] = true;
+    }
+  }
+  const cover = [
+    [20, 20, 27, 27],
+    [15, 11, 20, 13],
+    [27, 11, 32, 13],
+    [15, 34, 20, 36],
+    [27, 34, 32, 36],
+    [11, 15, 13, 20],
+    [34, 15, 36, 20],
+    [11, 27, 13, 32],
+    [34, 27, 36, 32]
+  ];
+  for (const [left, top, right, bottom] of cover) {
+    for (let row = top; row <= bottom; row++) {
+      for (let column = left; column <= right; column++) {
+        mask[row * size + column] = false;
+      }
     }
   }
   return mask;
@@ -200,8 +233,8 @@ function generateGeometry(tiledMap, mask) {
     chunks,
     manifest: {
       version: 1,
-      revision: 'raceway-custom-circuit-v3',
-      source: 'raceway/district-map.json',
+      revision: deathmatchMode ? 'foundry-yard-v1' : 'raceway-custom-circuit-v3',
+      source: `${districtName}/district-map.json`,
       blockSize,
       origin: {x: 0, y: 0},
       size: {width: size, height: size},
@@ -346,7 +379,7 @@ function flatSurfaceManifest() {
     defaultSurfaceId: 'street-ground',
     surfaces: [{
       id: 'street-ground',
-      spaceId: 'raceway',
+      spaceId: deathmatchMode ? 'deathmatch' : 'raceway',
       actorKinds: ['player', 'pedestrian', 'vehicle', 'projectile', 'prop'],
       triangles: [
         {a: point(0, 0), b: point(pixelSize, 0), c: point(pixelSize, pixelSize)},

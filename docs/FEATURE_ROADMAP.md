@@ -87,9 +87,14 @@ This is the canonical status list for the requested top-down multiplayer GTA-lik
 - **Playable** separate six-player Industrial Arena race room and streamed 64x64 circuit,
   with assigned tuner cars, authoritative grid/countdown, three ordered-checkpoint laps,
   finish ordering, lap timing, race HUD/minimap projection, and automatic heat resets.
+- **Playable** separate Foundry Yard deathmatch room and streamed 48x48 arena, with phone
+  travel/return, authoritative countdown, combat scoring, respawns, loadouts, placement,
+  timed/score-limit results, idempotent activity payouts, and no freeroam crime or cash-drop
+  consequences.
 - **Playable** opt-in F3/DBG diagnostics for collision, spatial cells, entities, incidents, pursuits, stimuli, AI objectives, bravery, and pedestrian routes.
 - **Foundation** five complete jobs share objective/encounter modules, while the separate
-  arena room proves authoritative multi-vehicle checkpoint racing and finish placement;
+  arena rooms prove authoritative multi-vehicle checkpoint racing, finish placement, and
+  event-driven free-for-all combat;
   item, escort, and in-district competitive event objectives remain incomplete.
 - **Playable** district client with real OpenGTA2 block geometry and depth-tested entities is now the only renderer; the legacy client and its wrapper modules were removed.
 - **Playable foundation** one seamless same-building single-floor Mercy Hospital: walk through the south-facade doorway, switch replicated space/collision automatically, hide exactly 32 exporter-authored roof triangles, recover or receive treatment inside, and walk back out without a load screen.

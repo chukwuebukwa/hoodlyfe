@@ -43,9 +43,20 @@ test('trauma medical respawn restores ammunition and offensive action cancels pr
   assert.equal(fixture.player.spawnProtected, false);
 });
 
-function createLifecycle(restoreAmmo: boolean) {
+test('competitive damage suppresses freeroam crime and kill payouts', () => {
+  const fixture = createLifecycle(false, false);
+  fixture.damage.player(fixture.player, 200, 'fighter-2', 1_000);
+  assert.equal(fixture.player.alive, false);
+  assert.deepEqual(fixture.credits, []);
+  assert.deepEqual(fixture.crimes, []);
+  assert.equal(fixture.events.drain().some((event) => event.type === 'entity.killed'), true);
+});
+
+function createLifecycle(restoreAmmo: boolean, streetConsequencesEnabled = true) {
   const state = new DistrictState();
   const events = new GameEventStream();
+  const credits: Array<{playerId: string; amount: number}> = [];
+  const crimes: Array<{playerId: string; kind: string}> = [];
   const player = new PlayerState();
   player.id = 'driver';
   state.players.set(player.id, player);
@@ -78,12 +89,22 @@ function createLifecycle(restoreAmmo: boolean) {
   });
   const damage = new DamageController({
     events,
-    economy: {credit: () => ({status: 'applied'})} as any,
-    crime: {record() {}} as any,
+    economy: {
+      credit: (playerId: string, amount: number) => {
+        credits.push({playerId, amount});
+        return {status: 'applied'};
+      }
+    } as any,
+    crime: {
+      record(playerId: string, kind: string) {
+        crimes.push({playerId, kind});
+      }
+    } as any,
     playerLifecycle: lifecycle,
+    streetConsequencesEnabled: () => streetConsequencesEnabled,
     clock: () => ({tick: 5}),
     panicNpc() {},
     scheduleNpcRespawn() {}
   });
-  return {state, events, player, lifecycle, damage};
+  return {state, events, player, lifecycle, damage, credits, crimes};
 }

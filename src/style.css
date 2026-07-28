@@ -1703,7 +1703,7 @@ canvas {
   text-transform: none;
 }
 
-.phone-activity-card #phone-activity-action {
+.phone-activity-card .phone-activity-action {
   grid-column: 1 / -1;
   min-height: 44px;
   margin-top: 7px;
@@ -1715,7 +1715,7 @@ canvas {
   text-transform: uppercase;
 }
 
-.phone-activity-card #phone-activity-action:disabled {
+.phone-activity-card .phone-activity-action:disabled {
   background: #4a4d53;
   color: #b7b9bf;
   cursor: wait;

@@ -32,6 +32,7 @@ interface DamageControllerOptions {
   economy: StreetEconomyPort;
   crime: CrimeResponseController;
   playerLifecycle: PlayerLifecycleController;
+  streetConsequencesEnabled?: () => boolean;
   reactions?: CombatReactionPort;
   clock: () => {tick: number};
   panicNpc: (npcId: string, attackerId: string, untilMs: number) => void;
@@ -73,7 +74,12 @@ export class DamageController {
       remainingArmor: target.armor,
       remainingHealth: target.health
     });
-    if (attackerId && attackerId !== target.id && attackerDisposition === 'player') {
+    if (
+      this.streetConsequencesEnabled() &&
+      attackerId &&
+      attackerId !== target.id &&
+      attackerDisposition === 'player'
+    ) {
       this.options.crime.record(attackerId, crimeKind, nowMs, target.id, target.x, target.y);
     }
     if (target.health > 0) {
@@ -83,7 +89,12 @@ export class DamageController {
 
     this.options.reactions?.clearPlayer(target.id);
 
-    if (attackerId && attackerId !== target.id && attackerDisposition === 'player') {
+    if (
+      this.streetConsequencesEnabled() &&
+      attackerId &&
+      attackerId !== target.id &&
+      attackerDisposition === 'player'
+    ) {
       this.options.economy.credit(
         attackerId,
         100,
@@ -165,6 +176,10 @@ export class DamageController {
       );
     }
     return result;
+  }
+
+  private streetConsequencesEnabled(): boolean {
+    return this.options.streetConsequencesEnabled?.() ?? true;
   }
 }
 

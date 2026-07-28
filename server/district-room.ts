@@ -93,11 +93,17 @@ import {StreetEconomyController} from './game/economy/street-economy-controller.
 import {PlayerInteractionController} from './game/interactions/player-interaction-controller.ts';
 import {FreemodeMissionController} from './game/missions/freemode-mission-controller.ts';
 import {ArenaRaceController} from './game/races/arena-race-controller.ts';
+import {ArenaDeathmatchController} from './game/deathmatch/arena-deathmatch-controller.ts';
 import {
   INDUSTRIAL_ARENA_CIRCUIT,
   type ArenaRaceTrackDefinition,
   type RaceGridPose
 } from '../shared/content/arena-race.ts';
+import {
+  FOUNDRY_YARD_DEATHMATCH,
+  type ArenaDeathmatchDefinition
+} from '../shared/content/arena-deathmatch.ts';
+import {STREET_GROUND_SURFACE_ID} from '../shared/world/surface-map.ts';
 import {MedicalCareController} from './game/medical/medical-care-controller.ts';
 import {CrimeResponseController} from './game/police/crime-response-controller.ts';
 import {CustodyOutcomeController} from './game/police/custody-outcome-controller.ts';
@@ -243,6 +249,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private economyController!: StreetEconomyController;
   private missionController!: FreemodeMissionController;
   private raceController?: ArenaRaceController;
+  private deathmatchController?: ArenaDeathmatchController;
   private medicalController!: MedicalCareController;
   private crimeController!: CrimeResponseController;
   private custodyController!: CustodyOutcomeController;
@@ -312,6 +319,10 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   protected raceTrack(): ArenaRaceTrackDefinition | undefined {
+    return undefined;
+  }
+
+  protected deathmatchArena(): ArenaDeathmatchDefinition | undefined {
     return undefined;
   }
 
@@ -648,6 +659,7 @@ export class DistrictRoom extends Room<DistrictState> {
       economy: this.economyController,
       crime: this.crimeController,
       playerLifecycle: this.playerLifecycle,
+      streetConsequencesEnabled: () => !this.deathmatchController,
       reactions: this.combatReactions,
       clock: () => ({tick: this.simulationClock.tick}),
       panicNpc: (npcId, attackerId, untilMs) => this.pedestrians.panic(
@@ -858,6 +870,7 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       economy: this.economyController,
       events: this.events,
+      deathDropsEnabled: () => !this.deathmatchController,
       clock: () => ({tick: this.simulationClock.tick}),
       nearbyPlayers,
       notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
@@ -1093,11 +1106,34 @@ export class DistrictRoom extends Room<DistrictState> {
         notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
       })
       : undefined;
-    const missionPort = this.raceController
+    const deathmatchArena = this.deathmatchArena();
+    this.deathmatchController = deathmatchArena
+      ? new ArenaDeathmatchController({
+        state: this.state,
+        arena: deathmatchArena,
+        economy: this.economyController,
+        relocate: (player, pose) => {
+          player.x = pose.x;
+          player.y = pose.y;
+          player.angle = pose.angle;
+          player.spaceId = 'street';
+          player.surfaceId = STREET_GROUND_SURFACE_ID;
+          player.action = '';
+          player.actionUntil = 0;
+          player.actionVehicleId = '';
+          this.playerControl.reset(player.id);
+          this.vehicleAccess.clearAction(player);
+          this.indexPlayer(player);
+        },
+        notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+      })
+      : undefined;
+    const activityController = this.raceController ?? this.deathmatchController;
+    const missionPort = activityController
       ? {
-        update: (nowMs: number) => this.raceController?.update(nowMs),
+        update: (nowMs: number) => activityController.update(nowMs),
         observeEvents: (events: readonly import('./game/events/game-events.ts').GameEvent[]) => {
-          this.raceController?.observeEvents(events);
+          activityController.observeEvents(events);
         }
       }
       : this.missionController;
@@ -1153,7 +1189,7 @@ export class DistrictRoom extends Room<DistrictState> {
         };
       }
     });
-    if (!raceTrack) {
+    if (!activityController) {
       this.serviceController.initialize();
       this.medicalController.initialize();
       this.weaponPickupController.initialize();
@@ -1259,7 +1295,7 @@ export class DistrictRoom extends Room<DistrictState> {
       this.medicalController.select(client.sessionId, message.kind, this.simulationClock.nowMs);
     });
     this.registerJournaledCommand('interact', (client) => {
-      if (this.raceController) return;
+      if (this.raceController || this.deathmatchController) return;
       this.interactionController.interact(
         client.sessionId,
         this.simulationClock.nowMs,
@@ -1330,6 +1366,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.playerControl.register(client.sessionId);
     this.indexPlayer(player);
     this.raceController?.register(player);
+    this.deathmatchController?.register(player);
     this.journal?.recordSpawn(this.simulationClock.tick, client.sessionId, {
       name: options?.name,
       appearance: options?.appearance
@@ -1350,8 +1387,11 @@ export class DistrictRoom extends Room<DistrictState> {
     this.voiceChat.clearPlayer(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     this.policeArrests.clearPlayer(client.sessionId, this.simulationClock.nowMs);
-    if (player && !this.raceController) this.vehicleAccess.removePlayer(player);
+    if (player && !this.raceController && !this.deathmatchController) {
+      this.vehicleAccess.removePlayer(player);
+    }
     this.raceController?.unregister(client.sessionId);
+    this.deathmatchController?.unregister(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
     this.vehicleInput.clear(client.sessionId);
@@ -1634,6 +1674,33 @@ export class DistrictRaceRoom extends DistrictRoom {
       'assets',
       'districts',
       'raceway',
+      'maps'
+    );
+  }
+}
+
+export class DistrictDeathmatchRoom extends DistrictRoom {
+  override maxClients = 8;
+
+  protected override usesTrafficTopology(): boolean {
+    return false;
+  }
+
+  protected override usesAmbientPopulation(): boolean {
+    return false;
+  }
+
+  protected override deathmatchArena(): ArenaDeathmatchDefinition {
+    return FOUNDRY_YARD_DEATHMATCH;
+  }
+
+  protected override mapsDirectory(): string {
+    return join(
+      process.cwd(),
+      'public',
+      'assets',
+      'districts',
+      'deathmatch',
       'maps'
     );
   }

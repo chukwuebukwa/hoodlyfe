@@ -4,9 +4,12 @@ import {
   gameWorldDefinition,
   gameWorldIdForRoom
 } from '../src/game/runtime/world-catalog.ts';
-import {projectPhoneActivity} from '../src/game/ui/phone-activity-policy.ts';
+import {
+  projectPhoneActivities,
+  projectPhoneActivity
+} from '../src/game/ui/phone-activity-policy.ts';
 
-test('world catalog maps the street and raceway to their authoritative rooms', () => {
+test('world catalog maps freeroam and activities to authoritative rooms', () => {
   const street = gameWorldDefinition('industrial-district');
   assert.equal(street.roomName, 'district');
   assert.equal(street.assetRoot, '/assets');
@@ -16,20 +19,34 @@ test('world catalog maps the street and raceway to their authoritative rooms', (
   assert.equal(raceway.roomName, 'district-race');
   assert.equal(raceway.assetRoot, '/assets/districts/raceway');
   assert.equal(raceway.enableInteriors, false);
+
+  const deathmatch = gameWorldDefinition('deathmatch');
+  assert.equal(deathmatch.roomName, 'district-deathmatch');
+  assert.equal(deathmatch.assetRoot, '/assets/districts/deathmatch');
+  assert.equal(deathmatch.enableInteriors, false);
 });
 
 test('canonical room names resolve to phone-travel world identifiers', () => {
   assert.equal(gameWorldIdForRoom(undefined), 'industrial-district');
   assert.equal(gameWorldIdForRoom('district'), 'industrial-district');
   assert.equal(gameWorldIdForRoom('district-race'), 'raceway');
+  assert.equal(gameWorldIdForRoom('district-deathmatch'), 'deathmatch');
   assert.equal(gameWorldIdForRoom('district-playtest'), undefined);
 });
 
 test('phone activity sends street players to the raceway', () => {
-  const activity = projectPhoneActivity('industrial-district');
-  assert.equal(activity.destination, 'raceway');
-  assert.equal(activity.actionLabel, 'Enter raceway');
-  assert.equal(activity.locationLabel, 'Industrial District');
+  const activities = projectPhoneActivities('industrial-district');
+  assert.deepEqual(activities.map((activity) => activity.destination), ['raceway', 'deathmatch']);
+  assert.equal(activities[0].actionLabel, 'Enter raceway');
+  assert.equal(activities[1].actionLabel, 'Enter deathmatch');
+  assert.equal(activities[1].locationLabel, 'Industrial District');
+});
+
+test('phone activity lets deathmatch players exit to freeroam', () => {
+  const activity = projectPhoneActivity('deathmatch');
+  assert.equal(activity.destination, 'industrial-district');
+  assert.equal(activity.actionLabel, 'Exit to Freeroam');
+  assert.equal(activity.locationLabel, 'Foundry Yard');
 });
 
 test('phone activity lets raceway players exit to freeroam', () => {
