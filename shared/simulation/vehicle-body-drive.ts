@@ -76,8 +76,11 @@ export function captureVehicleBody(
   const state = world.capture(key);
   if (!state) return undefined;
   const angle = normalizeAngle(state.rotation);
-  // The engine resolver reports true static impacts with approach speed, so
-  // no attempted-vs-achieved displacement heuristic is needed anymore.
+  // The engine resolver reports the true normal-component approach speed per
+  // static contact, so no attempted-vs-achieved displacement heuristic is
+  // needed anymore — and a tangential wall scrape reports only its small
+  // inward drift, not the car's full speed.
+  const impactSpeed = world.staticImpactSpeed(key);
   const collidedWithWorld = world.hasStaticImpact(key, desired.linvelX, desired.linvelY);
   return {
     pose: {
@@ -90,7 +93,7 @@ export function captureVehicleBody(
       angvel: state.angvel
     },
     collidedWithWorld,
-    impactSpeed: collidedWithWorld ? Math.hypot(desired.linvelX, desired.linvelY) : 0,
+    impactSpeed: collidedWithWorld ? impactSpeed : 0,
     impactVelocityX: collidedWithWorld ? desired.linvelX : 0,
     impactVelocityY: collidedWithWorld ? desired.linvelY : 0
   };

@@ -26,6 +26,13 @@ export interface ContactTuning {
   restitutionThreshold: number;
   /** Coulomb friction scale on the combined friction coefficient. */
   frictionScale: number;
+  /**
+   * Friction scale for body-vs-static-tile contacts. The shipped Rapier setup
+   * never set friction on static colliders and walls behaved tangentially
+   * frictionless — cars scrape along at full speed instead of sticking — so
+   * the default preserves that feel.
+   */
+  staticFrictionScale: number;
   /** Positional correction factor per iteration (0..1). */
   positionalBeta: number;
   /** Penetration allowance before correction kicks in (px). */
@@ -44,6 +51,7 @@ export const DEFAULT_CONTACT_TUNING: ContactTuning = {
   restitutionScale: 1,
   restitutionThreshold: 30,
   frictionScale: 1,
+  staticFrictionScale: 0,
   positionalBeta: 0.2,
   slop: 0.5,
   inertiaScale: 1,
@@ -311,7 +319,8 @@ export function resolveDynamics(
       const shape = posedShape(body);
       for (const manifold of staticManifolds(tiles, shape)) {
         const restitution = body.restitution * tuning.restitutionScale;
-        const friction = Math.max(0, body.friction) * tuning.frictionScale;
+        const friction =
+          Math.max(0, body.friction) * tuning.frictionScale * tuning.staticFrictionScale;
         for (const point of manifold.points) {
           constraints.push({
             a: -1,
