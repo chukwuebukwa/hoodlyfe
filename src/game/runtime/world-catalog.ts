@@ -1,4 +1,5 @@
-export type GameWorldId = 'industrial-district' | 'raceway' | 'deathmatch';
+export type GameWorldId =
+  'industrial-district' | 'downtown' | 'residential' | 'raceway' | 'deathmatch';
 
 export interface GameWorldDefinition {
   id: GameWorldId;
@@ -17,6 +18,22 @@ const GAME_WORLDS: Record<GameWorldId, GameWorldDefinition> = {
     runtimeLabel: 'Industrial District',
     loadingTitle: 'HOODLYFE',
     enableInteriors: true
+  },
+  downtown: {
+    id: 'downtown',
+    roomName: 'district-city',
+    assetRoot: '/assets/districts/wil',
+    runtimeLabel: 'Downtown District',
+    loadingTitle: 'DOWNTOWN',
+    enableInteriors: false
+  },
+  residential: {
+    id: 'residential',
+    roomName: 'district-residential',
+    assetRoot: '/assets/districts/ste',
+    runtimeLabel: 'Residential District',
+    loadingTitle: 'RESIDENTIAL',
+    enableInteriors: false
   },
   raceway: {
     id: 'raceway',

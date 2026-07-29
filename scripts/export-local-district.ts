@@ -1,6 +1,7 @@
 import {spawn} from 'node:child_process';
-import {access, mkdir} from 'node:fs/promises';
+import {access, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
+import {SurfaceMap, type SurfaceManifest} from '../shared/world/surface-map.ts';
 
 const districtId = process.argv[2]?.toLowerCase();
 const cropSize = process.argv[3] ?? '256';
@@ -34,6 +35,15 @@ await new Promise<void>((resolvePromise, reject) => {
     : reject(new Error(`District export exited with status ${code ?? 'unknown'}.`)));
 });
 
+const surfaceManifestPath = resolve(outputDirectory, 'maps/surface-manifest.json');
+const removedTransitions = await removeInvalidSurfaceTransitions(surfaceManifestPath);
+if (removedTransitions.length > 0) {
+  console.log(
+    `Removed ${removedTransitions.length} non-continuous surface transition(s): ` +
+    removedTransitions.join(', ')
+  );
+}
+
 await Promise.all([
   access(resolve(outputDirectory, 'maps/district-map.json')),
   access(resolve(outputDirectory, 'maps/district-map.metadata.json')),
@@ -42,3 +52,31 @@ await Promise.all([
 ]);
 
 console.log(`District ${districtId.toUpperCase()} is available at /assets/districts/${districtId}.`);
+
+async function removeInvalidSurfaceTransitions(path: string): Promise<string[]> {
+  let manifest = JSON.parse(await readFile(path, 'utf8')) as SurfaceManifest;
+  const removed: string[] = [];
+
+  while (true) {
+    try {
+      new SurfaceMap(manifest);
+      break;
+    } catch (error) {
+      const match = String(error).match(/Transition (\S+) is not height-continuous\./);
+      if (!match) throw error;
+      const transitionId = match[1];
+      const transitionIndex = manifest.transitions.findIndex(({id}) => id === transitionId);
+      if (transitionIndex < 0) throw error;
+      manifest = {
+        ...manifest,
+        transitions: manifest.transitions.filter(({id}) => id !== transitionId)
+      };
+      removed.push(transitionId);
+    }
+  }
+
+  if (removed.length > 0) {
+    await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  return removed;
+}

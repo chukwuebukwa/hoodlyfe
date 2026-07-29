@@ -15,6 +15,16 @@ test('world catalog maps freeroam and activities to authoritative rooms', () => 
   assert.equal(street.assetRoot, '/assets');
   assert.equal(street.enableInteriors, true);
 
+  const downtown = gameWorldDefinition('downtown');
+  assert.equal(downtown.roomName, 'district-city');
+  assert.equal(downtown.assetRoot, '/assets/districts/wil');
+  assert.equal(downtown.enableInteriors, false);
+
+  const residential = gameWorldDefinition('residential');
+  assert.equal(residential.roomName, 'district-residential');
+  assert.equal(residential.assetRoot, '/assets/districts/ste');
+  assert.equal(residential.enableInteriors, false);
+
   const raceway = gameWorldDefinition('raceway');
   assert.equal(raceway.roomName, 'district-race');
   assert.equal(raceway.assetRoot, '/assets/districts/raceway');
@@ -29,6 +39,8 @@ test('world catalog maps freeroam and activities to authoritative rooms', () => 
 test('canonical room names resolve to phone-travel world identifiers', () => {
   assert.equal(gameWorldIdForRoom(undefined), 'industrial-district');
   assert.equal(gameWorldIdForRoom('district'), 'industrial-district');
+  assert.equal(gameWorldIdForRoom('district-city'), 'downtown');
+  assert.equal(gameWorldIdForRoom('district-residential'), 'residential');
   assert.equal(gameWorldIdForRoom('district-race'), 'raceway');
   assert.equal(gameWorldIdForRoom('district-deathmatch'), 'deathmatch');
   assert.equal(gameWorldIdForRoom('district-playtest'), undefined);

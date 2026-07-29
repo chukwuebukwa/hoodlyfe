@@ -10,9 +10,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import next from 'next';
 import {
+  DistrictCityRoom,
   DistrictDeathmatchRoom,
   DistrictPlaytestRoom,
   DistrictRaceRoom,
+  DistrictResidentialRoom,
   DistrictRoom
 } from './district-room.ts';
 import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
@@ -120,6 +122,16 @@ gameServer.define('district', DistrictRoom, {
   buildId
 });
 gameServer.define('district-race', DistrictRaceRoom, {
+  runtimeHealth,
+  fatalShutdown: requestFatalShutdown,
+  buildId
+});
+gameServer.define('district-city', DistrictCityRoom, {
+  runtimeHealth,
+  fatalShutdown: requestFatalShutdown,
+  buildId
+});
+gameServer.define('district-residential', DistrictResidentialRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
   buildId

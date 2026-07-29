@@ -42,6 +42,7 @@ export class WorldObjectPresentation {
   private readonly grenadeTexture: THREE.Texture;
   private readonly molotovTexture: THREE.Texture;
   private readonly rocketTexture: THREE.Texture;
+  private readonly bloodTexture: THREE.Texture;
 
   private constructor(
     private readonly scene: THREE.Scene,
@@ -49,12 +50,14 @@ export class WorldObjectPresentation {
     private readonly surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
     grenadeTexture: THREE.Texture,
     molotovTexture: THREE.Texture,
-    rocketTexture: THREE.Texture
+    rocketTexture: THREE.Texture,
+    bloodTexture: THREE.Texture
   ) {
     this.grenadeTexture = grenadeTexture;
     this.molotovTexture = molotovTexture;
     this.rocketTexture = rocketTexture;
-    this.projectileImpacts = new ProjectileImpactEffects(scene, surfaceHeightAt);
+    this.bloodTexture = bloodTexture;
+    this.projectileImpacts = new ProjectileImpactEffects(scene, surfaceHeightAt, bloodTexture);
   }
 
   presentProjectileImpacts(impacts: readonly ProjectileImpactPayload[], nowMs: number): void {
@@ -67,17 +70,26 @@ export class WorldObjectPresentation {
     surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number
   ): Promise<WorldObjectPresentation> {
     const loader = new THREE.TextureLoader();
-    const [grenade, molotov, rocket] = await Promise.all([
+    const [grenade, molotov, rocket, blood] = await Promise.all([
       loader.loadAsync('/assets/original/weapons/grenade.svg'),
       loader.loadAsync('/assets/original/weapons/molotov.svg'),
-      loader.loadAsync('/assets/original/weapons/rocket.svg')
+      loader.loadAsync('/assets/original/weapons/rocket.svg'),
+      loader.loadAsync('/assets/custom/actions/bloodstain.png')
     ]);
-    for (const texture of [grenade, molotov, rocket]) {
+    for (const texture of [grenade, molotov, rocket, blood]) {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.magFilter = THREE.NearestFilter;
       texture.minFilter = THREE.NearestFilter;
     }
-    return new WorldObjectPresentation(scene, localPlayerId, surfaceHeightAt, grenade, molotov, rocket);
+    return new WorldObjectPresentation(
+      scene,
+      localPlayerId,
+      surfaceHeightAt,
+      grenade,
+      molotov,
+      rocket,
+      blood
+    );
   }
 
   synchronize(
@@ -138,6 +150,7 @@ export class WorldObjectPresentation {
     this.grenadeTexture.dispose();
     this.molotovTexture.dispose();
     this.rocketTexture.dispose();
+    this.bloodTexture.dispose();
   }
 
   private synchronizeMarkers(

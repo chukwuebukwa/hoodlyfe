@@ -345,6 +345,10 @@ export class DistrictRoom extends Room<DistrictState> {
     return true;
   }
 
+  protected usesAuthoredStreetContent(): boolean {
+    return true;
+  }
+
   async onCreate(options?: DistrictRoomOptions): Promise<void> {
     this.runtimeHealth = options?.runtimeHealth instanceof RuntimeHealthMonitor
       ? options.runtimeHealth
@@ -1201,11 +1205,13 @@ export class DistrictRoom extends Room<DistrictState> {
       }
     });
     if (!activityController) {
-      this.serviceController.initialize();
-      this.medicalController.initialize();
-      this.weaponPickupController.initialize();
-      this.soccerBallController.initialize();
-      this.trafficSignalController.initialize(this.simulationClock.nowMs);
+      if (this.usesAuthoredStreetContent()) {
+        this.serviceController.initialize();
+        this.medicalController.initialize();
+        this.weaponPickupController.initialize();
+        this.soccerBallController.initialize();
+        this.trafficSignalController.initialize(this.simulationClock.nowMs);
+      }
       this.population.populate();
       this.populationStreaming.initialize(this.simulationClock.nowMs);
     }
@@ -1695,6 +1701,56 @@ export class DistrictRaceRoom extends DistrictRoom {
       'assets',
       'districts',
       'raceway',
+      'maps'
+    );
+  }
+}
+
+export class DistrictCityRoom extends DistrictRoom {
+  protected override usesTrafficTopology(): boolean {
+    return false;
+  }
+
+  protected override usesAmbientPopulation(): boolean {
+    return false;
+  }
+
+  protected override usesAuthoredStreetContent(): boolean {
+    return false;
+  }
+
+  protected override mapsDirectory(): string {
+    return join(
+      process.cwd(),
+      'public',
+      'assets',
+      'districts',
+      'wil',
+      'maps'
+    );
+  }
+}
+
+export class DistrictResidentialRoom extends DistrictRoom {
+  protected override usesTrafficTopology(): boolean {
+    return false;
+  }
+
+  protected override usesAmbientPopulation(): boolean {
+    return false;
+  }
+
+  protected override usesAuthoredStreetContent(): boolean {
+    return false;
+  }
+
+  protected override mapsDirectory(): string {
+    return join(
+      process.cwd(),
+      'public',
+      'assets',
+      'districts',
+      'ste',
       'maps'
     );
   }

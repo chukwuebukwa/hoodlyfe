@@ -14,6 +14,8 @@
     "assets:original-map": "python3 scripts/render-original-district.py",
     "map:expand": "tsx scripts/expand-district-map.ts",
     "map:generate-roads": "tsx scripts/generate-full-road-network.ts",
+    "map:generate-downtown": "npm run district:export -- wil 256",
+    "map:generate-residential": "npm run district:export -- ste 256",
     "map:generate-raceway": "node scripts/generate-raceway-district.mjs",
     "map:generate-deathmatch": "node scripts/generate-raceway-district.mjs --deathmatch",
     "map:validate": "tsx scripts/validate-district-map.ts",

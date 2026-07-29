@@ -48,6 +48,19 @@ GTA2_LEVEL=wil npm run assets:export
 OPENGTA2_PATH=/path/to/GTA2/App_Executables npm run assets:export
 ```
 
+To export the complete Downtown district into its isolated runtime asset root, run:
+
+```bash
+npm run map:generate-downtown
+npm run map:generate-residential
+```
+
+Then start the web and game servers. Open `http://localhost:5173/city` for Downtown or
+`http://localhost:5173/residential` for Residential. Both use exported map geometry, surfaces,
+collision, and road classifications. Industrial-specific lanes, ambient population, traffic
+signals, services, and interiors remain disabled until district-specific gameplay metadata is
+authored.
+
 Raw export is intended for converter development. To resize the active district, use the
 transactional map pipeline so gameplay coordinates move with the source crop:
 
