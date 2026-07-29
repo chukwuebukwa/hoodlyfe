@@ -44,6 +44,36 @@ test('player reactions replicate progress, suppress restart, and accept stronger
   assert.equal(player.action, '');
 });
 
+test('bullet reactions remain visual and do not interrupt player controls or actions', () => {
+  const state = new DistrictState();
+  const player = new PlayerState();
+  player.id = 'driver';
+  player.angle = 0;
+  state.players.set(player.id, player);
+  let interruptionCount = 0;
+  const controller = new CombatReactionController({
+    state,
+    interruptPlayer: () => {
+      interruptionCount++;
+    }
+  });
+
+  assert.equal(controller.player(player, impact('bullet', 'light', 20, 0), result(10), 1000), true);
+  assert.equal(player.reactionKind, 'flinch');
+  assert.equal(player.action, '');
+  assert.equal(interruptionCount, 0);
+
+  controller.update(1100);
+  player.action = 'entering';
+  player.actionVehicleId = 'car';
+  player.actionUntil = 1500;
+  assert.equal(controller.player(player, impact('bullet', 'light', 20, 0), result(10), 1200), true);
+  assert.equal(player.action, 'entering');
+  assert.equal(player.actionVehicleId, 'car');
+  assert.equal(player.actionUntil, 1500);
+  assert.equal(interruptionCount, 0);
+});
+
 test('NPC reactions pause through their replicated deadline and clear on death', () => {
   const state = new DistrictState();
   const npc = new NpcState();

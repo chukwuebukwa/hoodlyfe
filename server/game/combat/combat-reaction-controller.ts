@@ -43,11 +43,13 @@ export class CombatReactionController {
     }
     const kind = reactionKindFor({...impact, ...result});
     if (!this.canStart('player', target.id, kind)) return false;
-    this.options.interruptPlayer(target);
     this.start(target, 'player', kind, impact, nowMs);
-    target.action = kind === 'knockdown' ? 'knockdown' : 'hit';
-    target.actionUntil = nowMs + reactionDurationMs(kind);
-    target.actionVehicleId = '';
+    if (impact.family !== 'bullet') {
+      this.options.interruptPlayer(target);
+      target.action = kind === 'knockdown' ? 'knockdown' : 'hit';
+      target.actionUntil = nowMs + reactionDurationMs(kind);
+      target.actionVehicleId = '';
+    }
     return true;
   }
 
