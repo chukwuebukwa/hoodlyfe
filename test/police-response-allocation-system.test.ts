@@ -143,6 +143,37 @@ test('search expiry suppresses an old unit-report pair until a newer report', ()
   assert.equal(allocation.diagnostics().suppressedPairs, 0);
 });
 
+test('a cruiser deployment replaces its lease with its nearby foot crew', () => {
+  const allocation = new PoliceResponseAllocationSystem();
+  const target = suspect('driver', 2, 0);
+  const units = [
+    unit('far-1', 'foot', 600),
+    unit('far-2', 'foot', 700),
+    unit('cruiser', 'vehicle', 80)
+  ];
+  allocation.update([target], units, 0);
+
+  const changes = allocation.deployVehicleCrew('cruiser', 'driver', [
+    unit('crew-driver', 'foot', 40),
+    unit('crew-passenger', 'foot', 50)
+  ], 100);
+
+  assert.equal(changes.some((change) => (
+    change.unitKind === 'vehicle' &&
+    change.unitId === 'cruiser' &&
+    change.previousSuspectId === 'driver' &&
+    change.reason === 'replaced'
+  )), true);
+  assert.equal(allocation.assignmentFor('vehicle', 'cruiser'), undefined);
+  assert.deepEqual(
+    allocation.entries()
+      .filter((entry) => entry.unitKind === 'foot')
+      .map((entry) => entry.unitId)
+      .sort(),
+    ['crew-driver', 'crew-passenger']
+  );
+});
+
 function suspect(
   id: string,
   wantedLevel: number,

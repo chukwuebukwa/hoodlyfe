@@ -231,6 +231,57 @@ export class PoliceResponseAllocationSystem {
     return this.releaseAssignment(unitKey(unitKind, unitId), 'unavailable', nowMs);
   }
 
+  deployVehicleCrew(
+    vehicleId: string,
+    suspectId: string,
+    officers: readonly PoliceResponseUnit[],
+    nowMs: number
+  ): PoliceResponseChange[] {
+    assertFinite(nowMs, 'Crew deployment time');
+    const suspect = this.suspects.find((candidate) => candidate.id === suspectId);
+    const vehicleAssignment = this.assignments.get(unitKey('vehicle', vehicleId));
+    if (!suspect || vehicleAssignment?.suspectId !== suspectId) return [];
+
+    const changes: PoliceResponseChange[] = [];
+    const releasedVehicle = this.releaseAssignment(
+      unitKey('vehicle', vehicleId),
+      'replaced',
+      nowMs
+    );
+    if (releasedVehicle) changes.push(releasedVehicle);
+
+    const desiredFoot = this.desiredQuotas.get(suspectId)?.foot ?? 0;
+    const normalizedOfficers = normalizeUnits(officers)
+      .filter((unit) => unit.kind === 'foot' && unit.available)
+      .slice(0, desiredFoot);
+    for (const officer of normalizedOfficers) {
+      const officerKey = unitKey('foot', officer.id);
+      const existing = this.assignments.get(officerKey);
+      if (existing?.suspectId === suspectId) continue;
+      if (existing) {
+        const released = this.releaseAssignment(officerKey, 'replaced', nowMs);
+        if (released) changes.push(released);
+      }
+
+      const assignedToSuspect = [...this.assignments.entries()]
+        .filter(([, assignment]) => (
+          assignment.unitKind === 'foot' && assignment.suspectId === suspectId
+        ));
+      if (assignedToSuspect.length >= desiredFoot) {
+        const replacement = assignedToSuspect
+          .filter(([key]) => key !== officerKey)
+          .sort((left, right) => (
+            right[1].distance - left[1].distance || left[0].localeCompare(right[0])
+          ))[0];
+        if (!replacement) continue;
+        const released = this.releaseAssignment(replacement[0], 'replaced', nowMs);
+        if (released) changes.push(released);
+      }
+      changes.push(this.assign(officer, suspect, nowMs, 'replaced'));
+    }
+    return changes;
+  }
+
   clearSuspect(suspectId: string, nowMs: number): PoliceResponseChange[] {
     assertFinite(nowMs, 'Suspect clear time');
     const changes: PoliceResponseChange[] = [];

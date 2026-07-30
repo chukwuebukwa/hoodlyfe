@@ -12,6 +12,22 @@ export type PoliceVehicleStrategy =
   | 'route-failed';
 
 export const DIRECT_PURSUIT_DISTANCE = 210;
+export const POLICE_CRUISER_DISMOUNT = Object.freeze({
+  distance: 150,
+  stoppedSpeed: 18,
+  stoppedDurationMs: 2_500
+});
+
+export function policeCruiserDismountDelay(
+  target: PoliceVehicleTargetSnapshot,
+  distance: number,
+  canSeeTarget: boolean
+): number | undefined {
+  if (!canSeeTarget || distance > POLICE_CRUISER_DISMOUNT.distance) return undefined;
+  if (!target.targetVehicleId) return 0;
+  if (Math.abs(target.currentSpeed) > POLICE_CRUISER_DISMOUNT.stoppedSpeed) return undefined;
+  return POLICE_CRUISER_DISMOUNT.stoppedDurationMs;
+}
 
 export function policeVehicleStrategy(
   target: PoliceVehicleTargetSnapshot,

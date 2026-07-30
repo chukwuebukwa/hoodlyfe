@@ -6,6 +6,7 @@ import {RoadRoutePlanner} from '../traffic/road-route-planner.ts';
 import type {PoliceVehicleTargetSnapshot} from './crime-response-controller.ts';
 import {
   DIRECT_PURSUIT_DISTANCE,
+  policeCruiserDismountDelay,
   policeVehicleSpeed,
   policeVehicleStrategy,
   predictPoliceDestination,
@@ -31,6 +32,7 @@ interface PoliceVehicleRuntime {
   desiredSpeed: number;
   speedReason: TrafficSpeedReason | 'blocked' | 'idle' | 'hijack';
   obstacleId: string;
+  dismountReadyAt: number;
 }
 
 export interface PoliceVehicleDiagnostic {
@@ -69,6 +71,11 @@ interface PoliceVehicleControllerOptions {
     canSeeTarget: boolean,
     nowMs: number
   ) => void;
+  requestDismount?: (
+    vehicle: VehicleState,
+    target: PoliceVehicleTargetSnapshot,
+    nowMs: number
+  ) => boolean;
 }
 
 const VEHICLE_RADIUS = 20;
@@ -161,6 +168,22 @@ export class PoliceVehicleController {
     runtime.canSeeTarget = canSeeTarget;
     runtime.strategy = policeVehicleStrategy(target, pursuit.mode, distance);
     vehicle.siren = true;
+    const requestDismount = this.options.requestDismount;
+    const dismountDelay = requestDismount && pursuit.mode === 'pursuit'
+      ? policeCruiserDismountDelay(target, distance, canSeeTarget)
+      : undefined;
+    if (dismountDelay === undefined) {
+      runtime.dismountReadyAt = 0;
+    } else {
+      if (runtime.dismountReadyAt === 0) runtime.dismountReadyAt = nowMs + dismountDelay;
+      this.driver.brake(vehicle, deltaSeconds, 520);
+      runtime.desiredSpeed = 0;
+      runtime.speedReason = 'blocked';
+      runtime.obstacleId = target.targetVehicleId;
+      if (nowMs < runtime.dismountReadyAt) return false;
+      if (requestDismount!(vehicle, target, nowMs)) return false;
+      runtime.dismountReadyAt = 0;
+    }
     const predicted = predictPoliceDestination(
       target,
       pursuit.lastKnownX,
@@ -254,6 +277,7 @@ export class PoliceVehicleController {
     runtime.reportAt = target.reportedAt;
     runtime.strategy = 'search';
     runtime.nextReplanAt = 0;
+    runtime.dismountReadyAt = 0;
     this.memory.assignSearch(
       vehicleId,
       target.suspectId,
@@ -313,6 +337,7 @@ export class PoliceVehicleController {
     runtime.route = [];
     runtime.waypointIndex = 0;
     runtime.nextReplanAt = 0;
+    runtime.dismountReadyAt = 0;
     this.memory.clearOfficer(vehicleId);
   }
 
@@ -361,6 +386,7 @@ function createRuntime(): PoliceVehicleRuntime {
     blockedSince: 0,
     desiredSpeed: 0,
     speedReason: 'idle',
-    obstacleId: ''
+    obstacleId: '',
+    dismountReadyAt: 0
   };
 }

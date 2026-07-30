@@ -5,7 +5,7 @@ import {
   responseSpawnInterval,
   responseVehicleLimit
 } from '../server/game/police/police-response-fleet-controller.ts';
-import {DistrictState, PlayerState, VehicleState} from '../server/state.ts';
+import {DistrictState, NpcState, PlayerState, VehicleState} from '../server/state.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {vehicleConfig} from '../server/game/vehicles/vehicle-config.ts';
 
@@ -85,6 +85,47 @@ test('stand-down removes only managed, clear response cars after a grace period'
   assert.equal(fixture.police.has(responseId), false);
 });
 
+test('a deployed cruiser crew pursues on foot then returns to its original car', () => {
+  const fixture = createFixture(2);
+  fixture.controller.update(0);
+  const responseId = fixture.controller.managedVehicleIds()[0];
+  const response = fixture.state.vehicles.get(responseId)!;
+  response.x = fixture.player.x + 100;
+  response.y = fixture.player.y;
+
+  assert.equal(fixture.controller.dismount(responseId, fixture.player.id, 100), true);
+  assert.equal(fixture.controller.ownsDismountedVehicle(responseId), true);
+  assert.equal(fixture.controller.diagnostics().dismountedCrews, 1);
+  assert.equal(response.traffic, false);
+  assert.equal(fixture.police.has(responseId), false);
+  const officerIds = [...fixture.state.npcs.keys()].sort();
+  assert.equal(officerIds.length, 2);
+  assert.ok(officerIds.every((id) => id.startsWith(`${responseId}:crew:1:`)));
+
+  fixture.player.wanted = 0;
+  fixture.controller.update(200);
+  assert.deepEqual([...fixture.pedestrians.commands.keys()].sort(), officerIds);
+  fixture.player.wanted = 2;
+  fixture.controller.update(250);
+  assert.equal(fixture.pedestrians.commands.size, 0);
+  assert.equal(fixture.controller.ownsDismountedVehicle(responseId), true);
+
+  fixture.player.wanted = 0;
+  fixture.controller.update(275);
+  for (const officerId of officerIds) {
+    const officer = fixture.state.npcs.get(officerId)!;
+    officer.x = response.x;
+    officer.y = response.y;
+  }
+  fixture.controller.update(300);
+
+  assert.equal(fixture.controller.ownsDismountedVehicle(responseId), false);
+  assert.equal(response.traffic, true);
+  assert.equal(response.siren, false);
+  assert.equal(fixture.police.has(responseId), true);
+  assert.equal(fixture.state.npcs.size, 0);
+});
+
 function createFixture(wanted: number) {
   const state = new DistrictState();
   const world = CollisionMap.load();
@@ -96,10 +137,12 @@ function createFixture(wanted: number) {
   player.wanted = wanted;
   state.players.set(player.id, player);
   const police = new PoliceRegistry();
+  const pedestrians = new FakeCrewPedestrians(state);
   const controller = new PoliceResponseFleetController({
     state,
     world,
     police,
+    pedestrians: () => pedestrians,
     responsePlan: () => ({
       desiredUnits: responseVehicleLimit(player.wanted),
       targets: player.wanted > 0 ? [{
@@ -112,7 +155,7 @@ function createFixture(wanted: number) {
       }] : []
     })
   });
-  return {state, world, player, police, controller};
+  return {state, world, player, police, pedestrians, controller};
 }
 
 function createPoliceVehicle(id: string, x: number, y: number): VehicleState {
@@ -139,5 +182,45 @@ class PoliceRegistry {
 
   has(vehicleId: string): boolean {
     return this.ids.has(vehicleId);
+  }
+}
+
+class FakeCrewPedestrians {
+  readonly commands = new Map<string, {x: number; y: number}>();
+
+  constructor(private readonly state: DistrictState) {}
+
+  spawnAmbientAt(
+    id: string,
+    kind: 'civilian' | 'police',
+    x: number,
+    y: number,
+    angle: number,
+    surfaceId?: string
+  ): NpcState {
+    const npc = new NpcState();
+    npc.id = id;
+    npc.kind = kind;
+    npc.x = x;
+    npc.y = y;
+    npc.angle = angle;
+    if (surfaceId) npc.surfaceId = surfaceId;
+    this.state.npcs.set(id, npc);
+    return npc;
+  }
+
+  commandMoveTo(npcId: string, x: number, y: number): boolean {
+    if (!this.state.npcs.has(npcId)) return false;
+    this.commands.set(npcId, {x, y});
+    return true;
+  }
+
+  clearMoveCommand(npcId: string): void {
+    this.commands.delete(npcId);
+  }
+
+  removeManaged(npcId: string): boolean {
+    this.commands.delete(npcId);
+    return this.state.npcs.delete(npcId);
   }
 }

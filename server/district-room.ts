@@ -509,6 +509,7 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       isReservedPoliceUnit: (kind, unitId) => (
         (kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)) ||
+        (kind === 'vehicle' && this.policeResponseFleet?.ownsDismountedVehicle(unitId)) ||
         (kind === 'foot' && this.policeStingers?.ownsOfficer(unitId))
       )
     });
@@ -523,6 +524,9 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       reportObservation: (suspectId, canSeeTarget, nowMs) => (
         this.crimeController.recordPoliceVehicleObservation(suspectId, canSeeTarget, nowMs)
+      ),
+      requestDismount: (vehicle, target, nowMs) => (
+        this.policeResponseFleet.dismount(vehicle.id, target.suspectId, nowMs)
       )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
@@ -530,6 +534,15 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       responsePlan: () => this.crimeController.responseFleetPlan(),
       police: this.policeVehicleController,
+      pedestrians: () => this.pedestrians,
+      onCrewDeployed: (vehicleId, suspectId, officers, nowMs) => (
+        this.crimeController.deployPoliceVehicleCrew(
+          vehicleId,
+          suspectId,
+          officers,
+          nowMs
+        )
+      ),
       onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });

@@ -298,6 +298,28 @@ export class CrimeResponseController {
     return this.responseAllocation.fleetPlan();
   }
 
+  deployPoliceVehicleCrew(
+    vehicleId: string,
+    suspectId: string,
+    officers: readonly NpcState[],
+    nowMs: number
+  ): void {
+    const changes = this.responseAllocation.deployVehicleCrew(
+      vehicleId,
+      suspectId,
+      officers.map((officer) => ({
+        id: officer.id,
+        kind: 'foot' as const,
+        x: officer.x,
+        y: officer.y,
+        available: officer.alive
+      })),
+      nowMs
+    );
+    this.applyAllocationChanges(changes, nowMs);
+    this.pursuitCoordinator.update(this.responseAllocation.entries());
+  }
+
   responseAllocationSnapshot(): PoliceResponseAllocationDiagnostic {
     return this.responseAllocation.diagnostics();
   }

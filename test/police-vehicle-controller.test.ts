@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {PoliceVehicleController} from '../server/game/police/police-vehicle-controller.ts';
 import {
+  policeCruiserDismountDelay,
   policeVehicleStrategy,
   predictPoliceDestination
 } from '../server/game/police/police-vehicle-policy.ts';
@@ -117,6 +118,45 @@ test('secondary cruisers intercept flanks without inheriting primary ram behavio
     y: 378
   });
   assert.deepEqual(predictPoliceDestination(target, 10, 20, false), {x: 10, y: 20});
+});
+
+test('police cruisers dismount immediately for an on-foot suspect but wait out a stopped car', () => {
+  const world = createRoadWorld(() => true);
+  let target = createTarget({
+    currentX: 120,
+    reportedX: 120,
+    wantedLevel: 2,
+    targetVehicleId: 'getaway-car',
+    currentSpeed: 0
+  });
+  const dismounts: string[] = [];
+  const controller = new PoliceVehicleController({
+    world,
+    targetFor: () => target,
+    forgetTarget() {},
+    requestDismount: (vehicle) => {
+      dismounts.push(vehicle.id);
+      return true;
+    }
+  });
+  const vehicle = createPoliceVehicle();
+  controller.register(vehicle.id);
+
+  controller.update(vehicle, 1 / 30, 0);
+  controller.update(vehicle, 1 / 30, 2_499);
+  assert.deepEqual(dismounts, []);
+  controller.update(vehicle, 1 / 30, 2_500);
+  assert.deepEqual(dismounts, [vehicle.id]);
+
+  target = {...target, targetVehicleId: '', currentSpeed: 0};
+  const second = createPoliceVehicle();
+  second.id = 'police-cruiser-2';
+  controller.register(second.id);
+  controller.update(second, 1 / 30, 3_000);
+  assert.deepEqual(dismounts, [vehicle.id, second.id]);
+
+  assert.equal(policeCruiserDismountDelay(target, 149, true), 0);
+  assert.equal(policeCruiserDismountDelay(target, 151, true), undefined);
 });
 
 function createTarget(
