@@ -43,6 +43,10 @@ import {
 import {isMedicalCareKind} from '../shared/content/medical-care.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
 import {
+  POLICE_AWARENESS_MESSAGE,
+  type PoliceAwarenessMessage
+} from '../shared/protocol/police-awareness.ts';
+import {
   RADIO_STATION_MESSAGE,
   type RadioStationMessage
 } from '../shared/protocol/radio.ts';
@@ -312,6 +316,7 @@ export class DistrictRoom extends Room<DistrictState> {
     phases: readonly SimulationPhaseDiagnostic[];
     vehicleMotion?: VehicleMotionObservation;
   };
+  private lastPoliceAwarenessPublishAt = Number.NEGATIVE_INFINITY;
   private epochMs = 0;
   private readonly journaledCommands = new Map<
     string,
@@ -373,6 +378,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.observability?.close();
     this.observability = undefined;
     this.pendingSimulationObservation = undefined;
+    this.lastPoliceAwarenessPublishAt = Number.NEGATIVE_INFINITY;
     this.journaledCommands.clear();
     const playtest = this.acceptsPlaytestRevision()
       ? await loadPlaytestWorld(options ?? {})
@@ -496,13 +502,6 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {kinds: ['npc']})
         .map((record) => this.state.npcs.get(record.id))
         .filter((npc): npc is NpcState => Boolean(npc)),
-      queryVehicles: (x, y, radius) => this.spatialIndex.queryCircle(
-        x,
-        y,
-        radius,
-        {kinds: ['vehicle']}
-      ).map((record) => this.state.vehicles.get(record.id))
-        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
       panicWitness: (witnessId, suspectId, untilMs) => this.pedestrians.panic(
         witnessId,
         suspectId,
@@ -521,6 +520,9 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       reportTactic: (vehicleId, phase, goalX, goalY) => (
         this.crimeController.recordPoliceVehicleTactic(vehicleId, phase, goalX, goalY)
+      ),
+      reportObservation: (suspectId, canSeeTarget, nowMs) => (
+        this.crimeController.recordPoliceVehicleObservation(suspectId, canSeeTarget, nowMs)
       )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
@@ -1597,6 +1599,19 @@ export class DistrictRoom extends Room<DistrictState> {
       this.fatalShutdown?.(error);
     }
     this.voiceChat.synchronize();
+    this.publishPoliceAwareness();
+  }
+
+  private publishPoliceAwareness(): void {
+    const nowMs = this.simulationClock.nowMs;
+    if (nowMs - this.lastPoliceAwarenessPublishAt < 100) return;
+    this.lastPoliceAwarenessPublishAt = nowMs;
+    for (const client of this.clients) {
+      if (!this.state.players.has(client.sessionId)) continue;
+      const snapshot: PoliceAwarenessMessage =
+        this.crimeController.policeAwarenessSnapshot(client.sessionId, nowMs);
+      client.send(POLICE_AWARENESS_MESSAGE, snapshot);
+    }
   }
 
   private noticePlayer(

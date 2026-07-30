@@ -8,6 +8,11 @@ import {
 } from '../../../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../../../shared/protocol/notices.ts';
 import {
+  POLICE_AWARENESS_MESSAGE,
+  clearPoliceAwareness,
+  type PoliceAwarenessMessage
+} from '../../../shared/protocol/police-awareness.ts';
+import {
   serviceMinimapPoints,
   storefrontMinimapPoints,
   type InteractionAnchor
@@ -66,6 +71,8 @@ export class DistrictUiController {
   private interactionAnchor?: InteractionAnchor;
   private lastUpdateAt = Number.NEGATIVE_INFINITY;
   private readonly removeNotice: () => void;
+  private readonly removePoliceAwareness: () => void;
+  private policeAwareness = clearPoliceAwareness();
 
   constructor(
     private readonly room: Room<DistrictNetworkState>,
@@ -102,6 +109,12 @@ export class DistrictUiController {
     this.removeNotice = room.onMessage<GameNotice>(GAME_NOTICE_MESSAGE, (notice) => {
       this.hud.show(notice.message, notice.tone);
     });
+    this.removePoliceAwareness = room.onMessage<PoliceAwarenessMessage>(
+      POLICE_AWARENESS_MESSAGE,
+      (message) => {
+        this.policeAwareness = message;
+      }
+    );
     room.onLeave(this.handleDisconnected);
     room.onError(this.handleDisconnected);
     this.hud.setConnection(true);
@@ -126,7 +139,10 @@ export class DistrictUiController {
     const local = state.players.get(this.room.sessionId);
     const vehicle = local?.vehicleId ? state.vehicles.get(local.vehicleId) : undefined;
     const onStreet = !local || (local.spaceId || STREET_SPACE_ID) === STREET_SPACE_ID;
-    if (local) this.hud.update(local, vehicle);
+    if (local) {
+      this.hud.update(local, vehicle);
+      this.hud.setPoliceAwareness(this.policeAwareness, local.wanted);
+    }
     this.radio.synchronize(local, vehicle);
     this.sfx.synchronize(local, vehicle);
     this.vehicleAudio.synchronize(local, vehicle, state.vehicles);
@@ -163,6 +179,7 @@ export class DistrictUiController {
   destroy(): void {
     this.missionAction?.removeEventListener('click', this.handleMissionAction);
     this.removeNotice();
+    this.removePoliceAwareness();
     this.room.onLeave.remove(this.handleDisconnected);
     this.room.onError.remove(this.handleDisconnected);
     this.medical.destroy();
@@ -343,7 +360,7 @@ export class DistrictUiController {
         ...cashPickupMinimapPoints(state.cashPickups?.values())
       ]
     });
-    if (frame) this.minimap?.render(frame, nowMs);
+    if (frame) this.minimap?.render(frame, nowMs, this.policeAwareness);
   }
 
   private readonly handleMissionAction = (event: Event): void => {

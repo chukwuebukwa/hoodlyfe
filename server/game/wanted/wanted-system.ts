@@ -37,11 +37,17 @@ export class WantedSystem {
     return {heat: record.heat, level: record.level};
   }
 
-  tryDecay(suspectId: string, nowMs: number, policeNearby: boolean): WantedState {
+  holdDecay(suspectId: string, nowMs: number): WantedState {
+    const record = this.getOrCreate(suspectId);
+    record.lastDecayAt = Math.max(record.lastDecayAt, nowMs);
+    return {heat: record.heat, level: record.level};
+  }
+
+  tryDecay(suspectId: string, nowMs: number, policeAware: boolean): WantedState {
     const record = this.getOrCreate(suspectId);
     if (
       record.level === 0 ||
-      policeNearby ||
+      policeAware ||
       nowMs - record.lastCrimeAt < this.decayDelayMs ||
       nowMs - record.lastDecayAt < this.decayStepMs
     ) {

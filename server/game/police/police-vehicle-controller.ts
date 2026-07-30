@@ -13,6 +13,7 @@ import {
 } from './police-vehicle-policy.ts';
 import {PursuitMemory} from './pursuit-memory.ts';
 import type {PoliceTacticalPhase} from './pursuit-coordinator.ts';
+import {policeFieldOfViewContains} from './police-awareness-policy.ts';
 
 interface PoliceVehicleRuntime {
   suspectId: string;
@@ -62,6 +63,11 @@ interface PoliceVehicleControllerOptions {
     phase: PoliceTacticalPhase,
     goalX: number,
     goalY: number
+  ) => void;
+  reportObservation?: (
+    suspectId: string,
+    canSeeTarget: boolean,
+    nowMs: number
   ) => void;
 }
 
@@ -125,12 +131,16 @@ export class PoliceVehicleController {
     }
 
     const distance = Math.hypot(target.currentX - vehicle.x, target.currentY - vehicle.y);
-    const canSeeTarget = distance <= 760 && this.options.world.hasLineOfSight(
+    const canSeeTarget = policeFieldOfViewContains('vehicle', vehicle, {
+      x: target.currentX,
+      y: target.currentY
+    }) && this.options.world.hasLineOfSight(
       vehicle.x,
       vehicle.y,
       target.currentX,
       target.currentY
     );
+    this.options.reportObservation?.(target.suspectId, canSeeTarget, nowMs);
     const pursuit = canSeeTarget
       ? this.memory.observe(
         vehicle.id,

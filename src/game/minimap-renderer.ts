@@ -1,4 +1,8 @@
 import type {MinimapFrame, MinimapMarker} from './minimap-marker-policy.ts';
+import type {
+  PoliceAwarenessMessage,
+  PoliceSearchZone
+} from '../../shared/protocol/police-awareness.ts';
 
 type LocationMarkerKind = Extract<
   MinimapMarker['kind'],
@@ -34,7 +38,11 @@ export class MinimapRenderer {
     }
   }
 
-  render(frame: MinimapFrame, timeMs: number): void {
+  render(
+    frame: MinimapFrame,
+    timeMs: number,
+    awareness?: PoliceAwarenessMessage
+  ): void {
     const {context, canvas} = this;
     const width = canvas.width;
     const height = canvas.height;
@@ -64,6 +72,12 @@ export class MinimapRenderer {
 
     context.fillStyle = 'rgba(3, 8, 10, 0.2)';
     context.fillRect(0, 0, width, height);
+    const activeAwareness = frame.wantedLevel > 0 ? awareness : undefined;
+    if (activeAwareness?.phase === 'spotted') {
+      drawPoliceAlertTint(context, width, height, timeMs);
+    } else if (activeAwareness?.phase === 'searching') {
+      drawPoliceSearchZones(context, activeAwareness.zones, frame, worldScale);
+    }
     for (const marker of frame.markers) {
       const position = projectMarker(marker, frame, width, height, worldScale);
       drawMarker(
@@ -89,9 +103,67 @@ export class MinimapRenderer {
     context.fillText('N', centerX, 19);
     this.canvas.setAttribute(
       'aria-label',
-      `District minimap, ${frame.markers.length} markers, range ${Math.round(frame.range)}`
+      `District minimap, ${frame.markers.length} markers, range ${Math.round(frame.range)}, ` +
+        `police ${activeAwareness?.phase ?? 'clear'}`
     );
   }
+}
+
+function drawPoliceAlertTint(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  timeMs: number
+): void {
+  const red = Math.floor(timeMs / 180) % 2 === 0;
+  context.save();
+  context.globalCompositeOperation = 'screen';
+  context.fillStyle = red ? 'rgba(255, 32, 56, 0.2)' : 'rgba(42, 92, 255, 0.22)';
+  context.fillRect(0, 0, width, height);
+  const edge = context.createRadialGradient(
+    width / 2,
+    height / 2,
+    Math.min(width, height) * 0.16,
+    width / 2,
+    height / 2,
+    Math.max(width, height) * 0.72
+  );
+  edge.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  edge.addColorStop(1, red ? 'rgba(255, 24, 42, 0.38)' : 'rgba(35, 75, 255, 0.42)');
+  context.fillStyle = edge;
+  context.fillRect(0, 0, width, height);
+  context.restore();
+}
+
+function drawPoliceSearchZones(
+  context: CanvasRenderingContext2D,
+  zones: readonly PoliceSearchZone[],
+  frame: MinimapFrame,
+  worldScale: number
+): void {
+  context.save();
+  context.globalCompositeOperation = 'screen';
+  for (const zone of zones) {
+    const x = context.canvas.width / 2 + (zone.x - frame.originX) * worldScale;
+    const y = context.canvas.height / 2 + (zone.y - frame.originY) * worldScale;
+    const radius = zone.range * worldScale;
+    const start = zone.angle - zone.halfAngle;
+    const end = zone.angle + zone.halfAngle;
+    const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, 'rgba(122, 151, 255, 0.34)');
+    gradient.addColorStop(0.7, 'rgba(85, 117, 255, 0.2)');
+    gradient.addColorStop(1, 'rgba(70, 94, 255, 0.02)');
+    context.fillStyle = gradient;
+    context.strokeStyle = 'rgba(157, 178, 255, 0.48)';
+    context.lineWidth = 1.5;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.arc(x, y, radius, start, end);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
+  context.restore();
 }
 
 function projectMarker(

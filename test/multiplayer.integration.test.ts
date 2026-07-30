@@ -16,6 +16,10 @@ import {
   MISSION_START_MESSAGE
 } from '../shared/protocol/missions.ts';
 import {GAME_NOTICE_MESSAGE} from '../shared/protocol/notices.ts';
+import {
+  POLICE_AWARENESS_MESSAGE,
+  type PoliceAwarenessMessage
+} from '../shared/protocol/police-awareness.ts';
 import {AUDIO_EVENTS_MESSAGE} from '../shared/protocol/audio-events.ts';
 import {PROJECTILE_IMPACTS_MESSAGE} from '../shared/protocol/projectile-impacts.ts';
 import {
@@ -74,12 +78,22 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   const appearanceResults: AppearanceResultMessage[] = [];
   const firstWardrobeStates: WardrobeStateMessage[] = [];
   const secondWardrobeStates: WardrobeStateMessage[] = [];
+  const firstPoliceAwareness: PoliceAwarenessMessage[] = [];
+  const secondPoliceAwareness: PoliceAwarenessMessage[] = [];
   first.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, (snapshot) => debugSnapshots.push(snapshot));
   second.onMessage<DebugSnapshot>(DEBUG_SNAPSHOT_MESSAGE, () => undefined);
   first.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   second.onMessage(AUDIO_EVENTS_MESSAGE, () => undefined);
   first.onMessage(PROJECTILE_IMPACTS_MESSAGE, () => undefined);
   second.onMessage(PROJECTILE_IMPACTS_MESSAGE, () => undefined);
+  first.onMessage<PoliceAwarenessMessage>(
+    POLICE_AWARENESS_MESSAGE,
+    (message) => firstPoliceAwareness.push(message)
+  );
+  second.onMessage<PoliceAwarenessMessage>(
+    POLICE_AWARENESS_MESSAGE,
+    (message) => secondPoliceAwareness.push(message)
+  );
   first.onMessage<AppearanceResultMessage>(
     APPEARANCE_RESULT_MESSAGE,
     (result) => appearanceResults.push(result)
@@ -474,6 +488,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     if (settledShooter?.alive) {
       assert.ok(settledShooter.wanted >= 1);
       assert.ok(settledShooter.cash >= 100);
+      await waitUntil(() => firstPoliceAwareness.at(-1)?.wantedLevel === settledShooter.wanted);
+      assert.equal(secondPoliceAwareness.at(-1)?.wantedLevel, 0);
     }
   } else {
     await waitUntil(() => first.state.players.get(first.sessionId)?.alive === true, 5000);

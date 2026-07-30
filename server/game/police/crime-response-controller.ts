@@ -5,6 +5,11 @@ import {WitnessSystem} from '../incidents/witness-system.ts';
 import type {DistrictState, NpcState, PlayerState, VehicleState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
 import {WantedSystem} from '../wanted/wanted-system.ts';
+import type {
+  PoliceAwarenessMessage,
+  PoliceAwarenessPhase,
+  PoliceSearchZone
+} from '../../../shared/protocol/police-awareness.ts';
 import {
   PoliceResponseAllocationSystem,
   type PoliceResponseAllocationDiagnostic,
@@ -19,10 +24,23 @@ import {
   type PoliceTacticalPhase,
   type PoliceTacticalRole
 } from './pursuit-coordinator.ts';
+import {
+  POLICE_AWARENESS,
+  policeFieldOfViewContains,
+  policeSearchZone
+} from './police-awareness-policy.ts';
 
 interface CrimeClock {
   tick: number;
   nowMs: number;
+}
+
+interface PoliceAwarenessRuntime {
+  phase: PoliceAwarenessPhase;
+  lastKnownX: number;
+  lastKnownY: number;
+  lastSeenAt: number;
+  searchStartedAt: number;
 }
 
 interface CrimeResponseControllerOptions {
@@ -31,7 +49,6 @@ interface CrimeResponseControllerOptions {
   events: GameEventStream;
   clock: () => CrimeClock;
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
-  queryVehicles?: (x: number, y: number, radius: number) => VehicleState[];
   panicWitness: (witnessId: string, suspectId: string, untilMs: number) => void;
   isReservedPoliceUnit?: (kind: 'foot' | 'vehicle', unitId: string) => boolean;
 }
@@ -67,6 +84,7 @@ export class CrimeResponseController {
   private readonly responseAllocation = new PoliceResponseAllocationSystem();
   private readonly pursuitMemory = new PursuitMemory();
   private readonly pursuitCoordinator = new PursuitCoordinator();
+  private readonly awareness = new Map<string, PoliceAwarenessRuntime>();
   private readonly reportedSuspectLocations = new Map<
     string,
     {x: number; y: number; reportedAt: number}
@@ -132,6 +150,20 @@ export class CrimeResponseController {
         y: incident.y,
         reportedAt: nowMs
       });
+      const awareness = this.awareness.get(incident.suspectId);
+      if (!awareness) {
+        this.awareness.set(incident.suspectId, {
+          phase: 'searching',
+          lastKnownX: incident.x,
+          lastKnownY: incident.y,
+          lastSeenAt: Number.NEGATIVE_INFINITY,
+          searchStartedAt: nowMs
+        });
+      } else if (awareness.phase !== 'spotted') {
+        awareness.lastKnownX = incident.x;
+        awareness.lastKnownY = incident.y;
+        awareness.searchStartedAt = nowMs;
+      }
       this.options.events.publish({
         type: 'incident.reported',
         tick: this.options.clock().tick,
@@ -214,11 +246,13 @@ export class CrimeResponseController {
 
   decay(player: PlayerState, nowMs: number): void {
     if (player.wanted === 0) return;
-    const policeNearby = this.options.queryNpcs(player.x, player.y, 430)
-      .some((npc) => npc.kind === 'police' && npc.alive) ||
-      (this.options.queryVehicles?.(player.x, player.y, 520) ?? [])
-        .some((vehicle) => vehicle.kind === 'police' && !vehicle.destroyed && vehicle.siren);
-    player.wanted = this.wanted.tryDecay(player.id, nowMs, policeNearby).level;
+    const awareness = this.resolveAwareness(player.id, nowMs);
+    player.wanted = this.wanted.tryDecay(
+      player.id,
+      nowMs,
+      awareness?.phase === 'spotted'
+    ).level;
+    if (player.wanted === 0) this.awareness.delete(player.id);
   }
 
   policeVehicleTarget(vehicleId: string): PoliceVehicleTargetSnapshot | undefined {
@@ -273,12 +307,14 @@ export class CrimeResponseController {
     const player = targetId ? this.options.state.players.get(targetId) : undefined;
     if (!player?.alive || player.wanted <= 0) return undefined;
     const targetDistance = Math.hypot(player.x - officer.x, player.y - officer.y);
-    const canSeeTarget = targetDistance <= 620 && this.options.world.hasLineOfSight(
-      officer.x,
-      officer.y,
-      player.x,
-      player.y
-    );
+    const canSeeTarget = policeFieldOfViewContains('foot', officer, player) &&
+      this.options.world.hasLineOfSight(
+        officer.x,
+        officer.y,
+        player.x,
+        player.y
+      );
+    this.recordPoliceObservation(player, canSeeTarget, nowMs);
     const pursuit = canSeeTarget
       ? this.pursuitMemory.observe(officer.id, player.id, player.x, player.y, nowMs)
       : this.pursuitMemory.search(officer.id, player.id, nowMs);
@@ -320,6 +356,48 @@ export class CrimeResponseController {
     };
   }
 
+  recordPoliceVehicleObservation(
+    suspectId: string,
+    canSeeTarget: boolean,
+    nowMs: number
+  ): void {
+    const player = this.options.state.players.get(suspectId);
+    if (player?.alive && player.wanted > 0) {
+      this.recordPoliceObservation(player, canSeeTarget, nowMs);
+    }
+  }
+
+  policeAwarenessSnapshot(suspectId: string, nowMs: number): PoliceAwarenessMessage {
+    const player = this.options.state.players.get(suspectId);
+    if (!player?.alive || player.wanted <= 0 || player.spaceId !== 'street') {
+      return {
+        phase: 'clear',
+        wantedLevel: 0,
+        lastKnownX: 0,
+        lastKnownY: 0,
+        lastSeenAt: 0,
+        searchStartedAt: 0,
+        zones: []
+      };
+    }
+    const runtime = this.resolveAwareness(suspectId, nowMs) ?? {
+      phase: 'searching' as const,
+      lastKnownX: player.x,
+      lastKnownY: player.y,
+      lastSeenAt: Number.NEGATIVE_INFINITY,
+      searchStartedAt: nowMs
+    };
+    return {
+      phase: runtime.phase,
+      wantedLevel: player.wanted,
+      lastKnownX: runtime.lastKnownX,
+      lastKnownY: runtime.lastKnownY,
+      lastSeenAt: Number.isFinite(runtime.lastSeenAt) ? runtime.lastSeenAt : 0,
+      searchStartedAt: runtime.searchStartedAt,
+      zones: runtime.phase === 'searching' ? this.searchZonesFor(suspectId) : []
+    };
+  }
+
   clearSuspect(suspectId: string): void {
     const nowMs = this.options.clock().nowMs;
     this.incidents.clearSuspect(suspectId);
@@ -328,6 +406,7 @@ export class CrimeResponseController {
     this.pursuitMemory.clearSuspect(suspectId);
     this.pursuitCoordinator.clearSuspect(suspectId);
     this.reportedSuspectLocations.delete(suspectId);
+    this.awareness.delete(suspectId);
   }
 
   expire(nowMs: number): void {
@@ -354,6 +433,85 @@ export class CrimeResponseController {
       y: npc.y,
       alive: npc.alive
     }));
+  }
+
+  private recordPoliceObservation(
+    player: PlayerState,
+    canSeeTarget: boolean,
+    nowMs: number
+  ): void {
+    if (!canSeeTarget) {
+      this.resolveAwareness(player.id, nowMs);
+      return;
+    }
+    const runtime = this.awareness.get(player.id) ?? {
+      phase: 'spotted' as const,
+      lastKnownX: player.x,
+      lastKnownY: player.y,
+      lastSeenAt: nowMs,
+      searchStartedAt: 0
+    };
+    runtime.phase = 'spotted';
+    runtime.lastKnownX = player.x;
+    runtime.lastKnownY = player.y;
+    runtime.lastSeenAt = nowMs;
+    runtime.searchStartedAt = 0;
+    this.awareness.set(player.id, runtime);
+    const report = this.reportedSuspectLocations.get(player.id);
+    if (report) {
+      report.x = player.x;
+      report.y = player.y;
+    }
+    this.wanted.holdDecay(player.id, nowMs);
+  }
+
+  private resolveAwareness(
+    suspectId: string,
+    nowMs: number
+  ): PoliceAwarenessRuntime | undefined {
+    const player = this.options.state.players.get(suspectId);
+    if (!player?.alive || player.wanted <= 0) {
+      this.awareness.delete(suspectId);
+      return undefined;
+    }
+    const report = this.reportedSuspectLocations.get(suspectId);
+    let runtime = this.awareness.get(suspectId);
+    if (!runtime) {
+      runtime = {
+        phase: 'searching',
+        lastKnownX: report?.x ?? player.x,
+        lastKnownY: report?.y ?? player.y,
+        lastSeenAt: Number.NEGATIVE_INFINITY,
+        searchStartedAt: report?.reportedAt ?? nowMs
+      };
+      this.awareness.set(suspectId, runtime);
+    }
+    const recentlySeen = Number.isFinite(runtime.lastSeenAt) &&
+      nowMs - runtime.lastSeenAt <= POLICE_AWARENESS.lostSightGraceMs;
+    if (recentlySeen) {
+      runtime.phase = 'spotted';
+    } else if (runtime.phase !== 'searching') {
+      runtime.phase = 'searching';
+      runtime.searchStartedAt = nowMs;
+    }
+    return runtime;
+  }
+
+  private searchZonesFor(suspectId: string): PoliceSearchZone[] {
+    const zones: PoliceSearchZone[] = [];
+    for (const assignment of this.responseAllocation.entries()) {
+      if (assignment.suspectId !== suspectId) continue;
+      if (assignment.unitKind === 'foot') {
+        const officer = this.options.state.npcs.get(assignment.unitId);
+        if (officer?.alive) zones.push(policeSearchZone('foot', officer.id, officer));
+      } else {
+        const vehicle = this.options.state.vehicles.get(assignment.unitId);
+        if (vehicle && !vehicle.destroyed && !vehicle.hijackBy) {
+          zones.push(policeSearchZone('vehicle', vehicle.id, vehicle));
+        }
+      }
+    }
+    return zones.sort((left, right) => left.id.localeCompare(right.id));
   }
 
   private responseSuspects(): PoliceResponseSuspect[] {
