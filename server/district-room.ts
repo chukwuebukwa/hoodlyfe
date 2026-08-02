@@ -82,6 +82,7 @@ import {
   SOCCER_BALL_KICK_MESSAGE,
   type SoccerBallKickMessage
 } from '../shared/protocol/soccer-ball.ts';
+import {PLAYER_JUMP_MESSAGE} from '../shared/protocol/player-jump.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
@@ -392,7 +393,9 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.physicsWorld?.free();
     await initializePhysicsEngine();
-    this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
+    this.physicsWorld = PhysicsWorld.create(
+      this.world.physicsGeometry(this.world.surfaces.manifest.defaultSurfaceId)
+    );
     this.laneGraph = this.usesTrafficTopology()
       ? playtest?.laneGraph ?? (
         mapsDirectory
@@ -1148,6 +1151,12 @@ export class DistrictRoom extends Room<DistrictState> {
           player.angle = pose.angle;
           player.spaceId = 'street';
           player.surfaceId = STREET_GROUND_SURFACE_ID;
+          player.airborne = false;
+          player.elevation = 0;
+          player.verticalVelocity = 0;
+          player.airborneVelocityX = 0;
+          player.airborneVelocityY = 0;
+          player.landingSurfaceId = '';
           player.action = '';
           player.actionUntil = 0;
           player.actionVehicleId = '';
@@ -1245,6 +1254,9 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.registerJournaledCommand<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
       this.playerControl.acceptBatch(client.sessionId, message);
+    });
+    this.registerJournaledCommand(PLAYER_JUMP_MESSAGE, (client) => {
+      this.playerControl.jump(client.sessionId);
     });
     this.registerJournaledCommand<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
       this.vehicleInput.accept(client.sessionId, message);
@@ -1381,7 +1393,7 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private async spawnPlayerWithAuth(
     client: Client,
-    options: {name?: string; appearance?: unknown; auth?: ClientAuthPayload} = {}
+    options: DistrictJoinOptions = {}
   ): Promise<void> {
     if (this.state.players.has(client.sessionId)) return;
     const identity = await verifyClientAuth(options.auth);
@@ -1389,7 +1401,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.spawnPlayer(client, options);
   }
 
-  private spawnPlayer(client: Client, options: {name?: string; appearance?: unknown} = {}): void {
+  private spawnPlayer(client: Client, options: DistrictJoinOptions = {}): void {
     if (this.state.players.has(client.sessionId)) return;
     const spawn = this.world.spawnFor(this.state.players.size, PLAYER_RADIUS);
     const player = new PlayerState();

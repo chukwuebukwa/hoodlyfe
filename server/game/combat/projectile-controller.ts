@@ -81,7 +81,14 @@ export class ProjectileController {
           resolved: true
         };
       }
-      const worldProgress = firstBlockedProgress(this.options.world, startX, startY, endX, endY);
+      const worldProgress = firstBlockedProgress(
+        this.options.world,
+        startX,
+        startY,
+        endX,
+        endY,
+        bullet.surfaceId
+      );
       const historical = this.options.history?.querySegment({
         requestedServerTimeMs: window.effectiveServerTimeMs + (step + 1) * stepMs,
         nowMs: input.nowMs,
@@ -141,8 +148,15 @@ export class ProjectileController {
     const nextX = bullet.x + Math.cos(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     const nextY = bullet.y + Math.sin(bullet.angle) * weapon.projectileSpeed * deltaSeconds;
     const nextSurface = this.surfaceAfterMove(bullet, previousX, previousY, nextX, nextY);
-    if (!nextSurface || this.options.world.isBlockedAt(nextX, nextY)) {
-      const progress = firstBlockedProgress(this.options.world, previousX, previousY, nextX, nextY) ?? 1;
+    if (!nextSurface) {
+      const progress = firstBlockedProgress(
+        this.options.world,
+        previousX,
+        previousY,
+        nextX,
+        nextY,
+        bullet.surfaceId
+      ) ?? 1;
       this.publishImpact(
         bullet,
         nowMs,
@@ -379,16 +393,35 @@ function firstBlockedProgress(
   startX: number,
   startY: number,
   endX: number,
-  endY: number
+  endY: number,
+  initialSurfaceId?: string
 ): number | undefined {
   const distance = Math.hypot(endX - startX, endY - startY);
   const steps = Math.max(1, Math.ceil(distance / 4));
+  let previousX = startX;
+  let previousY = startY;
+  let surfaceId = initialSurfaceId;
   for (let step = 1; step <= steps; step++) {
     const progress = step / steps;
-    if (world.isBlockedAt(
-      startX + (endX - startX) * progress,
-      startY + (endY - startY) * progress
-    )) return progress;
+    const x = startX + (endX - startX) * progress;
+    const y = startY + (endY - startY) * progress;
+    if (surfaceId && typeof world.surfaceAfterMove === 'function') {
+      const nextSurfaceId = world.surfaceAfterMove(
+        surfaceId,
+        previousX,
+        previousY,
+        x,
+        y,
+        4,
+        'projectile'
+      );
+      if (!nextSurfaceId) return progress;
+      surfaceId = nextSurfaceId;
+    } else if (world.isBlockedAt(x, y, surfaceId, 'projectile')) {
+      return progress;
+    }
+    previousX = x;
+    previousY = y;
   }
   return undefined;
 }

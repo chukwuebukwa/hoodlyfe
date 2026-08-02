@@ -1,10 +1,13 @@
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {DeterministicRandom} from './game/world/deterministic-random.ts';
+import type {PhysicsWorldGeometry} from '../shared/physics/physics-world.ts';
 import {
   STREET_GROUND_SURFACE_ID,
   SurfaceMap,
   type SurfaceActorKind,
+  type SurfaceDefinition,
+  type SurfaceLanding,
   type SurfaceManifest
 } from '../shared/world/surface-map.ts';
 
@@ -58,8 +61,10 @@ export class CollisionMap {
   readonly tileHeight: number;
   readonly spawn: {x: number; y: number};
   readonly surfaces: SurfaceMap;
+  private readonly authoredSurfaces: boolean;
   private readonly collisions: number[];
   private readonly openCells: Array<{column: number; row: number}>;
+  private readonly physicsGeometryBySurface = new Map<string, PhysicsWorldGeometry>();
   private readonly roads: number[];
   private readonly roadCells: RoadNode[];
 
@@ -73,7 +78,8 @@ export class CollisionMap {
     this.height = map.height;
     this.tileWidth = map.tilewidth;
     this.tileHeight = map.tileheight;
-    this.surfaces = surfaces ? expandDefaultSurface(map, surfaces) : new SurfaceMap(flatSurfaceManifest(map));
+    this.authoredSurfaces = Boolean(surfaces);
+    this.surfaces = surfaces ?? new SurfaceMap(flatSurfaceManifest(map));
     this.collisions = collisionLayer.data;
     const roadLayer = map.layers.find((layer) => layer.name === 'roads');
     this.roads = roadLayer?.data.length === map.width * map.height
@@ -110,23 +116,37 @@ export class CollisionMap {
     return new CollisionMap(map, metadata, surfaces);
   }
 
-  physicsGeometry(): {
-    width: number;
-    height: number;
-    tileWidth: number;
-    tileHeight: number;
-    collisions: readonly number[];
-  } {
-    return {
+  physicsGeometry(surfaceId?: string): PhysicsWorldGeometry {
+    if (!this.authoredSurfaces || !surfaceId) return {
       width: this.width,
       height: this.height,
       tileWidth: this.tileWidth,
       tileHeight: this.tileHeight,
       collisions: this.collisions
     };
+    const existing = this.physicsGeometryBySurface.get(surfaceId);
+    if (existing) return existing;
+    const surface = this.surfaces.surface(surfaceId);
+    if (!surface) throw new Error(`Unknown physics surface "${surfaceId}".`);
+    const geometry = surfacePhysicsGeometry(
+      surface,
+      this.surfaces.manifest,
+      this.surfaces,
+      Math.max(16, Math.min(this.tileWidth, this.tileHeight) / 2)
+    );
+    this.physicsGeometryBySurface.set(surfaceId, geometry);
+    return geometry;
   }
 
-  isBlockedAt(x: number, y: number): boolean {
+  isBlockedAt(
+    x: number,
+    y: number,
+    surfaceId?: string,
+    actorKind: SurfaceActorKind = 'projectile'
+  ): boolean {
+    if (this.authoredSurfaces && surfaceId) {
+      return !this.surfaces.canOccupy(surfaceId, x, y, 0, actorKind);
+    }
     const column = Math.floor(x / this.tileWidth);
     const row = Math.floor(y / this.tileHeight);
     if (column < 0 || row < 0 || column >= this.width || row >= this.height) {
@@ -142,23 +162,10 @@ export class CollisionMap {
     surfaceId?: string,
     actorKind: SurfaceActorKind = 'player'
   ): boolean {
-    const diagonal = radius * 0.72;
-    const samples = [
-      [x - radius, y],
-      [x + radius, y],
-      [x, y - radius],
-      [x, y + radius],
-      [x - diagonal, y - diagonal],
-      [x + diagonal, y - diagonal],
-      [x - diagonal, y + diagonal],
-      [x + diagonal, y + diagonal]
-    ];
-    if (!samples.every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY))) return false;
-    return surfaceId
-      ? this.surfaces.canOccupy(surfaceId, x, y, radius, actorKind)
-      : this.surfaces.surfaceIdsAt(x, y, actorKind).some((candidate) => (
-        this.surfaces.canOccupyConnected(candidate, x, y, radius, actorKind)
-      ));
+    const legacyProjectionAllows = this.legacyProjectionCanOccupy(x, y, radius);
+    if (!surfaceId) return legacyProjectionAllows;
+    if (!this.authoredSurfaces && !legacyProjectionAllows) return false;
+    return this.surfaces.canOccupyConnected(surfaceId, x, y, radius, actorKind);
   }
 
   heightAt(surfaceId: string, x: number, y: number): number | undefined {
@@ -209,16 +216,72 @@ export class CollisionMap {
       actorKind
     );
     const nextSurfaceId = crossing?.surfaceId ?? surfaceId;
+    const sampleAllowed = this.authoredSurfaces
+      ? undefined
+      : (sampleSurfaceId: string, x: number, y: number) => (
+        sampleSurfaceId !== this.surfaces.manifest.defaultSurfaceId || !this.isBlockedAt(x, y)
+      );
     return this.surfaces.canOccupyConnected(
       nextSurfaceId,
       toX,
       toY,
       radius,
       actorKind,
-      (surfaceId, x, y) => (
-        surfaceId !== this.surfaces.manifest.defaultSurfaceId || !this.isBlockedAt(x, y)
-      )
+      sampleAllowed
     ) ? nextSurfaceId : undefined;
+  }
+
+  dropTargetAfterMove(
+    surfaceId: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    radius: number,
+    actorKind: SurfaceActorKind
+  ): SurfaceLanding | undefined {
+    const takeoffHeight = this.heightAt(surfaceId, fromX, fromY);
+    const distance = Math.hypot(toX - fromX, toY - fromY);
+    if (takeoffHeight === undefined || distance <= 1e-6) return undefined;
+    const directionX = (toX - fromX) / distance;
+    const directionY = (toY - fromY) / distance;
+    const probeDistance = Math.max(1, radius);
+    const leadingX = toX + directionX * probeDistance;
+    const leadingY = toY + directionY * probeDistance;
+    if (this.heightAt(surfaceId, leadingX, leadingY) !== undefined) return undefined;
+    return this.landingBelow(
+      surfaceId,
+      toX,
+      toY,
+      radius,
+      actorKind,
+      takeoffHeight
+    ) ?? this.landingBelow(
+      surfaceId,
+      leadingX,
+      leadingY,
+      0,
+      actorKind,
+      takeoffHeight
+    );
+  }
+
+  landingBelow(
+    excludedSurfaceId: string,
+    x: number,
+    y: number,
+    radius: number,
+    actorKind: SurfaceActorKind,
+    belowHeight: number
+  ): SurfaceLanding | undefined {
+    return this.surfaces.highestSurfaceBelow(
+      excludedSurfaceId,
+      x,
+      y,
+      radius,
+      actorKind,
+      belowHeight
+    );
   }
 
   spawnFor(playerIndex: number, radius: number): SurfacePosition {
@@ -412,14 +475,23 @@ export class CollisionMap {
     throw new Error('Industrial District does not contain a usable traffic lane.');
   }
 
-  hasLineOfSight(fromX: number, fromY: number, toX: number, toY: number): boolean {
+  hasLineOfSight(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    surfaceId?: string,
+    actorKind: SurfaceActorKind = 'projectile'
+  ): boolean {
     const distance = Math.hypot(toX - fromX, toY - fromY);
     const steps = Math.max(1, Math.ceil(distance / 24));
     for (let step = 1; step < steps; step++) {
       const progress = step / steps;
       if (this.isBlockedAt(
         fromX + (toX - fromX) * progress,
-        fromY + (toY - fromY) * progress
+        fromY + (toY - fromY) * progress,
+        surfaceId,
+        actorKind
       )) {
         return false;
       }
@@ -430,6 +502,21 @@ export class CollisionMap {
   private isRoadCell(column: number, row: number): boolean {
     return column >= 0 && row >= 0 && column < this.width && row < this.height &&
       this.roads[row * this.width + column] !== 0;
+  }
+
+  private legacyProjectionCanOccupy(x: number, y: number, radius: number): boolean {
+    const diagonal = radius * 0.72;
+    const samples = [
+      [x - radius, y],
+      [x + radius, y],
+      [x, y - radius],
+      [x, y + radius],
+      [x - diagonal, y - diagonal],
+      [x + diagonal, y - diagonal],
+      [x - diagonal, y + diagonal],
+      [x + diagonal, y + diagonal]
+    ];
+    return samples.every(([sampleX, sampleY]) => !this.isBlockedAt(sampleX, sampleY));
   }
 
   private spawnSurfaceAt(
@@ -475,20 +562,220 @@ function flatSurfaceManifest(map: TiledMapData): SurfaceManifest {
   };
 }
 
-function expandDefaultSurface(map: TiledMapData, surfaces: SurfaceMap): SurfaceMap {
-  const flat = flatSurfaceManifest(map);
-  const manifest = surfaces.manifest;
-  return new SurfaceMap({
-    ...manifest,
-    blockSize: flat.blockSize,
-    surfaces: manifest.surfaces.map((surface) => (
-      surface.id === manifest.defaultSurfaceId
-        ? {...surface, triangles: flat.surfaces[0].triangles}
-        : surface
-    )),
-    transitions: manifest.transitions.filter((transition) => (
-      transition.fromSurfaceId !== manifest.defaultSurfaceId &&
-      transition.toSurfaceId !== manifest.defaultSurfaceId
-    ))
+function surfacePhysicsGeometry(
+  surface: SurfaceDefinition,
+  manifest: SurfaceManifest,
+  surfaces: SurfaceMap,
+  resolution: number
+): PhysicsWorldGeometry {
+  let minimumX = Number.POSITIVE_INFINITY;
+  let minimumY = Number.POSITIVE_INFINITY;
+  let maximumX = Number.NEGATIVE_INFINITY;
+  let maximumY = Number.NEGATIVE_INFINITY;
+  for (const triangle of surface.triangles) {
+    for (const point of [triangle.a, triangle.b, triangle.c]) {
+      minimumX = Math.min(minimumX, point.x);
+      minimumY = Math.min(minimumY, point.y);
+      maximumX = Math.max(maximumX, point.x);
+      maximumY = Math.max(maximumY, point.y);
+    }
+  }
+  if (!Number.isFinite(minimumX)) {
+    throw new Error(`Physics surface "${surface.id}" contains no triangles.`);
+  }
+  const originX = Math.floor(minimumX / resolution) * resolution - resolution;
+  const originY = Math.floor(minimumY / resolution) * resolution - resolution;
+  const width = Math.max(1, Math.ceil((maximumX - originX) / resolution) + 1);
+  const height = Math.max(1, Math.ceil((maximumY - originY) / resolution) + 1);
+  const collisions = new Array<number>(width * height).fill(1);
+  const maximumSurfaceHeight = surface.triangles.reduce((maximum, triangle) => Math.max(
+    maximum,
+    triangle.a.z,
+    triangle.b.z,
+    triangle.c.z
+  ), Number.NEGATIVE_INFINITY);
+
+  for (let row = 0; row < height; row++) {
+    for (let column = 0; column < width; column++) {
+      const x = originX + (column + 0.5) * resolution;
+      const y = originY + (row + 0.5) * resolution;
+      if (surfaces.heightAt(surface.id, x, y) !== undefined) {
+        collisions[row * width + column] = 0;
+        continue;
+      }
+
+      // Missing floor is not itself a wall. GTA2 side-face barriers are meshed
+      // separately, so any exposed edge over a lower sheet is a valid drop.
+      if (
+        surfaces.highestSurfaceBelow(
+          surface.id,
+          x,
+          y,
+          0,
+          'vehicle',
+          maximumSurfaceHeight + 1
+        )
+      ) {
+        collisions[row * width + column] = 0;
+      }
+    }
+  }
+
+  const gatewayRadius = resolution * 1.75;
+  for (const transition of manifest.transitions) {
+    if (
+      transition.fromSurfaceId !== surface.id &&
+      transition.toSurfaceId !== surface.id
+    ) continue;
+    const startColumn = clampInteger(
+      Math.floor((Math.min(transition.from.x, transition.to.x) - gatewayRadius - originX) / resolution),
+      0,
+      width - 1
+    );
+    const endColumn = clampInteger(
+      Math.floor((Math.max(transition.from.x, transition.to.x) + gatewayRadius - originX) / resolution),
+      0,
+      width - 1
+    );
+    const startRow = clampInteger(
+      Math.floor((Math.min(transition.from.y, transition.to.y) - gatewayRadius - originY) / resolution),
+      0,
+      height - 1
+    );
+    const endRow = clampInteger(
+      Math.floor((Math.max(transition.from.y, transition.to.y) + gatewayRadius - originY) / resolution),
+      0,
+      height - 1
+    );
+    for (let row = startRow; row <= endRow; row++) {
+      for (let column = startColumn; column <= endColumn; column++) {
+        const x = originX + (column + 0.5) * resolution;
+        const y = originY + (row + 0.5) * resolution;
+        if (distanceToSegment(x, y, transition.from, transition.to) <= gatewayRadius) {
+          collisions[row * width + column] = 0;
+        }
+      }
+    }
+  }
+
+  return Object.freeze({
+    width,
+    height,
+    tileWidth: resolution,
+    tileHeight: resolution,
+    originX,
+    originY,
+    encloseBorders: false,
+    collisions: Object.freeze(collisions),
+    barriers: Object.freeze((surface.barriers ?? [])
+      .filter((barrier) => !isFallableSurfaceEdge(surface, barrier, surfaces, resolution))
+      .map((barrier) => Object.freeze({
+        from: barrier.from,
+        to: barrier.to,
+        thickness: Math.max(3, resolution * 0.125)
+      })))
   });
+}
+
+function isFallableSurfaceEdge(
+  surface: SurfaceDefinition,
+  barrier: Readonly<{
+    from: Readonly<{x: number; y: number}>;
+    to: Readonly<{x: number; y: number}>;
+  }>,
+  surfaces: SurfaceMap,
+  resolution: number
+): boolean {
+  const deltaX = barrier.to.x - barrier.from.x;
+  const deltaY = barrier.to.y - barrier.from.y;
+  const length = Math.hypot(deltaX, deltaY);
+  if (!Number.isFinite(length) || length <= 0) return false;
+
+  const midpointX = (barrier.from.x + barrier.to.x) / 2;
+  const midpointY = (barrier.from.y + barrier.to.y) / 2;
+  const sampleDistance = Math.max(2, Math.min(resolution * 0.25, length * 0.25));
+  const normalX = -deltaY / length;
+  const normalY = deltaX / length;
+  const samples = [
+    {x: midpointX + normalX * sampleDistance, y: midpointY + normalY * sampleDistance},
+    {x: midpointX - normalX * sampleDistance, y: midpointY - normalY * sampleDistance}
+  ] as const;
+  const heights = samples.map((sample) => surfaces.heightAt(surface.id, sample.x, sample.y));
+  if (heights[0] === undefined && heights[1] === undefined) return false;
+
+  const edgeProbe = (direction: 1 | -1): Readonly<{
+    distance: number;
+    hasLowerLanding: boolean;
+  }> | undefined => {
+    const maximumDistance = resolution * 4.5;
+    const step = Math.max(2, resolution * 0.25);
+    let referenceHeight = heights[direction === 1 ? 0 : 1] ?? heights.find(
+      (height): height is number => height !== undefined
+    );
+    for (let distance = sampleDistance; distance <= maximumDistance; distance += step) {
+      const x = midpointX + normalX * distance * direction;
+      const y = midpointY + normalY * distance * direction;
+      const currentHeight = surfaces.heightAt(surface.id, x, y);
+      if (currentHeight !== undefined) {
+        referenceHeight = currentHeight;
+        continue;
+      }
+      return Object.freeze({
+        distance,
+        hasLowerLanding: Boolean(
+        referenceHeight !== undefined &&
+        surfaces.highestSurfaceBelow(
+          surface.id,
+          x,
+          y,
+          0,
+          'vehicle',
+          referenceHeight
+        )
+        )
+      });
+    }
+    return undefined;
+  };
+
+  const positiveEdge = edgeProbe(1);
+  const negativeEdge = edgeProbe(-1);
+  if (heights[0] === undefined || heights[1] === undefined) {
+    const outsideEdge = heights[0] === undefined ? positiveEdge : negativeEdge;
+    return outsideEdge?.hasLowerLanding ?? false;
+  }
+
+  const positiveDrop = positiveEdge?.hasLowerLanding ? positiveEdge.distance : undefined;
+  const negativeDrop = negativeEdge?.hasLowerLanding ? negativeEdge.distance : undefined;
+  if (positiveDrop === undefined && negativeDrop === undefined) return false;
+  if (positiveDrop !== undefined && negativeDrop !== undefined) {
+    return Math.abs(positiveDrop - negativeDrop) >= resolution;
+  }
+
+  // GTA2 can place a vertical side face one block inward from the actual deck
+  // boundary. Only open it when one normal reaches the lower sheet clearly
+  // sooner; equal-distance exits indicate an internal divider on a narrow deck.
+  const dropDistance = positiveDrop ?? negativeDrop!;
+  const oppositeEdge = positiveDrop === undefined ? positiveEdge : negativeEdge;
+  return oppositeEdge === undefined || oppositeEdge.distance - dropDistance >= resolution;
+}
+
+function distanceToSegment(
+  x: number,
+  y: number,
+  from: Readonly<{x: number; y: number}>,
+  to: Readonly<{x: number; y: number}>
+): number {
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  if (lengthSquared === 0) return Math.hypot(x - from.x, y - from.y);
+  const progress = Math.max(0, Math.min(1, (
+    (x - from.x) * deltaX + (y - from.y) * deltaY
+  ) / lengthSquared));
+  return Math.hypot(x - (from.x + deltaX * progress), y - (from.y + deltaY * progress));
+}
+
+function clampInteger(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, Math.trunc(value)));
 }

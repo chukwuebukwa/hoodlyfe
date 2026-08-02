@@ -149,8 +149,28 @@ It must prove:
 - Clamping actor height hides the symptom but preserves ambiguous authority.
 - Marking every elevated XY cell blocked destroys bridges and elevated roads.
 - Reusing `spaceId` for elevation conflates physical sheets with privacy/replication.
-- Rapier3D is deferred until gameplay requires falling, jumping, roll, or airborne rigid
-  bodies. Sheet-based top-down traversal does not justify replacing Rapier2D.
+- Replacing the complete deterministic simulation with Rapier3D is still deferred. The
+  required vertical gameplay is represented as an authoritative ballistic transition
+  between physical sheets, while Rapier2D continues to own grounded contact.
+
+## 2026-07-29 airborne transition amendment
+
+- Players and vehicles replicate an explicit airborne state, world elevation, vertical
+  velocity, planar momentum, and intended landing surface.
+- A grounded actor can become airborne through an accepted jump command or by crossing
+  an exposed elevated edge. Solid walls and guardrails remain blocking geometry and do
+  not launch actors.
+- Airborne motion is integrated by shared deterministic gravity. The server remains
+  authoritative over XY, elevation, landing selection, impact effects, and lifecycle.
+- Landing searches for the highest compatible physical sheet below the descending
+  actor. It can therefore land on ground, a lower bridge, or the original sheet when a
+  jump returns without crossing its boundary.
+- Vehicle drops preserve linear and angular momentum. Landing damps both, and high
+  vertical impact speed causes server-owned vehicle damage.
+- Remote clients interpolate replicated elevation and vertical velocity together with
+  XY motion. They do not infer falls from mesh edges or repair landing state locally.
+- This model intentionally handles GTA2-style jumps and drop-offs without conflating
+  visual Z with `surfaceId` or introducing a second client-authoritative physics model.
 
 ## Rollback
 

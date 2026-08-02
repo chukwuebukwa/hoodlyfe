@@ -4,12 +4,15 @@ import type {InteriorController} from '../interiors/interior-controller.ts';
 import type {OnFootInputBatchMessage} from '../../../shared/protocol/on-foot-input.ts';
 import {
   ON_FOOT_PLAYER_RADIUS,
+  ON_FOOT_PLAYER_SPEED,
   integrateOnFootPose,
   onFootMovementScale,
   stepInteriorOnFootPose
 } from '../../../shared/simulation/on-foot-step.ts';
+import {stepAirborneMotion} from '../../../shared/simulation/airborne-motion.ts';
 
 export const PLAYER_RADIUS = ON_FOOT_PLAYER_RADIUS;
+export const PLAYER_JUMP_VERTICAL_SPEED = 245;
 
 export interface PlayerMoveInput {
   x?: number;
@@ -110,12 +113,43 @@ export class PlayerControlController {
     return this.controls.get(playerId)?.held;
   }
 
+  jump(playerId: string): boolean {
+    const player = this.options.state.players.get(playerId);
+    const control = this.controls.get(playerId)?.held;
+    if (
+      !player?.alive || player.spaceId !== 'street' || player.vehicleId ||
+      player.action || player.airborne
+    ) return false;
+    const elevation = this.options.world.heightAt(
+      player.surfaceId,
+      player.x,
+      player.y
+    );
+    if (elevation === undefined) return false;
+    const inputX = control?.inputX ?? 0;
+    const inputY = control?.inputY ?? 0;
+    const magnitude = Math.hypot(inputX, inputY);
+    const normalization = magnitude > 1 ? 1 / magnitude : 1;
+    player.airborne = true;
+    player.elevation = elevation;
+    player.verticalVelocity = PLAYER_JUMP_VERTICAL_SPEED;
+    player.airborneVelocityX = inputX * normalization * ON_FOOT_PLAYER_SPEED;
+    player.airborneVelocityY = inputY * normalization * ON_FOOT_PLAYER_SPEED;
+    player.landingSurfaceId = player.surfaceId;
+    return true;
+  }
+
   updateOnFoot(player: PlayerState, deltaSeconds: number): void {
     const runtime = this.controls.get(player.id);
     if (!runtime || !player.alive || player.vehicleId) return;
     const next = runtime.pending.shift();
     if (next) runtime.held = next;
     const control = runtime.held;
+    if (player.airborne) {
+      this.updateAirborne(player, deltaSeconds);
+      player.lastInputSequence = control.lastSequence;
+      return;
+    }
     const pose = {x: player.x, y: player.y, spaceId: player.spaceId};
     const command = {moveX: control.inputX, moveY: control.inputY};
     const modifiers = {
@@ -149,6 +183,32 @@ export class PlayerControlController {
         player.x = moved.x;
         player.y = moved.y;
         player.surfaceId = surfaceId;
+      } else {
+        const landing = this.options.world.dropTargetAfterMove(
+          player.surfaceId,
+          player.x,
+          player.y,
+          moved.x,
+          moved.y,
+          PLAYER_RADIUS,
+          'player'
+        );
+        if (landing) {
+          const delta = Math.max(0.001, deltaSeconds);
+          const takeoffHeight = this.options.world.heightAt(
+            player.surfaceId,
+            player.x,
+            player.y
+          ) ?? landing.height;
+          player.airborne = true;
+          player.elevation = takeoffHeight;
+          player.verticalVelocity = 0;
+          player.airborneVelocityX = (moved.x - player.x) / delta;
+          player.airborneVelocityY = (moved.y - player.y) / delta;
+          player.landingSurfaceId = landing.surfaceId;
+          player.x = moved.x;
+          player.y = moved.y;
+        }
       }
     } else {
       player.x = moved.x;
@@ -157,6 +217,52 @@ export class PlayerControlController {
     if (player.spaceId !== 'street') this.options.interiors?.afterMove(player);
     if (!player.action) this.options.interiors?.tryEnter(player);
     player.lastInputSequence = control.lastSequence;
+  }
+
+  private updateAirborne(player: PlayerState, deltaSeconds: number): void {
+    const stepped = stepAirborneMotion({
+      x: player.x,
+      y: player.y,
+      angle: player.angle,
+      elevation: player.elevation,
+      verticalVelocity: player.verticalVelocity,
+      velocityX: player.airborneVelocityX,
+      velocityY: player.airborneVelocityY
+    }, deltaSeconds);
+    const landing = this.options.world.landingBelow(
+      '',
+      stepped.x,
+      stepped.y,
+      PLAYER_RADIUS,
+      'player',
+      stepped.previousElevation
+    );
+    player.x = stepped.x;
+    player.y = stepped.y;
+    player.elevation = stepped.elevation;
+    player.verticalVelocity = stepped.verticalVelocity;
+    if (landing && stepped.elevation <= landing.height) {
+      player.surfaceId = landing.surfaceId;
+      player.elevation = landing.height;
+      player.airborne = false;
+      player.verticalVelocity = 0;
+      player.airborneVelocityX = 0;
+      player.airborneVelocityY = 0;
+      player.landingSurfaceId = '';
+      return;
+    }
+    if (player.elevation < -1_024) {
+      const spawn = this.options.world.spawnFor(0, PLAYER_RADIUS);
+      player.x = spawn.x;
+      player.y = spawn.y;
+      player.surfaceId = spawn.surfaceId;
+      player.elevation = this.options.world.heightAt(spawn.surfaceId, spawn.x, spawn.y) ?? 0;
+      player.airborne = false;
+      player.verticalVelocity = 0;
+      player.airborneVelocityX = 0;
+      player.airborneVelocityY = 0;
+      player.landingSurfaceId = '';
+    }
   }
 
   private acceptMove(

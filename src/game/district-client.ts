@@ -303,7 +303,7 @@ export class DistrictClient {
       const pose = explorerCameraPose(
         focus.x,
         serverYToScene(focus.y),
-        this.surfaceHeightAt(focus.x, focus.y),
+        this.surfaceHeightAt(focus.x, focus.y, focus.surfaceId),
         this.explorerYaw,
         focus.mode,
         this.explorerPitch + recoil.pitch
@@ -540,7 +540,7 @@ export class DistrictClient {
     }
     const payload = this.payload;
     if (!payload) return 0;
-    const authoredHeight = surfaceId && surfaceId !== STREET_GROUND_SURFACE_ID
+    const authoredHeight = surfaceId
       ? this.surfaceMap?.heightAt(surfaceId, x, y)
       : undefined;
     return renderedSurfaceHeight(
@@ -605,7 +605,11 @@ export class DistrictClient {
     this.renderer.domElement.dataset.localX = x.toFixed(2);
     this.renderer.domElement.dataset.localY = y.toFixed(2);
     this.renderer.domElement.dataset.localMode = focus.mode === 'vehicle' ? 'vehicle' : 'foot';
-    const target = new THREE.Vector3(x, serverYToScene(y), this.surfaceHeightAt(x, y));
+    const target = new THREE.Vector3(
+      x,
+      serverYToScene(y),
+      this.surfaceHeightAt(x, y, focus.surfaceId)
+    );
     if (!this.centerInitialized || this.center.distanceTo(target) > 700) {
       this.center.copy(target);
       this.centerInitialized = true;
@@ -614,7 +618,13 @@ export class DistrictClient {
     }
   }
 
-  private localCameraFocus(): {x: number; y: number; angle: number; mode: CameraFollowMode} | undefined {
+  private localCameraFocus(): {
+    x: number;
+    y: number;
+    angle: number;
+    mode: CameraFollowMode;
+    surfaceId: string;
+  } | undefined {
     const room = this.room;
     if (!room) return undefined;
     const player = room.state.players.get(room.sessionId);
@@ -626,7 +636,12 @@ export class DistrictClient {
       x: vehiclePose?.x ?? vehicle?.x ?? playerPose?.x ?? player.x,
       y: vehiclePose?.y ?? vehicle?.y ?? playerPose?.y ?? player.y,
       angle: vehiclePose?.angle ?? vehicle?.angle ?? playerPose?.angle ?? player.angle,
-      mode: player.vehicleId ? 'vehicle' : 'player'
+      mode: player.vehicleId ? 'vehicle' : 'player',
+      surfaceId: vehiclePose?.surfaceId ??
+        vehicle?.surfaceId ??
+        playerPose?.surfaceId ??
+        player.surfaceId ??
+        STREET_GROUND_SURFACE_ID
     };
   }
 

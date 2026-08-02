@@ -66,7 +66,12 @@ export class RocketProjectileController {
     rocket.x = input.x + Math.cos(input.angle) * ROCKET_PROJECTILE.spawnOffset;
     rocket.y = input.y + Math.sin(input.angle) * ROCKET_PROJECTILE.spawnOffset;
     rocket.createdAt = input.nowMs;
-    if (this.options.world.isBlockedAt(rocket.x, rocket.y)) return false;
+    if (this.options.world.isBlockedAt(
+      rocket.x,
+      rocket.y,
+      rocket.surfaceId,
+      'projectile'
+    )) return false;
     this.options.state.rockets.set(rocket.id, rocket);
     return true;
   }
@@ -82,6 +87,7 @@ export class RocketProjectileController {
     const distance = definition.projectileSpeed * Math.min(Math.max(0, deltaSeconds), 0.1);
     const endX = rocket.x + Math.cos(rocket.angle) * distance;
     const endY = rocket.y + Math.sin(rocket.angle) * distance;
+    const startSurfaceId = rocket.surfaceId;
     const moveSurface = this.options.world.surfaceAfterMove;
     const nextSurface = typeof moveSurface === 'function'
       ? moveSurface.call(
@@ -99,8 +105,14 @@ export class RocketProjectileController {
       this.detonate(rocket, rocketId, endX, endY, nowMs);
       return;
     }
+    const worldImpact = this.worldImpact(
+      rocket.x,
+      rocket.y,
+      endX,
+      endY,
+      startSurfaceId
+    );
     rocket.surfaceId = nextSurface;
-    const worldImpact = this.worldImpact(rocket.x, rocket.y, endX, endY);
     const actorImpact = this.actorImpact(rocket, endX, endY);
     const impact = earliest(worldImpact, actorImpact);
     if (impact) {
@@ -139,14 +151,40 @@ export class RocketProjectileController {
     return impacts.sort((left, right) => left.progress - right.progress)[0];
   }
 
-  private worldImpact(startX: number, startY: number, endX: number, endY: number): Impact | undefined {
+  private worldImpact(
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    initialSurfaceId: string
+  ): Impact | undefined {
     const distance = Math.hypot(endX - startX, endY - startY);
     const steps = Math.max(1, Math.ceil(distance / ROCKET_PROJECTILE.collisionStep));
+    let previousX = startX;
+    let previousY = startY;
+    let surfaceId = initialSurfaceId;
+    const surfaceAfterMove = this.options.world.surfaceAfterMove?.bind(this.options.world);
     for (let step = 1; step <= steps; step++) {
       const progress = step / steps;
       const x = startX + (endX - startX) * progress;
       const y = startY + (endY - startY) * progress;
-      if (this.options.world.isBlockedAt(x, y)) return {progress, x, y};
+      const nextSurfaceId = surfaceAfterMove
+        ? surfaceAfterMove(
+            surfaceId,
+            previousX,
+            previousY,
+            x,
+            y,
+            ROCKET_PROJECTILE.radius,
+            'projectile'
+          )
+        : this.options.world.isBlockedAt(x, y, surfaceId, 'projectile')
+          ? undefined
+          : surfaceId;
+      if (!nextSurfaceId) return {progress, x, y};
+      surfaceId = nextSurfaceId;
+      previousX = x;
+      previousY = y;
     }
     return undefined;
   }

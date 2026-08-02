@@ -63,6 +63,23 @@ test('bucket lookup and fused footprint checks preserve transitioned surface ide
   assert.deepEqual([...sampledSurfaceIds].sort(), ['bridge-ramp', 'street-ground']);
 });
 
+test('surface map resolves the highest compatible landing below an airborne actor', () => {
+  const surfaces = new SurfaceMap(fixture());
+
+  assert.deepEqual(
+    surfaces.highestSurfaceBelow('', 150, 50, 10, 'vehicle', 140),
+    {surfaceId: 'bridge-deck', height: 128}
+  );
+  assert.deepEqual(
+    surfaces.highestSurfaceBelow('bridge-deck', 150, 50, 10, 'vehicle', 140),
+    {surfaceId: 'street-ground', height: 0}
+  );
+  assert.equal(
+    surfaces.highestSurfaceBelow('', 150, 50, 10, 'projectile', 0),
+    undefined
+  );
+});
+
 test('surface map rejects invalid topology at the asset seam', () => {
   const manifest = fixture();
   assert.throws(() => new SurfaceMap({...manifest, version: 2}), /Unsupported surface manifest/);
@@ -79,6 +96,28 @@ test('surface map rejects invalid topology at the asset seam', () => {
     ...manifest,
     transitions: [{...manifest.transitions[0], from: {x: 50, y: 0}, to: {x: 50, y: 100}}]
   }), /not height-continuous/);
+  assert.throws(() => new SurfaceMap({
+    ...manifest,
+    surfaces: manifest.surfaces.map((surface) => surface.id === 'bridge-deck'
+      ? {...surface, barriers: [{from: {x: 100, y: 50}, to: {x: 100, y: 50}}]}
+      : surface)
+  }), /barrier 0 must have length/);
+});
+
+test('surface map preserves authored GTA2 side barriers', () => {
+  const manifest = fixture();
+  const surfaces = new SurfaceMap({
+    ...manifest,
+    surfaces: manifest.surfaces.map((surface) => surface.id === 'bridge-deck'
+      ? {...surface, barriers: [{from: {x: 100, y: 0}, to: {x: 100, y: 100}}]}
+      : surface)
+  });
+
+  assert.deepEqual(surfaces.surface('bridge-deck')?.barriers, [{
+    from: {x: 100, y: 0},
+    to: {x: 100, y: 100}
+  }]);
+  assert.deepEqual(surfaces.surface('street-ground')?.barriers, []);
 });
 
 test('generated district manifest preserves stacked authoritative surfaces', () => {
@@ -86,14 +125,37 @@ test('generated district manifest preserves stacked authoritative surfaces', () 
     readFileSync('public/assets/maps/surface-manifest.json', 'utf8')
   ));
   const heights = surfaces.manifest.surfaces
-    .map((surface) => surfaces.heightAt(surface.id, 26 * 64 + 32, 32))
+    .map((surface) => surfaces.heightAt(surface.id, 5_984, 160))
     .filter((height): height is number => height !== undefined)
     .sort((left, right) => left - right);
 
   assert.equal(surfaces.manifest.collisionRevision, 2);
-  assert.ok(surfaces.manifest.surfaces.length > 1);
-  assert.ok(surfaces.manifest.transitions.length > 0);
+  assert.ok(surfaces.manifest.surfaces.length > 4_000);
+  assert.ok(surfaces.manifest.transitions.length > 4_000);
   assert.deepEqual(heights, [64, 128]);
+});
+
+test('generated district manifest exposes a continuous ground-ramp-deck route', () => {
+  const surfaces = new SurfaceMap(JSON.parse(
+    readFileSync('public/assets/maps/surface-manifest.json', 'utf8')
+  ));
+  const x = 224;
+  const ground = surfaces.surfaceIdsAt(x, 2488, 'player')
+    .find((surfaceId) => surfaces.heightAt(surfaceId, x, 2488) === 64);
+  const ramp = 'street-surface-0-39-2';
+  const deck = 'street-surface-3-40-2';
+
+  assert.ok(ground);
+  assert.deepEqual(surfaces.transitionFor(ground, x, 2488, x, 2504, 'player'), {
+    transitionId: 'surface-transition-693',
+    surfaceId: ramp
+  });
+  assert.equal(surfaces.heightAt(ramp, x, 2528), 96);
+  assert.deepEqual(surfaces.transitionFor(ramp, x, 2550, x, 2568, 'vehicle'), {
+    transitionId: 'surface-transition-713',
+    surfaceId: deck
+  });
+  assert.equal(surfaces.heightAt(deck, x, 2600), 128);
 });
 
 function fixture(): SurfaceManifest {

@@ -56,11 +56,9 @@ export function renderedSurfaceHeight(
   surfaceId: string | undefined,
   authoredHeight: number | undefined,
   mapHeight: number,
-  defaultSurfaceId: string
+  _defaultSurfaceId: string
 ): number {
-  return surfaceId && surfaceId !== defaultSurfaceId && authoredHeight !== undefined
-    ? authoredHeight
-    : mapHeight;
+  return surfaceId && authoredHeight !== undefined ? authoredHeight : mapHeight;
 }
 
 export function faceBrightness(shading: number): number {

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {PlayerControlController} from '../server/game/players/player-control-controller.ts';
+import {
+  PLAYER_JUMP_VERTICAL_SPEED,
+  PlayerControlController
+} from '../server/game/players/player-control-controller.ts';
 import type {InteriorController} from '../server/game/interiors/interior-controller.ts';
 import {DistrictState, PlayerState} from '../server/state.ts';
 import type {CollisionMap} from '../server/world-map.ts';
@@ -197,6 +200,62 @@ test('aim normalizes angles for on-foot players and passengers but rejects gated
   assert.equal(player.angle, 0.4);
   controller.setAim(player.id, {angle: Number.NaN});
   assert.equal(player.angle, 0.4);
+});
+
+test('on-foot jump carries movement momentum and lands on the authoritative surface', () => {
+  const state = new DistrictState();
+  const world = {
+    heightAt: () => 128,
+    landingBelow: (
+      _excludedSurfaceId: string,
+      _x: number,
+      _y: number,
+      _radius: number,
+      _actorKind: string,
+      belowHeight: number
+    ) => belowHeight > 128 ? {surfaceId: 'bridge-deck', height: 128} : undefined
+  } as unknown as CollisionMap;
+  const controller = new PlayerControlController({state, world});
+  const player = addPlayer(state, 'jumper', 100, 100);
+  player.surfaceId = 'bridge-deck';
+  player.spaceId = 'street';
+  controller.register(player.id);
+  controller.setMove(player.id, {x: 1, y: 0});
+
+  assert.equal(controller.jump(player.id), true);
+  assert.equal(player.airborne, true);
+  assert.equal(player.verticalVelocity, PLAYER_JUMP_VERTICAL_SPEED);
+  assert.equal(player.airborneVelocityX, 190);
+  assert.equal(player.airborneVelocityY, 0);
+
+  for (let step = 0; step < 90 && player.airborne; step++) {
+    controller.updateOnFoot(player, 1 / 30);
+  }
+
+  assert.equal(player.airborne, false);
+  assert.equal(player.surfaceId, 'bridge-deck');
+  assert.equal(player.elevation, 128);
+  assert.ok(player.x > 100, 'A moving jump must preserve forward momentum.');
+});
+
+test('jump rejects vehicles, actions, interiors, and repeated airborne requests', () => {
+  const state = new DistrictState();
+  const world = {heightAt: () => 0} as unknown as CollisionMap;
+  const controller = new PlayerControlController({state, world});
+  const player = addPlayer(state, 'jumper', 100, 100);
+  controller.register(player.id);
+
+  player.vehicleId = 'car';
+  assert.equal(controller.jump(player.id), false);
+  player.vehicleId = '';
+  player.action = 'melee';
+  assert.equal(controller.jump(player.id), false);
+  player.action = '';
+  player.spaceId = 'interior:test';
+  assert.equal(controller.jump(player.id), false);
+  player.spaceId = 'street';
+  assert.equal(controller.jump(player.id), true);
+  assert.equal(controller.jump(player.id), false);
 });
 
 function createController() {

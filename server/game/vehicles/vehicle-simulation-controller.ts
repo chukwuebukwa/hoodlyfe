@@ -34,6 +34,7 @@ import {
   type PhysicsActorDescriptor,
   type PhysicsLifecycleOperations
 } from './physics-body-registry.ts';
+import {stepAirborneMotion} from '../../../shared/simulation/airborne-motion.ts';
 
 const PLAYER_RADIUS = 11;
 const NPC_RADIUS = 10;
@@ -151,6 +152,7 @@ export class VehicleSimulationController {
   beginTick(nowMs = this.options.state.serverTimeMs): void {
     this.previousBodies.clear();
     for (const vehicle of this.options.state.vehicles.values()) {
+      if (vehicle.airborne) continue;
       this.previousBodies.set(physicsBodyKey('vehicle', vehicle.id), {
           x: vehicle.x,
           y: vehicle.y,
@@ -159,7 +161,7 @@ export class VehicleSimulationController {
       });
     }
     for (const player of this.options.state.players.values()) {
-      if (player.alive && !player.vehicleId && player.spaceId === 'street') {
+      if (player.alive && !player.airborne && !player.vehicleId && player.spaceId === 'street') {
         this.previousBodies.set(physicsBodyKey('player', player.id), {
           x: player.x,
           y: player.y,
@@ -197,6 +199,10 @@ export class VehicleSimulationController {
     }
     if (vehicle.destroyed) {
       this.updateDestroyed(vehicle, nowMs);
+      return;
+    }
+    if (vehicle.airborne) {
+      this.updateAirborneVehicle(vehicle, deltaSeconds, nowMs);
       return;
     }
     if (
@@ -255,10 +261,11 @@ export class VehicleSimulationController {
       return actors;
     };
     for (const vehicle of this.options.state.vehicles.values()) {
+      if (vehicle.airborne) continue;
       actorsFor(vehicle.surfaceId).vehicles.push(vehicle);
     }
     for (const player of this.options.state.players.values()) {
-      if (player.alive && !player.vehicleId && player.spaceId === 'street') {
+      if (player.alive && !player.airborne && !player.vehicleId && player.spaceId === 'street') {
         actorsFor(player.surfaceId).players.push(player);
       }
     }
@@ -360,6 +367,40 @@ export class VehicleSimulationController {
         )
         : vehicle.surfaceId;
       if (!capturedSurfaceId) {
+        const landing = !captured.collidedWithWorld
+          ? this.options.world.dropTargetAfterMove(
+            previous.surfaceId,
+            previous.x,
+            previous.y,
+            captured.pose.x,
+            captured.pose.y,
+            VEHICLE_RADIUS,
+            'vehicle'
+          )
+          : undefined;
+        if (landing) {
+          vehicle.x = captured.pose.x;
+          vehicle.y = captured.pose.y;
+          vehicle.angle = captured.pose.angle;
+          vehicle.speed = captured.pose.speed;
+          vehicle.linvelX = captured.pose.linvelX;
+          vehicle.linvelY = captured.pose.linvelY;
+          vehicle.angvel = captured.pose.angvel;
+          vehicle.airborne = true;
+          vehicle.elevation = this.options.world.heightAt(
+            previous.surfaceId,
+            previous.x,
+            previous.y
+          ) ?? landing.height;
+          vehicle.verticalVelocity = 0;
+          vehicle.landingSurfaceId = landing.surfaceId;
+          if (drive?.sequence !== undefined) {
+            this.options.acknowledgeInput?.(drive.driverId, vehicle.id, drive.sequence);
+          }
+          this.syncOccupants(vehicle);
+          movedVehicles.push(vehicle);
+          continue;
+        }
         physics.teleport(physicsBodyKey('vehicle', vehicle.id), {
           x: previous.x,
           y: previous.y,
@@ -618,10 +659,14 @@ export class VehicleSimulationController {
     if (existing) return existing;
     const defaultSurfaceId = this.options.world.surfaces?.manifest.defaultSurfaceId ??
       (this.rootSurfaceId ??= surfaceId);
+    const geometry = surfaceId !== defaultSurfaceId &&
+      typeof this.options.world.physicsGeometry === 'function'
+      ? this.options.world.physicsGeometry(surfaceId)
+      : undefined;
     const physics = surfaceId === defaultSurfaceId
       ? this.options.physics
-      : this.options.physics.fork(false);
-    physics.setStaticsEnabled(surfaceId === defaultSurfaceId);
+      : this.options.physics.fork(Boolean(geometry), geometry);
+    physics.setStaticsEnabled(surfaceId === defaultSurfaceId || Boolean(geometry));
     this.physicsBySurface.set(surfaceId, physics);
     return physics;
   }
@@ -779,6 +824,65 @@ export class VehicleSimulationController {
     }
   }
 
+  private updateAirborneVehicle(
+    vehicle: VehicleState,
+    deltaSeconds: number,
+    nowMs: number
+  ): void {
+    const stepped = stepAirborneMotion({
+      x: vehicle.x,
+      y: vehicle.y,
+      angle: vehicle.angle,
+      elevation: vehicle.elevation,
+      verticalVelocity: vehicle.verticalVelocity,
+      velocityX: vehicle.linvelX,
+      velocityY: vehicle.linvelY,
+      angularVelocity: vehicle.angvel
+    }, deltaSeconds);
+    const landing = this.options.world.landingBelow(
+      '',
+      stepped.x,
+      stepped.y,
+      VEHICLE_RADIUS,
+      'vehicle',
+      stepped.previousElevation
+    );
+    vehicle.x = stepped.x;
+    vehicle.y = stepped.y;
+    vehicle.angle = stepped.angle;
+    vehicle.elevation = stepped.elevation;
+    vehicle.verticalVelocity = stepped.verticalVelocity;
+    if (landing && stepped.elevation <= landing.height) {
+      const impactSpeed = Math.abs(stepped.verticalVelocity);
+      vehicle.surfaceId = landing.surfaceId;
+      vehicle.elevation = landing.height;
+      vehicle.airborne = false;
+      vehicle.verticalVelocity = 0;
+      vehicle.landingSurfaceId = '';
+      vehicle.linvelX *= 0.82;
+      vehicle.linvelY *= 0.82;
+      vehicle.angvel *= 0.45;
+      vehicle.speed *= 0.82;
+      if (impactSpeed > 260) {
+        this.damage(
+          vehicle,
+          Math.round((impactSpeed - 260) * 0.28),
+          '',
+          'world',
+          nowMs,
+          'front'
+        );
+      }
+    } else if (vehicle.elevation < -1_024) {
+      this.returnToTraffic(vehicle, nowMs);
+    }
+    const input = vehicle.driverId ? this.options.inputFor(vehicle.driverId) : undefined;
+    if (vehicle.driverId && input?.sequence !== undefined) {
+      this.options.acknowledgeInput?.(vehicle.driverId, vehicle.id, input.sequence);
+    }
+    this.syncOccupants(vehicle);
+  }
+
   returnToTraffic(vehicle: VehicleState, nowMs: number): void {
     const configuration = vehicleConfig(vehicle.kind);
     for (const occupant of this.options.access.occupants(vehicle.id)) {
@@ -795,6 +899,14 @@ export class VehicleSimulationController {
     vehicle.linvelX = Math.cos(spawn.angle) * vehicle.speed;
     vehicle.linvelY = Math.sin(spawn.angle) * vehicle.speed;
     vehicle.angvel = 0;
+    vehicle.airborne = false;
+    vehicle.elevation = this.options.world.heightAt(
+      vehicle.surfaceId,
+      vehicle.x,
+      vehicle.y
+    ) ?? 0;
+    vehicle.verticalVelocity = 0;
+    vehicle.landingSurfaceId = '';
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
     vehicle.driverId = '';
@@ -884,6 +996,10 @@ export class VehicleSimulationController {
     vehicle.linvelX = 0;
     vehicle.linvelY = 0;
     vehicle.angvel = 0;
+    vehicle.airborne = false;
+    vehicle.elevation = this.options.world.heightAt(surfaceId, pose.x, pose.y) ?? 0;
+    vehicle.verticalVelocity = 0;
+    vehicle.landingSurfaceId = '';
     vehicle.destroyed = false;
     vehicle.respawnAt = 0;
     vehicle.onFire = false;
@@ -1110,6 +1226,12 @@ export class VehicleSimulationController {
       player.x = vehicle.x;
       player.y = vehicle.y;
       player.surfaceId = vehicle.surfaceId;
+      player.airborne = false;
+      player.elevation = vehicle.elevation;
+      player.verticalVelocity = 0;
+      player.airborneVelocityX = 0;
+      player.airborneVelocityY = 0;
+      player.landingSurfaceId = '';
       if (player.vehicleSeat === 0) player.angle = vehicle.angle;
     }
   }

@@ -46,7 +46,8 @@ export function projectDebugPanel(
   snapshot?: DebugSnapshot,
   network?: NetworkQualitySnapshot,
   rollout?: NetcodeRolloutSnapshot,
-  localPlayerId?: string
+  localPlayerId?: string,
+  surfaceHeightAt?: (x: number, y: number, surfaceId?: string) => number
 ): DebugPanelProjection {
   const events = snapshot?.events ?? [];
   return {
@@ -86,7 +87,7 @@ export function projectDebugPanel(
       : 'unsynced',
     rollout: rolloutSummary(rollout),
     playerReaction: playerReactionSummary(state, localPlayerId),
-    surface: playerSurfaceSummary(state, localPlayerId),
+    surface: playerSurfaceSummary(state, localPlayerId, surfaceHeightAt),
     simulationPhases: simulationPhaseSummary(snapshot),
     physics: physicsSummary(snapshot),
     physicsLifecycle: physicsLifecycleSummary(snapshot),
@@ -119,12 +120,30 @@ function physicsStepSummary(snapshot?: DebugSnapshot): string {
     : 'off';
 }
 
-function playerSurfaceSummary(state?: DistrictNetworkState, localPlayerId?: string): string {
+function playerSurfaceSummary(
+  state?: DistrictNetworkState,
+  localPlayerId?: string,
+  surfaceHeightAt?: (x: number, y: number, surfaceId?: string) => number
+): string {
   const player = localPlayerId ? state?.players.get(localPlayerId) : undefined;
   if (!player) return 'off';
   const vehicle = player.vehicleId ? state?.vehicles.get(player.vehicleId) : undefined;
   const surfaceId = vehicle?.surfaceId ?? player.surfaceId ?? 'missing';
-  return `${player.spaceId ?? 'street'} / ${surfaceId} @ ${Math.round(player.x)},${Math.round(player.y)}`;
+  const x = vehicle?.x ?? player.x;
+  const y = vehicle?.y ?? player.y;
+  const actor = vehicle ?? player;
+  const surfaceHeight = surfaceHeightAt?.(x, y, surfaceId);
+  const actorElevation = actor.airborne && Number.isFinite(actor.elevation)
+    ? actor.elevation
+    : surfaceHeight;
+  const elevation = Number.isFinite(actorElevation)
+    ? ` / z${Math.round(actorElevation!)}`
+    : '';
+  const airborne = actor.airborne
+    ? ` / AIR vZ${Math.round(actor.verticalVelocity ?? 0)}`
+    : '';
+  return `${player.spaceId ?? 'street'} / ${surfaceId}${elevation}${airborne} @ ` +
+    `${Math.round(x)},${Math.round(y)}`;
 }
 
 function playerReactionSummary(state?: DistrictNetworkState, playerId?: string): string {

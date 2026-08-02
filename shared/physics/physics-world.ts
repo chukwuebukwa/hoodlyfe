@@ -50,7 +50,15 @@ export interface PhysicsWorldGeometry {
   readonly height: number;
   readonly tileWidth: number;
   readonly tileHeight: number;
+  readonly originX?: number;
+  readonly originY?: number;
+  readonly encloseBorders?: boolean;
   readonly collisions: readonly number[];
+  readonly barriers?: readonly Readonly<{
+    from: Readonly<{x: number; y: number}>;
+    to: Readonly<{x: number; y: number}>;
+    thickness?: number;
+  }>[];
 }
 
 export interface PhysicsContact {
@@ -80,7 +88,9 @@ export class PhysicsWorld {
     this.world.numSolverIterations = 8;
     this.world.maxCcdSubsteps = 4;
     this.staticColliderCount = includeStatics
-      ? this.meshStatics(geometry) + this.buildBorderWalls(geometry)
+      ? this.meshStatics(geometry) +
+        this.meshBarrierSegments(geometry) +
+        (geometry.encloseBorders === false ? 0 : this.buildBorderWalls(geometry))
       : 0;
   }
 
@@ -91,9 +101,9 @@ export class PhysicsWorld {
     return new PhysicsWorld(geometry);
   }
 
-  fork(includeStatics = false): PhysicsWorld {
+  fork(includeStatics = false, geometry = this.geometry): PhysicsWorld {
     if (this.freed) throw new Error('Cannot fork a freed physics world.');
-    const child = new PhysicsWorld(this.geometry, includeStatics);
+    const child = new PhysicsWorld(geometry, includeStatics);
     this.children.add(child);
     return child;
   }
@@ -354,6 +364,8 @@ export class PhysicsWorld {
   }
 
   private meshStatics(geometry: PhysicsWorldGeometry): number {
+    const originX = geometry.originX ?? 0;
+    const originY = geometry.originY ?? 0;
     const visited = new Uint8Array(geometry.width * geometry.height);
     let count = 0;
     for (let row = 0; row < geometry.height; row++) {
@@ -380,8 +392,8 @@ export class PhysicsWorld {
         const halfWidth = width * geometry.tileWidth / 2;
         const halfHeight = height * geometry.tileHeight / 2;
         this.createStatic(
-          column * geometry.tileWidth + halfWidth,
-          row * geometry.tileHeight + halfHeight,
+          originX + column * geometry.tileWidth + halfWidth,
+          originY + row * geometry.tileHeight + halfHeight,
           halfWidth,
           halfHeight
         );
@@ -391,24 +403,73 @@ export class PhysicsWorld {
     return count;
   }
 
+  private meshBarrierSegments(geometry: PhysicsWorldGeometry): number {
+    let count = 0;
+    for (const barrier of geometry.barriers ?? []) {
+      const deltaX = barrier.to.x - barrier.from.x;
+      const deltaY = barrier.to.y - barrier.from.y;
+      const length = Math.hypot(deltaX, deltaY);
+      if (!Number.isFinite(length) || length <= 0) continue;
+      this.createStatic(
+        (barrier.from.x + barrier.to.x) / 2,
+        (barrier.from.y + barrier.to.y) / 2,
+        length / 2,
+        barrier.thickness ?? 3,
+        Math.atan2(deltaY, deltaX)
+      );
+      count++;
+    }
+    return count;
+  }
+
   // Tile data leaves border cells open; only CollisionMap's code blocks out-of-bounds,
   // so the physical world needs explicit walls.
   private buildBorderWalls(geometry: PhysicsWorldGeometry): number {
+    const originX = geometry.originX ?? 0;
+    const originY = geometry.originY ?? 0;
     const worldWidth = geometry.width * geometry.tileWidth;
     const worldHeight = geometry.height * geometry.tileHeight;
     const tile = Math.max(geometry.tileWidth, geometry.tileHeight);
     const walls = [
-      {x: worldWidth / 2, y: -tile / 2, hx: worldWidth / 2 + tile, hy: tile / 2},
-      {x: worldWidth / 2, y: worldHeight + tile / 2, hx: worldWidth / 2 + tile, hy: tile / 2},
-      {x: -tile / 2, y: worldHeight / 2, hx: tile / 2, hy: worldHeight / 2 + tile},
-      {x: worldWidth + tile / 2, y: worldHeight / 2, hx: tile / 2, hy: worldHeight / 2 + tile}
+      {
+        x: originX + worldWidth / 2,
+        y: originY - tile / 2,
+        hx: worldWidth / 2 + tile,
+        hy: tile / 2
+      },
+      {
+        x: originX + worldWidth / 2,
+        y: originY + worldHeight + tile / 2,
+        hx: worldWidth / 2 + tile,
+        hy: tile / 2
+      },
+      {
+        x: originX - tile / 2,
+        y: originY + worldHeight / 2,
+        hx: tile / 2,
+        hy: worldHeight / 2 + tile
+      },
+      {
+        x: originX + worldWidth + tile / 2,
+        y: originY + worldHeight / 2,
+        hx: tile / 2,
+        hy: worldHeight / 2 + tile
+      }
     ];
     for (const wall of walls) this.createStatic(wall.x, wall.y, wall.hx, wall.hy);
     return walls.length;
   }
 
-  private createStatic(x: number, y: number, halfWidth: number, halfHeight: number): void {
-    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, y));
+  private createStatic(
+    x: number,
+    y: number,
+    halfWidth: number,
+    halfHeight: number,
+    rotation = 0
+  ): void {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(x, y).setRotation(rotation)
+    );
     const collider = this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(halfWidth, halfHeight)
         .setCollisionGroups(groups(STATIC_MEMBERSHIP, 0xffff)),

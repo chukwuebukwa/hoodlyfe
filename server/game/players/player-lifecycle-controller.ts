@@ -28,6 +28,11 @@ export class PlayerLifecycleController {
   kill(player: PlayerState, nowMs: number, attackerId: string): void {
     this.options.clearCombatState?.(player.id);
     player.alive = false;
+    player.airborne = false;
+    player.verticalVelocity = 0;
+    player.airborneVelocityX = 0;
+    player.airborneVelocityY = 0;
+    player.landingSurfaceId = '';
     player.health = 0;
     player.armor = 0;
     player.wanted = 0;
@@ -66,6 +71,12 @@ export class PlayerLifecycleController {
     player.health = 100;
     player.armor = 0;
     player.alive = true;
+    player.airborne = false;
+    player.elevation = 0;
+    player.verticalVelocity = 0;
+    player.airborneVelocityX = 0;
+    player.airborneVelocityY = 0;
+    player.landingSurfaceId = '';
     player.respawnAt = 0;
     player.respawnCare = '';
     player.spawnProtected = true;
@@ -76,6 +87,12 @@ export class PlayerLifecycleController {
     player.reactionProgress = 1;
     this.protectionUntil.set(player.id, nowMs + SPAWN_PROTECTION_MS);
     player.wanted = 0;
+    player.airborne = false;
+    player.elevation = 0;
+    player.verticalVelocity = 0;
+    player.airborneVelocityX = 0;
+    player.airborneVelocityY = 0;
+    player.landingSurfaceId = '';
     player.vehicleId = '';
     player.vehicleSeat = -1;
     this.options.access.clearAction(player);

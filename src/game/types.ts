@@ -23,6 +23,12 @@ export interface NetworkPlayer {
   x: number;
   y: number;
   angle: number;
+  airborne?: boolean;
+  elevation?: number;
+  verticalVelocity?: number;
+  airborneVelocityX?: number;
+  airborneVelocityY?: number;
+  landingSurfaceId?: string;
   health: number;
   armor?: number;
   wanted: number;
@@ -189,6 +195,10 @@ export interface NetworkVehicle {
   linvelX?: number;
   linvelY?: number;
   angvel?: number;
+  airborne?: boolean;
+  elevation?: number;
+  verticalVelocity?: number;
+  landingSurfaceId?: string;
   health: number;
   maxHealth: number;
   engineDamage: number;

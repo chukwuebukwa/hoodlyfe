@@ -5,6 +5,8 @@ export interface RemoteMotionSnapshot {
   angle: number;
   velocityX?: number;
   velocityY?: number;
+  elevation?: number;
+  verticalVelocity?: number;
   surfaceId?: string;
 }
 
@@ -108,6 +110,12 @@ export class RemoteMotionTimeline {
         angle: normalizeAngle(left.angle + normalizeAngle(right.angle - left.angle) * factor),
         velocityX: lerp(optionalFinite(left.velocityX), optionalFinite(right.velocityX), factor),
         velocityY: lerp(optionalFinite(left.velocityY), optionalFinite(right.velocityY), factor),
+        elevation: lerpOptional(left.elevation, right.elevation, factor),
+        verticalVelocity: lerpOptional(
+          left.verticalVelocity,
+          right.verticalVelocity,
+          factor
+        ),
         surfaceId: left.surfaceId
       }, 'interpolated', snapshotAgeMs, 0, false);
     }
@@ -193,6 +201,12 @@ function extrapolate(
     angle: normalizeAngle(latest.angle + angularVelocity * seconds),
     velocityX,
     velocityY,
+    elevation: Number.isFinite(latest.elevation)
+      ? latest.elevation! + optionalFinite(latest.verticalVelocity) * seconds
+      : undefined,
+    verticalVelocity: Number.isFinite(latest.verticalVelocity)
+      ? latest.verticalVelocity
+      : undefined,
     surfaceId: latest.surfaceId
   };
 }
@@ -210,6 +224,10 @@ function sanitizeSnapshot(snapshot: RemoteMotionSnapshot): RemoteMotionSnapshot 
     angle: normalizeAngle(snapshot.angle),
     velocityX: Number.isFinite(snapshot.velocityX) ? snapshot.velocityX : undefined,
     velocityY: Number.isFinite(snapshot.velocityY) ? snapshot.velocityY : undefined,
+    elevation: Number.isFinite(snapshot.elevation) ? snapshot.elevation : undefined,
+    verticalVelocity: Number.isFinite(snapshot.verticalVelocity)
+      ? snapshot.verticalVelocity
+      : undefined,
     surfaceId: typeof snapshot.surfaceId === 'string' ? snapshot.surfaceId : undefined
   };
 }
@@ -236,6 +254,17 @@ function resolveOptions(options: RemoteMotionTimelineOptions): ResolvedOptions {
 
 function optionalFinite(value: number | undefined): number {
   return Number.isFinite(value) ? value! : 0;
+}
+
+function lerpOptional(
+  left: number | undefined,
+  right: number | undefined,
+  factor: number
+): number | undefined {
+  if (!Number.isFinite(left) && !Number.isFinite(right)) return undefined;
+  if (!Number.isFinite(left)) return right;
+  if (!Number.isFinite(right)) return left;
+  return lerp(left!, right!, factor);
 }
 
 function finite(value: number, fallback: number): number {

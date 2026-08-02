@@ -18,11 +18,17 @@ export interface SurfaceTriangle {
   readonly c: SurfacePoint;
 }
 
+export interface SurfaceBarrier {
+  readonly from: Readonly<{x: number; y: number}>;
+  readonly to: Readonly<{x: number; y: number}>;
+}
+
 export interface SurfaceDefinition {
   readonly id: string;
   readonly spaceId: string;
   readonly actorKinds: readonly SurfaceActorKind[];
   readonly triangles: readonly SurfaceTriangle[];
+  readonly barriers?: readonly SurfaceBarrier[];
 }
 
 export interface SurfaceTransitionDefinition {
@@ -49,6 +55,11 @@ export interface SurfaceCrossing {
   readonly surfaceId: string;
 }
 
+export interface SurfaceLanding {
+  readonly surfaceId: string;
+  readonly height: number;
+}
+
 interface SurfaceRuntime {
   readonly definition: SurfaceDefinition;
   readonly buckets: ReadonlyMap<string, readonly SurfaceTriangle[]>;
@@ -69,6 +80,10 @@ export class SurfaceMap {
   private readonly surfaces: ReadonlyMap<string, SurfaceRuntime>;
   private readonly surfaceIdsByBucket: ReadonlyMap<string, readonly string[]>;
   private readonly transitions: ReadonlyMap<string, readonly SurfaceTransitionDefinition[]>;
+  private readonly transitionBuckets: ReadonlyMap<
+    string,
+    ReadonlyMap<string, readonly SurfaceTransitionDefinition[]>
+  >;
 
   constructor(input: unknown) {
     this.manifest = validateManifest(input);
@@ -98,6 +113,26 @@ export class SurfaceMap {
       if (transition.bidirectional) append(transitions, transition.toSurfaceId, transition);
     }
     this.transitions = transitions;
+    const transitionBuckets = new Map<
+      string,
+      Map<string, SurfaceTransitionDefinition[]>
+    >();
+    for (const [surfaceId, surfaceTransitions] of transitions) {
+      const buckets = new Map<string, SurfaceTransitionDefinition[]>();
+      for (const transition of surfaceTransitions) {
+        for (const key of bucketKeysForBounds(
+          Math.min(transition.from.x, transition.to.x),
+          Math.min(transition.from.y, transition.to.y),
+          Math.max(transition.from.x, transition.to.x),
+          Math.max(transition.from.y, transition.to.y),
+          this.manifest.blockSize
+        )) {
+          append(buckets, key, transition);
+        }
+      }
+      transitionBuckets.set(surfaceId, buckets);
+    }
+    this.transitionBuckets = transitionBuckets;
     this.validateTransitions();
   }
 
@@ -180,6 +215,32 @@ export class SurfaceMap {
     return true;
   }
 
+  highestSurfaceBelow(
+    excludedSurfaceId: string,
+    x: number,
+    y: number,
+    radius: number,
+    actorKind: SurfaceActorKind,
+    belowHeight: number
+  ): SurfaceLanding | undefined {
+    if (
+      ![x, y, radius, belowHeight].every(Number.isFinite) ||
+      radius < 0
+    ) return undefined;
+    let landing: SurfaceLanding | undefined;
+    for (const surfaceId of this.surfaceIdsAt(x, y, actorKind)) {
+      if (surfaceId === excludedSurfaceId) continue;
+      const height = this.heightAt(surfaceId, x, y);
+      if (
+        height === undefined ||
+        height >= belowHeight - EPSILON ||
+        !this.canOccupyConnected(surfaceId, x, y, radius, actorKind)
+      ) continue;
+      if (!landing || height > landing.height) landing = {surfaceId, height};
+    }
+    return landing ? Object.freeze(landing) : undefined;
+  }
+
   transitionFor(
     surfaceId: string,
     fromX: number,
@@ -189,7 +250,19 @@ export class SurfaceMap {
     actorKind: SurfaceActorKind
   ): SurfaceCrossing | undefined {
     if (![fromX, fromY, toX, toY].every(Number.isFinite)) return undefined;
-    for (const transition of this.transitions.get(surfaceId) ?? []) {
+    const buckets = this.transitionBuckets.get(surfaceId);
+    if (!buckets) return undefined;
+    const candidates = new Set<SurfaceTransitionDefinition>();
+    for (const key of bucketKeysForBounds(
+      Math.min(fromX, toX),
+      Math.min(fromY, toY),
+      Math.max(fromX, toX),
+      Math.max(fromY, toY),
+      this.manifest.blockSize
+    )) {
+      for (const transition of buckets.get(key) ?? []) candidates.add(transition);
+    }
+    for (const transition of candidates) {
       if (!transition.actorKinds.includes(actorKind)) continue;
       if (!segmentsIntersect(fromX, fromY, toX, toY, transition)) continue;
       if (
@@ -260,11 +333,24 @@ function validateManifest(input: unknown): SurfaceManifest {
     const triangles = array(surface.triangles, `Surface ${id} triangles`)
       .map((triangle, triangleIndex) => validateTriangle(triangle, id, triangleIndex));
     if (triangles.length === 0) throw new Error(`Surface ${id} must contain a triangle.`);
+    const barriers = (surface.barriers === undefined
+      ? []
+      : array(surface.barriers, `Surface ${id} barriers`)
+    ).map((rawBarrier, barrierIndex) => {
+      const barrier = object(rawBarrier, `Surface ${id} barrier ${barrierIndex}`);
+      const from = point2(barrier.from, `Surface ${id} barrier ${barrierIndex} start`);
+      const to = point2(barrier.to, `Surface ${id} barrier ${barrierIndex} end`);
+      if (Math.hypot(to.x - from.x, to.y - from.y) <= EPSILON) {
+        throw new Error(`Surface ${id} barrier ${barrierIndex} must have length.`);
+      }
+      return Object.freeze({from, to});
+    });
     return Object.freeze({
       id,
       spaceId: text(surface.spaceId, `Surface ${id} space ID`),
       actorKinds: actorKinds(surface.actorKinds, `Surface ${id} actor kinds`),
-      triangles: Object.freeze(triangles)
+      triangles: Object.freeze(triangles),
+      barriers: Object.freeze(barriers)
     });
   });
   if (!ids.has(defaultSurfaceId)) {
@@ -404,6 +490,26 @@ function append(
 
 function bucketKey(x: number, y: number, blockSize: number): string {
   return `${Math.floor(x / blockSize)}:${Math.floor(y / blockSize)}`;
+}
+
+function bucketKeysForBounds(
+  minimumX: number,
+  minimumY: number,
+  maximumX: number,
+  maximumY: number,
+  blockSize: number
+): readonly string[] {
+  const keys: string[] = [];
+  const minimumColumn = Math.floor(minimumX / blockSize);
+  const maximumColumn = Math.floor(maximumX / blockSize);
+  const minimumRow = Math.floor(minimumY / blockSize);
+  const maximumRow = Math.floor(maximumY / blockSize);
+  for (let row = minimumRow; row <= maximumRow; row++) {
+    for (let column = minimumColumn; column <= maximumColumn; column++) {
+      keys.push(`${column}:${row}`);
+    }
+  }
+  return keys;
 }
 
 function actorKinds(input: unknown, label: string): readonly SurfaceActorKind[] {

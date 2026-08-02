@@ -130,6 +130,61 @@ test('elevated vehicles ignore flat statics from the sheet below', () => {
   assert.ok(car.x > wallX + 40, `elevated vehicle stopped at flat wall: ${car.x}`);
 });
 
+test('driven vehicles leave exposed elevated edges and land on the lower surface', () => {
+  const physics = PhysicsWorld.create(geometry());
+  const {room, car, driver} = fixture('sedan', physics, {x: 2048, y: 2048});
+  car.surfaceId = 'bridge';
+  car.elevation = 128;
+  driver.surfaceId = 'bridge';
+  driver.elevation = 128;
+  room.world.surfaceAfterMove = () => undefined;
+  let launchAvailable = true;
+  room.world.dropTargetAfterMove = () => {
+    if (!launchAvailable) return undefined;
+    launchAvailable = false;
+    return {surfaceId: 'street-ground', height: 0};
+  };
+  room.world.heightAt = (surfaceId: string) => surfaceId === 'bridge' ? 128 : 0;
+  room.world.landingBelow = (
+    _excludedSurfaceId: string,
+    _x: number,
+    _y: number,
+    _radius: number,
+    _actorType: string,
+    maximumHeight: number
+  ) => maximumHeight >= 0 ? {surfaceId: 'street-ground', height: 0} : undefined;
+
+  car.speed = 320;
+  car.linvelX = 320;
+  room.playerControl.setMove(driver.id, {x: 0, y: -1});
+  room.vehicleSimulation.beginTick();
+  room.vehicleSimulation.update(car, DT, 0);
+  room.vehicleSimulation.stepPhysics(DT, 0);
+
+  assert.equal(car.airborne, true);
+  assert.equal(car.surfaceId, 'bridge');
+  assert.equal(car.landingSurfaceId, 'street-ground');
+  assert.ok(car.linvelX > 0, 'launch discarded the vehicle forward momentum');
+
+  for (let tick = 1; tick < 180 && car.airborne; tick++) {
+    room.vehicleSimulation.beginTick();
+    room.vehicleSimulation.update(car, DT, tick * 33);
+    room.vehicleSimulation.stepPhysics(DT, tick * 33);
+  }
+
+  physics.free();
+  assert.equal(
+    car.airborne,
+    false,
+    `vehicle remained airborne at z=${car.elevation.toFixed(1)} with vZ=${car.verticalVelocity.toFixed(1)}`
+  );
+  assert.equal(car.surfaceId, 'street-ground');
+  assert.equal(car.elevation, 0);
+  assert.equal(driver.surfaceId, 'street-ground');
+  assert.equal(driver.elevation, 0);
+  assert.ok(car.x > 2048, 'airborne vehicle did not carry forward momentum');
+});
+
 test('physics path acknowledges input sequences and keeps undriven vehicles physical', () => {
   const physics = PhysicsWorld.create(geometry());
   const acknowledged: Array<{vehicleId: string; sequence: number}> = [];
@@ -356,7 +411,11 @@ function fixture(
   extras: {acknowledgeInput?: (playerId: string, vehicleId: string, sequence: number) => void} = {}
 ) {
   const room = new DistrictRoom() as any;
-  room.world = {canOccupy: () => true, isBlockedAt: () => false};
+  room.world = {
+    canOccupy: () => true,
+    isBlockedAt: () => false,
+    heightAt: () => 0
+  };
   room.setState(new DistrictState());
   const driver = new PlayerState();
   driver.id = 'driver';

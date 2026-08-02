@@ -6,6 +6,8 @@ dist/
 .next/
 tsconfig.tsbuildinfo
 .dotnet-artifacts/
+opengta2/**/bin/
+opengta2/**/obj/
 .DS_Store
 npm-debug.log*
 
