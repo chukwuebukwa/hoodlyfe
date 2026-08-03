@@ -78,7 +78,7 @@ class GameRuntimeController implements GameRuntime {
       if (loading) {
         loading.classList.remove('hidden');
         loadingUi?.setTitle('HOODLYFE');
-        loadingUi?.set(1, 'District server unavailable');
+        loadingUi?.set(1, 'District failed to load');
       }
       document.querySelector('#connection-state')?.classList.add('offline');
       console.error(error);
@@ -256,7 +256,7 @@ class GameRuntimeController implements GameRuntime {
         } catch (restoreError) {
           this.activeSession = undefined;
           await source.room.leave(true).catch(() => undefined);
-          this.loadingUi?.set(1, 'District server unavailable');
+          this.loadingUi?.set(1, 'District failed to load');
           console.error(restoreError);
           showRuntimeNotice('Travel failed and the previous district could not be restored.', 'warning');
           return;

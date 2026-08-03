@@ -198,6 +198,20 @@ railway status
 
 Do not print or commit `railway variable list --json`; it contains credential values.
 
+Configure the private bucket to allow browser reads from every deployed game origin. This is
+required because the asset route redirects the browser to a signed Tigris URL; without bucket CORS,
+the room join succeeds but map loading ends with `TypeError: Failed to fetch`.
+
+```bash
+railway run npm run world:configure-bucket -- \
+  https://hoodlyfe.up.railway.app
+```
+
+Run this once after attaching or recreating a bucket, and again when adding a custom production
+domain. The command owns the bucket CORS policy and replaces it with one read-only
+`nock0-world-content-read` rule. Pass every allowed game origin in the same command. Do not add
+`PUT`, `POST`, or wildcard origins for public clients.
+
 ## Builder Gun To Published Building
 
 Open the local authoring client:
@@ -277,6 +291,7 @@ The health response must report `status: "ok"` and the expected `buildId`.
 Run the publisher inside Railway's production variable context:
 
 ```bash
+railway run npm run world:configure-bucket -- https://hoodlyfe.up.railway.app
 railway run npm run world:publish -- bil
 ```
 
@@ -427,6 +442,7 @@ files, and then re-enable bucket mode.
 | `revision is missing .../manifest.json` | Pointer was manually changed or package is incomplete | Restore bundled mode and republish |
 | `checksum mismatch` | An immutable object was overwritten or upload is corrupt | Do not promote it; republish known-good source as a new revision |
 | Signed asset route returns 404 | World/revision does not have a manifest | Check the room descriptor and requested revision |
+| Browser reports `Failed to fetch` after joining | The bucket has no CORS rule for the game origin | Run `world:configure-bucket` for the production origin |
 | Signed asset route returns 500 | Credentials, endpoint, signing, or bucket access failed | Inspect Railway logs and bucket variable references |
 | Server uses new collision but browser shows old geometry | Client did not use the room's `contentAssetRoot`, or a non-revision URL was cached | Inspect the live room descriptor and network requests |
 | New publish is not visible in an existing room | Expected room pinning behavior | Create a new room after the pointer cache expires |
