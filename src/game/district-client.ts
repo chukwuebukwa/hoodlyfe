@@ -262,7 +262,6 @@ export class DistrictClient {
       const query = new URLSearchParams(window.location.search);
       if (
         this.enableInteriors &&
-        isDevelopment() &&
         query.get('qa') === '1' &&
         query.get('build') === '1'
       ) {

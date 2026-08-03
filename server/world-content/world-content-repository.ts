@@ -226,20 +226,35 @@ async function readRequired<T>(
   manifest: WorldContentManifest,
   path: string
 ): Promise<T> {
-  const key = worldContentAssetKey(worldId, manifest.revision, path);
-  if (readObject) {
-    const body = await readObject(key);
-    if (!body) throw new Error(`World content asset is missing ${key}.`);
-    const expected = manifest.checksums?.[path];
-    if (expected) {
-      const actual = createHash('sha256').update(body).digest('hex');
-      if (actual !== expected) throw new Error(`World content checksum mismatch for ${key}.`);
+  const expected = manifest.checksums?.[path];
+  let candidate = manifest;
+  const visited = new Set<string>();
+  while (visited.size < 16) {
+    if (visited.has(candidate.revision)) throw new Error('World content revision inheritance contains a cycle.');
+    visited.add(candidate.revision);
+    if (!candidate.objects || candidate.objects.includes(path)) {
+      const key = worldContentAssetKey(worldId, candidate.revision, path);
+      if (readObject) {
+        const body = await readObject(key);
+        if (!body) throw new Error(`World content asset is missing ${key}.`);
+        if (expected) {
+          const actual = createHash('sha256').update(body).digest('hex');
+          if (actual !== expected) throw new Error(`World content checksum mismatch for ${key}.`);
+        }
+        return JSON.parse(new TextDecoder().decode(body)) as T;
+      }
+      const value = await readJson<T>(key);
+      if (value === undefined) throw new Error(`World content asset is missing ${key}.`);
+      return value;
     }
-    return JSON.parse(new TextDecoder().decode(body)) as T;
+    if (!candidate.baseRevision) break;
+    const manifestKey = worldContentManifestKey(worldId, candidate.baseRevision);
+    const raw = await readJson<unknown>(manifestKey);
+    if (!raw) throw new Error(`World content revision is missing ${manifestKey}.`);
+    candidate = parseWorldContentManifest(raw, manifestKey);
+    if (candidate.worldId !== worldId) throw new Error('Inherited world content manifest has the wrong world id.');
   }
-  const value = await readJson<T>(key);
-  if (value === undefined) throw new Error(`World content asset is missing ${key}.`);
-  return value;
+  throw new Error(`World content asset "${path}" is not present in revision ${manifest.revision}.`);
 }
 
 function assertStandardPackageLayout(manifest: WorldContentManifest): void {

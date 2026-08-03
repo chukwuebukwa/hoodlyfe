@@ -18,6 +18,8 @@ export interface WorldContentFiles {
 
 export interface WorldContentManifest extends WorldContentPointer {
   readonly engineSchemaVersion: 1;
+  readonly baseRevision?: string;
+  readonly objects?: readonly string[];
   readonly files: WorldContentFiles;
   readonly checksums?: Readonly<Record<string, string>>;
 }
@@ -64,7 +66,17 @@ export function parseWorldContentManifest(raw: unknown, source = 'manifest.json'
         relativePath(path, `${source}.checksums key`),
         sha256(checksum, `${source}.checksums.${path}`)
       ])));
-  return Object.freeze({...pointer, engineSchemaVersion: 1, files, checksums});
+  const baseRevision = value.baseRevision === undefined
+    ? undefined
+    : revisionId(value.baseRevision, `${source}.baseRevision`);
+  if (baseRevision === pointer.revision) throw new Error(`${source}.baseRevision cannot reference itself.`);
+  const objects = value.objects === undefined
+    ? undefined
+    : Object.freeze(array(value.objects, `${source}.objects`).map((path, index) => (
+      relativePath(path, `${source}.objects[${index}]`)
+    )));
+  if (objects && !baseRevision) throw new Error(`${source}.objects requires baseRevision.`);
+  return Object.freeze({...pointer, engineSchemaVersion: 1, baseRevision, objects, files, checksums});
 }
 
 export function worldContentCurrentKey(worldId: string): string {
@@ -86,6 +98,11 @@ function worldContentRevisionPrefix(worldId: string, revision: string): string {
 function record(value: unknown, path: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object.`);
   return value as Record<string, unknown>;
+}
+
+function array(value: unknown, path: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${path} must be an array.`);
+  return value;
 }
 
 function requiredString(value: unknown, path: string): string {

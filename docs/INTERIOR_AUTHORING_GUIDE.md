@@ -105,9 +105,14 @@ primary clicks, reload, weapon cycling, contextual interactions, and combat fire
 2. Choose **Store** or **Garage**.
 3. Click a highlighted facade. Stores require a 56 px opening and garages require a 160 px opening.
 4. Inspect the footprint, facade, entrance, and generated fixture preview.
-5. Use **Copy Draft** to copy the generated source-block definition. The completed selection is
-   released automatically, so the next building can be targeted without resetting the tool.
-6. Save the copied JSON as a draft file and publish it with a final stable ID and label:
+5. Use **Publish Interior**. The completed selection is released automatically, so another building
+   can be targeted without resetting the tool. The generated ID is stable for that map footprint.
+6. Wait for the success status. Local development writes the manifest, geometry manifest, and
+   affected chunks atomically, then reloads. Hosted authoring asks for the configured editor
+   username and password, publishes an immutable bucket delta, waits for the room-content cache,
+   and reloads into a fresh room.
+
+The offline CLI remains a recovery path for imported JSON and converter-level changes:
 
 ```bash
 npm run buildings:publish -- ~/Downloads/building-draft.json \
@@ -115,22 +120,23 @@ npm run buildings:publish -- ~/Downloads/building-draft.json \
   --label "Eastside Quick Mart"
 ```
 
-The command calculates the exact roof triangle count from the current chunk geometry, validates and
-adds the manifest entry, runs the geometry-only GTA exporter, validates the map, and runs the focused
-building tests. Use `npm run buildings:import -- ...` when the GTA install is unavailable; it updates
-the manifest and prints the remaining export step. Add `--dry-run` to inspect the normalized entry
-without writing, or `--replace` to intentionally replace the one authored building occupying the
-same footprint.
+The in-game publisher validates the draft and overlap contract, moves matching triangles from each
+chunk's permanent indices into a named removable-roof group, updates the building and geometry
+manifests, and rejects a selection that owns no geometry. It does not need the local GTA install
+because it operates on the current exported map. The CLI re-runs the geometry-only GTA exporter and
+is still required when source-map geometry itself changes. Add `--dry-run` to inspect a CLI import
+without writing, or `--replace` to intentionally replace the authored building on that footprint.
 
-Drafts are also retained in local browser storage under `nock0.builder-gun-drafts-v1`. They are not
-production buildings. A draft has `status: "needs-export"` and a null expected triangle count until
-the GTA exporter assigns exact roof triangles, the manifest validator passes, and the generated map
-assets are committed. This boundary prevents a browser click from mutating the live multiplayer map.
+Drafts are retained in local browser storage under `nock0.builder-gun-drafts-v1` until publication
+succeeds. A draft has `status: "needs-export"` and a null expected triangle count; the server assigns
+the exact count during publication. Production requests pass through Basic authentication and only
+server-side code can write the private bucket. Credentials are kept in browser session storage for
+the current tab and are never placed in world content or `NEXT_PUBLIC_*` variables.
 
 Right-click or **Reset** clears the current selection and preview. Pressing `G` holsters the tool
-without deleting the current draft. Publishing deliberately does not commit or push and cannot judge
-whether the generated fixture layout looks good; inspect the doorway, walls, floor connectors,
-service point, and vehicle clearance in the browser before committing.
+without deleting the current draft. Local publication deliberately does not commit or push, and
+neither path can judge whether the generated fixture layout looks good; inspect the doorway, walls,
+floor connectors, service point, and vehicle clearance before publishing.
 
 ## Required QA
 

@@ -34,6 +34,7 @@ interface StoredBuildingDrafts {
 }
 
 const STORAGE_KEY = 'nock0.builder-gun-drafts-v1';
+const AUTH_STORAGE_KEY = 'nock0.builder-gun-authorization';
 const STORE_ENTRANCE_WIDTH = 56;
 const GARAGE_ENTRANCE_WIDTH = 160;
 
@@ -56,6 +57,7 @@ export class BuilderGunController {
   private draft?: BuildingAuthorDraft;
   private targetPoint?: {x: number; y: number; z: number};
   private equipped = false;
+  private publishing = false;
 
   private constructor(private readonly options: BuilderGunControllerOptions) {
     this.root.name = 'builder-gun-preview';
@@ -160,13 +162,13 @@ export class BuilderGunController {
         </div>
         <footer>
           <button type="button" data-builder-action="reset" disabled>RESET</button>
-          <button type="button" data-builder-action="copy" disabled>COPY DRAFT</button>
+          <button type="button" data-builder-action="publish" disabled>PUBLISH INTERIOR</button>
         </footer>
       </section>
     `;
     this.panel.querySelector('[data-builder-action="toggle"]')?.addEventListener('click', this.toggle);
     this.panel.querySelector('[data-builder-action="reset"]')?.addEventListener('click', this.resetSelection);
-    this.panel.querySelector('[data-builder-action="copy"]')?.addEventListener('click', this.copyDraft);
+    this.panel.querySelector('[data-builder-action="publish"]')?.addEventListener('click', this.publishDraft);
     for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-builder-template]')) {
       button.addEventListener('click', this.selectTemplate);
     }
@@ -187,7 +189,7 @@ export class BuilderGunController {
     document.querySelector('#weapon-hud')?.classList.toggle('builder-gun-equipped', equipped);
     this.root.visible = equipped;
     if (equipped) {
-      if (this.draft) this.setStatus('Draft saved locally · export required');
+      if (this.draft) this.setStatus('Interior ready to publish');
       else if (this.selected && this.template) this.setStatus(`Click the ${this.template === 'garage' ? 'vehicle-width' : 'street-facing'} facade`);
       else if (this.selected) this.setStatus('Choose Store or Garage');
       else this.setStatus('Aim at a building roof');
@@ -249,7 +251,7 @@ export class BuilderGunController {
       if (this.draft) {
         this.draft = undefined;
         this.clearDraftPreview();
-        this.setCopyEnabled(false);
+        this.setPublishEnabled(false);
       }
       this.selected = candidate;
       this.setCandidateLabel(`${candidate.cells.length} tiles · ${candidate.floorZ}-${candidate.roofZ} high`);
@@ -279,9 +281,9 @@ export class BuilderGunController {
       );
       this.persistDraft(this.draft);
       this.showDraft(this.draft, facade);
-      this.setCopyEnabled(true);
+      this.setPublishEnabled(true);
       this.releaseCompletedSelection();
-      this.setStatus('Draft saved locally · aim at another roof or copy it');
+      this.setStatus('Interior ready · publish or aim at another roof');
     } catch (error) {
       this.setStatus(error instanceof Error ? error.message : String(error));
     }
@@ -301,7 +303,7 @@ export class BuilderGunController {
       candidate.setAttribute('aria-pressed', String(candidate === button));
     }
     this.clearDraftPreview();
-    this.setCopyEnabled(false);
+    this.setPublishEnabled(false);
     this.setStatus(`Click the ${this.template === 'garage' ? 'vehicle-width' : 'street-facing'} facade`);
   };
 
@@ -315,7 +317,7 @@ export class BuilderGunController {
     this.setCandidateLabel('None');
     this.setTemplateButtonsEnabled(false);
     this.setResetEnabled(false);
-    this.setCopyEnabled(false);
+    this.setPublishEnabled(false);
     for (const button of this.panel.querySelectorAll('[data-builder-template]')) {
       button.removeAttribute('aria-pressed');
     }
@@ -332,10 +334,39 @@ export class BuilderGunController {
     }
   }
 
-  private readonly copyDraft = async (): Promise<void> => {
-    if (!this.draft) return;
-    await navigator.clipboard.writeText(JSON.stringify(this.draft, null, 2));
-    this.setStatus('Draft JSON copied');
+  private readonly publishDraft = async (): Promise<void> => {
+    if (!this.draft || this.publishing) return;
+    this.publishing = true;
+    this.setPublishEnabled(false);
+    this.setStatus('Publishing interior...');
+    try {
+      let response = await postBuildingDraft(this.draft, readStoredAuthorization());
+      if (response.status === 401) {
+        const authorization = promptForAuthorization();
+        if (!authorization) throw new Error('Publishing cancelled');
+        sessionStorage.setItem(AUTH_STORAGE_KEY, authorization);
+        response = await postBuildingDraft(this.draft, authorization);
+      }
+      const payload = await responsePayload(response) as {
+        error?: string;
+        buildingId?: string;
+        triangleCount?: number;
+        source?: 'bundled' | 'bucket';
+      };
+      if (!response.ok) {
+        if (response.status === 401) sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        throw new Error(payload.error ?? `Publish failed (${response.status})`);
+      }
+      removeStoredDraft(this.draft.candidateId);
+      const delayMs = payload.source === 'bucket' ? 16_000 : 1_500;
+      this.setStatus(`Published ${payload.buildingId} · ${payload.triangleCount} roof triangles · reloading`);
+      window.setTimeout(() => window.location.reload(), delayMs);
+    } catch (error) {
+      this.setStatus(error instanceof Error ? error.message : String(error));
+      this.setPublishEnabled(true);
+    } finally {
+      this.publishing = false;
+    }
   };
 
   private pick(event: PointerEvent): {x: number; y: number; z: number} | undefined {
@@ -491,8 +522,8 @@ export class BuilderGunController {
     if (button) button.disabled = !enabled;
   }
 
-  private setCopyEnabled(enabled: boolean): void {
-    const button = this.panel.querySelector<HTMLButtonElement>('[data-builder-action="copy"]');
+  private setPublishEnabled(enabled: boolean): void {
+    const button = this.panel.querySelector<HTMLButtonElement>('[data-builder-action="publish"]');
     if (button) button.disabled = !enabled;
   }
 }
@@ -531,6 +562,49 @@ function readStoredDrafts(): StoredBuildingDrafts {
     // Invalid local drafts are replaced by the next valid authoring operation.
   }
   return {version: 1, drafts: []};
+}
+
+function removeStoredDraft(candidateId: string): void {
+  const stored = readStoredDrafts();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    version: 1,
+    drafts: stored.drafts.filter((draft) => draft.candidateId !== candidateId)
+  } satisfies StoredBuildingDrafts));
+}
+
+function readStoredAuthorization(): string | undefined {
+  try {
+    return sessionStorage.getItem(AUTH_STORAGE_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function promptForAuthorization(): string | undefined {
+  const user = window.prompt('Author username');
+  if (!user) return undefined;
+  const password = window.prompt('Author password');
+  if (password === null) return undefined;
+  return `Basic ${btoa(`${user}:${password}`)}`;
+}
+
+function postBuildingDraft(draft: BuildingAuthorDraft, authorization?: string): Promise<Response> {
+  const headers: Record<string, string> = {'Content-Type': 'application/json'};
+  if (authorization) headers.Authorization = authorization;
+  return fetch('/api/editor/buildings/bil', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(draft)
+  });
+}
+
+async function responsePayload(response: Response): Promise<Record<string, unknown>> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return text ? {error: text} : {};
+  }
 }
 
 function disposeAndRemove(object: THREE.Mesh | THREE.LineSegments): void {

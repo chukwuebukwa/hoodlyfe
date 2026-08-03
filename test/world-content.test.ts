@@ -40,6 +40,27 @@ test('world content contracts produce immutable revision keys and reject travers
   }), /revision is invalid/);
 });
 
+test('world content manifests accept bounded delta revision inheritance', () => {
+  const files = standardFiles();
+  const parsed = parseWorldContentManifest({
+    schemaVersion: 1,
+    engineSchemaVersion: 1,
+    worldId: 'bil',
+    revision: 'fedcba9876543210fedcba98',
+    baseRevision: revision,
+    publishedAt,
+    objects: ['maps/geometry/world.json', 'content/buildings.json'],
+    files,
+    checksums: Object.fromEntries(Object.values(files).map((path) => [path, 'a'.repeat(64)]))
+  });
+  assert.equal(parsed.baseRevision, revision);
+  assert.deepEqual(parsed.objects, ['maps/geometry/world.json', 'content/buildings.json']);
+  assert.throws(() => parseWorldContentManifest({
+    ...parsed,
+    baseRevision: parsed.revision
+  }), /cannot reference itself/);
+});
+
 test('bundled repository creates independent worlds pinned to one content revision', async () => {
   const snapshot = await new BundledWorldContentRepository().resolveCurrent('bil');
   const first = snapshot.createWorld();
@@ -93,6 +114,43 @@ test('bucket repository loads authoritative server inputs and returns an exact c
   const readsAfterLoad = reads;
   assert.equal(await repository.resolveCurrent('bil'), snapshot);
   assert.equal(reads, readsAfterLoad + 1);
+});
+
+test('bucket repository resolves unchanged authority files through a delta base revision', async () => {
+  const maps = resolve(process.cwd(), 'public', 'assets', 'maps');
+  const deltaRevision = 'fedcba9876543210fedcba98';
+  const files = standardFiles();
+  const baseManifest = parseWorldContentManifest({
+    schemaVersion: 1,
+    engineSchemaVersion: 1,
+    worldId: 'bil',
+    revision,
+    publishedAt,
+    files
+  });
+  const deltaManifest = parseWorldContentManifest({
+    ...baseManifest,
+    revision: deltaRevision,
+    baseRevision: revision,
+    objects: [files.buildings]
+  });
+  const values = new Map<string, unknown>([
+    [worldContentCurrentKey('bil'), {schemaVersion: 1, worldId: 'bil', revision: deltaRevision, publishedAt}],
+    [worldContentManifestKey('bil', revision), baseManifest],
+    [worldContentManifestKey('bil', deltaRevision), deltaManifest],
+    [worldContentAssetKey('bil', revision, files.districtMap), json(resolve(maps, 'district-map.json'))],
+    [worldContentAssetKey('bil', revision, files.metadata), json(resolve(maps, 'district-map.metadata.json'))],
+    [worldContentAssetKey('bil', revision, files.surfaces), json(resolve(maps, 'surface-manifest.json'))],
+    [worldContentAssetKey('bil', revision, files.lanes), json(resolve(maps, 'district-lanes.json'))],
+    [worldContentAssetKey('bil', deltaRevision, files.buildings), rawBuildings]
+  ]);
+  const repository = new BucketWorldContentRepository(
+    async <T>(key: string) => values.get(key) as T | undefined,
+    () => true
+  );
+  const snapshot = await repository.resolveCurrent('bil');
+  assert.equal(snapshot.descriptor.revision, deltaRevision);
+  assert.ok(snapshot.buildings.interiors.some(({id}) => id === 'quick-stop-market'));
 });
 
 test('bucket repository rejects corrupted authoritative world assets', async () => {

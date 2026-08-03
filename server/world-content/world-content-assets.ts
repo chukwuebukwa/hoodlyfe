@@ -16,6 +16,22 @@ export async function signedWorldContentAssetUrl(
   revision: string,
   path: string
 ): Promise<string> {
+  const visited = new Set<string>();
+  let candidateRevision = revision;
+  while (visited.size < 16) {
+    if (visited.has(candidateRevision)) throw new WorldContentNotFoundError('World content revision inheritance contains a cycle.');
+    visited.add(candidateRevision);
+    const manifest = await loadManifest(worldId, candidateRevision);
+    if (!manifest.objects || manifest.objects.includes(path)) {
+      return signedBucketObjectUrl(worldContentAssetKey(worldId, candidateRevision, path));
+    }
+    if (!manifest.baseRevision) break;
+    candidateRevision = manifest.baseRevision;
+  }
+  throw new WorldContentNotFoundError(`World content asset "${path}" is not present in revision ${revision}.`);
+}
+
+async function loadManifest(worldId: string, revision: string): Promise<WorldContentManifest> {
   const manifestKey = worldContentManifestKey(worldId, revision);
   let manifest = manifestCache.get(manifestKey);
   if (!manifest) {
@@ -27,7 +43,7 @@ export async function signedWorldContentAssetUrl(
   if (manifest.worldId !== worldId || manifest.revision !== revision) {
     throw new WorldContentNotFoundError('World content manifest does not match the requested revision.');
   }
-  return signedBucketObjectUrl(worldContentAssetKey(worldId, revision, path));
+  return manifest;
 }
 
 export class WorldContentNotFoundError extends Error {}

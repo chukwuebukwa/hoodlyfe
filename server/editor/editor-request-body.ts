@@ -10,9 +10,10 @@ export async function readEditorJsonBody(
   request: Pick<Request, 'body' | 'headers'>,
   maxBytes = DEFAULT_EDITOR_BODY_LIMIT
 ): Promise<unknown> {
+  const limit = maxBytes === DEFAULT_EDITOR_BODY_LIMIT ? '2 MB' : `${Math.floor(maxBytes / 1024)} KB`;
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-    throw new EditorRequestBodyError(413, 'Editor document exceeds the 2 MB request limit.');
+    throw new EditorRequestBodyError(413, `Editor document exceeds the ${limit} request limit.`);
   }
   if (!request.body) throw new EditorRequestBodyError(400, 'Editor document body is required.');
 
@@ -25,7 +26,7 @@ export async function readEditorJsonBody(
     totalBytes += value.byteLength;
     if (totalBytes > maxBytes) {
       await reader.cancel();
-      throw new EditorRequestBodyError(413, 'Editor document exceeds the 2 MB request limit.');
+      throw new EditorRequestBodyError(413, `Editor document exceeds the ${limit} request limit.`);
     }
     chunks.push(value);
   }

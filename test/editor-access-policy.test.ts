@@ -17,9 +17,33 @@ test('production editor is hidden until explicitly enabled', () => {
   });
 });
 
-test('enabled production editor is temporarily public', () => {
+test('enabled production editor requires configured credentials', () => {
   assert.deepEqual(evaluateEditorAccess(null, {
     NODE_ENV: 'production',
     EDITOR_PRODUCTION_ENABLED: '1'
-  }), {allowed: true, actor: 'public-editor'});
+  }), {
+    allowed: false,
+    status: 503,
+    reason: 'Editor authentication is not configured.'
+  });
+  const environment = {
+    NODE_ENV: 'production',
+    EDITOR_PRODUCTION_ENABLED: '1',
+    EDITOR_AUTH_USER: 'builder',
+    EDITOR_AUTH_PASSWORD: 'correct horse battery staple'
+  };
+  assert.deepEqual(evaluateEditorAccess(null, environment), {
+    allowed: false,
+    status: 401,
+    reason: 'Editor authentication is required.'
+  });
+  assert.deepEqual(evaluateEditorAccess('Basic YnVpbGRlcjp3cm9uZw==', environment), {
+    allowed: false,
+    status: 401,
+    reason: 'Editor authentication is required.'
+  });
+  assert.deepEqual(
+    evaluateEditorAccess('Basic YnVpbGRlcjpjb3JyZWN0IGhvcnNlIGJhdHRlcnkgc3RhcGxl', environment),
+    {allowed: true, actor: 'builder'}
+  );
 });

@@ -6,6 +6,7 @@ export function proxy(request: NextRequest): NextResponse {
   if (!decision.allowed) {
     const response = new NextResponse(decision.reason, {status: decision.status});
     response.headers.set('Cache-Control', 'no-store');
+    if (decision.status === 401) response.headers.set('WWW-Authenticate', 'Basic realm="Hoodlyfe Authoring"');
     return response;
   }
   const headers = new Headers(request.headers);

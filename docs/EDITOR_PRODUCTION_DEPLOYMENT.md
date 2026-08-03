@@ -8,12 +8,13 @@ same production Next server as the game. Set these service variables:
 ```text
 EDITOR_PRODUCTION_ENABLED=1
 EDITOR_PLAYTEST_SECRET=<long random signing secret>
+EDITOR_AUTH_USER=<author username>
+EDITOR_AUTH_PASSWORD=<long random password>
 ```
 
-The production proxy exposes `/editor`, `/explore`, `/playtest`, and `/api/editor/*`
-without a username/password while the production enable flag is set. This is intentionally
-public for the current prototype: anyone with the URL can save drafts and create Play Draft
-rooms. Restore an identity-aware access layer before editor writes become valuable or destructive.
+The production proxy exposes `/editor`, `/explore`, `/playtest`, and `/api/editor/*` only after
+HTTP Basic authentication. Enabling the editor without both credential variables fails closed with
+HTTP 503; missing or incorrect credentials return HTTP 401.
 Repository-backed BIL assets
 are available immediately. Locally converted WIL/STE packages are ignored by
 Git and are therefore not included in a normal Git deployment.

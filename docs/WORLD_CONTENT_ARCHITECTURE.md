@@ -48,10 +48,10 @@ requires a normal code deployment before content using that change is promoted.
 
 ```mermaid
 flowchart LR
-  A["Builder Gun draft"] --> B["Building manifest"]
-  B --> C["GTA2 geometry export"]
-  C --> D["Validation and tests"]
-  D --> E["Immutable world revision"]
+  A["Builder Gun selection"] --> B["Authenticated publish API"]
+  B --> C["Validate manifest and overlap"]
+  C --> D["Partition exported roof triangles"]
+  D --> E["Immutable delta revision"]
   E --> F["Railway Bucket"]
   F --> G["current.json pointer"]
   G --> H["New Colyseus room"]
@@ -108,10 +108,12 @@ worlds/bil/revisions/<revision>/maps/geometry/tiles.png
 entry points, and SHA-256 checksums for every uploaded file. The 24-character revision ID is derived
 from sorted package paths and file checksums, so identical content produces the same revision.
 
-Revision objects are immutable. The publisher uploads assets with immutable cache headers, writes
-the manifest last, and writes `current.json` last with `no-store`. If the process stops before the
-pointer write, production remains on the previous revision. Rerunning the publisher is safe: an
-existing manifest causes immutable uploads to be skipped and the pointer to be advanced.
+Revision objects are immutable. A full revision contains the complete package. An in-game building
+publication creates a delta manifest with `baseRevision` plus an `objects` list containing only the
+updated building manifest, geometry manifest, and affected chunks. Unchanged assets resolve through
+the base chain. Delta depth and cycles are bounded during reads. The publisher writes immutable
+objects and the manifest before advancing `current.json` with `no-store`; an optimistic pointer
+check rejects concurrent publication instead of overwriting a newer revision.
 
 ## Runtime Contract
 
@@ -202,13 +204,12 @@ railway status
 
 Do not print or commit `railway variable list --json`; it contains credential values.
 
-The browser does not need bucket CORS or write access. Builder Gun drafts are local, and trusted
-publisher processes write with server-side bucket credentials. Future automated publishing must
-continue through an authenticated server-side worker rather than browser bucket writes.
+The browser does not need bucket CORS or write access. Builder Gun publication goes through
+`/api/editor/buildings/bil`; only that authenticated server route uses bucket credentials.
 
 ## Builder Gun To Published Building
 
-Open the local authoring client:
+Open the authoring client locally or on the hosted app:
 
 ```text
 http://127.0.0.1:5173/?qa=1&build=1
@@ -220,9 +221,13 @@ The complete Builder Gun controls and geometry rules are in
 1. Equip the Builder Gun with `G`.
 2. Select an elevated connected roof, choose **Store** or **Garage**, and click the intended facade.
 3. Inspect the generated footprint, entrance, fixture layout, and vehicle clearance.
-4. Use **Copy Draft**. The browser stores drafts locally and releases the selected building so
-   another building can be selected.
-5. Save the JSON locally and normalize it into the source manifest:
+4. Use **Publish Interior**. The browser stores the draft locally until the request succeeds and
+   releases the selection so another building can be targeted.
+5. Local development atomically updates bundled source files. Production requires
+   `EDITOR_PRODUCTION_ENABLED=1`, configured editor credentials, bucket credentials, and
+   `WORLD_CONTENT_SOURCE=bucket`; it writes an immutable delta and advances the pointer.
+
+For recovery or converter-level source changes, use the offline CLI:
 
 ```bash
 npm run buildings:publish -- ~/Downloads/building-draft.json \
@@ -230,13 +235,9 @@ npm run buildings:publish -- ~/Downloads/building-draft.json \
   --label "Eastside Quick Mart"
 ```
 
-`buildings:publish` validates and adds the definition, calculates exact roof triangle ownership,
-runs the geometry-only OpenGTA2 export, validates the map, and runs focused tests. It requires a
-local GTA2 installation. If the GTA files are temporarily unavailable, `buildings:import` can
-update the manifest, but the result is not publishable until geometry export and validation finish.
-
-The Builder Gun intentionally cannot mutate the production bucket. It creates an untrusted local
-draft with `status: "needs-export"`; trusted tooling performs export, review, tests, and promotion.
+`buildings:publish` remains the reference full-export path and requires a local GTA2 installation.
+The in-game path does not execute the converter: it validates the untrusted draft server-side and
+partitions the current exported geometry into the same named occluder contract.
 
 ## Build And Validate A Revision
 
@@ -461,18 +462,16 @@ files, and then re-enable bucket mode.
 
 ## Current Limitations And Next Automation Step
 
-- Publishing is a trusted CLI operation; the browser cannot enqueue a production publish.
-- The package is a complete upload. Delta/base-revision reuse is a future optimization.
+- Building publishing is authenticated but still shares the game service process; move it to a
+  dedicated authoring worker before multiple production authors use it concurrently.
+- Full map publishing remains a complete upload; Builder Gun building changes use delta revisions.
 - Only active BIL content uses this repository. Arena and secondary district packages still use
   bundled paths.
-- Railway Buckets do not provide the publication lock and audit workflow needed for concurrent
-  authors.
+- Publication uses an in-process queue and optimistic pointer check, not a durable database lock or
+  audit table.
 - There is no first-class command to promote an already uploaded revision or list revision history.
 - Browser assets are served through signed redirects, but client-side checksum verification is not
   yet implemented.
 
-The next automation step is an authenticated publish worker, not direct browser-to-bucket writes.
-It should accept a stored draft, acquire a database-backed publication lock, run the exact existing
-import/export/test/package pipeline, upload the immutable revision, record an audit row, and require
-an explicit promotion action before writing `current.json`. The CLI remains the reference behavior
-for that worker.
+The next scaling step is moving the existing authenticated route to a separate authoring worker,
+adding a database-backed publication lock and audit row, and separating preview from promotion.

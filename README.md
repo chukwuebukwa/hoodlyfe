@@ -70,8 +70,13 @@ Bucket. Rooms pin one immutable revision at creation, and browsers receive the m
 geometry through signed URLs. Local development defaults to the bundled `public/assets/maps/`
 files.
 
-Create building drafts in `/?qa=1&build=1`, normalize and export one with
-`npm run buildings:publish`, then inspect the complete world package before uploading:
+Open `/?qa=1&build=1`, equip the Builder Gun, select a building and facade, then use
+**Publish Interior**. In local development this updates the bundled manifest and streamed geometry
+directly. In production the authenticated server publishes an immutable delta revision to the
+private bucket and reloads into a fresh room after the revision cache expires.
+
+The converter-backed CLI remains available for offline recovery and changes that require rebuilding
+the source map rather than partitioning already-exported geometry:
 
 ```bash
 npm run world:publish -- bil --dry-run
