@@ -6,7 +6,9 @@ promotion, verification, and rollback.
 
 ## Current Production Baseline
 
-As of 2026-08-03, production is running the bucket-backed path.
+The bucket-backed path was deployed and validated on 2026-08-03, then production was returned to
+the bundled fallback after a browser-loading incident. The immutable bucket revision remains
+published for continued testing.
 
 | Item | Value |
 | --- | --- |
@@ -17,7 +19,7 @@ As of 2026-08-03, production is running the bucket-backed path.
 | First bucket-capable commit | `d27b81126505a35b93d9aa1f1f329f6facc7cd15` |
 | First published BIL revision | `b2baf9bb160a7542ea3969b0` |
 | First bucket-mode deployment | `00812c01-87c1-40a5-8827-34ba372b80a2` |
-| Runtime setting | `WORLD_CONTENT_SOURCE=bucket` |
+| Current runtime setting | `WORLD_CONTENT_SOURCE=bundled` |
 
 The deployed revision is an operational record, not a permanent configuration value. Future
 publishes advance `worlds/bil/current.json` to a new content-derived revision.
@@ -390,6 +392,14 @@ Two non-fatal warnings remained: Node `20.20.2` will stop receiving new AWS SDK 
 the first week of January 2027, and one dependency emits a deprecated initialization-parameter
 warning. Upgrade the production runtime to Node 22 before that AWS SDK cutoff and remove the
 deprecated initialization call as separate maintenance work.
+
+The first public browser attempt exposed a missing Tigris CORS policy and displayed the generic
+`District server unavailable` fallback after the room had already joined. CORS was restricted to
+read-only `GET`/`HEAD`, and commit `3fedb35` subsequently removed the browser redirect entirely by
+streaming private objects through the same-origin revision route. Because a later test browser also
+stalled during world initialization in bundled mode, production was rolled back to bundled content
+while that separate client-loading performance issue is profiled. Do not re-enable bucket mode
+until a fresh production browser reaches gameplay repeatedly and the memory rollout gates pass.
 
 ## Rollback And Recovery
 
