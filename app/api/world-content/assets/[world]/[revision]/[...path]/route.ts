@@ -13,9 +13,13 @@ export async function GET(
   try {
     const {world, revision, path} = await context.params;
     const signedUrl = await signedWorldContentAssetUrl(world, revision, path.join('/'));
-    return NextResponse.redirect(signedUrl, {
-      status: 307,
-      headers: {'Cache-Control': 'private, max-age=300'}
+    const upstream = await fetch(signedUrl);
+    if (!upstream.ok || !upstream.body) {
+      throw new Error(`World content storage returned ${upstream.status}.`);
+    }
+    return new NextResponse(upstream.body, {
+      status: 200,
+      headers: responseHeaders(upstream.headers)
     });
   } catch (error) {
     if (error instanceof WorldContentNotFoundError) {
@@ -24,4 +28,16 @@ export async function GET(
     console.error('World content asset signing failed.', error);
     return NextResponse.json({error: 'World content asset is unavailable.'}, {status: 500});
   }
+}
+
+function responseHeaders(upstream: Headers): Headers {
+  const headers = new Headers({
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  for (const name of ['content-type', 'etag', 'last-modified']) {
+    const value = upstream.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
 }

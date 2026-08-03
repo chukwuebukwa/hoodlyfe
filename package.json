@@ -20,7 +20,6 @@
     "map:generate-downtown": "npm run district:export -- wil 256",
     "map:generate-residential": "npm run district:export -- ste 256",
     "map:compile-world": "tsx scripts/compile-world-atlas.ts",
-    "world:configure-bucket": "tsx scripts/configure-world-content-bucket.ts",
     "world:publish": "tsx scripts/publish-world-content.ts",
     "map:generate-raceway": "node scripts/generate-raceway-district.mjs",
     "map:generate-deathmatch": "node scripts/generate-raceway-district.mjs --deathmatch",

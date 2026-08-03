@@ -155,10 +155,12 @@ Before `DistrictClient` starts, it reads the replicated descriptor. In bucket mo
 /api/world-content/assets/<world>/<revision>
 ```
 
-The Next.js route validates the world/revision/path shape and returns a `307` redirect to a private
-Railway Bucket signed URL. Signed URLs expire after 15 minutes; the redirect may be cached privately
-for five minutes. Geometry chunks, map metadata, surfaces, and buildings therefore come from the
-same immutable revision the server is simulating.
+The Next.js route validates the world/revision/path shape, creates a short-lived private Railway
+Bucket signed URL on the server, and streams the upstream body through the revision-scoped
+same-origin route. The browser never sees bucket credentials or signed URLs. Responses use a
+one-year immutable cache policy because revision paths cannot be changed. Geometry chunks, map
+metadata, surfaces, and buildings therefore come from the same immutable revision the server is
+simulating without depending on cross-origin texture behavior.
 
 The bucket and AWS credentials remain server-side. Never expose them through `NEXT_PUBLIC_*`
 variables or browser code.
@@ -198,19 +200,9 @@ railway status
 
 Do not print or commit `railway variable list --json`; it contains credential values.
 
-Configure the private bucket to allow browser reads from every deployed game origin. This is
-required because the asset route redirects the browser to a signed Tigris URL; without bucket CORS,
-the room join succeeds but map loading ends with `TypeError: Failed to fetch`.
-
-```bash
-railway run npm run world:configure-bucket -- \
-  https://hoodlyfe.up.railway.app
-```
-
-Run this once after attaching or recreating a bucket, and again when adding a custom production
-domain. The command owns the bucket CORS policy and replaces it with one read-only
-`nock0-world-content-read` rule. Pass every allowed game origin in the same command. Do not add
-`PUT`, `POST`, or wildcard origins for public clients.
+The browser does not need bucket CORS or write access. Builder Gun drafts are local, and trusted
+publisher processes write with server-side bucket credentials. Future automated publishing must
+continue through an authenticated server-side worker rather than browser bucket writes.
 
 ## Builder Gun To Published Building
 
@@ -291,7 +283,6 @@ The health response must report `status: "ok"` and the expected `buildId`.
 Run the publisher inside Railway's production variable context:
 
 ```bash
-railway run npm run world:configure-bucket -- https://hoodlyfe.up.railway.app
 railway run npm run world:publish -- bil
 ```
 
@@ -309,7 +300,7 @@ curl -fsSL \
   https://hoodlyfe.up.railway.app/api/world-content/assets/bil/<revision>/content/buildings.json
 ```
 
-Both requests should follow a redirect and return JSON from the bucket.
+Both requests should return cacheable JSON streamed from the private bucket.
 
 ### 4. Enable bucket mode
 
@@ -442,8 +433,8 @@ files, and then re-enable bucket mode.
 | `revision is missing .../manifest.json` | Pointer was manually changed or package is incomplete | Restore bundled mode and republish |
 | `checksum mismatch` | An immutable object was overwritten or upload is corrupt | Do not promote it; republish known-good source as a new revision |
 | Signed asset route returns 404 | World/revision does not have a manifest | Check the room descriptor and requested revision |
-| Browser reports `Failed to fetch` after joining | The bucket has no CORS rule for the game origin | Run `world:configure-bucket` for the production origin |
-| Signed asset route returns 500 | Credentials, endpoint, signing, or bucket access failed | Inspect Railway logs and bucket variable references |
+| Browser reports `Failed to fetch` after joining | Same-origin asset proxy or Railway connectivity failed | Inspect the failed asset path and Railway logs |
+| Signed asset route returns 500 | Credentials, endpoint, signing, upstream fetch, or bucket access failed | Inspect Railway logs and bucket variable references |
 | Server uses new collision but browser shows old geometry | Client did not use the room's `contentAssetRoot`, or a non-revision URL was cached | Inspect the live room descriptor and network requests |
 | New publish is not visible in an existing room | Expected room pinning behavior | Create a new room after the pointer cache expires |
 
