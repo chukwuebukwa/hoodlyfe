@@ -83,6 +83,11 @@ import {
   type SoccerBallKickMessage
 } from '../shared/protocol/soccer-ball.ts';
 import {PLAYER_JUMP_MESSAGE} from '../shared/protocol/player-jump.ts';
+import {
+  QA_TELEPORT_MESSAGE,
+  isQaTeleportMessage,
+  type QaTeleportMessage
+} from '../shared/protocol/qa-teleport.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
@@ -128,6 +133,7 @@ import {PoliceStingerController} from './game/police/police-stinger-controller.t
 import {DistrictPopulationController} from './game/population/district-population-controller.ts';
 import {PopulationStreamingController} from './game/population/population-streaming-controller.ts';
 import {WorldClockController} from './game/world/world-clock-controller.ts';
+import {GarageDoorController} from './game/world/garage-door-controller.ts';
 import {TrafficController} from './game/traffic/traffic-controller.ts';
 import {LaneGraph} from './game/traffic/lane-graph.ts';
 import {TrafficSignalController} from './game/traffic/traffic-signal-controller.ts';
@@ -164,6 +170,7 @@ import {PlayerAppearanceController} from './game/players/player-appearance-contr
 import {WardrobeInventoryController} from './game/appearance/wardrobe-inventory-controller.ts';
 import {StreetServiceController} from './game/services/street-service-controller.ts';
 import {InteriorController} from './game/interiors/interior-controller.ts';
+import {resolveQaTeleportTarget} from './game/qa/qa-teleport.ts';
 import {DistrictReplicationController} from './game/replication/district-replication-controller.ts';
 import {PedestrianController} from './game/pedestrians/pedestrian-controller.ts';
 import {PEDESTRIAN_RADIUS} from './game/pedestrians/pedestrian-config.ts';
@@ -274,6 +281,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private trafficController!: TrafficController;
   private laneGraph?: LaneGraph;
   private trafficSignalController!: TrafficSignalController;
+  private garageDoorController!: GarageDoorController;
   private vehicleSimulation!: VehicleSimulationController;
   private vehicleInput!: VehicleInputController;
   private playerControl!: PlayerControlController;
@@ -409,6 +417,11 @@ export class DistrictRoom extends Room<DistrictState> {
       : undefined;
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
+    this.garageDoorController = new GarageDoorController({
+      state: this.state,
+      world: this.world,
+      physics: this.physicsWorld
+    });
     this.voiceChat = new ProximityVoiceController({
       state: this.state,
       roomName: `nock0:${this.roomId}`,
@@ -1205,6 +1218,7 @@ export class DistrictRoom extends Room<DistrictState> {
       clock: this.simulationClock,
       populationStreaming: this.populationStreaming,
       trafficSignals: this.trafficSignalController,
+      garageDoors: this.garageDoorController,
       explosions: this.explosionController,
       policeFleet: this.policeResponseFleet,
       policeHelicopters: this.policeHelicopters,
@@ -1256,6 +1270,7 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     if (!activityController) {
       if (this.usesAuthoredStreetContent()) {
+        this.garageDoorController.initialize(this.simulationClock.nowMs);
         this.serviceController.initialize();
         this.medicalController.initialize();
         this.weaponPickupController.initialize();
@@ -1404,6 +1419,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.onMessage(DEBUG_UNSUBSCRIBE_MESSAGE, (client) => {
       this.debugSubscribers.delete(client.sessionId);
     });
+    if (process.env.NODE_ENV !== 'production') {
+      this.onMessage<QaTeleportMessage>(QA_TELEPORT_MESSAGE, (client, message) => {
+        if (!isQaTeleportMessage(message)) return;
+        this.teleportQaPlayer(client.sessionId, message);
+      });
+    }
     this.runtimeHealth?.roomReady(this.roomId);
   }
 
@@ -1673,6 +1694,37 @@ export class DistrictRoom extends Room<DistrictState> {
   ): void {
     const client = this.clients.find((candidate) => candidate.sessionId === playerId);
     client?.send(GAME_NOTICE_MESSAGE, {message, tone} satisfies GameNotice);
+  }
+
+  private teleportQaPlayer(playerId: string, message: QaTeleportMessage): void {
+    const player = this.state.players.get(playerId);
+    if (!player?.alive) {
+      this.noticePlayer(playerId, 'Respawn before using QA teleport.', 'warning');
+      return;
+    }
+    const playerIndex = [...this.state.players.keys()].sort().indexOf(playerId);
+    const target = resolveQaTeleportTarget(
+      message.destinationId,
+      this.world,
+      Math.max(0, playerIndex),
+      PLAYER_RADIUS
+    );
+    if (!target) {
+      this.noticePlayer(playerId, 'That QA destination is unavailable.', 'warning');
+      return;
+    }
+
+    this.vehicleAccess.removePlayer(player);
+    this.playerControl.reset(playerId);
+    this.vehicleInput.clear(playerId);
+    this.weaponRuntime.cancelReload(player);
+    this.meleeCombat.clearPlayer(playerId);
+    this.combatReactions.clearPlayer(playerId);
+    this.actorBurnController.clearPlayer(player);
+    this.interiorController.reset(player);
+    Object.assign(player, target);
+    this.indexPlayer(player);
+    this.noticePlayer(playerId, `Teleported to ${message.destinationId}.`, 'info');
   }
 
   onBeforePatch(): void {

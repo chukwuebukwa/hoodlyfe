@@ -18,7 +18,8 @@ public static class OccluderTriangleSelector
     public static int[] SelectTriangleOrdinals(
         IReadOnlyList<GeometryVertex> vertices,
         IReadOnlyList<int> indices,
-        GeometryOccluderBounds bounds)
+        GeometryOccluderBounds bounds,
+        bool includeVerticalFaces = false)
     {
         if (indices.Count % 3 != 0)
         {
@@ -38,7 +39,8 @@ public static class OccluderTriangleSelector
 
             var normal = Vector3.Cross(second - first, third - first);
             var horizontalNormal = MathF.Sqrt(normal.X * normal.X + normal.Y * normal.Y);
-            if (MathF.Abs(normal.Z) <= NormalEpsilon || MathF.Abs(normal.Z) < horizontalNormal)
+            if (!includeVerticalFaces && (
+                MathF.Abs(normal.Z) <= NormalEpsilon || MathF.Abs(normal.Z) < horizontalNormal))
             {
                 continue;
             }

@@ -299,6 +299,14 @@ export interface NetworkStreetService {
   radius: number;
 }
 
+export interface NetworkGarageDoor {
+  id: string;
+  phase: 'closed' | 'opening' | 'open' | 'closing';
+  phaseStartedAt: number;
+  transitionFrom: number;
+  progress: number;
+}
+
 export interface NetworkMission {
   id: string;
   templateId: MissionTemplateId;
@@ -355,6 +363,7 @@ export interface DistrictNetworkState {
   stingers?: Map<string, NetworkStinger>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;
+  garageDoors?: Map<string, NetworkGarageDoor>;
   race?: NetworkArenaRace;
   deathmatch?: NetworkArenaDeathmatch;
   worldTimeStartedAt?: number;

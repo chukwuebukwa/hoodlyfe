@@ -35,6 +35,7 @@ import type {DeferredCommandQueue} from './deferred-command-queue.ts';
 import {FixedStepClock, type SimulationFrame} from './fixed-step-clock.ts';
 import type {WorldStimulusAdapter} from './world-stimulus-adapter.ts';
 import type {WorldStimulusRegistry} from './world-stimulus-registry.ts';
+import type {GarageDoorController} from './garage-door-controller.ts';
 import {
   SimulationPhasePipeline,
   type SimulationPhaseDefinition,
@@ -86,6 +87,7 @@ export interface DistrictSimulationOptions {
   clock: FixedStepClock;
   populationStreaming: PopulationStreamingController;
   trafficSignals: TrafficSignalController;
+  garageDoors: Pick<GarageDoorController, 'update'>;
   explosions: ExplosionController;
   policeFleet: PoliceResponseFleetController;
   policeHelicopters: PoliceHelicopterController;
@@ -188,6 +190,7 @@ export class DistrictSimulation {
         );
       }),
       phase('environment', ({nowMs}) => {
+        this.options.garageDoors.update(nowMs);
         this.options.trafficSignals.beginTick();
         this.options.trafficSignals.update(nowMs);
         this.options.explosions.update(nowMs);

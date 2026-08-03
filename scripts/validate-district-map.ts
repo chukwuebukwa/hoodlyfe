@@ -6,6 +6,7 @@ import {
 } from '../shared/content/district-map-frame.ts';
 import {DISTRICT_POPULATION_ZONES} from '../shared/content/district-population-zones.ts';
 import {INTERIORS} from '../shared/content/interior-catalog.ts';
+import {SEAMLESS_INTERIORS} from '../shared/content/seamless-interior-catalog.ts';
 import {STREET_LIGHT_FIXTURES} from '../shared/content/lighting-fixtures.ts';
 import {TRAFFIC_SIGNALS} from '../shared/content/traffic-signals.ts';
 import {LaneGraph} from '../server/game/traffic/lane-graph.ts';
@@ -94,6 +95,12 @@ for (const interior of INTERIORS) {
   inside(`${interior.id} bounds max`, interior.bounds.maxX, interior.bounds.maxY);
   inside(`${interior.id} exterior door`, interior.exteriorDoor.x, interior.exteriorDoor.y);
   inside(`${interior.id} exterior exit`, interior.exteriorDoor.exitX, interior.exteriorDoor.exitY);
+  if (!occluderIds.has(interior.id)) issues.push(`${interior.id} has no roof occluder`);
+}
+for (const interior of SEAMLESS_INTERIORS) {
+  inside(`${interior.id} bounds min`, interior.bounds.minX, interior.bounds.minY);
+  inside(`${interior.id} bounds max`, interior.bounds.maxX, interior.bounds.maxY);
+  inside(`${interior.id} entrance`, interior.entrance.x, interior.entrance.y);
   if (!occluderIds.has(interior.id)) issues.push(`${interior.id} has no roof occluder`);
 }
 

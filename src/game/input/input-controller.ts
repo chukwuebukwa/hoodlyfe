@@ -34,6 +34,7 @@ interface InputControllerOptions {
   surfaceZ: () => number;
   onFire?: (angle: number) => void;
   isBlocked?: () => boolean;
+  isAuthoring?: () => boolean;
   directAimAngle?: () => number | undefined;
   onReloadReceipt?: (receipt: WeaponReloadReceipt) => void;
 }
@@ -129,6 +130,11 @@ export class InputController {
         this.lastAimAt = nowMs;
       }
     }
+    if (this.options.isAuthoring?.()) {
+      this.fireQueued = false;
+      this.firing = false;
+      return input;
+    }
     const definition = weaponDefinition(player.weapon);
     const continuousFire = 'trigger' in definition && definition.trigger === 'automatic';
     const firePressed = this.fireQueued || this.touch.consumeFirePress();
@@ -164,6 +170,10 @@ export class InputController {
     this.keys.add(event.code);
     const player = this.options.player();
     if (this.options.isBlocked?.() || !player) return;
+    if (this.options.isAuthoring?.()) {
+      if (event.code === 'Space') event.preventDefault();
+      return;
+    }
     if (event.code === 'KeyF') this.performContextAction();
     if (event.code === 'Space') {
       event.preventDefault();
@@ -190,7 +200,7 @@ export class InputController {
   };
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || this.options.isAuthoring?.()) return;
     this.firing = true;
     this.fireQueued = true;
   };
@@ -200,19 +210,20 @@ export class InputController {
   };
 
   private readonly handleWheel = (event: WheelEvent): void => {
+    if (this.options.isAuthoring?.()) return;
     event.preventDefault();
     if (Math.abs(event.deltaY) <= 1) return;
     this.cycleWeapon(event.deltaY > 0 ? 1 : -1);
   };
 
   private cycleWeapon(direction: -1 | 1): void {
-    if (this.options.isBlocked?.() || !this.options.player()?.alive) return;
+    if (this.options.isBlocked?.() || this.options.isAuthoring?.() || !this.options.player()?.alive) return;
     this.options.room.send('cycleWeapon', {direction});
   }
 
   private requestReload(): void {
     const player = this.options.player();
-    if (this.options.isBlocked?.() || !player?.alive) return;
+    if (this.options.isBlocked?.() || this.options.isAuthoring?.() || !player?.alive) return;
     const request: WeaponReloadRequest = {
       protocolVersion: WEAPON_RELOAD_PROTOCOL_VERSION,
       sequence: this.nextReloadSequence++,
@@ -222,6 +233,7 @@ export class InputController {
   }
 
   private readonly performContextAction = (): void => {
+    if (this.options.isAuthoring?.()) return;
     const prompt = document.querySelector<HTMLButtonElement>('#vehicle-action-button');
     const templateId = prompt?.dataset.templateId;
     if (

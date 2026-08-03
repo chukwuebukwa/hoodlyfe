@@ -28,6 +28,7 @@ import {
   STREET_SPACE_ID,
   interiorServiceAnchor
 } from '../../../shared/content/interior-catalog.ts';
+import {seamlessServiceAnchors} from '../../../shared/content/seamless-interior-catalog.ts';
 
 interface StreetServiceControllerOptions {
   state: DistrictState;
@@ -55,14 +56,8 @@ export class StreetServiceController {
     if (!ammunition || !clothing) {
       throw new Error('Missing authored store interior service anchors.');
     }
-    const repair = world.openPointNear(
-      world.spawn.x,
-      world.spawn.y,
-      330,
-      520,
-      20,
-      2411
-    );
+    const repairs = seamlessServiceAnchors('repair');
+    if (repairs.length === 0) throw new Error('Missing authored seamless repair garage service anchor.');
     this.addService(
       'ammunition-counter',
       'ammunition',
@@ -71,7 +66,9 @@ export class StreetServiceController {
       ammunition.y,
       ammunition.spaceId
     );
-    this.addService('repair-garage', 'repair', 'Repair Garage', repair.x, repair.y);
+    for (const repair of repairs) {
+      this.addService(repair.id, 'repair', repair.label, repair.x, repair.y, STREET_SPACE_ID);
+    }
     this.addService(
       'clothing-store',
       'clothing',

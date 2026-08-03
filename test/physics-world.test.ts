@@ -65,6 +65,67 @@ test('district meshing produces a bounded static collider set', () => {
   rebuilt.free();
 });
 
+test('authored world rectangles become deterministic static colliders', () => {
+  const geometry: PhysicsWorldGeometry = {
+    width: 4,
+    height: 4,
+    tileWidth: 64,
+    tileHeight: 64,
+    collisions: new Array(16).fill(0),
+    staticRects: [{minX: 120, minY: 64, maxX: 136, maxY: 192}]
+  };
+  const world = PhysicsWorld.create(geometry);
+  const rebuilt = PhysicsWorld.create(geometry);
+  assert.equal(world.staticColliderCount, 5);
+  assert.equal(rebuilt.staticColliderCount, world.staticColliderCount);
+  world.registerHumanoid('player:test', 11, spawnState(80, 128));
+  for (let tick = 0; tick < 60; tick++) {
+    world.setVelocity('player:test', 160, 0, 0);
+    world.step();
+  }
+  const state = world.capture('player:test');
+  assert.ok(state);
+  assert.ok(state.x <= 109.5, `body crossed authored wall at x=${state.x}`);
+  world.free();
+  rebuilt.free();
+});
+
+test('controlled static colliders block while closed and release without reallocating actors', () => {
+  const geometry: PhysicsWorldGeometry = {
+    width: 4,
+    height: 4,
+    tileWidth: 64,
+    tileHeight: 64,
+    collisions: new Array(16).fill(0),
+    controlledStaticRects: [{
+      id: 'garage',
+      minX: 120,
+      minY: 64,
+      maxX: 136,
+      maxY: 192
+    }]
+  };
+  const world = PhysicsWorld.create(geometry);
+  assert.equal(world.staticColliderCount, 5);
+  world.registerHumanoid('player:test', 11, spawnState(80, 128));
+  const identity = world.bodyIdentity('player:test');
+  for (let tick = 0; tick < 60; tick++) {
+    world.setVelocity('player:test', 160, 0, 0);
+    world.step();
+  }
+  assert.ok(world.capture('player:test')!.x <= 109.5);
+
+  world.setControlledStaticEnabled('garage', false);
+  world.teleport('player:test', spawnState(80, 128));
+  for (let tick = 0; tick < 60; tick++) {
+    world.setVelocity('player:test', 160, 0, 0);
+    world.step();
+  }
+  assert.ok(world.capture('player:test')!.x > 136);
+  assert.equal(world.bodyIdentity('player:test'), identity);
+  world.free();
+});
+
 test('identically built and driven worlds stay bit-identical', () => {
   const geometry = districtGeometry();
   const first = buildPopulatedWorld(geometry);

@@ -5,6 +5,7 @@ import {DistrictReplicationController} from '../server/game/replication/district
 import {
   DistrictState,
   CashPickupState,
+  GarageDoorState,
   MissionParticipantState,
   MissionState,
   NpcState,
@@ -44,6 +45,10 @@ test('district replication exposes complete street state and exact same-space in
   const interiorService = service('threads', 'threads-showroom');
   state.services.set(streetService.id, streetService);
   state.services.set(interiorService.id, interiorService);
+  const garageDoor = new GarageDoorState();
+  garageDoor.id = 'westside-auto-garage';
+  garageDoor.phase = 'opening';
+  state.garageDoors.set(garageDoor.id, garageDoor);
 
   const controller = new DistrictReplicationController(state);
   const streetView = controller.attach(streetPlayer.id);
@@ -57,6 +62,7 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(streetView.has(ball), true);
   assert.equal(streetView.has(prop), true);
   assert.equal(streetView.has(streetService), true);
+  assert.equal(streetView.has(garageDoor), true);
   assert.equal(streetView.has(interiorService), false);
 
   assert.equal(interiorView.has(interiorPlayer), true);
@@ -66,6 +72,7 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(interiorView.has(ball), false);
   assert.equal(interiorView.has(prop), false);
   assert.equal(interiorView.has(streetService), false);
+  assert.equal(interiorView.has(garageDoor), false);
   assert.equal(interiorView.has(interiorService), true);
 });
 

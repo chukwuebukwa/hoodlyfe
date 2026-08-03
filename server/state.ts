@@ -582,6 +582,22 @@ export class StreetServiceState extends Schema {
   radius = 0;
 }
 
+export class GarageDoorState extends Schema {
+  id = '';
+  phase = 'closed';
+  phaseStartedAt = 0;
+  transitionFrom = 0;
+  progress = 0;
+}
+
+defineTypes(GarageDoorState, {
+  id: 'string',
+  phase: 'string',
+  phaseStartedAt: 'number',
+  transitionFrom: 'number',
+  progress: 'number'
+});
+
 defineTypes(StreetServiceState, {
   id: 'string',
   kind: 'string',
@@ -812,6 +828,7 @@ export class DistrictState extends Schema {
   streetProps = new MapSchema<StreetPropState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
+  garageDoors = new MapSchema<GarageDoorState>();
   race = new ArenaRaceState();
   deathmatch = new ArenaDeathmatchState();
   worldTimeStartedAt = 0;
@@ -841,6 +858,7 @@ defineTypes(DistrictState, {
   streetProps: {map: StreetPropState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
+  garageDoors: {map: GarageDoorState},
   race: ArenaRaceState,
   deathmatch: ArenaDeathmatchState,
   worldTimeStartedAt: 'number',
@@ -871,6 +889,7 @@ for (const field of [
   'race',
   'deathmatch',
   'services',
+  'garageDoors',
   'stingers'
 ] as const) {
   view()(DistrictState.prototype, field);

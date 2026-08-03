@@ -72,6 +72,10 @@ const STREET_PROP_FIELDS = [
   'damageStage', 'hitSequence', 'hitAngle', 'destroyed', 'resetAt'
 ] as const;
 
+const GARAGE_DOOR_FIELDS = [
+  'id', 'phase', 'phaseStartedAt', 'transitionFrom', 'progress'
+] as const;
+
 export function hashDistrictState(state: DistrictState): number {
   const stream = new HashStream();
   stream.number(state.worldTimeStartedAt);
@@ -90,6 +94,7 @@ export function hashDistrictState(state: DistrictState): number {
   hashCollection(stream, state.trafficSignals, TRAFFIC_SIGNAL_FIELDS);
   hashCollection(stream, state.soccerBalls, SOCCER_BALL_FIELDS);
   hashCollection(stream, state.streetProps, STREET_PROP_FIELDS);
+  hashCollection(stream, state.garageDoors, GARAGE_DOOR_FIELDS);
   stream.number(state.missions.size);
   stream.number(state.services.size);
   stream.number(state.stingers.size);

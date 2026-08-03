@@ -153,6 +153,17 @@ export class MapChunkStreamer {
     };
   }
 
+  pickWorldPoint(raycaster: THREE.Raycaster): THREE.Vector3 | undefined {
+    const targets: THREE.Object3D[] = [];
+    for (const loaded of this.loaded.values()) {
+      targets.push(...loaded.base.children);
+      for (const {parent, mesh} of loaded.occluders) {
+        if (parent.visible && mesh.visible) targets.push(mesh);
+      }
+    }
+    return raycaster.intersectObjects(targets, false)[0]?.point.clone();
+  }
+
   destroy(): void {
     this.destroyed = true;
     for (const pending of this.pending.values()) pending.controller.abort();

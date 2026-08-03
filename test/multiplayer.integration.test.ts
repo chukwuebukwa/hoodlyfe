@@ -120,12 +120,19 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => second.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => first.state.players.get(second.sessionId)?.armor === 25);
   await waitUntil(() => (
-    first.state.services.size === 1 && first.state.npcs.size > 0 && first.state.vehicles.size > 0
+    first.state.services.size === 2 && first.state.npcs.size > 0 && first.state.vehicles.size > 0
   ));
   assert.ok(first.state.npcs.size < 13 + STREAMED_CIVILIAN_RECORDS + STREAMED_POLICE_RECORDS);
   assert.ok(first.state.vehicles.size < AMBIENT_TRAFFIC_TARGET + 3 + STREAMED_TRAFFIC_RECORDS);
-  assert.equal(first.state.services.size, 1);
-  assert.deepEqual([...first.state.services.values()].map((service) => service.kind), ['repair']);
+  assert.equal(first.state.services.size, 2);
+  assert.deepEqual(
+    [...first.state.services.values()].map((service) => service.id).sort(),
+    ['repair-garage', 'westside-auto-repair']
+  );
+  assert.deepEqual(
+    [...first.state.services.values()].map((service) => service.kind),
+    ['repair', 'repair']
+  );
   assert.equal(first.state.services.has('clothing-store'), false);
   assert.equal(first.state.services.has('hospital-mercy'), false);
   assert.ok([...first.state.vehicles.values()].every((vehicle) => {
@@ -524,8 +531,9 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
   await waitUntil(() => (
     second.state.npcs.size > 0 &&
     second.state.vehicles.size > 0 &&
-    second.state.services.size === 1 &&
+    second.state.services.size === 2 &&
     second.state.services.has('repair-garage') &&
+    second.state.services.has('westside-auto-repair') &&
     !second.state.services.has('hospital-mercy')
   ));
   await waitUntil(() => first.state.players.get(first.sessionId)?.alive === true, 5000);

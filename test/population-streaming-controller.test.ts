@@ -46,8 +46,8 @@ test('population streaming materializes a bounded nearby subset and virtualizes 
     interestClusters: 0,
     quotaPressureClusters: 0,
     quotaRebalances: 0,
-    worldMinute: 480,
-    populationDayWeight: 1,
+    worldMinute: 21 * 60,
+    populationDayWeight: 0,
     zoneActivity: 'none',
     profileDeferredActors: 0,
     profileRebalances: 0

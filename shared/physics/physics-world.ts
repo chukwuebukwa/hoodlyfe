@@ -59,6 +59,20 @@ export interface PhysicsWorldGeometry {
     to: Readonly<{x: number; y: number}>;
     thickness?: number;
   }>[];
+  readonly staticRects?: readonly PhysicsStaticRect[];
+  readonly collisionExclusions?: readonly PhysicsStaticRect[];
+  readonly controlledStaticRects?: readonly PhysicsControlledStaticRect[];
+}
+
+export interface PhysicsStaticRect {
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+}
+
+export interface PhysicsControlledStaticRect extends PhysicsStaticRect {
+  readonly id: string;
 }
 
 export interface PhysicsContact {
@@ -76,6 +90,7 @@ export class PhysicsWorld {
   private readonly colliders = new Map<string, RAPIER.Collider>();
   private readonly colliderKeys = new Map<number, string>();
   private readonly staticColliders: RAPIER.Collider[] = [];
+  private readonly controlledStaticColliders = new Map<string, RAPIER.Collider>();
   private readonly children = new Set<PhysicsWorld>();
   private freed = false;
 
@@ -90,6 +105,8 @@ export class PhysicsWorld {
     this.staticColliderCount = includeStatics
       ? this.meshStatics(geometry) +
         this.meshBarrierSegments(geometry) +
+        this.meshStaticRects(geometry) +
+        this.meshControlledStaticRects(geometry) +
         (geometry.encloseBorders === false ? 0 : this.buildBorderWalls(geometry))
       : 0;
   }
@@ -280,6 +297,12 @@ export class PhysicsWorld {
     for (const collider of this.staticColliders) collider.setCollisionGroups(collisionGroups);
   }
 
+  setControlledStaticEnabled(id: string, enabled: boolean): void {
+    const collider = this.controlledStaticColliders.get(id);
+    if (!collider) return;
+    collider.setCollisionGroups(enabled ? groups(STATIC_MEMBERSHIP, 0xffff) : 0);
+  }
+
   contacts(): readonly PhysicsContact[] {
     const contacts: PhysicsContact[] = [];
     for (const [first, collider] of this.colliders) {
@@ -334,6 +357,7 @@ export class PhysicsWorld {
     this.colliders.clear();
     this.colliderKeys.clear();
     this.staticColliders.length = 0;
+    this.controlledStaticColliders.clear();
     this.world.free();
   }
 
@@ -371,18 +395,20 @@ export class PhysicsWorld {
     for (let row = 0; row < geometry.height; row++) {
       for (let column = 0; column < geometry.width; column++) {
         const start = row * geometry.width + column;
-        if (visited[start] || geometry.collisions[start] === 0) continue;
+        if (visited[start] || !hasStaticCell(geometry, column, row)) continue;
         let width = 1;
         while (
           column + width < geometry.width &&
           !visited[start + width] &&
-          geometry.collisions[start + width] !== 0
+          hasStaticCell(geometry, column + width, row)
         ) width++;
         let height = 1;
         outer: while (row + height < geometry.height) {
           for (let offset = 0; offset < width; offset++) {
             const index = (row + height) * geometry.width + column + offset;
-            if (visited[index] || geometry.collisions[index] === 0) break outer;
+            if (visited[index] || !hasStaticCell(geometry, column + offset, row + height)) {
+              break outer;
+            }
           }
           height++;
         }
@@ -420,6 +446,48 @@ export class PhysicsWorld {
       count++;
     }
     return count;
+  }
+
+  private meshStaticRects(geometry: PhysicsWorldGeometry): number {
+    const rectangles = [...(geometry.staticRects ?? [])].sort((left, right) => (
+      left.minY - right.minY || left.minX - right.minX ||
+      left.maxY - right.maxY || left.maxX - right.maxX
+    ));
+    for (const rect of rectangles) {
+      const halfWidth = (rect.maxX - rect.minX) / 2;
+      const halfHeight = (rect.maxY - rect.minY) / 2;
+      if (halfWidth <= 0 || halfHeight <= 0) {
+        throw new Error('Physics static rectangles must have positive dimensions.');
+      }
+      this.createStatic(
+        rect.minX + halfWidth,
+        rect.minY + halfHeight,
+        halfWidth,
+        halfHeight
+      );
+    }
+    return rectangles.length;
+  }
+
+  private meshControlledStaticRects(geometry: PhysicsWorldGeometry): number {
+    const rectangles = [...(geometry.controlledStaticRects ?? [])].sort((left, right) => (
+      left.id.localeCompare(right.id)
+    ));
+    for (const rect of rectangles) {
+      const halfWidth = (rect.maxX - rect.minX) / 2;
+      const halfHeight = (rect.maxY - rect.minY) / 2;
+      if (halfWidth <= 0 || halfHeight <= 0) {
+        throw new Error('Physics controlled static rectangles must have positive dimensions.');
+      }
+      const collider = this.createStatic(
+        rect.minX + halfWidth,
+        rect.minY + halfHeight,
+        halfWidth,
+        halfHeight
+      );
+      this.controlledStaticColliders.set(rect.id, collider);
+    }
+    return rectangles.length;
   }
 
   // Tile data leaves border cells open; only CollisionMap's code blocks out-of-bounds,
@@ -466,7 +534,7 @@ export class PhysicsWorld {
     halfWidth: number,
     halfHeight: number,
     rotation = 0
-  ): void {
+  ): RAPIER.Collider {
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.fixed().setTranslation(x, y).setRotation(rotation)
     );
@@ -476,11 +544,25 @@ export class PhysicsWorld {
       body
     );
     this.staticColliders.push(collider);
+    return collider;
   }
 }
 
 function groups(membership: number, filter: number): number {
   return (membership << 16) | filter;
+}
+
+function hasStaticCell(
+  geometry: PhysicsWorldGeometry,
+  column: number,
+  row: number
+): boolean {
+  if (geometry.collisions[row * geometry.width + column] === 0) return false;
+  const x = (geometry.originX ?? 0) + (column + 0.5) * geometry.tileWidth;
+  const y = (geometry.originY ?? 0) + (row + 0.5) * geometry.tileHeight;
+  return !(geometry.collisionExclusions ?? []).some((rect) => (
+    x >= rect.minX && x <= rect.maxX && y >= rect.minY && y <= rect.maxY
+  ));
 }
 
 function finiteOrZero(value: number): number {

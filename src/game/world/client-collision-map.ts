@@ -3,6 +3,13 @@ import {
   clientInteriorDefinition,
   type InteriorObstacle
 } from '../../../shared/content/interior-catalog.ts';
+import {
+  SEAMLESS_COLLISION_REPLACEMENT_RECTS,
+  SEAMLESS_GARAGE_DOORS,
+  SEAMLESS_STATIC_RECTS,
+  blocksSeamlessInterior,
+  replacesSeamlessWorldCollision
+} from '../../../shared/content/seamless-interior-catalog.ts';
 
 interface TiledLayer {name: string; data: number[];}
 interface TiledCollisionMap {
@@ -24,6 +31,7 @@ const INTERIOR_WALL_INSET = 14;
 
 export class ClientCollisionMap {
   private readonly collisions: number[];
+  private readonly passableGarageDoors = new Set<string>();
 
   constructor(private readonly map: TiledCollisionMap) {
     const layer = map.layers.find((candidate) => candidate.name === 'collisions');
@@ -55,18 +63,26 @@ export class ClientCollisionMap {
     tileWidth: number;
     tileHeight: number;
     collisions: readonly number[];
+    staticRects: typeof SEAMLESS_STATIC_RECTS;
+    collisionExclusions: typeof SEAMLESS_COLLISION_REPLACEMENT_RECTS;
   } {
     return {
       width: this.map.width,
       height: this.map.height,
       tileWidth: this.map.tilewidth,
       tileHeight: this.map.tileheight,
-      collisions: this.collisions
+      collisions: this.collisions,
+      staticRects: SEAMLESS_STATIC_RECTS,
+      collisionExclusions: SEAMLESS_COLLISION_REPLACEMENT_RECTS
     };
   }
 
   canOccupy(spaceId: string, x: number, y: number, radius: number): boolean {
     if (spaceId !== STREET_SPACE_ID) return this.canOccupyInterior(spaceId, x, y, radius);
+    if (
+      blocksSeamlessInterior(x, y, radius, 'player') ||
+      this.blocksGarageDoor(x, y, radius)
+    ) return false;
     const diagonal = radius * 0.72;
     return [
       [x - radius, y], [x + radius, y], [x, y - radius], [x, y + radius],
@@ -79,7 +95,28 @@ export class ClientCollisionMap {
     const column = Math.floor(x / this.map.tilewidth);
     const row = Math.floor(y / this.map.tileheight);
     if (column < 0 || row < 0 || column >= this.map.width || row >= this.map.height) return true;
-    return this.collisions[row * this.map.width + column] !== 0;
+    return (
+      !replacesSeamlessWorldCollision(x, y) &&
+      this.collisions[row * this.map.width + column] !== 0
+    ) ||
+      blocksSeamlessInterior(x, y, 0, 'player') || this.blocksGarageDoor(x, y, 0);
+  }
+
+  setGarageDoorPassable(id: string, passable: boolean): void {
+    if (passable) this.passableGarageDoors.add(id);
+    else this.passableGarageDoors.delete(id);
+  }
+
+  private blocksGarageDoor(x: number, y: number, radius: number): boolean {
+    return SEAMLESS_GARAGE_DOORS.some((door) => {
+      if (this.passableGarageDoors.has(door.id)) return false;
+      const nearestX = Math.max(door.minX, Math.min(x, door.maxX));
+      const nearestY = Math.max(door.minY, Math.min(y, door.maxY));
+      return Math.hypot(x - nearestX, y - nearestY) < Math.max(0, radius) || (
+        radius <= 0 && x >= door.minX && x <= door.maxX &&
+        y >= door.minY && y <= door.maxY
+      );
+    });
   }
 
   private canOccupyInterior(spaceId: string, x: number, y: number, radius: number): boolean {

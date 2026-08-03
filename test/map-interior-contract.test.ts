@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {existsSync, readFileSync} from 'node:fs';
 import test from 'node:test';
 import {INTERIORS} from '../shared/content/interior-catalog.ts';
+import {SEAMLESS_INTERIORS} from '../shared/content/seamless-interior-catalog.ts';
 
 const manifestPath = 'public/assets/maps/geometry/world.json';
 
@@ -23,7 +24,7 @@ test('streamed roof groups match the authoritative interior catalog', {
   assert.ok(payload.chunks.length > 1, 'The active map must use independently loadable chunks.');
   assert.deepEqual(
     payload.occluders.map((occluder) => occluder.id).sort(),
-    INTERIORS.map((interior) => interior.id).sort()
+    [...INTERIORS, ...SEAMLESS_INTERIORS].map((interior) => interior.id).sort()
   );
   for (const interior of INTERIORS) {
     const occluder = payload.occluders.find((candidate) => candidate.id === interior.id);
@@ -36,5 +37,31 @@ test('streamed roof groups match the authoritative interior catalog', {
     assert.ok(Math.abs(occluder.exteriorDoor.x * payload.blockSize - interior.exteriorDoor.x) <= 1);
     assert.ok(Math.abs(occluder.exteriorDoor.y * payload.blockSize - interior.exteriorDoor.y) <= 1);
     assert.ok(Math.abs(occluder.floorZ * payload.blockSize - interior.floorZ) <= 1);
+  }
+  for (const interior of SEAMLESS_INTERIORS) {
+    const occluder = payload.occluders.find((candidate) => candidate.id === interior.id);
+    assert.ok(occluder, `Missing exported roof group: ${interior.id}`);
+    assert.equal(
+      occluder.triangleCount,
+      interior.roofTriangleCount,
+      `Roof triangle contract changed for ${interior.id}.`
+    );
+    assert.ok(Math.abs(occluder.exteriorDoor.x * payload.blockSize - interior.entrance.x) <= 1);
+    assert.ok(Math.abs(occluder.exteriorDoor.y * payload.blockSize - interior.entrance.y) <= 1);
+    assert.ok(Math.abs(occluder.floorZ * payload.blockSize - interior.floorZ) <= 1);
+
+    const streamedTriangleCount = payload.chunks.reduce((total, chunk) => {
+      const chunkPayload = JSON.parse(
+        readFileSync(`public/assets/maps/geometry/${chunk.file}`, 'utf8')
+      ) as {
+        occluders?: Array<{id: string; triangleCount: number}>;
+      };
+      return total + (chunkPayload.occluders?.find(({id}) => id === interior.id)?.triangleCount ?? 0);
+    }, 0);
+    assert.equal(
+      streamedTriangleCount,
+      interior.roofTriangleCount,
+      `Streamed roof triangles do not match the manifest for ${interior.id}.`
+    );
   }
 });

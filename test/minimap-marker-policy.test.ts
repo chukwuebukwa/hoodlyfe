@@ -104,11 +104,12 @@ test('permanent GTA-style locations remain edge-clamped outside radar range', ()
     points: [
       {id: 'ammunation', kind: 'ammunition', x: 2400, y: 100},
       {id: 'threads', kind: 'clothing', x: 2600, y: 100},
-      {id: 'hospital', kind: 'hospital', x: 2800, y: 100}
+      {id: 'hospital', kind: 'hospital', x: 2800, y: 100},
+      {id: 'quick-stop', kind: 'shop', x: 3000, y: 100, permanent: true}
     ]
   });
   assert.ok(frame);
-  for (const kind of ['ammunition', 'clothing', 'hospital'] as const) {
+  for (const kind of ['ammunition', 'clothing', 'hospital', 'shop'] as const) {
     const marker: MinimapMarker | undefined = frame.markers.find((candidate) => candidate.kind === kind);
     assert.ok(marker);
     assert.equal(marker.clamped, true);

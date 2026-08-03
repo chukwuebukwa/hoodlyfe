@@ -25,17 +25,22 @@ import {
   containsPoint,
   interiorDefinition
 } from '../shared/content/interior-catalog.ts';
+import {
+  seamlessServiceAnchor,
+  seamlessServiceAnchors
+} from '../shared/content/seamless-interior-catalog.ts';
 
 test('street services initialize once at collision-safe authoritative locations', () => {
   const fixture = createFixture();
   fixture.services.initialize();
   fixture.services.initialize();
 
-  assert.equal(fixture.state.services.size, 3);
+  assert.equal(fixture.state.services.size, 4);
   assert.deepEqual([...fixture.state.services.values()].map((service) => service.id).sort(), [
     'ammunition-counter',
     'clothing-store',
-    'repair-garage'
+    'repair-garage',
+    'westside-auto-repair'
   ]);
   for (const service of fixture.state.services.values()) {
     const interior = interiorDefinition(service.spaceId);
@@ -52,8 +57,18 @@ test('street services initialize once at collision-safe authoritative locations'
   }
   assert.equal(fixture.state.services.get('ammunition-counter')?.spaceId, 'ammunation-store');
   assert.equal(fixture.state.services.get('clothing-store')?.spaceId, 'threads-store');
+  const garage = fixture.state.services.get('repair-garage');
+  assert.ok(garage);
+  assert.deepEqual(
+    {x: garage.x, y: garage.y},
+    (({x, y}) => ({x, y}))(seamlessServiceAnchor('repair-garage')!)
+  );
   const clothing = fixture.state.services.get('clothing-store');
   assert.ok(clothing);
+  assert.deepEqual(
+    seamlessServiceAnchors('repair').map(({id}) => id),
+    ['repair-garage', 'westside-auto-repair']
+  );
 });
 
 test('repair garage opens a storefront without charging, then atomically repairs', () => {

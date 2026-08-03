@@ -1,17 +1,21 @@
 # Interior Authoring Guide
 
+The data-driven district-wide replacement for building-specific authoring is defined in
+[`SEAMLESS_BUILDING_SYSTEM_SPEC.md`](SEAMLESS_BUILDING_SYSTEM_SPEC.md).
+
 This is the shortest safe path for adding another seamless, single-floor interior to the game client. An interior is not a teleport-only room: one stable ID must join authoritative movement, service ownership, replication, exported roof geometry, presentation, and QA.
 
 ## Ownership Map
 
 | Concern | Owner |
 | --- | --- |
-| Building bounds, doorway, entry, exit, fixtures, recovery/service anchors | `shared/content/interior-catalog.ts` |
+| Roof groups and seamless bounds, doorway, floor, reveal areas and fixtures | `shared/content/buildings/buildings.json` |
+| Teleport-room entry, exit, fixtures, recovery/service anchors | `shared/content/interior-catalog.ts` |
 | Entry, exit, wall and fixture collision | `server/game/interiors/interior-controller.ts` |
 | Medical facility selection and recovery destination | `server/game/medical/medical-care-controller.ts` |
 | Service placement and interaction | the relevant domain controller, never `DistrictRoom` |
 | Same-space network visibility | `server/game/replication/district-replication-controller.ts` |
-| Exact removable roof triangles | OpenGTA2 `WebAssetExporter` authored occluder manifest |
+| Exact removable roof triangles | OpenGTA2 `WebAssetExporter`, compiled from the shared building manifest |
 | Interior shell, fixtures, doorway and facade sign | `src/game/presentation/interiors.ts` |
 | Permanent GTA-style exterior minimap blip | `storefrontMinimapPoints` plus transparent sprites in `public/assets/custom/minimap/` |
 
@@ -39,30 +43,78 @@ Always read the generated origin instead of assuming it when a crop or level cha
 ## Add A Building
 
 1. Inspect the location in the source map and game client. Record the complete roof footprint, a facade with open street space, and collision-safe exterior approach.
-2. Add one `InteriorDefinition` with a permanent kebab-case `id`. Define `kind`, exact exported `roofTriangleCount`, `floorZ`, `bounds`, `exteriorDoor`, `entry`, `exitDoor`, `obstacles`, and any service or recovery anchors.
-3. Keep every anchor outside fixture obstacles. Entry must be inside the shell; `exitX/exitY` must be on collision-safe street ground.
-4. Add the same ID to `ThreeOccluders` in OpenGTA2 `WebAssetExporter.cs`. Author source-map XY bounds and a tight Z band that selects roof lids, not walls.
-5. Build and run the exporter. Never hand-select triangles in browser code.
+2. Add one entry to `shared/content/buildings/buildings.json` with a permanent kebab-case `id`. Define its source-level shell bounds, cutaway mode, expected triangle count, floor, entrance, and mode.
+3. For a seamless building, author `bounds`, every connected `footprint`, doorway `floorConnectors`, player-driven `revealAreas`, optional `signage`, and all collision/render `obstacles` in source block units. The shared compiler converts them to runtime pixels for the browser and server. QA teleport destinations are generated from these manifest entries automatically.
+4. For a legacy teleport room, add its gameplay layout and service anchors to `shared/content/interior-catalog.ts` using the same stable ID.
+5. Keep every anchor outside fixture obstacles. Entry must be inside the shell; `exitX/exitY` must be on collision-safe street ground.
+6. Build and run the exporter. It reads the same manifest and fails if a roof group no longer matches `expectedTriangleCount`. Never hand-select triangles in browser code.
 
 ```bash
 dotnet test src/OpenGta2.GameData.UnitTests/OpenGta2.GameData.UnitTests.csproj
-dotnet run --project src/OpenGta2.WebExporter -- \
-  /path/to/GTA2/App_Executables \
-  /path/to/nock0-action/public/assets \
-  bil 64
+OPENGTA2_PATH=/path/to/GTA2/App_Executables npm run assets:export-buildings
 ```
 
-6. Confirm `geometry/world.json` contains the occluder definition and that its triangle total is
+7. Confirm `geometry/world.json` contains the occluder definition and that its triangle total is
    distributed across the relevant chunk payloads. The ID, door, floor height, and triangle
    count must match the catalog. `test/map-interior-contract.test.ts` enforces this locally.
-7. Add a renderer fixture function for the interior `kind`. Geometry dimensions must match catalog obstacles exactly enough that visible furniture and server collision agree.
-8. Register domain content through `serviceAnchors` or `recoveryAnchor`. A service's `spaceId` must equal the interior ID. A medical respawn plan must return both coordinates and `spaceId`.
-9. Project a permanent exterior-door minimap blip with a recognizable kind-specific icon. The blip belongs to the storefront catalog, not indoor service replication, so it remains visible from the street even though its service is inside.
+8. Add a renderer fixture function for a new interior `kind`. Geometry dimensions must match manifest obstacles exactly enough that visible furniture and server collision agree.
+9. Register domain content through `serviceAnchors` or `recoveryAnchor`. A service's `spaceId` must equal the interior ID. A medical respawn plan must return both coordinates and `spaceId`.
+10. Project a permanent exterior-door minimap blip with a recognizable kind-specific icon. The blip belongs to the storefront catalog, not indoor service replication, so it remains visible from the street even though its service is inside.
    - Use a `64 x 64` transparent RGBA PNG under `public/assets/custom/minimap/`.
    - Keep the subject centered, text-free, and legible at a rendered size of `30 x 30` pixels.
    - Preserve the shared chunky black outline and one kind color: ammunition gold, clothing pink, medical mint, repair cyan.
    - Register new location kinds in `LOCATION_ICON_URLS`; retain a procedural fallback so late or failed image loads never produce a blank marker.
-10. Do not replicate street NPCs, vehicles, missions, projectiles, or services into an interior. `StateView` should expose only same-space players and same-space services.
+11. Do not replicate street NPCs, vehicles, missions, projectiles, or services into an interior. `StateView` should expose only same-space players and same-space services.
+
+### Garage Doors
+
+Garage buildings may define one automatic sectional door at their authored `entrance`:
+
+```json
+"garageDoor": {
+  "height": 2.25,
+  "thickness": 0.1875,
+  "openRadius": 2.75,
+  "animationMs": 700,
+  "holdOpenMs": 1200
+}
+```
+
+All dimensions are source block units except the millisecond durations. The shared catalog derives
+the door's center, width, orientation, collision rectangle, and hinge from the entrance, so do not
+author a second doorway position. The server opens for nearby living street players or occupied
+vehicles, holds while the doorway is occupied, and reverses a closing door when any vehicle or player
+enters the opening. Authoritative map and Rapier collision become passable together near the end of
+the lift; the browser interpolates the same replicated timeline. Garage drafts generated by the
+Builder Gun include these defaults automatically.
+
+## Builder Gun Drafts
+
+Already-authored seamless buildings highlight gold and cannot create a second overlapping draft. Reset the selection and target a different roof instead.
+
+The local game exposes the first in-world building authoring pass at:
+
+```text
+/?qa=1&build=1
+```
+
+Press `G` or use **Equip** in the Builder Gun panel. While equipped, movement remains active but
+primary clicks, reload, weapon cycling, contextual interactions, and combat fire are suppressed.
+
+1. Aim at an elevated building roof and click to select its complete connected collision component.
+2. Choose **Store** or **Garage**.
+3. Click a highlighted facade. Stores require a 56 px opening and garages require a 160 px opening.
+4. Inspect the footprint, facade, entrance, and generated fixture preview.
+5. Use **Copy Draft** to copy the generated source-block definition.
+6. After promoting the draft into `buildings.json`, run `npm run assets:export-buildings` to update only streamed roof geometry. The command intentionally preserves the authored map spawn, surface manifest, atlases, and sprites.
+
+Drafts are also retained in local browser storage under `nock0.builder-gun-drafts-v1`. They are not
+production buildings. A draft has `status: "needs-export"` and a null expected triangle count until
+the GTA exporter assigns exact roof triangles, the manifest validator passes, and the generated map
+assets are committed. This boundary prevents a browser click from mutating the live multiplayer map.
+
+Right-click or **Reset** clears the current selection. Pressing `G` holsters the tool without deleting
+the current draft.
 
 ## Required QA
 
@@ -70,6 +122,7 @@ Run these before committing:
 
 ```bash
 npx tsx --test \
+  test/building-manifest.test.ts \
   test/interior-controller.test.ts \
   test/medical-care-controller.test.ts \
   test/district-replication-controller.test.ts \
@@ -89,6 +142,8 @@ Browser QA must prove:
 - the player, interior floor, walls, fixtures, service markers and labels remain visible;
 - neighboring roofs and facades do not pop or vanish;
 - fixture collision matches presentation and the exit returns to safe street ground;
+- garage doors visibly lift, block movement while closed, become passable before fully open, remain
+  open while occupied, and reverse instead of closing through a player or vehicle;
 - a second street client cannot see interior players or interior services;
 - desktop and mobile canvases are nonblank, full viewport, and overflow-free;
 - a fresh reload produces no new browser errors.

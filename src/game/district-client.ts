@@ -10,6 +10,7 @@ import {DistrictUiController} from './ui/district-ui-controller.ts';
 import {WorldObjectPresentation} from './presentation/objects.ts';
 import {DebugController} from './debug/debug-controller.ts';
 import {InteriorPresentation} from './presentation/interiors.ts';
+import {SeamlessInteriorPresentation} from './presentation/seamless-interiors.ts';
 import {QaDriver} from './qa/driver.ts';
 import {InputController} from './input/input-controller.ts';
 import {LightingPresentation} from './presentation/lighting.ts';
@@ -19,6 +20,7 @@ import type {NetcodeRolloutController} from './network/netcode-rollout-controlle
 import type {NockPhoneController} from './ui/nock-phone-controller.ts';
 import {CombatFireCommandSender} from './network/combat-fire-command-sender.ts';
 import {interiorDefinition} from '../../shared/content/interior-catalog.ts';
+import {seamlessInteriorDefinition} from '../../shared/content/seamless-interior-catalog.ts';
 import {isWeaponId} from '../../shared/content/weapon-catalog.ts';
 import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../shared/world/surface-map.ts';
 import {
@@ -41,6 +43,7 @@ import {
   type CameraPresentationMode
 } from './camera/camera-policy.ts';
 import {gunshotPresentation} from './rendering/player-render-policy.ts';
+import {BuilderGunController} from './building-author/builder-gun-controller.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -80,11 +83,13 @@ export class DistrictClient {
   private combatFire?: CombatFireCommandSender;
   private removeProjectileImpacts?: () => void;
   private interiors?: InteriorPresentation;
+  private seamlessInteriors?: SeamlessInteriorPresentation;
   private lighting?: LightingPresentation;
   private policeHelicopters?: PoliceHelicopterPresentation;
   private readonly mapOccluders = new Map<string, THREE.Group>();
   private mapStreamer?: MapChunkStreamer;
   private qa?: QaDriver;
+  private builderGun?: BuilderGunController;
   private payload?: WorldGeometryManifest;
   private surfaceMap?: SurfaceMap;
   private centerInitialized = false;
@@ -156,7 +161,10 @@ export class DistrictClient {
       this.assetRoot === '/assets' ? undefined : []
     );
     if (this.room) {
-      if (this.enableInteriors) this.interiors = new InteriorPresentation(this.scene);
+      if (this.enableInteriors) {
+        this.interiors = new InteriorPresentation(this.scene);
+        this.seamlessInteriors = new SeamlessInteriorPresentation(this.scene);
+      }
       this.actors = await ActorPresentation.create(
         this.scene,
         this.room.sessionId,
@@ -232,6 +240,25 @@ export class DistrictClient {
         this.assetRoot,
         this.projectWorldPoint
       );
+      const query = new URLSearchParams(window.location.search);
+      if (
+        this.enableInteriors &&
+        isDevelopment() &&
+        query.get('qa') === '1' &&
+        query.get('build') === '1'
+      ) {
+        this.builderGun = await BuilderGunController.create({
+          scene: this.scene,
+          camera: this.camera,
+          canvas: this.renderer.domElement,
+          mapStreamer,
+          surfaceHeightAt: this.surfaceHeightAt,
+          playerPosition: () => {
+            const focus = this.localCameraFocus();
+            return focus ? {x: focus.x, y: focus.y} : undefined;
+          }
+        }, `${this.assetRoot}/maps/district-map.json`, payload.surfaces.values, payload.blockSize);
+      }
       this.input = new InputController({
         room: this.room,
         canvas: this.renderer.domElement,
@@ -243,6 +270,7 @@ export class DistrictClient {
           this.room?.state.vehicles.get(vehicleId)?.angle
         ),
         surfaceZ: () => this.center.z,
+        isAuthoring: () => this.builderGun?.isEquipped() ?? false,
         isBlocked: () =>
           this.settingsOpen ||
           document.querySelector<HTMLElement>('#game-shell')?.dataset.transitioning === 'true' ||
@@ -281,8 +309,10 @@ export class DistrictClient {
     this.debug?.destroy();
     this.networkQuality?.destroy();
     this.interiors?.destroy();
+    this.seamlessInteriors?.destroy();
     this.lighting?.destroy();
     this.qa?.destroy();
+    this.builderGun?.destroy();
     this.mapStreamer?.destroy();
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -406,7 +436,15 @@ export class DistrictClient {
         ? quality.estimatedServerTimeMs - quality.interpolationDelayMs
         : this.room.state.serverTimeMs ?? 0;
       const localSpaceId = this.interiors?.synchronize(this.room.state, this.room.sessionId) ?? 'street';
-      for (const [id, occluder] of this.mapOccluders) occluder.visible = id !== localSpaceId;
+      const seamlessInteriorId = this.seamlessInteriors?.synchronize(
+        this.room.state,
+        this.room.sessionId,
+        renderServerTime
+      );
+      const hiddenOccluderId = seamlessInteriorId ?? localSpaceId;
+      for (const [id, occluder] of this.mapOccluders) {
+        occluder.visible = id !== hiddenOccluderId;
+      }
       this.actors?.synchronize(
         this.room.state,
         localSpaceId,
@@ -451,6 +489,7 @@ export class DistrictClient {
       this.debug?.update(this.room.state, now);
       this.qa?.update();
       this.followLocalPlayer();
+      this.builderGun?.update();
       const vehiclePose = local?.vehicleId ? this.actors?.vehiclePose(local.vehicleId) : undefined;
       const playerPose = local ? this.actors?.playerPose(this.room.sessionId) : undefined;
       const focusX = vehiclePose?.x ?? localVehicle?.x ?? playerPose?.x ?? local?.x ?? this.center.x;
@@ -767,18 +806,25 @@ function isDevelopment(): boolean {
 
 function validateOccluder(occluder: WorldGeometryOccluderDefinition, blockSize: number): void {
   const expected = interiorDefinition(occluder.id);
-  if (!expected) return;
+  const seamless = seamlessInteriorDefinition(occluder.id);
+  if (!expected && !seamless) return;
   const doorX = occluder.exteriorDoor.x * blockSize;
   const doorY = occluder.exteriorDoor.y * blockSize;
   const floorZ = occluder.floorZ * blockSize;
+  const authoredDoor = expected?.exteriorDoor ?? seamless?.entrance;
+  const authoredFloorZ = expected?.floorZ ?? seamless?.floorZ;
   if (
-    Math.abs(doorX - expected.exteriorDoor.x) > 1 ||
-    Math.abs(doorY - expected.exteriorDoor.y) > 1 ||
-    Math.abs(floorZ - expected.floorZ) > 1
+    !authoredDoor || authoredFloorZ === undefined ||
+    Math.abs(doorX - authoredDoor.x) > 1 ||
+    Math.abs(doorY - authoredDoor.y) > 1 ||
+    Math.abs(floorZ - authoredFloorZ) > 1
   ) {
     throw new Error(`Authored occluder metadata does not match interior: ${occluder.id}`);
   }
-  if (!Number.isInteger(occluder.triangleCount) || occluder.triangleCount <= 0) {
+  if (
+    !Number.isInteger(occluder.triangleCount) || occluder.triangleCount <= 0 ||
+    (seamless && occluder.triangleCount !== seamless.roofTriangleCount)
+  ) {
     throw new Error(`Authored occluder triangle count is invalid: ${occluder.id}`);
   }
 }

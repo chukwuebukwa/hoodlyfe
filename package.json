@@ -10,6 +10,7 @@
   },
   "scripts": {
     "assets:export": "bash scripts/export-gta2-assets.sh",
+    "assets:export-buildings": "GTA2_CROP_SIZE=256 GTA2_GEOMETRY_ONLY=1 bash scripts/export-gta2-assets.sh",
     "district:export": "tsx scripts/export-local-district.ts",
     "assets:original-map": "python3 scripts/render-original-district.py",
     "map:expand": "tsx scripts/expand-district-map.ts",

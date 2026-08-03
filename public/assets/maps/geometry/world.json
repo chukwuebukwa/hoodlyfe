@@ -65629,6 +65629,74 @@
       },
       "floorZ": 2.0625,
       "triangleCount": 48
+    },
+    {
+      "id": "quick-stop-market",
+      "bounds": {
+        "minX": 194.5,
+        "minY": 122.5,
+        "maxX": 201.5,
+        "maxY": 130.5,
+        "minZ": 2.9,
+        "maxZ": 5.1
+      },
+      "exteriorDoor": {
+        "x": 199.5,
+        "y": 130
+      },
+      "floorZ": 2,
+      "triangleCount": 86
+    },
+    {
+      "id": "nock-auto-garage",
+      "bounds": {
+        "minX": 149.5,
+        "minY": 132.5,
+        "maxX": 159.5,
+        "maxY": 137.5,
+        "minZ": 2.9,
+        "maxZ": 8.1
+      },
+      "exteriorDoor": {
+        "x": 154.5,
+        "y": 137
+      },
+      "floorZ": 2,
+      "triangleCount": 250
+    },
+    {
+      "id": "eastside-quick-mart",
+      "bounds": {
+        "minX": 162.5,
+        "minY": 132.5,
+        "maxX": 168.5,
+        "maxY": 137.5,
+        "minZ": 2.9,
+        "maxZ": 8.1
+      },
+      "exteriorDoor": {
+        "x": 167.125,
+        "y": 137
+      },
+      "floorZ": 2,
+      "triangleCount": 164
+    },
+    {
+      "id": "westside-auto-garage",
+      "bounds": {
+        "minX": 141.5,
+        "minY": 121.5,
+        "maxX": 149.5,
+        "maxY": 127.5,
+        "minZ": 2.9,
+        "maxZ": 7.1
+      },
+      "exteriorDoor": {
+        "x": 142,
+        "y": 124.5
+      },
+      "floorZ": 2,
+      "triangleCount": 238
     }
   ],
   "chunks": [

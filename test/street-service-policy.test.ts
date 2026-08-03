@@ -232,13 +232,21 @@ test('street storefront blips expose every authored exterior with a dedicated ki
     'location-mercy-hospital',
     'location-ammunation-store',
     'location-threads-store',
-    'location-southside-clinic'
+    'location-southside-clinic',
+    'location-quick-stop-market',
+    'location-nock-auto-garage',
+    'location-eastside-quick-mart',
+    'location-westside-auto-garage'
   ]);
   assert.deepEqual(points.map((point) => point.kind), [
     'hospital',
     'ammunition',
     'clothing',
-    'hospital'
+    'hospital',
+    'shop',
+    'repair',
+    'shop',
+    'repair'
   ]);
   assert.deepEqual(storefrontMinimapPoints('mercy-hospital'), []);
 });

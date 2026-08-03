@@ -8,7 +8,13 @@ using SkiaSharp;
 
 namespace OpenGta2.WebExporter;
 
-public sealed record ExportOptions(string Gta2Root, string OutputAssetsDirectory, string LevelName, int CropSize);
+public sealed record ExportOptions(
+    string Gta2Root,
+    string OutputAssetsDirectory,
+    string LevelName,
+    int CropSize,
+    string BuildingManifestPath,
+    bool GeometryOnly = false);
 
 public sealed record ExportResult(
     string LevelName,
@@ -29,39 +35,8 @@ public sealed class WebAssetExporter
     private const int PlayerSheetRows = 3;
     private const int VehicleFrameSize = 96;
     private const int ThreeChunkSize = MapChunkGeometryBuilder.DefaultChunkSize;
-    private static readonly ThreeOccluderDefinition[] ThreeOccluders =
-    [
-        new(
-            "bil",
-            "mercy-hospital",
-            new GeometryOccluderBounds(136, 123, 140, 127, 4.9f, 7.1f),
-            137.125f,
-            127.375f,
-            2.0625f),
-        new(
-            "bil",
-            "ammunation-store",
-            new GeometryOccluderBounds(103, 107, 107, 110, 4.9f, 7.1f),
-            105.75f,
-            110.375f,
-            2.0625f),
-        new(
-            "bil",
-            "threads-store",
-            new GeometryOccluderBounds(123, 107, 130, 110, 4.0f, 7.1f),
-            126.5f,
-            110.375f,
-            2.0625f),
-        new(
-            "bil",
-            "southside-clinic",
-            new GeometryOccluderBounds(146, 114, 152, 118, 4.0f, 7.1f),
-            149f,
-            118.375f,
-            2.0625f)
-    ];
-
     private readonly ExportOptions _options;
+    private readonly ThreeOccluderDefinition[] _threeOccluders;
 
     public WebAssetExporter(ExportOptions options)
     {
@@ -73,6 +48,7 @@ public sealed class WebAssetExporter
         }
 
         _options = options;
+        _threeOccluders = LoadThreeOccluders(options.BuildingManifestPath);
     }
 
     public ExportResult Export()
@@ -116,6 +92,21 @@ public sealed class WebAssetExporter
         Directory.CreateDirectory(mapsDirectory);
         Directory.CreateDirectory(spritesDirectory);
         ExportWorldGeometry(map, style, surfaces, mapsDirectory, originX, originY, width, height);
+        var spawnX = (spawn.X - originX) * TileSize + TileSize / 2;
+        var spawnY = (spawn.Y - originY) * TileSize + TileSize / 2;
+        var walkableCells = walkable.Count(point => IsInside(point, originX, originY, width, height));
+        if (_options.GeometryOnly)
+        {
+            return new ExportResult(
+                _options.LevelName,
+                originX,
+                originY,
+                width,
+                height,
+                spawnX,
+                spawnY,
+                walkableCells);
+        }
         ExportSurfaceManifest(surfaces, mapsDirectory, originX, originY, width, height, spawn);
 
         var baseAtlas = CreateAtlas(style, baseVariants);
@@ -173,8 +164,6 @@ public sealed class WebAssetExporter
         SavePng(police, Path.Combine(spritesDirectory, "police.png"));
         SavePng(vehicles, Path.Combine(spritesDirectory, "vehicles.png"));
 
-        var spawnX = (spawn.X - originX) * TileSize + TileSize / 2;
-        var spawnY = (spawn.Y - originY) * TileSize + TileSize / 2;
         var metadata = new
         {
             source = _options.LevelName,
@@ -182,7 +171,7 @@ public sealed class WebAssetExporter
             origin = new { x = originX, y = originY },
             size = new { width, height },
             spawn = new { x = spawnX, y = spawnY },
-            walkableCells = walkable.Count(point => IsInside(point, originX, originY, width, height)),
+            walkableCells,
             roadCells = roadData.Count(gid => gid != 0),
             elevatedPassageCells = CountElevatedPassages(surfaces, walkable, originX, originY, width, height)
         };
@@ -735,7 +724,7 @@ public sealed class WebAssetExporter
             }
         }
 
-        var worldOccluders = ThreeOccluders
+        var worldOccluders = _threeOccluders
             .Where(candidate => candidate.LevelName == _options.LevelName)
             .Where(candidate =>
                 candidate.SourceBounds.MinX >= originX && candidate.SourceBounds.MinY >= originY &&
@@ -743,9 +732,12 @@ public sealed class WebAssetExporter
             .ToArray();
         foreach (var definition in worldOccluders)
         {
-            if (occluderTriangleCounts.GetValueOrDefault(definition.Id) == 0)
+            var actualCount = occluderTriangleCounts.GetValueOrDefault(definition.Id);
+            if (actualCount != definition.ExpectedTriangleCount)
             {
-                throw new InvalidDataException($"Chunked occluder '{definition.Id}' selected no lid triangles.");
+                throw new InvalidDataException(
+                    $"Chunked occluder '{definition.Id}' selected {actualCount} triangles; " +
+                    $"the building manifest expects {definition.ExpectedTriangleCount}.");
             }
         }
 
@@ -803,7 +795,7 @@ public sealed class WebAssetExporter
         int cropHeight)
     {
         var result = new List<ThreeOccluderGroup>();
-        foreach (var definition in ThreeOccluders.Where(candidate => candidate.LevelName == _options.LevelName))
+        foreach (var definition in _threeOccluders.Where(candidate => candidate.LevelName == _options.LevelName))
         {
             var source = definition.SourceBounds;
             if (
@@ -824,11 +816,13 @@ public sealed class WebAssetExporter
             var opaque = OccluderTriangleSelector.SelectTriangleOrdinals(
                 geometry.Vertices,
                 geometry.OpaqueIndices,
-                localBounds);
+                localBounds,
+                definition.CompleteCutaway);
             var alphaTested = OccluderTriangleSelector.SelectTriangleOrdinals(
                 geometry.Vertices,
                 geometry.AlphaTestedIndices,
-                localBounds);
+                localBounds,
+                definition.CompleteCutaway);
             if (opaque.Length + alphaTested.Length == 0) continue;
             result.Add(new ThreeOccluderGroup(definition, localBounds, opaque, alphaTested));
         }
@@ -1266,7 +1260,7 @@ public sealed class WebAssetExporter
         int originY)
     {
         var result = new List<ThreeOccluderGroup>();
-        foreach (var definition in ThreeOccluders.Where(candidate => candidate.LevelName == _options.LevelName))
+        foreach (var definition in _threeOccluders.Where(candidate => candidate.LevelName == _options.LevelName))
         {
             var localBounds = definition.SourceBounds with
             {
@@ -1285,19 +1279,109 @@ public sealed class WebAssetExporter
             var opaque = OccluderTriangleSelector.SelectTriangleOrdinals(
                 geometry.Vertices,
                 geometry.OpaqueIndices,
-                localBounds);
+                localBounds,
+                definition.CompleteCutaway);
             var alphaTested = OccluderTriangleSelector.SelectTriangleOrdinals(
                 geometry.Vertices,
                 geometry.AlphaTestedIndices,
-                localBounds);
+                localBounds,
+                definition.CompleteCutaway);
             if (opaque.Length + alphaTested.Length == 0)
             {
                 throw new InvalidDataException($"Authored occluder '{definition.Id}' selected no lid triangles.");
+            }
+            var triangleCount = opaque.Length + alphaTested.Length;
+            if (triangleCount != definition.ExpectedTriangleCount)
+            {
+                throw new InvalidDataException(
+                    $"Authored occluder '{definition.Id}' selected {triangleCount} triangles; " +
+                    $"the building manifest expects {definition.ExpectedTriangleCount}.");
             }
             result.Add(new ThreeOccluderGroup(definition, localBounds, opaque, alphaTested));
         }
         return result.ToArray();
     }
+
+    private static ThreeOccluderDefinition[] LoadThreeOccluders(string manifestPath)
+    {
+        if (!File.Exists(manifestPath))
+        {
+            throw new FileNotFoundException("Building manifest was not found.", manifestPath);
+        }
+
+        using var stream = File.OpenRead(manifestPath);
+        var manifest = JsonSerializer.Deserialize<BuildingManifestDocument>(
+            stream,
+            new JsonSerializerOptions {PropertyNameCaseInsensitive = true}) ??
+            throw new InvalidDataException($"Building manifest '{manifestPath}' is empty.");
+        if (manifest.Version != 1)
+        {
+            throw new InvalidDataException($"Building manifest '{manifestPath}' must use version 1.");
+        }
+        if (string.IsNullOrWhiteSpace(manifest.SourceLevel))
+        {
+            throw new InvalidDataException($"Building manifest '{manifestPath}' has no sourceLevel.");
+        }
+        if (manifest.BlockSize <= 0)
+        {
+            throw new InvalidDataException($"Building manifest '{manifestPath}' has an invalid blockSize.");
+        }
+
+        var result = new List<ThreeOccluderDefinition>();
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var building in manifest.Buildings ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(building.Id) || !ids.Add(building.Id))
+            {
+                throw new InvalidDataException(
+                    $"Building manifest '{manifestPath}' contains a missing or duplicate building id.");
+            }
+            if (building.Shell?.Bounds is not { } bounds || building.Entrance is null)
+            {
+                throw new InvalidDataException($"Building '{building.Id}' has no shell bounds or entrance.");
+            }
+            if (
+                bounds.MinX >= bounds.MaxX || bounds.MinY >= bounds.MaxY || bounds.MinZ >= bounds.MaxZ ||
+                !AllFinite(bounds.MinX, bounds.MinY, bounds.MaxX, bounds.MaxY, bounds.MinZ, bounds.MaxZ,
+                    building.Entrance.X, building.Entrance.Y, building.FloorZ))
+            {
+                throw new InvalidDataException($"Building '{building.Id}' has invalid authored coordinates.");
+            }
+            if (building.Shell.ExpectedTriangleCount <= 0)
+            {
+                throw new InvalidDataException($"Building '{building.Id}' has an invalid expectedTriangleCount.");
+            }
+            var completeCutaway = building.Shell.CutawayMode switch
+            {
+                "lid-only" => false,
+                "complete-above-floor" => true,
+                _ => throw new InvalidDataException(
+                    $"Building '{building.Id}' has unknown cutawayMode '{building.Shell.CutawayMode}'.")
+            };
+            result.Add(new ThreeOccluderDefinition(
+                manifest.SourceLevel,
+                building.Id,
+                new GeometryOccluderBounds(
+                    (float)bounds.MinX,
+                    (float)bounds.MinY,
+                    (float)bounds.MaxX,
+                    (float)bounds.MaxY,
+                    (float)bounds.MinZ,
+                    (float)bounds.MaxZ),
+                (float)building.Entrance.X,
+                (float)building.Entrance.Y,
+                (float)building.FloorZ,
+                building.Shell.ExpectedTriangleCount,
+                completeCutaway));
+        }
+        if (result.Count == 0)
+        {
+            throw new InvalidDataException($"Building manifest '{manifestPath}' contains no buildings.");
+        }
+        return result.ToArray();
+    }
+
+    private static bool AllFinite(params double[] values) => values.All(double.IsFinite);
 
     private static SKBitmap CreateCompleteTileAtlas(Style style, out int columns, out int rows)
     {
@@ -1880,7 +1964,31 @@ public sealed class WebAssetExporter
         GeometryOccluderBounds SourceBounds,
         float DoorX,
         float DoorY,
-        float FloorZ);
+        float FloorZ,
+        int ExpectedTriangleCount,
+        bool CompleteCutaway);
+    private sealed record BuildingManifestDocument(
+        int Version,
+        string? SourceLevel,
+        double BlockSize,
+        BuildingManifestEntry[]? Buildings);
+    private sealed record BuildingManifestEntry(
+        string? Id,
+        double FloorZ,
+        BuildingShellDocument? Shell,
+        BuildingEntranceDocument? Entrance);
+    private sealed record BuildingShellDocument(
+        string? CutawayMode,
+        BuildingBoundsDocument? Bounds,
+        int ExpectedTriangleCount);
+    private sealed record BuildingBoundsDocument(
+        double MinX,
+        double MinY,
+        double MaxX,
+        double MaxY,
+        double MinZ,
+        double MaxZ);
+    private sealed record BuildingEntranceDocument(double X, double Y);
     private sealed record ThreeOccluderGroup(
         ThreeOccluderDefinition Definition,
         GeometryOccluderBounds LocalBounds,

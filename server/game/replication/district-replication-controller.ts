@@ -179,6 +179,9 @@ export class DistrictReplicationController {
     projection: ClientProjection,
     desired: Map<Schema, DesiredSchema>
   ): number {
+    for (const door of this.state.garageDoors.values()) {
+      this.addDesired(desired, door, 1, 0, `garage-door:${door.id}`);
+    }
     for (const stinger of this.state.stingers.values()) {
       const stingerDistance = distance(x, y, stinger.x, stinger.y);
       if (!shouldReplicateStreetEntity({

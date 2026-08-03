@@ -53,6 +53,7 @@ export interface MinimapPointInput {
   angle?: number;
   label?: string;
   color?: number;
+  permanent?: boolean;
 }
 
 export interface MinimapMarker {
@@ -153,7 +154,12 @@ export function buildMinimapFrame(input: MinimapPolicyInput): MinimapFrame | und
 
   for (const point of input.points ?? []) {
     const distance = Math.hypot(point.x - localPosition.x, point.y - localPosition.y);
-    if (point.kind !== 'objective' && !isPermanentLocation(point.kind) && distance > range * 1.25) continue;
+    if (
+      point.kind !== 'objective' &&
+      !point.permanent &&
+      !isPermanentLocation(point.kind) &&
+      distance > range * 1.25
+    ) continue;
     const marker = markerFor(
       `${point.kind}:${point.id}`,
       point.kind,
