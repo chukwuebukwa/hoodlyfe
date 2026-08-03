@@ -11,6 +11,8 @@
   "scripts": {
     "assets:export": "bash scripts/export-gta2-assets.sh",
     "assets:export-buildings": "GTA2_CROP_SIZE=256 GTA2_GEOMETRY_ONLY=1 bash scripts/export-gta2-assets.sh",
+    "buildings:import": "tsx scripts/building-draft-pipeline.ts",
+    "buildings:publish": "BUILDING_RUN_EXPORT=1 tsx scripts/building-draft-pipeline.ts",
     "district:export": "tsx scripts/export-local-district.ts",
     "assets:original-map": "python3 scripts/render-original-district.py",
     "map:expand": "tsx scripts/expand-district-map.ts",
@@ -18,6 +20,7 @@
     "map:generate-downtown": "npm run district:export -- wil 256",
     "map:generate-residential": "npm run district:export -- ste 256",
     "map:compile-world": "tsx scripts/compile-world-atlas.ts",
+    "world:publish": "tsx scripts/publish-world-content.ts",
     "map:generate-raceway": "node scripts/generate-raceway-district.mjs",
     "map:generate-deathmatch": "node scripts/generate-raceway-district.mjs --deathmatch",
     "map:validate": "tsx scripts/validate-district-map.ts",

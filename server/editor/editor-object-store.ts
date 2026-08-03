@@ -1,10 +1,3 @@
-import {
-  GetObjectCommand,
-  HeadObjectCommand,
-  PutObjectCommand,
-  S3Client
-} from '@aws-sdk/client-s3';
-import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {createHash} from 'node:crypto';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
@@ -21,40 +14,27 @@ import {
   playtestBlockingValidationIssues,
   validateLevelDocument
 } from '../../src/tools/level-editor/level-validation.ts';
+import {
+  bucketObjectExists,
+  bucketStorageEnabled,
+  putBucketJson,
+  putBucketObject,
+  readBucketJson,
+  resolveBucketConfig,
+  signedBucketObjectUrl,
+  type BucketConfig
+} from '../storage/bucket-object-store.ts';
 
-export interface EditorBucketConfig {
-  endpoint: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucket: string;
-  region: string;
-  forcePathStyle: boolean;
-}
-
-let cachedClient: S3Client | undefined;
-let cachedConfig: EditorBucketConfig | undefined;
+export type EditorBucketConfig = BucketConfig;
 
 export function resolveEditorBucketConfig(
   environment: Record<string, string | undefined> = process.env
 ): EditorBucketConfig | undefined {
-  const endpoint = environment.AWS_ENDPOINT_URL ?? environment.BUCKET_ENDPOINT ?? environment.ENDPOINT;
-  const accessKeyId = environment.AWS_ACCESS_KEY_ID ?? environment.BUCKET_ACCESS_KEY_ID ?? environment.ACCESS_KEY_ID;
-  const secretAccessKey = environment.AWS_SECRET_ACCESS_KEY ?? environment.BUCKET_SECRET_ACCESS_KEY ?? environment.SECRET_ACCESS_KEY;
-  const bucket = environment.AWS_S3_BUCKET_NAME ?? environment.BUCKET_NAME ?? environment.BUCKET;
-  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) return undefined;
-  const urlStyle = environment.AWS_S3_URL_STYLE ?? 'virtual';
-  return {
-    endpoint,
-    accessKeyId,
-    secretAccessKey,
-    bucket,
-    region: environment.AWS_DEFAULT_REGION ?? environment.BUCKET_REGION ?? environment.REGION ?? 'auto',
-    forcePathStyle: urlStyle === 'path'
-  };
+  return resolveBucketConfig(environment);
 }
 
 export function editorStorageEnabled(): boolean {
-  return Boolean(resolveEditorBucketConfig());
+  return bucketStorageEnabled();
 }
 
 export function districtDraftKey(districtId: string): string {
@@ -202,14 +182,8 @@ export async function putEditorObject(
   contentType: string,
   cacheControl = 'public, max-age=31536000, immutable'
 ): Promise<void> {
-  const {client, config} = configuredClient();
-  await client.send(new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: key,
-    Body: body,
-    ContentType: contentType,
-    CacheControl: cacheControl
-  }));
+  requireEditorStorage();
+  await putBucketObject(key, body, contentType, cacheControl);
 }
 
 export async function putDistrictAssetManifest(manifest: DistrictAssetManifest): Promise<void> {
@@ -222,51 +196,30 @@ export class EditorStorageError extends Error {
   }
 }
 
-function configuredClient(): {client: S3Client; config: EditorBucketConfig} {
-  const config = resolveEditorBucketConfig();
-  if (!config) throw new EditorStorageError(503, 'Editor object storage is not configured.');
-  if (!cachedClient || JSON.stringify(config) !== JSON.stringify(cachedConfig)) {
-    cachedClient = new S3Client({
-      endpoint: config.endpoint,
-      region: config.region,
-      forcePathStyle: config.forcePathStyle,
-      credentials: {accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey}
-    });
-    cachedConfig = config;
-  }
-  return {client: cachedClient, config};
-}
-
 async function putJson(key: string, value: unknown, cacheControl: string): Promise<void> {
-  await putEditorObject(key, Buffer.from(`${JSON.stringify(value)}\n`), 'application/json; charset=utf-8', cacheControl);
+  requireEditorStorage();
+  await putBucketJson(key, value, cacheControl);
 }
 
 async function readJson<T>(key: string): Promise<T | undefined> {
-  const {client, config} = configuredClient();
-  try {
-    const response = await client.send(new GetObjectCommand({Bucket: config.bucket, Key: key}));
-    if (!response.Body) return undefined;
-    return JSON.parse(await response.Body.transformToString()) as T;
-  } catch (error) {
-    if (isNotFound(error)) return undefined;
-    throw error;
-  }
+  requireEditorStorage();
+  return readBucketJson<T>(key);
 }
 
 async function objectExists(key: string): Promise<boolean> {
-  const {client, config} = configuredClient();
-  try {
-    await client.send(new HeadObjectCommand({Bucket: config.bucket, Key: key}));
-    return true;
-  } catch (error) {
-    if (isNotFound(error)) return false;
-    throw error;
-  }
+  requireEditorStorage();
+  return bucketObjectExists(key);
 }
 
 async function signedObjectUrl(key: string): Promise<string> {
-  const {client, config} = configuredClient();
-  return getSignedUrl(client, new GetObjectCommand({Bucket: config.bucket, Key: key}), {expiresIn: 900});
+  requireEditorStorage();
+  return signedBucketObjectUrl(key);
+}
+
+function requireEditorStorage(): void {
+  if (!editorStorageEnabled()) {
+    throw new EditorStorageError(503, 'Editor object storage is not configured.');
+  }
 }
 
 export function documentRevision(document: LevelEditorDocument): string {
@@ -357,12 +310,6 @@ function assertRelativeAssetPath(value: string): string {
     throw new EditorStorageError(400, 'Invalid district asset path.');
   }
   return decoded;
-}
-
-function isNotFound(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as {$metadata?: {httpStatusCode?: number}; name?: string};
-  return candidate.$metadata?.httpStatusCode === 404 || candidate.name === 'NoSuchKey' || candidate.name === 'NotFound';
 }
 
 function isFileNotFound(error: unknown): boolean {

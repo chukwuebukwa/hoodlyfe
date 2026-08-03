@@ -11,11 +11,8 @@ import {
   type SurfaceManifest
 } from '../shared/world/surface-map.ts';
 import {
-  SEAMLESS_COLLISION_REPLACEMENT_RECTS,
-  SEAMLESS_GARAGE_DOORS,
-  SEAMLESS_STATIC_RECTS,
-  blocksSeamlessInterior,
-  replacesSeamlessWorldCollision
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog
 } from '../shared/content/seamless-interior-catalog.ts';
 
 const MAP_RANDOM = new DeterministicRandom('industrial-district-map:v1');
@@ -25,7 +22,7 @@ interface TileLayer {
   data: number[];
 }
 
-interface TiledMapData {
+export interface TiledMapData {
   width: number;
   height: number;
   tilewidth: number;
@@ -33,7 +30,7 @@ interface TiledMapData {
   layers: TileLayer[];
 }
 
-interface MapMetadata {
+export interface MapMetadata {
   spawn: {x: number; y: number};
 }
 
@@ -76,7 +73,12 @@ export class CollisionMap {
   private readonly roadCells: RoadNode[];
   private readonly passableGarageDoors = new Set<string>();
 
-  constructor(map: TiledMapData, metadata: MapMetadata, surfaces?: SurfaceMap) {
+  constructor(
+    map: TiledMapData,
+    metadata: MapMetadata,
+    surfaces?: SurfaceMap,
+    readonly seamlessInteriors: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG
+  ) {
     const collisionLayer = map.layers.find((layer) => layer.name === 'collisions');
     if (!collisionLayer || collisionLayer.data.length !== map.width * map.height) {
       throw new Error('Industrial District is missing a valid collisions layer.');
@@ -131,9 +133,9 @@ export class CollisionMap {
       tileWidth: this.tileWidth,
       tileHeight: this.tileHeight,
       collisions: this.collisions,
-      staticRects: SEAMLESS_STATIC_RECTS,
-      collisionExclusions: SEAMLESS_COLLISION_REPLACEMENT_RECTS,
-      controlledStaticRects: SEAMLESS_GARAGE_DOORS
+      staticRects: this.seamlessInteriors.staticRects,
+      collisionExclusions: this.seamlessInteriors.collisionReplacementRects,
+      controlledStaticRects: this.seamlessInteriors.garageDoors
     };
     const existing = this.physicsGeometryBySurface.get(surfaceId);
     if (existing) return existing;
@@ -148,9 +150,9 @@ export class CollisionMap {
     const geometry = surfaceId === this.surfaces.manifest.defaultSurfaceId
       ? Object.freeze({
         ...surfaceGeometry,
-        staticRects: SEAMLESS_STATIC_RECTS,
-        collisionExclusions: SEAMLESS_COLLISION_REPLACEMENT_RECTS,
-        controlledStaticRects: SEAMLESS_GARAGE_DOORS
+        staticRects: this.seamlessInteriors.staticRects,
+        collisionExclusions: this.seamlessInteriors.collisionReplacementRects,
+        controlledStaticRects: this.seamlessInteriors.garageDoors
       })
       : surfaceGeometry;
     this.physicsGeometryBySurface.set(surfaceId, geometry);
@@ -171,12 +173,12 @@ export class CollisionMap {
     const seamlessCollision = (
       !surfaceId || surfaceId === this.surfaces.manifest.defaultSurfaceId
     ) && (
-      blocksSeamlessInterior(x, y, 0, actorKind) || this.blocksGarageDoor(x, y, 0)
+      this.seamlessInteriors.blocks(x, y, 0, actorKind) || this.blocksGarageDoor(x, y, 0)
     );
     if (seamlessCollision) return true;
     if (
       surfaceId === this.surfaces.manifest.defaultSurfaceId &&
-      replacesSeamlessWorldCollision(x, y)
+      this.seamlessInteriors.replacesWorldCollision(x, y)
     ) return false;
     if (this.authoredSurfaces && surfaceId) {
       return !this.surfaces.canOccupy(surfaceId, x, y, 0, actorKind);
@@ -187,7 +189,7 @@ export class CollisionMap {
       return true;
     }
     return (
-      !replacesSeamlessWorldCollision(x, y) &&
+      !this.seamlessInteriors.replacesWorldCollision(x, y) &&
       this.collisions[row * this.width + column] !== 0
     );
   }
@@ -202,7 +204,7 @@ export class CollisionMap {
     if (
       (!surfaceId || surfaceId === this.surfaces.manifest.defaultSurfaceId) &&
       (
-        blocksSeamlessInterior(x, y, radius, actorKind) ||
+        this.seamlessInteriors.blocks(x, y, radius, actorKind) ||
         this.blocksGarageDoor(x, y, radius)
       )
     ) return false;
@@ -210,14 +212,14 @@ export class CollisionMap {
     if (!surfaceId) return legacyProjectionAllows;
     if (
       surfaceId === this.surfaces.manifest.defaultSurfaceId &&
-      replacesSeamlessWorldCollision(x, y)
+      this.seamlessInteriors.replacesWorldCollision(x, y)
     ) return legacyProjectionAllows;
     if (!this.authoredSurfaces && !legacyProjectionAllows) return false;
     return this.surfaces.canOccupyConnected(surfaceId, x, y, radius, actorKind);
   }
 
   private blocksGarageDoor(x: number, y: number, radius: number): boolean {
-    return SEAMLESS_GARAGE_DOORS.some((door) => (
+    return this.seamlessInteriors.garageDoors.some((door) => (
       !this.passableGarageDoors.has(door.id) && circleOverlapsRect(x, y, radius, door)
     ));
   }
@@ -272,7 +274,7 @@ export class CollisionMap {
     const nextSurfaceId = crossing?.surfaceId ?? surfaceId;
     if (
       nextSurfaceId === this.surfaces.manifest.defaultSurfaceId &&
-      replacesSeamlessWorldCollision(toX, toY)
+      this.seamlessInteriors.replacesWorldCollision(toX, toY)
     ) {
       return this.canOccupy(toX, toY, radius, nextSurfaceId, actorKind)
         ? nextSurfaceId

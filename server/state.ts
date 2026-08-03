@@ -812,6 +812,11 @@ defineTypes(ArenaDeathmatchState, {
 });
 
 export class DistrictState extends Schema {
+  contentWorldId = '';
+  contentRevision = '';
+  contentSource = '';
+  contentAssetRoot = '';
+  contentBuildingsPath = '';
   players = new MapSchema<PlayerState>();
   bullets = new MapSchema<BulletState>();
   rockets = new MapSchema<RocketProjectileState>();
@@ -842,6 +847,11 @@ export class DistrictState extends Schema {
 }
 
 defineTypes(DistrictState, {
+  contentWorldId: 'string',
+  contentRevision: 'string',
+  contentSource: 'string',
+  contentAssetRoot: 'string',
+  contentBuildingsPath: 'string',
   players: {map: PlayerState},
   bullets: {map: BulletState},
   rockets: {map: RocketProjectileState},

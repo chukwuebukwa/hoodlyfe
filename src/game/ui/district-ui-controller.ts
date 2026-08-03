@@ -38,6 +38,10 @@ import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {AppearanceCreatorController} from '../appearance/appearance-creator-controller.ts';
 import type {ActorRenderPose} from '../rendering/render-types.ts';
 import {StorefrontController} from './storefront-controller.ts';
+import {
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog
+} from '../../../shared/content/seamless-interior-catalog.ts';
 
 const UI_INTERVAL_MS = 100;
 
@@ -85,7 +89,8 @@ export class DistrictUiController {
       x: number,
       y: number,
       height: number
-    ) => HudPoint | undefined = () => undefined
+    ) => HudPoint | undefined = () => undefined,
+    private readonly seamlessInteriors: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG
   ) {
     this.phone = phone ?? new NockPhoneController();
     this.ownsPhone = !phone;
@@ -354,7 +359,7 @@ export class DistrictUiController {
           ? []
           : missionMinimapPoints(state, this.room.sessionId)),
         ...raceMinimapPoints(state, this.room.sessionId),
-        ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID),
+        ...storefrontMinimapPoints(local?.spaceId || STREET_SPACE_ID, this.seamlessInteriors),
         ...serviceMinimapPoints(state, local?.spaceId || STREET_SPACE_ID),
         ...weaponPickupMinimapPoints(state.weaponPickups?.values()),
         ...cashPickupMinimapPoints(state.cashPickups?.values())

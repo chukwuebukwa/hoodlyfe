@@ -105,16 +105,32 @@ primary clicks, reload, weapon cycling, contextual interactions, and combat fire
 2. Choose **Store** or **Garage**.
 3. Click a highlighted facade. Stores require a 56 px opening and garages require a 160 px opening.
 4. Inspect the footprint, facade, entrance, and generated fixture preview.
-5. Use **Copy Draft** to copy the generated source-block definition.
-6. After promoting the draft into `buildings.json`, run `npm run assets:export-buildings` to update only streamed roof geometry. The command intentionally preserves the authored map spawn, surface manifest, atlases, and sprites.
+5. Use **Copy Draft** to copy the generated source-block definition. The completed selection is
+   released automatically, so the next building can be targeted without resetting the tool.
+6. Save the copied JSON as a draft file and publish it with a final stable ID and label:
+
+```bash
+npm run buildings:publish -- ~/Downloads/building-draft.json \
+  --id eastside-quick-mart \
+  --label "Eastside Quick Mart"
+```
+
+The command calculates the exact roof triangle count from the current chunk geometry, validates and
+adds the manifest entry, runs the geometry-only GTA exporter, validates the map, and runs the focused
+building tests. Use `npm run buildings:import -- ...` when the GTA install is unavailable; it updates
+the manifest and prints the remaining export step. Add `--dry-run` to inspect the normalized entry
+without writing, or `--replace` to intentionally replace the one authored building occupying the
+same footprint.
 
 Drafts are also retained in local browser storage under `nock0.builder-gun-drafts-v1`. They are not
 production buildings. A draft has `status: "needs-export"` and a null expected triangle count until
 the GTA exporter assigns exact roof triangles, the manifest validator passes, and the generated map
 assets are committed. This boundary prevents a browser click from mutating the live multiplayer map.
 
-Right-click or **Reset** clears the current selection. Pressing `G` holsters the tool without deleting
-the current draft.
+Right-click or **Reset** clears the current selection and preview. Pressing `G` holsters the tool
+without deleting the current draft. Publishing deliberately does not commit or push and cannot judge
+whether the generated fixture layout looks good; inspect the doorway, walls, floor connectors,
+service point, and vehicle clearance in the browser before committing.
 
 ## Required QA
 

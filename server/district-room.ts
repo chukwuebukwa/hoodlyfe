@@ -208,6 +208,10 @@ import {
   loadPlaytestWorld,
   type PlaytestWorldOptions
 } from './editor/playtest-world-loader.ts';
+import type {
+  WorldContentRepository,
+  WorldContentSnapshot
+} from './world-content/world-content-repository.ts';
 
 interface CycleWeaponMessage {
   direction?: number;
@@ -226,6 +230,7 @@ interface DistrictRoomOptions extends PlaytestWorldOptions {
   externalSimulation?: boolean;
   runtimeHealth?: RuntimeHealthMonitor;
   fatalShutdown?: (error: Error) => void;
+  worldContent?: WorldContentRepository;
 }
 
 interface JournaledCommandClient {
@@ -338,6 +343,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private world!: CollisionMap;
   private runtimeHealth?: RuntimeHealthMonitor;
   private fatalShutdown?: (error: Error) => void;
+  private contentSnapshot?: WorldContentSnapshot;
 
   protected acceptsPlaytestRevision(): boolean {
     return false;
@@ -398,10 +404,11 @@ export class DistrictRoom extends Room<DistrictState> {
       : undefined;
     this.autoDispose = Boolean(playtest);
     const mapsDirectory = this.mapsDirectory();
-    this.world = playtest?.world ?? (
-      mapsDirectory
-        ? CollisionMap.loadFromMapsDirectory(mapsDirectory)
-        : CollisionMap.load()
+    this.contentSnapshot = !playtest && !mapsDirectory && options?.worldContent
+      ? await options.worldContent.resolveCurrent('bil')
+      : undefined;
+    this.world = playtest?.world ?? this.contentSnapshot?.createWorld() ?? (
+      mapsDirectory ? CollisionMap.loadFromMapsDirectory(mapsDirectory) : CollisionMap.load()
     );
     this.physicsWorld?.free();
     await initializePhysicsEngine();
@@ -410,17 +417,28 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.laneGraph = this.usesTrafficTopology()
       ? playtest?.laneGraph ?? (
-        mapsDirectory
+        this.contentSnapshot
+          ? this.contentSnapshot.createLaneGraph(this.world)
+          : mapsDirectory
           ? LaneGraph.loadFromMapsDirectory(this.world, mapsDirectory)
           : LaneGraph.load(this.world)
       )
       : undefined;
     this.roadClosures = new RoadClosureRegistry();
     this.setState(new DistrictState());
+    if (this.contentSnapshot) {
+      const {descriptor} = this.contentSnapshot;
+      this.state.contentWorldId = descriptor.worldId;
+      this.state.contentRevision = descriptor.revision;
+      this.state.contentSource = descriptor.source;
+      this.state.contentAssetRoot = descriptor.assetRoot;
+      this.state.contentBuildingsPath = descriptor.buildingsPath;
+    }
     this.garageDoorController = new GarageDoorController({
       state: this.state,
       world: this.world,
-      physics: this.physicsWorld
+      physics: this.physicsWorld,
+      doors: this.world.seamlessInteriors.garageDoors
     });
     this.voiceChat = new ProximityVoiceController({
       state: this.state,
@@ -965,7 +983,8 @@ export class DistrictRoom extends Room<DistrictState> {
         const client = this.clients.find((candidate) => candidate.sessionId === playerId);
         client?.send(STOREFRONT_OPEN_MESSAGE, {snapshot});
       },
-      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone)
+      notice: (playerId, message, tone) => this.noticePlayer(playerId, message, tone),
+      seamlessInteriors: this.world.seamlessInteriors
     });
     this.interactionController = new PlayerInteractionController({
       services: this.serviceController,
@@ -1707,7 +1726,8 @@ export class DistrictRoom extends Room<DistrictState> {
       message.destinationId,
       this.world,
       Math.max(0, playerIndex),
-      PLAYER_RADIUS
+      PLAYER_RADIUS,
+      this.world.seamlessInteriors
     );
     if (!target) {
       this.noticePlayer(playerId, 'That QA destination is unavailable.', 'warning');

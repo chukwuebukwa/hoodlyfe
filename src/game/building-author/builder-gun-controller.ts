@@ -12,7 +12,10 @@ import {
   type BuildingCandidate,
   type BuildingFacadeEdge
 } from './building-candidate-policy.ts';
-import {SEAMLESS_INTERIORS} from '../../../shared/content/seamless-interior-catalog.ts';
+import {
+  SEAMLESS_INTERIORS,
+  type SeamlessInteriorDefinition
+} from '../../../shared/content/seamless-interior-catalog.ts';
 
 interface BuilderGunControllerOptions {
   readonly scene: THREE.Scene;
@@ -22,6 +25,7 @@ interface BuilderGunControllerOptions {
   readonly grid: BuildingAuthorGrid;
   readonly surfaceHeightAt: (x: number, y: number) => number;
   readonly playerPosition: () => {x: number; y: number} | undefined;
+  readonly authoredBuildings?: readonly SeamlessInteriorDefinition[];
 }
 
 interface StoredBuildingDrafts {
@@ -217,7 +221,7 @@ export class BuilderGunController {
     if (!candidate) this.setStatus('Aim at a solid building roof');
     else if (!candidate.valid) this.setStatus(candidate.reason ?? 'Building cannot be authored');
     else {
-      const authored = authoredBuilding(candidate);
+      const authored = authoredBuilding(candidate, this.options.authoredBuildings);
       this.setStatus(authored ? `Already authored · ${authored.label}` : 'Click to mark building');
     }
   };
@@ -237,10 +241,15 @@ export class BuilderGunController {
         this.setStatus(candidate?.reason ?? 'No building at cursor');
         return;
       }
-      const authored = authoredBuilding(candidate);
+      const authored = authoredBuilding(candidate, this.options.authoredBuildings);
       if (authored) {
         this.setStatus(`Already authored · ${authored.label}`);
         return;
+      }
+      if (this.draft) {
+        this.draft = undefined;
+        this.clearDraftPreview();
+        this.setCopyEnabled(false);
       }
       this.selected = candidate;
       this.setCandidateLabel(`${candidate.cells.length} tiles · ${candidate.floorZ}-${candidate.roofZ} high`);
@@ -271,7 +280,8 @@ export class BuilderGunController {
       this.persistDraft(this.draft);
       this.showDraft(this.draft, facade);
       this.setCopyEnabled(true);
-      this.setStatus('Draft saved locally · export required');
+      this.releaseCompletedSelection();
+      this.setStatus('Draft saved locally · aim at another roof or copy it');
     } catch (error) {
       this.setStatus(error instanceof Error ? error.message : String(error));
     }
@@ -311,6 +321,16 @@ export class BuilderGunController {
     }
     this.setStatus('Aim at a building roof');
   };
+
+  private releaseCompletedSelection(): void {
+    this.selected = undefined;
+    this.template = undefined;
+    this.hover = undefined;
+    this.setTemplateButtonsEnabled(false);
+    for (const button of this.panel.querySelectorAll('[data-builder-template]')) {
+      button.removeAttribute('aria-pressed');
+    }
+  }
 
   private readonly copyDraft = async (): Promise<void> => {
     if (!this.draft) return;
@@ -365,7 +385,7 @@ export class BuilderGunController {
     }
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setIndex(indices);
-    const authored = authoredBuilding(candidate);
+    const authored = authoredBuilding(candidate, this.options.authoredBuildings);
     const material = new THREE.MeshBasicMaterial({
       color: authored ? 0xf3c84b : candidate.valid ? 0x43d9ff : 0xff4e4e,
       transparent: true,
@@ -496,8 +516,11 @@ function facadeLineMesh(edges: readonly BuildingFacadeEdge[], z: number): THREE.
   return lines;
 }
 
-function authoredBuilding(candidate: BuildingCandidate): {id: string; label: string} | undefined {
-  return authoredBuildingOverlapping(candidate, SEAMLESS_INTERIORS);
+function authoredBuilding(
+  candidate: BuildingCandidate,
+  buildings?: readonly SeamlessInteriorDefinition[]
+): {id: string; label: string} | undefined {
+  return authoredBuildingOverlapping(candidate, buildings ?? SEAMLESS_INTERIORS);
 }
 
 function readStoredDrafts(): StoredBuildingDrafts {

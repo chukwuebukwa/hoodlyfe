@@ -346,6 +346,11 @@ export interface NetworkMission {
 }
 
 export interface DistrictNetworkState {
+  contentWorldId?: string;
+  contentRevision?: string;
+  contentSource?: string;
+  contentAssetRoot?: string;
+  contentBuildingsPath?: string;
   players: Map<string, NetworkPlayer>;
   bullets: Map<string, NetworkBullet>;
   rockets?: Map<string, NetworkRocketProjectile>;

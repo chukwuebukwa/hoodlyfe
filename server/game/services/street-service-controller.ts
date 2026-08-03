@@ -28,7 +28,10 @@ import {
   STREET_SPACE_ID,
   interiorServiceAnchor
 } from '../../../shared/content/interior-catalog.ts';
-import {seamlessServiceAnchors} from '../../../shared/content/seamless-interior-catalog.ts';
+import {
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog
+} from '../../../shared/content/seamless-interior-catalog.ts';
 
 interface StreetServiceControllerOptions {
   state: DistrictState;
@@ -41,6 +44,7 @@ interface StreetServiceControllerOptions {
   openWardrobe: (playerId: string, serviceId: string) => void;
   openStorefront: (playerId: string, snapshot: StorefrontSnapshot) => void;
   notice: (playerId: string, message: string, tone: GameNotice['tone']) => void;
+  seamlessInteriors?: SeamlessInteriorCatalog;
 }
 
 export class StreetServiceController {
@@ -56,7 +60,8 @@ export class StreetServiceController {
     if (!ammunition || !clothing) {
       throw new Error('Missing authored store interior service anchors.');
     }
-    const repairs = seamlessServiceAnchors('repair');
+    const repairs = (this.options.seamlessInteriors ?? DEFAULT_SEAMLESS_INTERIOR_CATALOG)
+      .serviceAnchors('repair');
     if (repairs.length === 0) throw new Error('Missing authored seamless repair garage service anchor.');
     this.addService(
       'ammunition-counter',

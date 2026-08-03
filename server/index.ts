@@ -19,8 +19,8 @@ import {
   DistrictWorldRoom
 } from './district-room.ts';
 import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
-import {CollisionMap} from './world-map.ts';
 import {RuntimeHealthMonitor} from './runtime-health.ts';
+import {worldContentRepositoryFromEnvironment} from './world-content/world-content-repository.ts';
 
 const port = Number(process.env.PORT ?? process.env.GAME_PORT ?? 2567);
 const serveNext = process.env.NODE_ENV === 'production';
@@ -30,8 +30,9 @@ const processStartedAt = Date.now();
 const buildId = process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ??
   process.env.RAILWAY_DEPLOYMENT_ID ?? 'development';
 const runtimeHealth = new RuntimeHealthMonitor();
-// Fail the process before Railway marks it healthy if required runtime map assets are absent.
-CollisionMap.load();
+const worldContent = worldContentRepositoryFromEnvironment();
+// Resolve before listening so Railway never marks a process healthy with incomplete content.
+await worldContent.resolveCurrent('bil');
 await initializePhysicsEngine();
 const eventLoopDelay = monitorEventLoopDelay({resolution: 10});
 eventLoopDelay.enable();
@@ -120,32 +121,38 @@ const requestFatalShutdown = (error: Error): void => {
 gameServer.define('district', DistrictRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-race', DistrictRaceRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-city', DistrictCityRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-residential', DistrictResidentialRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-world', DistrictWorldRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-deathmatch', DistrictDeathmatchRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
-  buildId
+  buildId,
+  worldContent
 });
 gameServer.define('district-playtest', DistrictPlaytestRoom)
   .filterBy(['assetSourceId', 'revisionId']);

@@ -11,7 +11,10 @@ import type {
   NetworkVehicle
 } from '../types.ts';
 import {STREET_SPACE_ID, clientInteriorDefinitions} from '../../../shared/content/interior-catalog.ts';
-import {SEAMLESS_INTERIORS} from '../../../shared/content/seamless-interior-catalog.ts';
+import {
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog
+} from '../../../shared/content/seamless-interior-catalog.ts';
 
 export type InteractionAffordanceKind =
   | 'hidden'
@@ -53,7 +56,10 @@ export function serviceMinimapPoints(
     }));
 }
 
-export function storefrontMinimapPoints(spaceId = STREET_SPACE_ID): MinimapPointInput[] {
+export function storefrontMinimapPoints(
+  spaceId = STREET_SPACE_ID,
+  seamlessInteriors: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG
+): MinimapPointInput[] {
   if (spaceId !== STREET_SPACE_ID) return [];
   return [
     ...clientInteriorDefinitions().map((interior) => ({
@@ -62,7 +68,7 @@ export function storefrontMinimapPoints(spaceId = STREET_SPACE_ID): MinimapPoint
       x: interior.exteriorDoor.x,
       y: interior.exteriorDoor.y
     })),
-    ...SEAMLESS_INTERIORS.map((interior) => ({
+    ...seamlessInteriors.interiors.map((interior) => ({
       id: `location-${interior.id}`,
       kind: interior.kind === 'garage' ? 'repair' as const : 'shop' as const,
       x: interior.entrance.x,

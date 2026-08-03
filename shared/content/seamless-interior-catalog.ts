@@ -1,6 +1,7 @@
 import type {SurfaceActorKind} from '../world/surface-map.ts';
 import {
   BUILDING_MANIFEST,
+  type BuildingManifest,
   type BuildingDefinition,
   type BuildingKind,
   type BuildingServiceType,
@@ -66,55 +67,93 @@ export interface SeamlessInteriorDefinition {
   readonly obstacles: readonly SeamlessInteriorObstacle[];
 }
 
-export const SEAMLESS_INTERIORS: readonly SeamlessInteriorDefinition[] = Object.freeze(
-  BUILDING_MANIFEST.buildings
-    .filter((building) => building.mode === 'seamless-cutaway')
-    .map((building) => compileSeamlessInterior(building, BUILDING_MANIFEST.blockSize))
-);
+export interface SeamlessInteriorCatalog {
+  readonly interiors: readonly SeamlessInteriorDefinition[];
+  readonly collisionReplacementRects: readonly WorldRect[];
+  readonly staticRects: readonly WorldRect[];
+  readonly garageDoors: readonly SeamlessGarageDoorDefinition[];
+  interior(id: string): SeamlessInteriorDefinition | undefined;
+  serviceAnchor(id: string): SeamlessInteriorDefinition['serviceBindings'][number] | undefined;
+  serviceAnchors(type?: BuildingServiceType): readonly SeamlessInteriorDefinition['serviceBindings'][number][];
+  garageDoor(id: string): SeamlessGarageDoorDefinition | undefined;
+  interiorAt(x: number, y: number, currentId?: string): SeamlessInteriorDefinition | undefined;
+  blocks(x: number, y: number, radius: number, actorKind?: SurfaceActorKind): boolean;
+  replacesWorldCollision(x: number, y: number): boolean;
+}
 
-export const SEAMLESS_COLLISION_REPLACEMENT_RECTS: readonly WorldRect[] = Object.freeze(
-  SEAMLESS_INTERIORS.flatMap(({footprints, floorConnectors, entrance}) => [
+export function compileSeamlessInteriorCatalog(manifest: BuildingManifest): SeamlessInteriorCatalog {
+  const interiors = Object.freeze(manifest.buildings
+    .filter((building) => building.mode === 'seamless-cutaway')
+    .map((building) => compileSeamlessInterior(building, manifest.blockSize)));
+  const collisionReplacementRects = Object.freeze(interiors.flatMap(({
+    footprints,
+    floorConnectors,
+    entrance
+  }) => [
     ...footprints,
     ...floorConnectors,
     entranceCollisionRect(entrance)
-  ])
-);
-
-export const SEAMLESS_STATIC_RECTS: readonly WorldRect[] = Object.freeze(
-  SEAMLESS_INTERIORS.flatMap(({obstacles}) => obstacles.map(({minX, minY, maxX, maxY}) => (
+  ]));
+  const staticRects = Object.freeze(interiors.flatMap(({obstacles}) => (
+    obstacles.map(({minX, minY, maxX, maxY}) => (
     Object.freeze({minX, minY, maxX, maxY})
-  )))
-);
+    ))
+  )));
+  const garageDoors = Object.freeze(interiors.flatMap(({garageDoor}) => garageDoor ? [garageDoor] : []));
+  const catalog: SeamlessInteriorCatalog = {
+    interiors,
+    collisionReplacementRects,
+    staticRects,
+    garageDoors,
+    interior: (id) => interiors.find((definition) => definition.id === id),
+    serviceAnchor: (id) => {
+      for (const interior of interiors) {
+        const service = interior.serviceBindings.find((candidate) => candidate.id === id);
+        if (service) return service;
+      }
+      return undefined;
+    },
+    serviceAnchors: (type) => Object.freeze(interiors.flatMap(({serviceBindings}) => (
+      type ? serviceBindings.filter((service) => service.type === type) : serviceBindings
+    ))),
+    garageDoor: (id) => garageDoors.find((door) => door.id === id),
+    interiorAt: (x, y, currentId) => interiorAt(interiors, x, y, currentId),
+    blocks: (x, y, radius, _actorKind = 'player') => (
+      staticRects.some((rect) => circleOverlapsRect(x, y, radius, rect))
+    ),
+    replacesWorldCollision: (x, y) => (
+      collisionReplacementRects.some((rect) => containsPoint(rect, x, y))
+    )
+  };
+  return Object.freeze(catalog);
+}
 
-export const SEAMLESS_GARAGE_DOORS: readonly SeamlessGarageDoorDefinition[] = Object.freeze(
-  SEAMLESS_INTERIORS.flatMap(({garageDoor}) => garageDoor ? [garageDoor] : [])
-);
+export const DEFAULT_SEAMLESS_INTERIOR_CATALOG = compileSeamlessInteriorCatalog(BUILDING_MANIFEST);
+export const SEAMLESS_INTERIORS = DEFAULT_SEAMLESS_INTERIOR_CATALOG.interiors;
+export const SEAMLESS_COLLISION_REPLACEMENT_RECTS =
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG.collisionReplacementRects;
+export const SEAMLESS_STATIC_RECTS = DEFAULT_SEAMLESS_INTERIOR_CATALOG.staticRects;
+export const SEAMLESS_GARAGE_DOORS = DEFAULT_SEAMLESS_INTERIOR_CATALOG.garageDoors;
 
 export const SEAMLESS_ROOF_EXIT_MARGIN = 24;
 
 export function seamlessInteriorDefinition(id: string): SeamlessInteriorDefinition | undefined {
-  return SEAMLESS_INTERIORS.find((definition) => definition.id === id);
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.interior(id);
 }
 
 export function seamlessServiceAnchor(id: string):
   SeamlessInteriorDefinition['serviceBindings'][number] | undefined {
-  for (const interior of SEAMLESS_INTERIORS) {
-    const service = interior.serviceBindings.find((candidate) => candidate.id === id);
-    if (service) return service;
-  }
-  return undefined;
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.serviceAnchor(id);
 }
 
 export function seamlessGarageDoor(id: string): SeamlessGarageDoorDefinition | undefined {
-  return SEAMLESS_GARAGE_DOORS.find((door) => door.id === id);
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.garageDoor(id);
 }
 
 export function seamlessServiceAnchors(
   type?: BuildingServiceType
 ): readonly SeamlessInteriorDefinition['serviceBindings'][number][] {
-  return Object.freeze(SEAMLESS_INTERIORS.flatMap(({serviceBindings}) => (
-    type ? serviceBindings.filter((service) => service.type === type) : serviceBindings
-  )));
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.serviceAnchors(type);
 }
 
 export function seamlessInteriorAt(
@@ -122,15 +161,7 @@ export function seamlessInteriorAt(
   y: number,
   currentId?: string
 ): SeamlessInteriorDefinition | undefined {
-  const current = currentId ? seamlessInteriorDefinition(currentId) : undefined;
-  if (current && current.revealAreas.some((area) => (
-    containsPoint(expandRect(area, SEAMLESS_ROOF_EXIT_MARGIN), x, y)
-  ))) {
-    return current;
-  }
-  return SEAMLESS_INTERIORS.find(({revealAreas}) => (
-    revealAreas.some((area) => containsPoint(area, x, y))
-  ));
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.interiorAt(x, y, currentId);
 }
 
 export function blocksSeamlessInterior(
@@ -139,11 +170,24 @@ export function blocksSeamlessInterior(
   radius: number,
   _actorKind: SurfaceActorKind = 'player'
 ): boolean {
-  return SEAMLESS_STATIC_RECTS.some((rect) => circleOverlapsRect(x, y, radius, rect));
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.blocks(x, y, radius, _actorKind);
 }
 
 export function replacesSeamlessWorldCollision(x: number, y: number): boolean {
-  return SEAMLESS_COLLISION_REPLACEMENT_RECTS.some((rect) => containsPoint(rect, x, y));
+  return DEFAULT_SEAMLESS_INTERIOR_CATALOG.replacesWorldCollision(x, y);
+}
+
+function interiorAt(
+  interiors: readonly SeamlessInteriorDefinition[],
+  x: number,
+  y: number,
+  currentId?: string
+): SeamlessInteriorDefinition | undefined {
+  const current = currentId ? interiors.find((definition) => definition.id === currentId) : undefined;
+  if (current && current.revealAreas.some((area) => (
+    containsPoint(expandRect(area, SEAMLESS_ROOF_EXIT_MARGIN), x, y)
+  ))) return current;
+  return interiors.find(({revealAreas}) => revealAreas.some((area) => containsPoint(area, x, y)));
 }
 
 export function containsPoint(rect: WorldRect, x: number, y: number): boolean {

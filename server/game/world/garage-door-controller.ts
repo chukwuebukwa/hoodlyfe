@@ -17,6 +17,7 @@ interface GarageDoorControllerOptions {
   state: DistrictState;
   world: Pick<CollisionMap, 'setGarageDoorPassable'>;
   physics: Pick<PhysicsWorld, 'setControlledStaticEnabled'>;
+  doors?: readonly SeamlessGarageDoorDefinition[];
 }
 
 export class GarageDoorController {
@@ -29,7 +30,7 @@ export class GarageDoorController {
     this.options.state.garageDoors.clear();
     this.holdUntil.clear();
     this.passable.clear();
-    for (const door of [...SEAMLESS_GARAGE_DOORS].sort((left, right) => (
+    for (const door of [...this.doors()].sort((left, right) => (
       left.id.localeCompare(right.id)
     ))) {
       const state = new GarageDoorState();
@@ -41,7 +42,7 @@ export class GarageDoorController {
   }
 
   update(nowMs: number): void {
-    for (const door of SEAMLESS_GARAGE_DOORS) {
+    for (const door of this.doors()) {
       const state = this.options.state.garageDoors.get(door.id);
       if (!state) continue;
       state.progress = garageDoorProgress(asTimeline(state), door.animationMs, nowMs);
@@ -72,6 +73,10 @@ export class GarageDoorController {
       state.progress = garageDoorProgress(asTimeline(state), door.animationMs, nowMs);
       this.setPassable(door.id, state.progress >= GARAGE_DOOR_PASSABLE_PROGRESS);
     }
+  }
+
+  private doors(): readonly SeamlessGarageDoorDefinition[] {
+    return this.options.doors ?? SEAMLESS_GARAGE_DOORS;
   }
 
   private isTriggered(door: SeamlessGarageDoorDefinition): boolean {

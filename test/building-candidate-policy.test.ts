@@ -54,6 +54,33 @@ test('builder gun places a vehicle-width garage entrance on the selected facade'
   assert.equal(draft.building.shell.expectedTriangleCount, null);
   assert.equal(draft.building.serviceBindings[0]?.type, 'repair');
   assert.equal(draft.building.serviceBindings[0]?.id, `${draft.building.id}-repair`);
+  assert.ok(draft.building.obstacles.some((obstacle) => obstacle.kind === 'wall'));
+  const entranceHalfWidth = draft.building.entrance.width / 2;
+  assert.equal(draft.building.obstacles.some((obstacle) => (
+    obstacle.kind === 'wall' &&
+    obstacle.bounds.minY < draft.building.entrance.y &&
+    obstacle.bounds.maxY > draft.building.entrance.y &&
+    obstacle.bounds.minX < draft.building.entrance.x + entranceHalfWidth &&
+    obstacle.bounds.maxX > draft.building.entrance.x - entranceHalfWidth
+  )), false);
+});
+
+test('builder gun connects adjacent footprint rectangles for continuous interior floors', () => {
+  const grid = gridWithBuilding(12, 12, {minX: 2, minY: 2, maxX: 5, maxY: 5});
+  const collisions = [...grid.collisions];
+  const surfaces = [...grid.surfaces];
+  for (let row = 5; row < 7; row++) {
+    for (let column = 2; column < 8; column++) {
+      collisions[row * grid.width + column] = 1;
+      surfaces[row * grid.width + column] = 6;
+    }
+  }
+  const candidate = resolveBuildingCandidateAt({...grid, collisions, surfaces}, 3 * 64, 3 * 64);
+  assert.ok(candidate);
+  const facade = nearestBuildingFacade(candidate, 2 * 64, 4 * 64, 160);
+  assert.ok(facade);
+  const draft = createBuildingAuthorDraft(candidate, 'garage', facade, 2 * 64, 4 * 64);
+  assert.ok(draft.building.floorConnectors.length > 0);
 });
 
 test('builder gun rejects open ground and non-elevated collision components', () => {

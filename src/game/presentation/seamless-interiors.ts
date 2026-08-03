@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
-  SEAMLESS_INTERIORS,
-  seamlessInteriorAt,
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog,
   type SeamlessInteriorDefinition,
   type SeamlessInteriorObstacle,
   type SeamlessGarageDoorDefinition,
@@ -17,8 +17,11 @@ export class SeamlessInteriorPresentation {
   private readonly garageDoors = new Map<string, THREE.Group>();
   private activeInteriorId?: string;
 
-  constructor(private readonly scene: THREE.Scene) {
-    for (const definition of SEAMLESS_INTERIORS) this.create(definition);
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly catalog: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG
+  ) {
+    for (const definition of this.catalog.interiors) this.create(definition);
   }
 
   synchronize(
@@ -28,14 +31,14 @@ export class SeamlessInteriorPresentation {
   ): string | undefined {
     const player = state.players.get(localPlayerId);
     const active = player?.spaceId === STREET_SPACE_ID
-      ? seamlessInteriorAt(player.x, player.y, this.activeInteriorId)
+      ? this.catalog.interiorAt(player.x, player.y, this.activeInteriorId)
       : undefined;
     this.activeInteriorId = active?.id;
     if (active) {
       const districtLabel = document.querySelector('#district-label span');
       if (districtLabel) districtLabel.textContent = active.label;
     }
-    for (const definition of SEAMLESS_INTERIORS) {
+    for (const definition of this.catalog.interiors) {
       const door = definition.garageDoor;
       if (!door) continue;
       const mesh = this.garageDoors.get(door.id);

@@ -88,7 +88,7 @@ export interface BuildingAuthorDraft {
     }>[];
     readonly obstacles: readonly Readonly<{
       id: string;
-      kind: 'counter' | 'shelf';
+      kind: 'wall' | 'counter' | 'shelf';
       bounds: Readonly<{minX: number; minY: number; maxX: number; maxY: number}>;
       height: number;
       color: string;
@@ -216,7 +216,11 @@ export function createBuildingAuthorDraft(
   const bounds = candidate.sourceBounds;
   const layoutBounds = largestRect(candidate.footprints);
   const servicePoint = interiorServicePoint(layoutBounds, entrance.side);
-  const obstacles = templateObstacles(template, layoutBounds, entrance.side);
+  const floorConnectors = footprintConnectors(candidate.footprints);
+  const obstacles = [
+    ...perimeterWalls(candidate.facades, entrance, tileSize),
+    ...templateObstacles(template, layoutBounds, entrance.side)
+  ];
   return Object.freeze({
     version: 1,
     generatedBy: 'nock0-builder-gun',
@@ -243,7 +247,7 @@ export function createBuildingAuthorDraft(
       }),
       bounds,
       footprints: candidate.footprints,
-      floorConnectors: Object.freeze([]),
+      floorConnectors: Object.freeze(floorConnectors),
       revealAreas: Object.freeze(candidate.footprints.map((rect) => insetRect(rect, 0.21875))),
       entrance,
       garageDoor: template === 'garage' ? Object.freeze({
@@ -424,6 +428,85 @@ function templateObstacles(
     obstacle('service-counter', 'counter', bounds.maxX - 1.35, bounds.minY + 0.5, bounds.maxX - 0.45, bounds.minY + 1.5, 0.47, '#31575b'),
     obstacle('center-shelf', 'shelf', centerX - 0.35, centerY - 0.75, centerX + 0.35, centerY + 0.75, 0.34, '#725a3a')
   ]);
+}
+
+function perimeterWalls(
+  facades: readonly BuildingFacadeEdge[],
+  entrance: BuildingAuthorDraft['building']['entrance'],
+  tileSize: number
+): BuildingAuthorDraft['building']['obstacles'] {
+  const thickness = 0.21875;
+  const entranceHalfWidth = entrance.width / 2;
+  const entranceStart = (entrance.side === 'north' || entrance.side === 'south' ? entrance.x : entrance.y) - entranceHalfWidth;
+  const entranceEnd = entranceStart + entrance.width;
+  const walls: BuildingAuthorDraft['building']['obstacles'][number][] = [];
+  let index = 0;
+
+  for (const facade of facades) {
+    const start = facade.start / tileSize;
+    const end = facade.end / tileSize;
+    const fixed = facade.fixed / tileSize;
+    const spans = facade.side === entrance.side
+      ? subtractSpan(start, end, entranceStart, entranceEnd)
+      : [{start, end}];
+    for (const span of spans) {
+      if (span.end - span.start <= 0.001) continue;
+      const bounds = facade.side === 'north'
+        ? {minX: span.start, minY: fixed, maxX: span.end, maxY: fixed + thickness}
+        : facade.side === 'south'
+          ? {minX: span.start, minY: fixed - thickness, maxX: span.end, maxY: fixed}
+          : facade.side === 'west'
+            ? {minX: fixed, minY: span.start, maxX: fixed + thickness, maxY: span.end}
+            : {minX: fixed - thickness, minY: span.start, maxX: fixed, maxY: span.end};
+      walls.push(Object.freeze({
+        id: `perimeter-${facade.side}-${index++}`,
+        kind: 'wall',
+        bounds: Object.freeze(bounds),
+        height: 2,
+        color: '#263033'
+      }));
+    }
+  }
+  return Object.freeze(walls);
+}
+
+function footprintConnectors(
+  footprints: BuildingCandidate['footprints']
+): BuildingAuthorDraft['building']['floorConnectors'] {
+  const inset = 0.21875;
+  const connectors: Array<Readonly<{minX: number; minY: number; maxX: number; maxY: number}>> = [];
+  for (let leftIndex = 0; leftIndex < footprints.length; leftIndex++) {
+    for (let rightIndex = leftIndex + 1; rightIndex < footprints.length; rightIndex++) {
+      const left = footprints[leftIndex];
+      const right = footprints[rightIndex];
+      if (left.maxX === right.minX || right.maxX === left.minX) {
+        const x = left.maxX === right.minX ? left.maxX : right.maxX;
+        const minY = Math.max(left.minY, right.minY) + inset;
+        const maxY = Math.min(left.maxY, right.maxY) - inset;
+        if (maxY > minY) connectors.push(Object.freeze({minX: x - inset, minY, maxX: x + inset, maxY}));
+      }
+      if (left.maxY === right.minY || right.maxY === left.minY) {
+        const y = left.maxY === right.minY ? left.maxY : right.maxY;
+        const minX = Math.max(left.minX, right.minX) + inset;
+        const maxX = Math.min(left.maxX, right.maxX) - inset;
+        if (maxX > minX) connectors.push(Object.freeze({minX, minY: y - inset, maxX, maxY: y + inset}));
+      }
+    }
+  }
+  return Object.freeze(connectors);
+}
+
+function subtractSpan(
+  start: number,
+  end: number,
+  cutStart: number,
+  cutEnd: number
+): Array<{start: number; end: number}> {
+  if (cutEnd <= start || cutStart >= end) return [{start, end}];
+  const spans: Array<{start: number; end: number}> = [];
+  if (cutStart > start) spans.push({start, end: Math.min(cutStart, end)});
+  if (cutEnd < end) spans.push({start: Math.max(cutEnd, start), end});
+  return spans;
 }
 
 function obstacle(

@@ -1,6 +1,7 @@
 import {INTERIORS, STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {
-  SEAMLESS_INTERIORS,
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  type SeamlessInteriorCatalog,
   type SeamlessInteriorDefinition
 } from '../../../shared/content/seamless-interior-catalog.ts';
 import type {QaTeleportDestinationId} from '../../../shared/protocol/qa-teleport.ts';
@@ -16,13 +17,14 @@ export function resolveQaTeleportTarget(
   destinationId: QaTeleportDestinationId,
   world: CollisionMap,
   playerIndex: number,
-  radius: number
+  radius: number,
+  seamlessInteriors: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG
 ): QaTeleportTarget | undefined {
   if (destinationId === 'spawn') {
     return {...world.spawnFor(playerIndex, radius), angle: -Math.PI / 2, spaceId: STREET_SPACE_ID};
   }
 
-  const seamless = SEAMLESS_INTERIORS.find(({id}) => id === destinationId);
+  const seamless = seamlessInteriors.interior(destinationId);
   if (seamless) return seamlessTarget(seamless, world, radius);
 
   const interior = INTERIORS.find(({id}) => id === destinationId);

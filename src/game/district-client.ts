@@ -20,7 +20,12 @@ import type {NetcodeRolloutController} from './network/netcode-rollout-controlle
 import type {NockPhoneController} from './ui/nock-phone-controller.ts';
 import {CombatFireCommandSender} from './network/combat-fire-command-sender.ts';
 import {interiorDefinition} from '../../shared/content/interior-catalog.ts';
-import {seamlessInteriorDefinition} from '../../shared/content/seamless-interior-catalog.ts';
+import {parseBuildingManifest} from '../../shared/content/building-manifest.ts';
+import {
+  DEFAULT_SEAMLESS_INTERIOR_CATALOG,
+  compileSeamlessInteriorCatalog,
+  type SeamlessInteriorCatalog
+} from '../../shared/content/seamless-interior-catalog.ts';
 import {isWeaponId} from '../../shared/content/weapon-catalog.ts';
 import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../shared/world/surface-map.ts';
 import {
@@ -107,6 +112,8 @@ export class DistrictClient {
   private readonly settingsOverlay = document.querySelector<HTMLElement>('#settings-overlay');
   private readonly settingsClose = document.querySelector<HTMLButtonElement>('#settings-close');
   private readonly cameraModeToggle = document.querySelector<HTMLInputElement>('#settings-camera-explorer');
+  private worldAssetRoot = '/assets';
+  private seamlessCatalog: SeamlessInteriorCatalog = DEFAULT_SEAMLESS_INTERIOR_CATALOG;
 
   constructor(
     private readonly parent: HTMLElement,
@@ -116,6 +123,7 @@ export class DistrictClient {
     private readonly assetRoot = '/assets',
     private readonly enableInteriors = true
   ) {
+    this.worldAssetRoot = assetRoot;
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -128,21 +136,28 @@ export class DistrictClient {
   }
 
   async start(): Promise<void> {
+    this.worldAssetRoot = this.room?.state.contentAssetRoot || this.assetRoot;
+    this.seamlessCatalog = await loadSeamlessInteriorCatalog(
+      this.worldAssetRoot,
+      this.room?.state.contentBuildingsPath
+    );
     const [mapStreamer, metadata, surfaceMap] = await Promise.all([
       MapChunkStreamer.create(
         this.scene,
         this.mapOccluders,
-        `${this.assetRoot}/maps/geometry/world.json`
+        `${this.worldAssetRoot}/maps/geometry/world.json`
       ),
-      loadMapMetadata(`${this.assetRoot}/maps/district-map.metadata.json`),
-      loadSurfaceMap(`${this.assetRoot}/maps/surface-manifest.json`)
+      loadMapMetadata(`${this.worldAssetRoot}/maps/district-map.metadata.json`),
+      loadSurfaceMap(`${this.worldAssetRoot}/maps/surface-manifest.json`)
     ]);
     this.mapStreamer = mapStreamer;
     this.surfaceMap = surfaceMap;
     const payload = mapStreamer.manifest;
     this.payload = payload;
     if (this.enableInteriors) {
-      for (const occluder of payload.occluders) validateOccluder(occluder, payload.blockSize);
+      for (const occluder of payload.occluders) {
+        validateOccluder(occluder, payload.blockSize, this.seamlessCatalog);
+      }
     }
     this.baseHeight = perspectiveHeightForSpan(900, FIELD_OF_VIEW);
     this.resize();
@@ -157,13 +172,16 @@ export class DistrictClient {
     this.lighting = await LightingPresentation.create(
       this.scene,
       this.surfaceHeightAt,
-      `${this.assetRoot}/maps/district-map.json`,
-      this.assetRoot === '/assets' ? undefined : []
+      `${this.worldAssetRoot}/maps/district-map.json`,
+      this.room?.state.contentWorldId === 'bil' || this.assetRoot === '/assets' ? undefined : []
     );
     if (this.room) {
       if (this.enableInteriors) {
         this.interiors = new InteriorPresentation(this.scene);
-        this.seamlessInteriors = new SeamlessInteriorPresentation(this.scene);
+        this.seamlessInteriors = new SeamlessInteriorPresentation(
+          this.scene,
+          this.seamlessCatalog
+        );
       }
       this.actors = await ActorPresentation.create(
         this.scene,
@@ -237,8 +255,9 @@ export class DistrictClient {
         payload.surfaces.height * payload.blockSize,
         () => this.actors?.playerPose(this.room?.sessionId ?? ''),
         this.phone,
-        this.assetRoot,
-        this.projectWorldPoint
+        this.worldAssetRoot,
+        this.projectWorldPoint,
+        this.seamlessCatalog
       );
       const query = new URLSearchParams(window.location.search);
       if (
@@ -256,8 +275,9 @@ export class DistrictClient {
           playerPosition: () => {
             const focus = this.localCameraFocus();
             return focus ? {x: focus.x, y: focus.y} : undefined;
-          }
-        }, `${this.assetRoot}/maps/district-map.json`, payload.surfaces.values, payload.blockSize);
+          },
+          authoredBuildings: this.seamlessCatalog.interiors
+        }, `${this.worldAssetRoot}/maps/district-map.json`, payload.surfaces.values, payload.blockSize);
       }
       this.input = new InputController({
         room: this.room,
@@ -804,9 +824,13 @@ function isDevelopment(): boolean {
   return metaEnv?.DEV ?? process.env.NODE_ENV !== 'production';
 }
 
-function validateOccluder(occluder: WorldGeometryOccluderDefinition, blockSize: number): void {
+function validateOccluder(
+  occluder: WorldGeometryOccluderDefinition,
+  blockSize: number,
+  seamlessInteriors: SeamlessInteriorCatalog
+): void {
   const expected = interiorDefinition(occluder.id);
-  const seamless = seamlessInteriorDefinition(occluder.id);
+  const seamless = seamlessInteriors.interior(occluder.id);
   if (!expected && !seamless) return;
   const doorX = occluder.exteriorDoor.x * blockSize;
   const doorY = occluder.exteriorDoor.y * blockSize;
@@ -827,6 +851,18 @@ function validateOccluder(occluder: WorldGeometryOccluderDefinition, blockSize: 
   ) {
     throw new Error(`Authored occluder triangle count is invalid: ${occluder.id}`);
   }
+}
+
+async function loadSeamlessInteriorCatalog(
+  assetRoot: string,
+  buildingsPath: string | undefined
+): Promise<SeamlessInteriorCatalog> {
+  if (!buildingsPath) return DEFAULT_SEAMLESS_INTERIOR_CATALOG;
+  const response = await fetch(`${assetRoot}/${buildingsPath}`);
+  if (!response.ok) throw new Error(`Building manifest failed to load (${response.status}).`);
+  return compileSeamlessInteriorCatalog(
+    parseBuildingManifest(await response.json(), buildingsPath)
+  );
 }
 
 async function loadSurfaceMap(url: string): Promise<SurfaceMap> {
