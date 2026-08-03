@@ -151,7 +151,8 @@ class GameRuntimeController implements GameRuntime {
         netcodeRollout,
         this.phone,
         world.assetRoot,
-        world.enableInteriors
+        world.enableInteriors,
+        (progress, label) => this.loadingUi?.set(progress, label)
       );
       await districtClient.start();
       return {world, room, districtClient, netcodeRollout};

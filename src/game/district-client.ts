@@ -121,7 +121,8 @@ export class DistrictClient {
     private readonly netcodeRollout?: NetcodeRolloutController,
     private readonly phone?: NockPhoneController,
     private readonly assetRoot = '/assets',
-    private readonly enableInteriors = true
+    private readonly enableInteriors = true,
+    private readonly reportLoading?: (progress: number, label: string) => void
   ) {
     this.worldAssetRoot = assetRoot;
     this.renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, powerPreference: 'high-performance'});
@@ -136,19 +137,33 @@ export class DistrictClient {
   }
 
   async start(): Promise<void> {
+    this.loadingStage(0.72, 'Resolving world content');
     this.worldAssetRoot = this.room?.state.contentAssetRoot || this.assetRoot;
     this.seamlessCatalog = await loadSeamlessInteriorCatalog(
       this.worldAssetRoot,
       this.room?.state.contentBuildingsPath
     );
+    this.loadingStage(0.74, 'Loading map manifests');
+    let completedManifests = 0;
+    const tracked = <Value>(label: string, promise: Promise<Value>): Promise<Value> => (
+      promise.then((value) => {
+        completedManifests += 1;
+        this.loadingStage(0.74 + completedManifests * 0.015, label);
+        return value;
+      })
+    );
     const [mapStreamer, metadata, surfaceMap] = await Promise.all([
-      MapChunkStreamer.create(
+      tracked('Map atlas ready', MapChunkStreamer.create(
         this.scene,
         this.mapOccluders,
         `${this.worldAssetRoot}/maps/geometry/world.json`
-      ),
-      loadMapMetadata(`${this.worldAssetRoot}/maps/district-map.metadata.json`),
-      loadSurfaceMap(`${this.worldAssetRoot}/maps/surface-manifest.json`)
+      )),
+      tracked('District metadata ready', loadMapMetadata(
+        `${this.worldAssetRoot}/maps/district-map.metadata.json`
+      )),
+      tracked('Surface navigation ready', loadSurfaceMap(
+        `${this.worldAssetRoot}/maps/surface-manifest.json`
+      ))
     ]);
     this.mapStreamer = mapStreamer;
     this.surfaceMap = surfaceMap;
@@ -163,18 +178,21 @@ export class DistrictClient {
     this.resize();
     this.frameSpectatorSpawn(metadata.spawn.x, metadata.spawn.y);
     const initialView = this.mapStreamingView();
+    this.loadingStage(0.80, 'Streaming nearby roads and rooftops');
     await mapStreamer.prime(
       metadata.spawn.x,
       metadata.spawn.y,
       initialView.halfWidth,
       initialView.halfHeight
     );
+    this.loadingStage(0.84, 'Building street lighting');
     this.lighting = await LightingPresentation.create(
       this.scene,
       this.surfaceHeightAt,
       `${this.worldAssetRoot}/maps/district-map.json`,
       this.room?.state.contentWorldId === 'bil' || this.assetRoot === '/assets' ? undefined : []
     );
+    this.loadingStage(0.87, 'Loading people and vehicles');
     if (this.room) {
       if (this.enableInteriors) {
         this.interiors = new InteriorPresentation(this.scene);
@@ -191,11 +209,13 @@ export class DistrictClient {
         () => this.rolloutEnabled('remoteTimelines'),
         (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0
       );
+      this.loadingStage(0.90, 'Loading street objects');
       this.objects = await WorldObjectPresentation.create(
         this.scene,
         this.room.sessionId,
         this.surfaceHeightAt
       );
+      this.loadingStage(0.92, 'Loading police presentation');
       this.policeHelicopters = await PoliceHelicopterPresentation.create(
         this.scene,
         this.surfaceHeightAt,
@@ -278,6 +298,7 @@ export class DistrictClient {
           authoredBuildings: this.seamlessCatalog.interiors
         }, `${this.worldAssetRoot}/maps/district-map.json`, payload.surfaces.values, payload.blockSize);
       }
+      this.loadingStage(0.94, 'Starting district controls');
       this.input = new InputController({
         room: this.room,
         canvas: this.renderer.domElement,
@@ -313,6 +334,11 @@ export class DistrictClient {
     this.bind();
     this.resize();
     this.frame = requestAnimationFrame(this.render);
+  }
+
+  private loadingStage(progress: number, label: string): void {
+    this.reportLoading?.(progress, label);
+    console.info(`[district-load] ${Math.round(progress * 100)}% ${label}`);
   }
 
   destroy(): void {
