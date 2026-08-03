@@ -97,6 +97,9 @@ export class DistrictClient {
   private builderGun?: BuilderGunController;
   private payload?: WorldGeometryManifest;
   private surfaceMap?: SurfaceMap;
+  private surfaceMapUrl?: string;
+  private surfaceMapLoadTimer?: number;
+  private destroyed = false;
   private centerInitialized = false;
   private cameraMode: CameraPresentationMode = readCameraMode();
   private settingsOpen = false;
@@ -152,7 +155,7 @@ export class DistrictClient {
         return value;
       })
     );
-    const [mapStreamer, metadata, surfaceMap] = await Promise.all([
+    const [mapStreamer, metadata] = await Promise.all([
       tracked('Map atlas ready', MapChunkStreamer.create(
         this.scene,
         this.mapOccluders,
@@ -160,13 +163,10 @@ export class DistrictClient {
       )),
       tracked('District metadata ready', loadMapMetadata(
         `${this.worldAssetRoot}/maps/district-map.metadata.json`
-      )),
-      tracked('Surface navigation ready', loadSurfaceMap(
-        `${this.worldAssetRoot}/maps/surface-manifest.json`
       ))
     ]);
     this.mapStreamer = mapStreamer;
-    this.surfaceMap = surfaceMap;
+    this.surfaceMapUrl = `${this.worldAssetRoot}/maps/surface-manifest.json`;
     const payload = mapStreamer.manifest;
     this.payload = payload;
     if (this.enableInteriors) {
@@ -334,6 +334,7 @@ export class DistrictClient {
     this.bind();
     this.resize();
     this.frame = requestAnimationFrame(this.render);
+    this.scheduleSurfaceMapLoad();
   }
 
   private loadingStage(progress: number, label: string): void {
@@ -342,6 +343,8 @@ export class DistrictClient {
   }
 
   destroy(): void {
+    this.destroyed = true;
+    if (this.surfaceMapLoadTimer !== undefined) window.clearTimeout(this.surfaceMapLoadTimer);
     cancelAnimationFrame(this.frame);
     this.unbind();
     this.input?.destroy();
@@ -371,6 +374,19 @@ export class DistrictClient {
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.status?.remove();
+  }
+
+  private scheduleSurfaceMapLoad(): void {
+    const url = this.surfaceMapUrl;
+    if (!url || this.surfaceMap || this.surfaceMapLoadTimer !== undefined) return;
+    this.surfaceMapLoadTimer = window.setTimeout(() => {
+      this.surfaceMapLoadTimer = undefined;
+      void loadSurfaceMap(url).then((surfaceMap) => {
+        if (!this.destroyed) this.surfaceMap = surfaceMap;
+      }).catch((error) => {
+        console.error('Detailed surface navigation failed to load.', error);
+      });
+    }, 1_000);
   }
 
   private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
