@@ -6,9 +6,9 @@ promotion, verification, and rollback.
 
 ## Current Production Baseline
 
-The bucket-backed path was deployed and validated on 2026-08-03, then production was returned to
-the bundled fallback after a browser-loading incident. The immutable bucket revision remains
-published for continued testing.
+The bucket-backed path and authenticated Builder Gun publication flow were deployed and validated
+on 2026-08-03. Production now loads the immutable bucket revision and can publish Builder Gun
+interiors as delta revisions without rebuilding the application.
 
 | Item | Value |
 | --- | --- |
@@ -19,7 +19,8 @@ published for continued testing.
 | First bucket-capable commit | `d27b81126505a35b93d9aa1f1f329f6facc7cd15` |
 | First published BIL revision | `b2baf9bb160a7542ea3969b0` |
 | First bucket-mode deployment | `00812c01-87c1-40a5-8827-34ba372b80a2` |
-| Current runtime setting | `WORLD_CONTENT_SOURCE=bundled` |
+| Builder Gun publication commit | `6dd6218cde073cd9d6934576946a7223491c9efb` |
+| Current runtime setting | `WORLD_CONTENT_SOURCE=bucket` |
 
 The deployed revision is an operational record, not a permanent configuration value. Future
 publishes advance `worlds/bil/current.json` to a new content-derived revision.
@@ -397,10 +398,11 @@ deprecated initialization call as separate maintenance work.
 The first public browser attempt exposed a missing Tigris CORS policy and displayed the generic
 `District server unavailable` fallback after the room had already joined. CORS was restricted to
 read-only `GET`/`HEAD`, and commit `3fedb35` subsequently removed the browser redirect entirely by
-streaming private objects through the same-origin revision route. Because a later test browser also
-stalled during world initialization in bundled mode, production was rolled back to bundled content
-while that separate client-loading performance issue is profiled. Do not re-enable bucket mode
-until a fresh production browser reaches gameplay repeatedly and the memory rollout gates pass.
+streaming private objects through the same-origin revision route. Production was temporarily
+returned to bundled content while that path was isolated. Deployment
+`11ea6c3d-2cd1-46f9-922d-c8f6cb6521a9` restored bucket mode on commit `6dd6218`; a real room reported
+revision `b2baf9bb160a7542ea3969b0` from `source: bucket`, and a fresh production browser reached
+gameplay, equipped the Builder Gun, and exposed the `PUBLISH INTERIOR` action.
 
 ## Rollback And Recovery
 
@@ -451,7 +453,7 @@ files, and then re-enable bucket mode.
 
 ## Security And Integrity Rules
 
-- Keep the bucket private; browsers receive short-lived signed object URLs.
+- Keep the bucket private; browsers read objects through the same-origin revision route.
 - Never commit `.env` files, Railway variable output, access keys, or signed URLs.
 - Treat Builder Gun JSON as untrusted input until the parser, exporter, validator, and tests pass.
 - Never mutate files under an existing revision prefix.
