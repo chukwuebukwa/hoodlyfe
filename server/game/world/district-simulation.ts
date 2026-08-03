@@ -17,6 +17,7 @@ import type {ProjectileImpactPublisher} from '../events/projectile-impact-publis
 import type {PedestrianController} from '../pedestrians/pedestrian-controller.ts';
 import type {CashPickupController} from '../pickups/cash-pickup-controller.ts';
 import type {WeaponPickupController} from '../pickups/weapon-pickup-controller.ts';
+import type {StreetPropController} from '../props/street-prop-controller.ts';
 import type {PlayerControlController} from '../players/player-control-controller.ts';
 import type {PlayerLifecycleController} from '../players/player-lifecycle-controller.ts';
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
@@ -106,6 +107,7 @@ export interface DistrictSimulationOptions {
   thrownProjectiles: ThrownProjectileController;
   fireZones: FireZoneController;
   actorBurn: ActorBurnController;
+  streetProps: StreetPropController;
   weaponPickups: WeaponPickupController;
   cashPickups: CashPickupController;
   missions: MissionPort;
@@ -272,6 +274,7 @@ export class DistrictSimulation {
       phase('world-effects', ({nowMs}) => {
         this.options.fireZones.update(nowMs);
         this.options.actorBurn.update(nowMs);
+        this.options.streetProps.update(nowMs);
       }),
       phase('pickups', ({nowMs}) => {
         this.options.weaponPickups.update(nowMs);

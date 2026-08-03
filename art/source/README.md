@@ -19,3 +19,21 @@ The production sheets are under `public/assets/original/sprites/`. They were chr
 ## Minimap Location Source
 
 `location-icons-atlas.png` is the source-art sheet for permanent Ammu-Nation, Threads, hospital, and repair-garage map symbols. The centered transparent 64-by-64 production crops live under `public/assets/custom/minimap/`; the browser does not load or ship the source atlas.
+
+## Street Prop Source
+
+`street-props-master-chroma.png` is the generated 3-by-3 source sheet for the first custom runtime street-prop pack. It contains three dumpsters, three hydrants, and three trash cans on a solid magenta background. The production sprites are centered on transparent 96-by-96 canvases under `public/assets/custom/props/` and intentionally use family-specific world scale rather than normalizing every object to the same size.
+
+`street-props-damage-master-chroma.png` is the generated 3-by-3 damage-state source.
+The runtime uses three-frame horizontal sheets for the dark-green dumpster,
+red-and-brass hydrant, and galvanized trash can. Frame order is intact, damaged,
+destroyed.
+
+The `street-prop-effects/` directory contains generated chroma masters and QC
+metadata for reactive prop effects. `hydrant-water-master-chroma.png` is a
+six-frame 2-by-3 water loop with a shared nozzle origin. The runtime sheet is
+`public/assets/custom/props/effects/hydrant-water.png`. The 3-by-3
+`trash-debris-master-chroma.png` atlas supplies nine paper, can, bottle, bag,
+and cardboard pieces used by deterministic client-side debris bursts. Runtime
+physics, frame selection, settling, and fading are presentation-only; the
+server continues to replicate prop damage state rather than individual pieces.

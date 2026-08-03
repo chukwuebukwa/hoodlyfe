@@ -465,6 +465,38 @@ defineTypes(SoccerBallState, {
   angvel: 'number'
 });
 
+export class StreetPropState extends Schema {
+  id = '';
+  definitionId = '';
+  surfaceId = STREET_GROUND_SURFACE_ID;
+  x = 0;
+  y = 0;
+  angle = 0;
+  health = 1;
+  maxHealth = 1;
+  damageStage = 0;
+  hitSequence = 0;
+  hitAngle = 0;
+  destroyed = false;
+  resetAt = 0;
+}
+
+defineTypes(StreetPropState, {
+  id: 'string',
+  definitionId: 'string',
+  surfaceId: 'string',
+  x: 'number',
+  y: 'number',
+  angle: 'number',
+  health: 'number',
+  maxHealth: 'number',
+  damageStage: 'number',
+  hitSequence: 'number',
+  hitAngle: 'number',
+  destroyed: 'boolean',
+  resetAt: 'number'
+});
+
 export class StingerState extends Schema {
   id = '';
   roadblockId = '';
@@ -742,6 +774,7 @@ export class DistrictState extends Schema {
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
   soccerBalls = new MapSchema<SoccerBallState>();
+  streetProps = new MapSchema<StreetPropState>();
   missions = new MapSchema<MissionState>();
   services = new MapSchema<StreetServiceState>();
   race = new ArenaRaceState();
@@ -769,6 +802,7 @@ defineTypes(DistrictState, {
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
   soccerBalls: {map: SoccerBallState},
+  streetProps: {map: StreetPropState},
   missions: {map: MissionState},
   services: {map: StreetServiceState},
   race: ArenaRaceState,
@@ -795,6 +829,7 @@ for (const field of [
   'npcs',
   'vehicles',
   'soccerBalls',
+  'streetProps',
   'missions',
   'race',
   'deathmatch',

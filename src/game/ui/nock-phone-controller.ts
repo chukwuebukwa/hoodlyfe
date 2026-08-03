@@ -15,6 +15,10 @@ import {phoneGlyph, type PhoneGlyphName} from './phone-glyphs.ts';
 
 const DRIVER_NAME_KEY = 'nock0-driver-name';
 const LPC_STORAGE_KEY = 'nock0-lpc-recipe';
+const WORLD_MAP_SIZE = 520 * 64;
+const DISTRICT_SIZE = 256 * 64;
+const DISTRICT_GAP = 8 * 64;
+const WORLD_MAP_IMAGE = '/assets/districts/world/maps/phone-world-map.webp';
 const WALLET_ADDRESS_KEYS = [
   'nock0-wallet-address',
   'nock0-privy-wallet-address',
@@ -32,7 +36,7 @@ export class NockPhoneController {
   private readonly button: HTMLButtonElement | null;
   private popup?: HTMLElement;
   private renderedMarkup?: string;
-  private activeApp: 'home' | 'profile' | 'wallet' | 'jobs' = 'home';
+  private activeApp: 'home' | 'profile' | 'wallet' | 'jobs' | 'maps' = 'home';
   private localPlayer?: NetworkPlayer;
   private activityContext?: PhoneActivityContext;
 
@@ -70,6 +74,9 @@ export class NockPhoneController {
   setActivityContext(context: PhoneActivityContext | undefined): void {
     this.activityContext = context;
     if (!context && this.activeApp === 'jobs') this.activeApp = 'home';
+    if (this.activeApp === 'maps' && !supportsWorldMap(context?.currentWorld)) {
+      this.activeApp = 'home';
+    }
     if (this.isOpen()) this.render();
   }
 
@@ -101,7 +108,7 @@ export class NockPhoneController {
     }
   };
 
-  private open(app: 'home' | 'profile' | 'wallet' | 'jobs'): void {
+  private open(app: 'home' | 'profile' | 'wallet' | 'jobs' | 'maps'): void {
     this.activeApp = app;
     this.ensurePopup();
     this.popup?.classList.remove('hidden');
@@ -148,6 +155,7 @@ export class NockPhoneController {
         ${this.renderProfile()}
         ${this.renderWallet()}
         ${this.renderJobs()}
+        ${this.renderMaps()}
       </main>
       <footer id="phone-home-indicator" aria-hidden="true"><i></i></footer>
     `;
@@ -187,7 +195,9 @@ export class NockPhoneController {
           ${this.activityContext
             ? appButton('jobs', 'briefcase-business', 'jobs', 'Jobs')
             : disabledAppButton('briefcase-business', 'jobs', 'Jobs')}
-          ${disabledAppButton('map', 'maps', 'Maps')}
+          ${supportsWorldMap(this.activityContext?.currentWorld)
+            ? appButton('maps', 'map', 'maps', 'Maps')
+            : disabledAppButton('map', 'maps', 'Maps')}
           ${disabledAppButton('car-front', 'garage', 'Garage')}
           ${disabledAppButton('settings', 'settings', 'Settings')}
           ${disabledAppButton('radio', 'radio', 'Radio')}
@@ -344,6 +354,41 @@ export class NockPhoneController {
     `;
   }
 
+  private renderMaps(): string {
+    const hidden = this.activeApp === 'maps' ? '' : ' hidden';
+    const projection = projectWorldMapPosition(
+      this.activityContext?.currentWorld,
+      this.localPlayer
+    );
+    return `
+      <section id="phone-maps-app-screen" class="${hidden}">
+        <header id="maps-app-header">
+          <button class="phone-back-button" type="button" data-app="home" aria-label="Back to Home Screen">${phoneGlyph('chevron-left')}<span>Home</span></button>
+          <span>Greater NOCK0</span>
+        </header>
+        <div id="maps-body">
+          <div id="phone-world-map" role="img" aria-label="Map of Downtown, Industrial, and Residential districts">
+            <img src="${WORLD_MAP_IMAGE}" alt="" draggable="false">
+            ${projection ? `
+              <i
+                id="phone-map-player"
+                style="left:${projection.left.toFixed(3)}%;top:${projection.top.toFixed(3)}%"
+                aria-label="Your position in ${escapeHtml(projection.districtLabel)}"
+              ><b></b></i>
+            ` : ''}
+          </div>
+          <footer id="phone-map-location">
+            <i>${phoneGlyph('map')}</i>
+            <div>
+              <small>Current location</small>
+              <strong>${escapeHtml(projection?.districtLabel ?? 'Off-world activity')}</strong>
+            </div>
+          </footer>
+        </div>
+      </section>
+    `;
+  }
+
   private readonly handleCloseClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -361,7 +406,13 @@ export class NockPhoneController {
     const target = event.currentTarget;
     if (!(target instanceof HTMLButtonElement)) return;
     const app = target.dataset.app;
-    if (app === 'home' || app === 'profile' || app === 'wallet' || app === 'jobs') {
+    if (
+      app === 'home' ||
+      app === 'profile' ||
+      app === 'wallet' ||
+      app === 'jobs' ||
+      app === 'maps'
+    ) {
       this.activeApp = app;
       this.render();
     }
@@ -432,12 +483,47 @@ function readProfileSnapshot(player?: NetworkPlayer): {
 }
 
 function appButton(
-  app: 'profile' | 'wallet' | 'jobs',
+  app: 'profile' | 'wallet' | 'jobs' | 'maps',
   icon: PhoneGlyphName,
   iconClass: string,
   label: string
 ): string {
   return `<button type="button" data-app="${app}" aria-label="Open ${label}"><i class="phone-app-icon ${iconClass}">${phoneGlyph(icon)}</i><span>${label}</span></button>`;
+}
+
+function supportsWorldMap(world: GameWorldId | undefined): boolean {
+  return world === 'world' ||
+    world === 'industrial-district' ||
+    world === 'downtown' ||
+    world === 'residential';
+}
+
+function projectWorldMapPosition(
+  world: GameWorldId | undefined,
+  player: NetworkPlayer | undefined
+): {left: number; top: number; districtLabel: string} | undefined {
+  if (!supportsWorldMap(world) || !player) return undefined;
+  let x = player.x;
+  let y = player.y;
+  let districtLabel = 'Greater NOCK0';
+  if (world === 'industrial-district') {
+    x += DISTRICT_SIZE + DISTRICT_GAP;
+    districtLabel = 'Industrial';
+  } else if (world === 'downtown') {
+    districtLabel = 'Downtown';
+  } else if (world === 'residential') {
+    y += DISTRICT_SIZE + DISTRICT_GAP;
+    districtLabel = 'Residential';
+  } else {
+    const east = x >= DISTRICT_SIZE + DISTRICT_GAP;
+    const south = y >= DISTRICT_SIZE + DISTRICT_GAP;
+    districtLabel = south ? 'Residential' : east ? 'Industrial' : 'Downtown';
+  }
+  return {
+    left: Math.max(0, Math.min(100, x / WORLD_MAP_SIZE * 100)),
+    top: Math.max(0, Math.min(100, y / WORLD_MAP_SIZE * 100)),
+    districtLabel
+  };
 }
 
 function disabledAppButton(icon: PhoneGlyphName, iconClass: string, label: string): string {

@@ -12,21 +12,38 @@ import type {
   DistrictNetworkState,
   NetworkCashPickup,
   NetworkExplosion,
+  NetworkStreetProp,
   NetworkStreetService,
   NetworkTrafficSignal,
   NetworkWeaponPickup
 } from '../types.ts';
+import {
+  STREET_PROP_PROTOTYPE_IDS,
+  streetPropDefinition
+} from '../../../shared/content/street-props.ts';
 import {serverAngleToScene, serverYToScene} from './scene-policy.ts';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
 import {radialGlow, updateRadialGlow} from './effects/glow.ts';
 import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke.ts';
 import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
 import {ProjectileImpactEffects} from './effects/projectile-impacts.ts';
+import {StreetPropEffects} from './effects/street-prop-effects.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
   startedAt: number;
   radius: number;
+}
+
+interface StreetPropHitState {
+  lastHitSequence: number;
+  hitStartedAt?: number;
+  hitAngle: number;
+}
+
+interface StreetPropBatch {
+  mesh: THREE.InstancedMesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  capacity: number;
 }
 
 export class WorldObjectPresentation {
@@ -37,12 +54,17 @@ export class WorldObjectPresentation {
   private readonly fires = new Map<string, THREE.Group>();
   private readonly explosions = new Map<string, TimedExplosion>();
   private readonly signals = new Map<string, THREE.Group>();
+  private readonly streetPropHitStates = new Map<string, StreetPropHitState>();
+  private readonly streetPropBatches = new Map<string, StreetPropBatch>();
+  private readonly streetPropGeometry = new THREE.PlaneGeometry(96, 96);
   private objectiveArrow?: THREE.Group;
   private readonly projectileImpacts: ProjectileImpactEffects;
+  private readonly streetPropEffects: StreetPropEffects;
   private readonly grenadeTexture: THREE.Texture;
   private readonly molotovTexture: THREE.Texture;
   private readonly rocketTexture: THREE.Texture;
   private readonly bloodTexture: THREE.Texture;
+  private readonly streetPropTextures: Map<string, THREE.Texture>;
 
   private constructor(
     private readonly scene: THREE.Scene,
@@ -51,13 +73,23 @@ export class WorldObjectPresentation {
     grenadeTexture: THREE.Texture,
     molotovTexture: THREE.Texture,
     rocketTexture: THREE.Texture,
-    bloodTexture: THREE.Texture
+    bloodTexture: THREE.Texture,
+    waterTexture: THREE.Texture,
+    debrisTexture: THREE.Texture,
+    streetPropTextures: Map<string, THREE.Texture>
   ) {
     this.grenadeTexture = grenadeTexture;
     this.molotovTexture = molotovTexture;
     this.rocketTexture = rocketTexture;
     this.bloodTexture = bloodTexture;
+    this.streetPropTextures = streetPropTextures;
     this.projectileImpacts = new ProjectileImpactEffects(scene, surfaceHeightAt, bloodTexture);
+    this.streetPropEffects = new StreetPropEffects(
+      scene,
+      surfaceHeightAt,
+      waterTexture,
+      debrisTexture
+    );
   }
 
   presentProjectileImpacts(impacts: readonly ProjectileImpactPayload[], nowMs: number): void {
@@ -70,17 +102,26 @@ export class WorldObjectPresentation {
     surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number
   ): Promise<WorldObjectPresentation> {
     const loader = new THREE.TextureLoader();
-    const [grenade, molotov, rocket, blood] = await Promise.all([
+    const propDefinitions = STREET_PROP_PROTOTYPE_IDS.map((id) => streetPropDefinition(id))
+      .filter((definition) => Boolean(definition));
+    const [grenade, molotov, rocket, blood, water, debris, ...propTextures] = await Promise.all([
       loader.loadAsync('/assets/original/weapons/grenade.svg'),
       loader.loadAsync('/assets/original/weapons/molotov.svg'),
       loader.loadAsync('/assets/original/weapons/rocket.svg'),
-      loader.loadAsync('/assets/custom/actions/bloodstain.png')
+      loader.loadAsync('/assets/custom/actions/bloodstain.png'),
+      loader.loadAsync('/assets/custom/props/effects/hydrant-water.png'),
+      loader.loadAsync('/assets/custom/props/effects/trash-debris.png'),
+      ...propDefinitions.map((definition) => loader.loadAsync(definition!.texturePath))
     ]);
-    for (const texture of [grenade, molotov, rocket, blood]) {
+    for (const texture of [grenade, molotov, rocket, blood, water, debris, ...propTextures]) {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.magFilter = THREE.NearestFilter;
       texture.minFilter = THREE.NearestFilter;
     }
+    const streetPropTextures = new Map<string, THREE.Texture>();
+    propDefinitions.forEach((definition, index) => {
+      if (definition) streetPropTextures.set(definition.id, propTextures[index]);
+    });
     return new WorldObjectPresentation(
       scene,
       localPlayerId,
@@ -88,7 +129,10 @@ export class WorldObjectPresentation {
       grenade,
       molotov,
       rocket,
-      blood
+      blood,
+      water,
+      debris,
+      streetPropTextures
     );
   }
 
@@ -111,6 +155,7 @@ export class WorldObjectPresentation {
     this.synchronizeFires(state, nowMs);
     this.synchronizeExplosions(state, nowMs);
     this.synchronizeSignals(state);
+    this.synchronizeStreetProps(state, nowMs);
   }
 
   private clearStreetTransients(): void {
@@ -126,7 +171,13 @@ export class WorldObjectPresentation {
     this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
+    this.streetPropHitStates.clear();
+    for (const batch of this.streetPropBatches.values()) {
+      batch.mesh.count = 0;
+      batch.mesh.visible = false;
+    }
     this.projectileImpacts.clear();
+    this.streetPropEffects.clear();
   }
 
   destroy(): void {
@@ -144,13 +195,23 @@ export class WorldObjectPresentation {
     this.fires.clear();
     this.explosions.clear();
     this.signals.clear();
+    this.streetPropHitStates.clear();
+    for (const batch of this.streetPropBatches.values()) {
+      batch.mesh.removeFromParent();
+      batch.mesh.material.map?.dispose();
+      batch.mesh.material.dispose();
+    }
+    this.streetPropBatches.clear();
+    this.streetPropGeometry.dispose();
     this.projectileImpacts.destroy();
+    this.streetPropEffects.destroy();
     if (this.objectiveArrow) disposeObject(this.objectiveArrow);
     this.objectiveArrow = undefined;
     this.grenadeTexture.dispose();
     this.molotovTexture.dispose();
     this.rocketTexture.dispose();
     this.bloodTexture.dispose();
+    for (const texture of this.streetPropTextures.values()) texture.dispose();
   }
 
   private synchronizeMarkers(
@@ -517,6 +578,143 @@ export class WorldObjectPresentation {
     }
     removeAbsent(this.signals, present);
   }
+
+  private synchronizeStreetProps(state: DistrictNetworkState, nowMs: number): void {
+    const present = new Set<string>();
+    const buckets = new Map<string, Array<{prop: NetworkStreetProp; hit: StreetPropHitState}>>();
+    for (const [id, prop] of state.streetProps ?? []) {
+      if (!this.streetPropTextures.has(prop.definitionId)) continue;
+      present.add(id);
+      let hit = this.streetPropHitStates.get(id);
+      if (!hit) {
+        hit = {lastHitSequence: prop.hitSequence, hitAngle: prop.hitAngle};
+        this.streetPropHitStates.set(id, hit);
+      }
+      if (prop.hitSequence !== hit.lastHitSequence) {
+        hit.lastHitSequence = prop.hitSequence;
+        hit.hitStartedAt = nowMs;
+        hit.hitAngle = prop.hitAngle;
+      }
+      const stage = Math.max(0, Math.min(2, Math.trunc(prop.damageStage)));
+      const key = `${prop.definitionId}:${stage}`;
+      const bucket = buckets.get(key) ?? [];
+      bucket.push({prop, hit});
+      buckets.set(key, bucket);
+    }
+    for (const id of this.streetPropHitStates.keys()) {
+      if (present.has(id)) continue;
+      this.streetPropHitStates.delete(id);
+    }
+    for (const batch of this.streetPropBatches.values()) {
+      batch.mesh.count = 0;
+      batch.mesh.visible = false;
+    }
+    const matrix = new THREE.Matrix4();
+    const color = new THREE.Color();
+    for (const [key, entries] of buckets) {
+      const separator = key.lastIndexOf(':');
+      const definitionId = key.slice(0, separator);
+      const stage = Number(key.slice(separator + 1));
+      const batch = this.ensureStreetPropBatch(definitionId, stage, entries.length);
+      if (!batch) continue;
+      batch.mesh.count = entries.length;
+      batch.mesh.visible = true;
+      entries.forEach(({prop, hit}, index) => {
+        streetPropInstance(
+          matrix,
+          color,
+          prop,
+          hit,
+          nowMs,
+          this.surfaceHeightAt
+        );
+        batch.mesh.setMatrixAt(index, matrix);
+        batch.mesh.setColorAt(index, color);
+      });
+      batch.mesh.instanceMatrix.needsUpdate = true;
+      if (batch.mesh.instanceColor) batch.mesh.instanceColor.needsUpdate = true;
+    }
+    this.streetPropEffects.synchronize(state.streetProps ?? [], nowMs);
+  }
+
+  private ensureStreetPropBatch(
+    definitionId: string,
+    stage: number,
+    requiredCapacity: number
+  ): StreetPropBatch | undefined {
+    const key = `${definitionId}:${stage}`;
+    const existing = this.streetPropBatches.get(key);
+    if (existing && existing.capacity >= requiredCapacity) {
+      if (!existing.mesh.parent) this.scene.add(existing.mesh);
+      return existing;
+    }
+    const texture = this.streetPropTextures.get(definitionId);
+    if (!texture) return undefined;
+    if (existing) {
+      existing.mesh.removeFromParent();
+      existing.mesh.material.map?.dispose();
+      existing.mesh.material.dispose();
+    }
+    const map = texture.clone();
+    map.repeat.set(1 / 3, 1);
+    map.offset.set(stage / 3, 0);
+    map.needsUpdate = true;
+    const material = new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      alphaTest: 0.05,
+      depthTest: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const capacity = nextBatchCapacity(requiredCapacity);
+    const mesh = new THREE.InstancedMesh(this.streetPropGeometry, material, capacity);
+    mesh.name = `street-prop-batch:${key}`;
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 19;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.scene.add(mesh);
+    const batch = {mesh, capacity};
+    this.streetPropBatches.set(key, batch);
+    return batch;
+  }
+}
+
+function streetPropInstance(
+  matrix: THREE.Matrix4,
+  color: THREE.Color,
+  prop: NetworkStreetProp,
+  hit: StreetPropHitState,
+  nowMs: number,
+  surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number
+): void {
+  let kick = 0;
+  let wobble = 0;
+  const elapsed = hit.hitStartedAt === undefined ? Number.POSITIVE_INFINITY : nowMs - hit.hitStartedAt;
+  if (elapsed < 320) {
+    const progress = Math.max(0, elapsed / 320);
+    const envelope = 1 - progress;
+    kick = Math.sin(progress * Math.PI) * envelope * 5;
+    wobble = Math.sin(progress * Math.PI * 4) * envelope * 0.09;
+  }
+  matrix.makeRotationZ(serverAngleToScene(prop.angle) + wobble);
+  matrix.setPosition(
+    prop.x + Math.cos(hit.hitAngle) * kick,
+    serverYToScene(prop.y) - Math.sin(hit.hitAngle) * kick,
+    surfaceHeightAt(
+      prop.x,
+      prop.y,
+      prop.surfaceId ?? STREET_GROUND_SURFACE_ID
+    ) + 9
+  );
+  color.setHex(elapsed < 75 ? 0xffd58a : 0xffffff);
+}
+
+function nextBatchCapacity(required: number): number {
+  let capacity = 32;
+  while (capacity < required) capacity *= 2;
+  return capacity;
 }
 
 function serviceMarker(service: NetworkStreetService): THREE.Group {

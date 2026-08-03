@@ -148,6 +148,7 @@ import {RocketProjectileController} from './game/combat/rocket-projectile-contro
 import {WeaponPickupController} from './game/pickups/weapon-pickup-controller.ts';
 import {CashPickupController} from './game/pickups/cash-pickup-controller.ts';
 import {SoccerBallController} from './game/props/soccer-ball-controller.ts';
+import {StreetPropController} from './game/props/street-prop-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
 import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
@@ -295,6 +296,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private weaponPickupController!: WeaponPickupController;
   private cashPickupController!: CashPickupController;
   private soccerBallController!: SoccerBallController;
+  private streetPropController!: StreetPropController;
   private pedestrians!: PedestrianController;
   private population!: DistrictPopulationController;
   private populationStreaming!: PopulationStreamingController;
@@ -789,6 +791,10 @@ export class DistrictRoom extends Room<DistrictState> {
         impulseY
       )
     });
+    this.streetPropController = new StreetPropController({
+      state: this.state,
+      world: this.world
+    });
     this.explosionController = new ExplosionController({
       state: this.state,
       events: this.events,
@@ -1033,6 +1039,7 @@ export class DistrictRoom extends Room<DistrictState> {
       events: this.events,
       clock: () => ({tick: this.simulationClock.tick}),
       history: this.combatHistory,
+      props: this.streetPropController,
       queryPlayers: (minX, minY, maxX, maxY) => this.spatialIndex.queryAabb(
         minX,
         minY,
@@ -1203,6 +1210,7 @@ export class DistrictRoom extends Room<DistrictState> {
       thrownProjectiles: this.thrownProjectileController,
       fireZones: this.fireZoneController,
       actorBurn: this.actorBurnController,
+      streetProps: this.streetPropController,
       weaponPickups: this.weaponPickupController,
       cashPickups: this.cashPickupController,
       missions: missionPort,
@@ -1236,6 +1244,7 @@ export class DistrictRoom extends Room<DistrictState> {
         this.soccerBallController.initialize();
         this.trafficSignalController.initialize(this.simulationClock.nowMs);
       }
+      this.streetPropController.initialize();
       this.population.populate();
       this.populationStreaming.initialize(this.simulationClock.nowMs);
     }
@@ -1791,6 +1800,31 @@ export class DistrictResidentialRoom extends DistrictRoom {
       'assets',
       'districts',
       'ste',
+      'maps'
+    );
+  }
+}
+
+export class DistrictWorldRoom extends DistrictRoom {
+  protected override usesTrafficTopology(): boolean {
+    return false;
+  }
+
+  protected override usesAmbientPopulation(): boolean {
+    return false;
+  }
+
+  protected override usesAuthoredStreetContent(): boolean {
+    return false;
+  }
+
+  protected override mapsDirectory(): string {
+    return join(
+      process.cwd(),
+      'public',
+      'assets',
+      'districts',
+      'world',
       'maps'
     );
   }

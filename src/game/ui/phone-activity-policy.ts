@@ -15,7 +15,7 @@ export function projectPhoneActivity(currentWorld: GameWorldId): PhoneActivityPr
 }
 
 export function projectPhoneActivities(currentWorld: GameWorldId): PhoneActivityProjection[] {
-  if (currentWorld !== 'industrial-district') {
+  if (currentWorld === 'raceway' || currentWorld === 'deathmatch') {
     return [{
       actionLabel: 'Exit to Freeroam',
       description: 'Leave the current activity and reconnect to the Industrial District freeroam session.',
@@ -31,7 +31,7 @@ export function projectPhoneActivities(currentWorld: GameWorldId): PhoneActivity
       actionLabel: 'Enter raceway',
       description: 'Travel to a traffic-free circuit with an authoritative six-driver race session.',
       destination: 'raceway',
-      locationLabel: 'Industrial District',
+      locationLabel: freeroamLocationLabel(currentWorld),
       meta: '1-6 drivers · 3 laps',
       title: 'Raceway',
       glyph: 'car-front'
@@ -40,10 +40,17 @@ export function projectPhoneActivities(currentWorld: GameWorldId): PhoneActivity
       actionLabel: 'Enter deathmatch',
       description: 'Fight in Foundry Yard. First to 15 eliminations wins the match payout.',
       destination: 'deathmatch',
-      locationLabel: 'Industrial District',
+      locationLabel: freeroamLocationLabel(currentWorld),
       meta: '1-8 players · first to 15',
       title: 'Deathmatch',
       glyph: 'crosshair'
     }
   ];
+}
+
+function freeroamLocationLabel(currentWorld: GameWorldId): string {
+  if (currentWorld === 'downtown') return 'Downtown District';
+  if (currentWorld === 'residential') return 'Residential District';
+  if (currentWorld === 'world') return 'Greater NOCK0';
+  return 'Industrial District';
 }

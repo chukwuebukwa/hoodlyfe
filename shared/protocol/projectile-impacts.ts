@@ -4,7 +4,7 @@ export interface ProjectileImpactPayload {
   id: string;
   tick: number;
   weapon: string;
-  targetKind: 'world' | 'player' | 'npc' | 'vehicle';
+  targetKind: 'world' | 'player' | 'npc' | 'vehicle' | 'prop';
   targetId?: string;
   x: number;
   y: number;
