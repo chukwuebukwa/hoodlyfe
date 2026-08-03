@@ -29,6 +29,7 @@ import {
   policeFieldOfViewContains,
   policeSearchZone
 } from './police-awareness-policy.ts';
+import type {PoliceHelicopterTarget} from './police-helicopter-controller.ts';
 
 interface CrimeClock {
   tick: number;
@@ -51,6 +52,7 @@ interface CrimeResponseControllerOptions {
   queryNpcs: (x: number, y: number, radius: number) => NpcState[];
   panicWitness: (witnessId: string, suspectId: string, untilMs: number) => void;
   isReservedPoliceUnit?: (kind: 'foot' | 'vehicle', unitId: string) => boolean;
+  queryAerialSearchZones?: (suspectId: string) => readonly PoliceSearchZone[];
 }
 
 export interface PoliceTarget {
@@ -389,6 +391,36 @@ export class CrimeResponseController {
     }
   }
 
+  recordPoliceHelicopterObservation(
+    suspectId: string,
+    canSeeTarget: boolean,
+    nowMs: number
+  ): void {
+    const player = this.options.state.players.get(suspectId);
+    if (player?.alive && player.wanted >= 4) {
+      this.recordPoliceObservation(player, canSeeTarget, nowMs);
+    }
+  }
+
+  policeHelicopterTargets(nowMs: number): PoliceHelicopterTarget[] {
+    return [...this.options.state.players.values()].flatMap((player) => {
+      if (!player.alive || player.spaceId !== 'street' || player.wanted < 4) return [];
+      const awareness = this.resolveAwareness(player.id, nowMs);
+      if (!awareness || awareness.phase === 'clear') return [];
+      return [{
+        suspectId: player.id,
+        wantedLevel: player.wanted,
+        awareness: awareness.phase,
+        currentX: player.x,
+        currentY: player.y,
+        lastKnownX: awareness.lastKnownX,
+        lastKnownY: awareness.lastKnownY
+      }];
+    }).sort((left, right) => (
+      right.wantedLevel - left.wantedLevel || left.suspectId.localeCompare(right.suspectId)
+    ));
+  }
+
   policeAwarenessSnapshot(suspectId: string, nowMs: number): PoliceAwarenessMessage {
     const player = this.options.state.players.get(suspectId);
     if (!player?.alive || player.wanted <= 0 || player.spaceId !== 'street') {
@@ -520,7 +552,9 @@ export class CrimeResponseController {
   }
 
   private searchZonesFor(suspectId: string): PoliceSearchZone[] {
-    const zones: PoliceSearchZone[] = [];
+    const zones: PoliceSearchZone[] = [
+      ...(this.options.queryAerialSearchZones?.(suspectId) ?? [])
+    ];
     for (const assignment of this.responseAllocation.entries()) {
       if (assignment.suspectId !== suspectId) continue;
       if (assignment.unitKind === 'foot') {

@@ -1,7 +1,7 @@
 export const POLICE_AWARENESS_MESSAGE = 'police.awareness';
 
 export type PoliceAwarenessPhase = 'clear' | 'spotted' | 'searching';
-export type PoliceSearchUnitKind = 'foot' | 'vehicle';
+export type PoliceSearchUnitKind = 'foot' | 'vehicle' | 'helicopter';
 
 export interface PoliceSearchZone {
   id: string;

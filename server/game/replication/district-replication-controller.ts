@@ -237,6 +237,17 @@ export class DistrictReplicationController {
       if (!this.isOccupiedByPlayer(vehicle.id)) continue;
       this.addDesired(desired, vehicle, 0, 0, `vehicle:${vehicle.id}`);
     }
+    for (const helicopter of this.state.policeHelicopters.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        helicopter,
+        x,
+        y,
+        helicopter.suspectId === playerId,
+        `police-helicopter:${helicopter.id}`
+      );
+    }
 
     const actors = this.queryStreetActors(x, y, STREET_STREAMING.exitRadius);
     for (const actor of actors) {

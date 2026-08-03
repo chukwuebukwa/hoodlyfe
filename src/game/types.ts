@@ -219,6 +219,23 @@ export interface NetworkVehicle {
   neonColor?: VehicleNeonColor;
 }
 
+export interface NetworkPoliceHelicopter {
+  id: string;
+  suspectId: string;
+  x: number;
+  y: number;
+  altitude: number;
+  angle: number;
+  speed: number;
+  phase: 'approach' | 'track' | 'search' | 'depart';
+  spotlightX: number;
+  spotlightY: number;
+  spotlightRadius: number;
+  spotlightIntensity: number;
+  health: number;
+  spawnedAt: number;
+}
+
 export interface NetworkSoccerBall {
   id: string;
   surfaceId?: string;
@@ -332,6 +349,7 @@ export interface DistrictNetworkState {
   trafficSignals?: Map<string, NetworkTrafficSignal>;
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
+  policeHelicopters?: Map<string, NetworkPoliceHelicopter>;
   soccerBalls?: Map<string, NetworkSoccerBall>;
   streetProps?: Map<string, NetworkStreetProp>;
   stingers?: Map<string, NetworkStinger>;

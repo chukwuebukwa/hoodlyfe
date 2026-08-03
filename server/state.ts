@@ -443,6 +443,40 @@ defineTypes(VehicleState, {
   neonColor: 'string'
 });
 
+export class PoliceHelicopterState extends Schema {
+  id = '';
+  suspectId = '';
+  x = 0;
+  y = 0;
+  altitude = 0;
+  angle = 0;
+  speed = 0;
+  phase = 'approach';
+  spotlightX = 0;
+  spotlightY = 0;
+  spotlightRadius = 112;
+  spotlightIntensity = 0;
+  health = 700;
+  spawnedAt = 0;
+}
+
+defineTypes(PoliceHelicopterState, {
+  id: 'string',
+  suspectId: 'string',
+  x: 'number',
+  y: 'number',
+  altitude: 'number',
+  angle: 'number',
+  speed: 'number',
+  phase: 'string',
+  spotlightX: 'number',
+  spotlightY: 'number',
+  spotlightRadius: 'number',
+  spotlightIntensity: 'number',
+  health: 'number',
+  spawnedAt: 'number'
+});
+
 export class SoccerBallState extends Schema {
   id = '';
   surfaceId = STREET_GROUND_SURFACE_ID;
@@ -773,6 +807,7 @@ export class DistrictState extends Schema {
   trafficSignals = new MapSchema<TrafficSignalState>();
   npcs = new MapSchema<NpcState>();
   vehicles = new MapSchema<VehicleState>();
+  policeHelicopters = new MapSchema<PoliceHelicopterState>();
   soccerBalls = new MapSchema<SoccerBallState>();
   streetProps = new MapSchema<StreetPropState>();
   missions = new MapSchema<MissionState>();
@@ -801,6 +836,7 @@ defineTypes(DistrictState, {
   trafficSignals: {map: TrafficSignalState},
   npcs: {map: NpcState},
   vehicles: {map: VehicleState},
+  policeHelicopters: {map: PoliceHelicopterState},
   soccerBalls: {map: SoccerBallState},
   streetProps: {map: StreetPropState},
   missions: {map: MissionState},
@@ -828,6 +864,7 @@ for (const field of [
   'trafficSignals',
   'npcs',
   'vehicles',
+  'policeHelicopters',
   'soccerBalls',
   'streetProps',
   'missions',

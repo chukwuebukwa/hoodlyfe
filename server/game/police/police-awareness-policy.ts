@@ -14,6 +14,11 @@ export const POLICE_AWARENESS = Object.freeze({
     range: 760,
     closeAwarenessRadius: 82,
     halfAngle: Math.PI * 0.28
+  }),
+  helicopter: Object.freeze({
+    range: 900,
+    closeAwarenessRadius: 112,
+    halfAngle: Math.PI * 0.16
   })
 });
 

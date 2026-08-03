@@ -121,6 +121,7 @@ import {CrimeResponseController} from './game/police/crime-response-controller.t
 import {CustodyOutcomeController} from './game/police/custody-outcome-controller.ts';
 import {PoliceArrestController} from './game/police/police-arrest-controller.ts';
 import {PoliceVehicleController} from './game/police/police-vehicle-controller.ts';
+import {PoliceHelicopterController} from './game/police/police-helicopter-controller.ts';
 import {PoliceResponseFleetController} from './game/police/police-response-fleet-controller.ts';
 import {PoliceRoadblockController} from './game/police/police-roadblock-controller.ts';
 import {PoliceStingerController} from './game/police/police-stinger-controller.ts';
@@ -268,6 +269,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private custodyController!: CustodyOutcomeController;
   private policeArrests!: PoliceArrestController;
   private policeVehicleController!: PoliceVehicleController;
+  private policeHelicopters!: PoliceHelicopterController;
   private vehicleAccess!: VehicleAccessController;
   private trafficController!: TrafficController;
   private laneGraph?: LaneGraph;
@@ -516,6 +518,21 @@ export class DistrictRoom extends Room<DistrictState> {
         (kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)) ||
         (kind === 'vehicle' && this.policeResponseFleet?.ownsDismountedVehicle(unitId)) ||
         (kind === 'foot' && this.policeStingers?.ownsOfficer(unitId))
+      ),
+      queryAerialSearchZones: (suspectId) => (
+        this.policeHelicopters?.searchZonesFor(suspectId) ?? []
+      )
+    });
+    this.policeHelicopters = new PoliceHelicopterController({
+      state: this.state,
+      world: this.world,
+      targets: (nowMs) => this.crimeController.policeHelicopterTargets(nowMs),
+      reportObservation: (suspectId, canSeeTarget, nowMs) => (
+        this.crimeController.recordPoliceHelicopterObservation(
+          suspectId,
+          canSeeTarget,
+          nowMs
+        )
       )
     });
     this.policeVehicleController = new PoliceVehicleController({
@@ -1190,6 +1207,7 @@ export class DistrictRoom extends Room<DistrictState> {
       trafficSignals: this.trafficSignalController,
       explosions: this.explosionController,
       policeFleet: this.policeResponseFleet,
+      policeHelicopters: this.policeHelicopters,
       policeRoadblocks: this.policeRoadblocks,
       policeStingers: this.policeStingers,
       vehicles: this.vehicleSimulation,

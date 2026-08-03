@@ -23,6 +23,7 @@ import type {PlayerLifecycleController} from '../players/player-lifecycle-contro
 import type {CrimeResponseController} from '../police/crime-response-controller.ts';
 import type {PoliceArrestController} from '../police/police-arrest-controller.ts';
 import type {PoliceResponseFleetController} from '../police/police-response-fleet-controller.ts';
+import type {PoliceHelicopterController} from '../police/police-helicopter-controller.ts';
 import type {PoliceRoadblockController} from '../police/police-roadblock-controller.ts';
 import type {PoliceStingerController} from '../police/police-stinger-controller.ts';
 import {populationInterestAnchorsForPlayers} from '../population/population-interest-anchor-policy.ts';
@@ -87,6 +88,7 @@ export interface DistrictSimulationOptions {
   trafficSignals: TrafficSignalController;
   explosions: ExplosionController;
   policeFleet: PoliceResponseFleetController;
+  policeHelicopters: PoliceHelicopterController;
   policeRoadblocks: PoliceRoadblockController;
   policeStingers: PoliceStingerController;
   vehicles: VehicleSimulationController;
@@ -230,9 +232,10 @@ export class DistrictSimulation {
           this.options.indexPlayer(player);
         });
       }),
-      phase('crime-response', ({nowMs}) => {
+      phase('crime-response', ({deltaSeconds, nowMs}) => {
         this.options.crime.processReports(nowMs);
         this.options.crime.updateResponse(nowMs);
+        this.options.policeHelicopters.update(deltaSeconds, nowMs);
         this.options.policeRoadblocks.update(nowMs);
         this.options.policeStingers.update(nowMs);
         this.options.policeArrests.update(nowMs);

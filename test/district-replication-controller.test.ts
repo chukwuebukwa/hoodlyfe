@@ -9,6 +9,7 @@ import {
   MissionState,
   NpcState,
   PlayerState,
+  PoliceHelicopterState,
   RocketProjectileState,
   SoccerBallState,
   StreetPropState,
@@ -87,6 +88,28 @@ test('rocket replication pins the owner projectile and applies street AOI to oth
   observer.x = 6_000;
   controller.synchronize();
   assert.equal(controller.attach(observer.id).has(rocket), false);
+});
+
+test('police helicopter replication pins the pursuing aircraft to its suspect', () => {
+  const state = new DistrictState();
+  const suspect = player('suspect', 'street');
+  const observer = player('observer', 'street');
+  observer.x = 3_000;
+  state.players.set(suspect.id, suspect);
+  state.players.set(observer.id, observer);
+  const helicopter = new PoliceHelicopterState();
+  helicopter.id = 'police-helicopter:suspect:1';
+  helicopter.suspectId = suspect.id;
+  helicopter.x = 3_000;
+  state.policeHelicopters.set(helicopter.id, helicopter);
+  const controller = new DistrictReplicationController(state);
+
+  assert.equal(controller.attach(suspect.id).has(helicopter), true);
+  assert.equal(controller.attach(observer.id).has(helicopter), true);
+  observer.x = 6_000;
+  controller.synchronize();
+  assert.equal(controller.attach(observer.id).has(helicopter), false);
+  assert.equal(controller.attach(suspect.id).has(helicopter), true);
 });
 
 test('district replication streams cash pickups with street AOI hysteresis', () => {

@@ -27,6 +27,11 @@ const VEHICLE_FIELDS = [
   'radioStation', 'tyreDamageMask', 'neonColor'
 ] as const;
 
+const POLICE_HELICOPTER_FIELDS = [
+  'id', 'suspectId', 'x', 'y', 'altitude', 'angle', 'speed', 'phase',
+  'spotlightX', 'spotlightY', 'spotlightRadius', 'spotlightIntensity', 'health', 'spawnedAt'
+] as const;
+
 const BULLET_FIELDS = [
   'id', 'ownerId', 'ownerKind', 'surfaceId', 'x', 'y', 'angle', 'createdAt', 'weapon'
 ] as const;
@@ -74,6 +79,7 @@ export function hashDistrictState(state: DistrictState): number {
   hashCollection(stream, state.players, PLAYER_FIELDS);
   hashCollection(stream, state.npcs, NPC_FIELDS);
   hashCollection(stream, state.vehicles, VEHICLE_FIELDS);
+  hashCollection(stream, state.policeHelicopters, POLICE_HELICOPTER_FIELDS);
   hashCollection(stream, state.bullets, BULLET_FIELDS);
   hashCollection(stream, state.rockets, ROCKET_FIELDS);
   hashCollection(stream, state.thrownProjectiles, THROWN_FIELDS);

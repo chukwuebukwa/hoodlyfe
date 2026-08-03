@@ -13,6 +13,7 @@ import {InteriorPresentation} from './presentation/interiors.ts';
 import {QaDriver} from './qa/driver.ts';
 import {InputController} from './input/input-controller.ts';
 import {LightingPresentation} from './presentation/lighting.ts';
+import {PoliceHelicopterPresentation} from './presentation/police-helicopters.ts';
 import {NetworkQualityController} from './network/network-quality-controller.ts';
 import type {NetcodeRolloutController} from './network/netcode-rollout-controller.ts';
 import type {NockPhoneController} from './ui/nock-phone-controller.ts';
@@ -80,6 +81,7 @@ export class DistrictClient {
   private removeProjectileImpacts?: () => void;
   private interiors?: InteriorPresentation;
   private lighting?: LightingPresentation;
+  private policeHelicopters?: PoliceHelicopterPresentation;
   private readonly mapOccluders = new Map<string, THREE.Group>();
   private mapStreamer?: MapChunkStreamer;
   private qa?: QaDriver;
@@ -167,6 +169,11 @@ export class DistrictClient {
         this.scene,
         this.room.sessionId,
         this.surfaceHeightAt
+      );
+      this.policeHelicopters = await PoliceHelicopterPresentation.create(
+        this.scene,
+        this.surfaceHeightAt,
+        this.assetRoot
       );
       const removeProjectileImpacts = this.room.onMessage<ProjectileImpactsMessage>(
         PROJECTILE_IMPACTS_MESSAGE,
@@ -270,6 +277,7 @@ export class DistrictClient {
     this.ui?.destroy();
     this.actors?.destroy();
     this.objects?.destroy();
+    this.policeHelicopters?.destroy();
     this.debug?.destroy();
     this.networkQuality?.destroy();
     this.interiors?.destroy();
@@ -404,6 +412,12 @@ export class DistrictClient {
         localSpaceId,
         renderServerTime,
         quality?.estimatedServerTimeMs ?? this.room.state.serverTimeMs ?? renderServerTime
+      );
+      this.policeHelicopters?.synchronize(
+        this.room.state,
+        now,
+        localSpaceId,
+        this.localCameraFocus()
       );
       this.objects?.synchronize(
         this.room.state,
