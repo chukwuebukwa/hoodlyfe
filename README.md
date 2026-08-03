@@ -63,6 +63,26 @@ collision, road cells, lane corridors, junctions, roadblocks, and the default sp
 [`docs/LEVEL_EDITOR_GUIDE.md`](docs/LEVEL_EDITOR_GUIDE.md) for controls and the safe bundle
 apply workflow.
 
+## World Content And Building Publishing
+
+Production can load revisioned maps and seamless-building definitions from a private Railway
+Bucket. Rooms pin one immutable revision at creation, and browsers receive the matching streamed
+geometry through signed URLs. Local development defaults to the bundled `public/assets/maps/`
+files.
+
+Create building drafts in `/?qa=1&build=1`, normalize and export one with
+`npm run buildings:publish`, then inspect the complete world package before uploading:
+
+```bash
+npm run world:publish -- bil --dry-run
+railway run npm run world:publish -- bil
+```
+
+Publishing content does not require an application rebuild when the existing content schema is
+unchanged. See [`docs/WORLD_CONTENT_ARCHITECTURE.md`](docs/WORLD_CONTENT_ARCHITECTURE.md) for the
+complete authoring flow, Railway configuration, promotion checks, live-room verification, and
+rollback procedure.
+
 ## Controls
 
 | Action | Desktop | Touch |
