@@ -43,6 +43,12 @@ export class PlayerState extends Schema {
   x = 0;
   y = 0;
   angle = 0;
+  airborne = false;
+  elevation = 0;
+  verticalVelocity = 0;
+  airborneVelocityX = 0;
+  airborneVelocityY = 0;
+  landingSurfaceId = '';
   health = 100;
   armor = 0;
   wanted = 0;
@@ -95,6 +101,12 @@ defineTypes(PlayerState, {
   x: 'number',
   y: 'number',
   angle: 'number',
+  airborne: 'boolean',
+  elevation: 'number',
+  verticalVelocity: 'number',
+  airborneVelocityX: 'number',
+  airborneVelocityY: 'number',
+  landingSurfaceId: 'string',
   health: 'number',
   armor: 'number',
   wanted: 'number',
@@ -372,6 +384,10 @@ export class VehicleState extends Schema {
   linvelX = 0;
   linvelY = 0;
   angvel = 0;
+  airborne = false;
+  elevation = 0;
+  verticalVelocity = 0;
+  landingSurfaceId = '';
   health = 1000;
   maxHealth = 1000;
   engineDamage = 0;
@@ -403,6 +419,10 @@ defineTypes(VehicleState, {
   linvelX: 'number',
   linvelY: 'number',
   angvel: 'number',
+  airborne: 'boolean',
+  elevation: 'number',
+  verticalVelocity: 'number',
+  landingSurfaceId: 'string',
   health: 'number',
   maxHealth: 'number',
   engineDamage: 'number',

@@ -124,10 +124,15 @@ test('street props distribute deterministically along non-road district edges', 
   );
   assert.deepEqual(families, new Set(['dumpster', 'hydrant', 'trash-can']));
   assert.ok([...first.streetProps.values()].every((prop) => !world.isRoadAt(prop.x, prop.y)));
-  assert.ok([...first.streetProps.values()].every((prop) => prop.surfaceId === 'street-ground'));
   assert.ok([...first.streetProps.values()].every((prop) => (
-    world.surfaces.surfaceIdsAt(prop.x, prop.y, 'prop')
-      .every((surface) => surface === 'street-ground')
+    world.surfaces.surfaceIdsAt(prop.x, prop.y, 'prop').includes(prop.surfaceId) &&
+    world.canOccupy(
+      prop.x,
+      prop.y,
+      streetPropDefinition(prop.definitionId)?.hitRadius ?? 0,
+      prop.surfaceId,
+      'prop'
+    )
   )));
 });
 

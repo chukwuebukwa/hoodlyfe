@@ -1,4 +1,5 @@
 import type {GameNotice} from '../../../shared/protocol/notices.ts';
+import type {PoliceAwarenessMessage} from '../../../shared/protocol/police-awareness.ts';
 import type {NetworkPlayer, NetworkVehicle} from '../types.ts';
 import {
   hudTransitionNotices,
@@ -105,6 +106,21 @@ export class LocalHudController {
     const current = hudTransitionState(player);
     for (const notice of hudTransitionNotices(this.previous, current)) this.showNotice(notice);
     this.previous = current;
+  }
+
+  setPoliceAwareness(awareness: PoliceAwarenessMessage, wantedLevel: number): void {
+    const phase = wantedLevel > 0 ? awareness.phase : 'clear';
+    this.heatMeter?.classList.toggle('spotted', phase === 'spotted');
+    this.heatMeter?.classList.toggle('searching', phase === 'searching');
+    this.heatMeter?.setAttribute(
+      'aria-description',
+      phase === 'spotted'
+        ? 'Police can see you'
+        : phase === 'searching'
+          ? 'Police are searching your last known area'
+          : 'Police are not searching for you'
+    );
+    if (this.shell) this.shell.dataset.policeAwareness = phase;
   }
 
   show(message: string, tone: GameNotice['tone'] = 'info'): void {

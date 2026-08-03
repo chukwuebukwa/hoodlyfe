@@ -6,7 +6,6 @@ import {
 } from '../../../shared/content/street-props.ts';
 import {StreetPropState, type DistrictState} from '../../state.ts';
 import type {CollisionMap} from '../../world-map.ts';
-import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import {VEHICLE_RADIUS} from '../vehicles/vehicle-config.ts';
 
 const RESET_DELAY_MS = 8_000;
@@ -116,22 +115,15 @@ export class StreetPropController {
         if (!definitionId) continue;
         const definition = streetPropDefinition(definitionId);
         if (!definition) continue;
-        const surfacesAtCandidate = this.options.world.surfaces.surfaceIdsAt(x, y, 'prop');
-        if (surfacesAtCandidate.some((surface) => surface !== STREET_GROUND_SURFACE_ID)) continue;
-        if (!this.options.world.canOccupy(
-          x,
-          y,
-          definition.hitRadius,
-          STREET_GROUND_SURFACE_ID,
-          'prop'
-        )) continue;
+        const surfaceId = this.placementSurfaceAt(x, y, definition.hitRadius);
+        if (!surfaceId) continue;
         const roadAngle = Math.atan2(road.row - row, road.column - column);
         candidates.push({
           column,
           row,
           x,
           y,
-          surfaceId: STREET_GROUND_SURFACE_ID,
+          surfaceId,
           definitionId,
           family,
           angle: family === 'dumpster' ? roadAngle + Math.PI / 2 : roadAngle,
@@ -316,6 +308,16 @@ export class StreetPropController {
     const bucket = this.propSpatial.get(key) ?? [];
     bucket.push(prop);
     this.propSpatial.set(key, bucket);
+  }
+
+  private placementSurfaceAt(x: number, y: number, radius: number): string | undefined {
+    return this.options.world.surfaces.surfaceIdsAt(x, y, 'prop')
+      .filter((surfaceId) => this.options.world.canOccupy(x, y, radius, surfaceId, 'prop'))
+      .sort((left, right) => {
+        const heightDelta = (this.options.world.heightAt(right, x, y) ?? 0) -
+          (this.options.world.heightAt(left, x, y) ?? 0);
+        return heightDelta || left.localeCompare(right);
+      })[0];
   }
 
 }

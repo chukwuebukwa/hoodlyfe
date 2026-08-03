@@ -9,6 +9,7 @@ import {
 import {TouchControls} from '../touch-controls.ts';
 import {scenePointToServerAimAngle} from '../presentation/scene-policy.ts';
 import {SOCCER_BALL_KICK_MESSAGE} from '../../../shared/protocol/soccer-ball.ts';
+import {PLAYER_JUMP_MESSAGE} from '../../../shared/protocol/player-jump.ts';
 import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import {isMissionTemplateId} from '../../../shared/content/mission-catalog.ts';
 import {MISSION_START_MESSAGE} from '../../../shared/protocol/missions.ts';
@@ -166,6 +167,7 @@ export class InputController {
     if (event.code === 'KeyF') this.performContextAction();
     if (event.code === 'Space') {
       event.preventDefault();
+      if (!player.vehicleId) this.options.room.send(PLAYER_JUMP_MESSAGE);
       if (!player.vehicleId || player.vehicleSeat !== 0) {
         this.options.room.send(SOCCER_BALL_KICK_MESSAGE);
       }

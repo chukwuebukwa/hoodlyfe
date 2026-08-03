@@ -80,6 +80,67 @@ test('roadblock-reserved cruisers do not consume ordinary pursuit slots', () => 
     .map((entry) => entry.unitId), ['cruiser-2']);
 });
 
+test('wanted awareness changes from spotted to a private last-known search', () => {
+  const fixture = createFixture({footUnits: 1, vehicleUnits: 0});
+  fixture.controller.record('alpha', 'vehicle-theft', 0, 'car-a');
+  fixture.clock.nowMs = 120;
+  fixture.controller.processReports(120);
+  fixture.controller.updateResponse(120);
+  const officer = fixture.state.npcs.get('police-1')!;
+
+  assert.equal(fixture.controller.policeTarget(officer, 121)?.canSeeTarget, true);
+  assert.deepEqual(fixture.controller.policeAwarenessSnapshot('alpha', 121), {
+    phase: 'spotted',
+    wantedLevel: 1,
+    lastKnownX: 0,
+    lastKnownY: 0,
+    lastSeenAt: 121,
+    searchStartedAt: 0,
+    zones: []
+  });
+
+  fixture.lineOfSight.value = false;
+  assert.equal(fixture.controller.policeTarget(officer, 1_000)?.pursuit?.mode, 'search');
+  const searching = fixture.controller.policeAwarenessSnapshot('alpha', 1_000);
+  assert.equal(searching.phase, 'searching');
+  assert.equal(searching.searchStartedAt, 1_000);
+  assert.deepEqual(searching.zones.map((zone) => ({
+    id: zone.id,
+    unitId: zone.unitId,
+    unitKind: zone.unitKind,
+    x: zone.x,
+    y: zone.y
+  })), [{
+    id: 'foot:police-1',
+    unitId: 'police-1',
+    unitKind: 'foot',
+    x: 0,
+    y: 20
+  }]);
+});
+
+test('visible police hold wanted decay while an unseen player can escape', () => {
+  const fixture = createFixture({footUnits: 1, vehicleUnits: 0});
+  fixture.controller.record('alpha', 'vehicle-theft', 0, 'car-a');
+  fixture.clock.nowMs = 120;
+  fixture.controller.processReports(120);
+  fixture.controller.updateResponse(120);
+  const player = fixture.state.players.get('alpha')!;
+  const officer = fixture.state.npcs.get('police-1')!;
+
+  fixture.controller.policeTarget(officer, 11_000);
+  fixture.controller.decay(player, 11_000);
+  assert.equal(player.wanted, 1);
+
+  fixture.lineOfSight.value = false;
+  fixture.controller.policeTarget(officer, 12_000);
+  fixture.controller.decay(player, 17_499);
+  assert.equal(player.wanted, 1);
+  fixture.controller.decay(player, 17_501);
+  assert.equal(player.wanted, 0);
+  assert.equal(fixture.controller.policeAwarenessSnapshot('alpha', 17_501).phase, 'clear');
+});
+
 function createFixture(options: {
   footUnits?: number;
   vehicleUnits?: number;
@@ -118,7 +179,6 @@ function createFixture(options: {
     events,
     clock: () => clock,
     queryNpcs: () => [...state.npcs.values()],
-    queryVehicles: () => [...state.vehicles.values()],
     isReservedPoliceUnit: (kind, unitId) => (
       kind === 'vehicle' && Boolean(options.reservedVehicleIds?.has(unitId))
     ),

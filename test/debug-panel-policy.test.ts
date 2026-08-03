@@ -85,8 +85,41 @@ test('debug panel exposes the local authoritative physical surface', () => {
   } as never);
 
   assert.equal(
-    projectDebugPanel(state, undefined, undefined, undefined, 'driver').surface,
-    'street / bridge-deck @ 128,64'
+    projectDebugPanel(
+      state,
+      undefined,
+      undefined,
+      undefined,
+      'driver',
+      (_x, _y, surfaceId) => surfaceId === 'bridge-deck' ? 128 : 0
+    ).surface,
+    'street / bridge-deck / z128 @ 128,64'
+  );
+});
+
+test('debug panel exposes authoritative airborne elevation and vertical velocity', () => {
+  const state = createState();
+  state.players.set('driver', {
+    spaceId: 'street',
+    surfaceId: 'bridge-deck',
+    vehicleId: '',
+    x: 128.4,
+    y: 63.6,
+    airborne: true,
+    elevation: 151.2,
+    verticalVelocity: -87.7
+  } as never);
+
+  assert.equal(
+    projectDebugPanel(
+      state,
+      undefined,
+      undefined,
+      undefined,
+      'driver',
+      () => 128
+    ).surface,
+    'street / bridge-deck / z151 / AIR vZ-88 @ 128,64'
   );
 });
 

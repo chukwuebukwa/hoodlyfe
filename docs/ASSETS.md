@@ -45,9 +45,10 @@ effect masters, and processing metadata live under `art/source/`.
 
 The server deterministically distributes props from the collision and road layers. Hydrants
 prefer curb cells, trash cans prefer sidewalk or building edges, and dumpsters prefer deeper
-service edges. Generated placements are rejected on road tiles, blocked footprints, and
-coordinates covered by elevated surfaces. The industrial map derives its entire prop population
-from these placement rules; there are no hardcoded showcase props at player spawn.
+service edges. Generated placements are rejected on road tiles and blocked footprints, then bound
+to the highest traversable authored surface at that coordinate so ground, ramps, and bridge decks
+remain physically distinct. The industrial map derives its entire prop population from these
+placement rules; there are no hardcoded showcase props at player spawn.
 
 Props use the normal street area-of-interest replication radius, so clients only receive nearby
 state. The Three.js presenter groups visible props into `InstancedMesh` batches by definition and

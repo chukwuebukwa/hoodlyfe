@@ -62,3 +62,31 @@ test('remote timeline snaps across authoritative surface transitions', () => {
   assert.equal(sample.surfaceId, 'bridge-ramp');
   assert.equal(sample.x, 20);
 });
+
+test('remote timeline interpolates and briefly extrapolates airborne elevation', () => {
+  const timeline = new RemoteMotionTimeline({maximumExtrapolationMs: 100});
+  timeline.push({
+    timeMs: 100,
+    x: 0,
+    y: 0,
+    angle: 0,
+    elevation: 128,
+    verticalVelocity: -20
+  });
+  timeline.push({
+    timeMs: 200,
+    x: 10,
+    y: 0,
+    angle: 0,
+    elevation: 120,
+    verticalVelocity: -100
+  });
+
+  const interpolated = timeline.sample(150, 200)!;
+  assert.equal(interpolated.elevation, 124);
+  assert.equal(interpolated.verticalVelocity, -60);
+
+  const extrapolated = timeline.sample(250, 250)!;
+  assert.equal(extrapolated.elevation, 115);
+  assert.equal(extrapolated.verticalVelocity, -100);
+});

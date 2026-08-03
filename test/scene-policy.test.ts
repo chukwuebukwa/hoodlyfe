@@ -88,13 +88,14 @@ test('scene policy derives perspective height and production face shading determ
   assert.equal(faceBrightness(20), 0.18);
 });
 
-test('expanded district actors use the rendered street height at spawn', () => {
+test('authored surfaces override the topmost map height for every elevation', () => {
   const map = JSON.parse(
     readFileSync('public/assets/maps/geometry/world.json', 'utf8')
   ) as WorldGeometryManifest;
 
   const spawnHeight = mapSurfaceHeightAt(8416, 8288, map);
   assert.equal(spawnHeight, 128);
-  assert.equal(renderedSurfaceHeight('street-ground', 0, spawnHeight, 'street-ground'), 128);
+  assert.equal(renderedSurfaceHeight('street-ground', 0, spawnHeight, 'street-ground'), 0);
   assert.equal(renderedSurfaceHeight('bridge-ramp', 256, spawnHeight, 'street-ground'), 256);
+  assert.equal(renderedSurfaceHeight(undefined, undefined, spawnHeight, 'street-ground'), 128);
 });

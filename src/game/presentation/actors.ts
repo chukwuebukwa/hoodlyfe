@@ -395,7 +395,8 @@ export class ActorPresentation {
     return {
       x: rendered.mesh.position.x,
       y: serverYToScene(rendered.mesh.position.y),
-      angle: rendered.renderedAngle ?? 0
+      angle: rendered.renderedAngle ?? 0,
+      surfaceId: rendered.mesh.userData.surfaceId as string | undefined
     };
   }
 
@@ -405,7 +406,8 @@ export class ActorPresentation {
     return rendered.presentationPose ?? {
       x: rendered.mesh.position.x,
       y: serverYToScene(rendered.mesh.position.y),
-      angle: rendered.renderedAngle ?? 0
+      angle: rendered.renderedAngle ?? 0,
+      surfaceId: rendered.mesh.userData.surfaceId as string | undefined
     };
   }
 
@@ -518,6 +520,8 @@ export class ActorPresentation {
         x: player.x,
         y: player.y,
         angle: player.angle,
+        elevation: player.elevation,
+        verticalVelocity: player.verticalVelocity,
         surfaceId: player.surfaceId ?? STREET_GROUND_SURFACE_ID
       });
     }
@@ -616,15 +620,27 @@ export class ActorPresentation {
       localNow,
       Math.min(5, shot.kickDistance * 0.65)
     );
-    rendered.presentationPose = attachments.root;
+    const renderedSurfaceId = vehiclePose?.surfaceId ??
+      buffered?.surfaceId ??
+      player.surfaceId ??
+      STREET_GROUND_SURFACE_ID;
+    rendered.presentationPose = {
+      ...attachments.root,
+      surfaceId: renderedSurfaceId
+    };
     rendered.presentationAimOrigin = attachments.weaponBase;
     const x = attachments.body.x;
     const y = attachments.body.y;
-    const z = this.surfaceHeightAt(
+    const actorElevation = vehicle?.airborne
+      ? vehicle.elevation
+      : player.airborne
+        ? buffered?.elevation ?? player.elevation
+        : undefined;
+    const z = (actorElevation ?? this.surfaceHeightAt(
       x,
       y,
-      buffered?.surfaceId ?? player.surfaceId ?? STREET_GROUND_SURFACE_ID
-    ) + (attachments.passenger ? 8 : 4);
+      renderedSurfaceId
+    )) + (attachments.passenger ? 8 : 4);
     positionEntity(rendered.mesh, x, y, z, buffered || vehicle || isLocalPlayer ? 1 : 0.34);
     const bodyRotation = appearanceTextures.directionalWalk
       ? 0
@@ -645,6 +661,7 @@ export class ActorPresentation {
     );
     rendered.mesh.material.color.setHex(reaction.tint ?? 0xffffff);
     rendered.mesh.visible = attachments.bodyVisible;
+    rendered.mesh.userData.surfaceId = renderedSurfaceId;
     if (actionSprite.sprite === 'walk') {
       const facingDirectionRow = appearanceTextures.directionalWalk && held.visible && player.alive && !vehicle
         ? lpcAimDirectionRow(renderAngle)
@@ -721,7 +738,7 @@ export class ActorPresentation {
       const labelZ = this.surfaceHeightAt(
         labelX,
         labelY,
-        player.surfaceId ?? STREET_GROUND_SURFACE_ID
+        renderedSurfaceId
       ) + 12;
       rendered.label.position.set(
         labelX,
@@ -740,7 +757,7 @@ export class ActorPresentation {
       rendered.voiceIndicator.position.set(
         anchorX,
         serverYToScene(anchorY) + 57 + Math.max(0, player.vehicleSeat) * 13,
-        this.surfaceHeightAt(anchorX, anchorY) + 13
+        this.surfaceHeightAt(anchorX, anchorY, renderedSurfaceId) + 13
       );
       rendered.voiceIndicator.visible = player.alive && activity.visible;
       rendered.voiceIndicator.scale.setScalar(activity.scale);
@@ -929,6 +946,8 @@ export class ActorPresentation {
         angle: vehicle.angle,
         velocityX: vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
         velocityY: vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
+        elevation: vehicle.elevation,
+        verticalVelocity: vehicle.verticalVelocity,
         surfaceId: vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
       });
     }
@@ -948,12 +967,15 @@ export class ActorPresentation {
     const x = buffered?.x ?? vehicle.x;
     const y = buffered?.y ?? vehicle.y;
     const angle = buffered?.angle ?? vehicle.angle;
-    const z = this.surfaceHeightAt(
+    const z = (vehicle.airborne
+      ? buffered?.elevation ?? vehicle.elevation
+      : undefined) ?? this.surfaceHeightAt(
       x,
       y,
       buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
-    ) + 3;
-    positionEntity(rendered.mesh, x, y, z, buffered || isLocalVehicle ? 1 : 0.3);
+    );
+    const renderedZ = z + 3;
+    positionEntity(rendered.mesh, x, y, renderedZ, buffered || isLocalVehicle ? 1 : 0.3);
     rendered.mesh.rotation.z = rotateTowards(
       rendered.mesh.rotation.z,
       serverVehicleAngleToScene(angle),
@@ -965,6 +987,8 @@ export class ActorPresentation {
     rendered.mesh.material.color.setHex(visual.tint ?? 0xffffff);
     rendered.mesh.userData.worldX = x;
     rendered.mesh.userData.worldY = y;
+    rendered.mesh.userData.surfaceId =
+      buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID;
     rendered.mesh.userData.vehicle = vehicle;
     this.skidMarks.observe(vehicle.id, {
       x,
@@ -974,7 +998,7 @@ export class ActorPresentation {
       linvelY: buffered?.velocityY ?? vehicle.linvelY ?? Math.sin(angle) * vehicle.speed,
       kind: vehicle.kind,
       surfaceId: buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID,
-      destroyed: vehicle.destroyed
+      destroyed: vehicle.destroyed || Boolean(vehicle.airborne)
     }, presentationNowMs);
     this.positionVehicleEffects(rendered, vehicle);
   }

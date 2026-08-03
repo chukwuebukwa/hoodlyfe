@@ -67,7 +67,7 @@ export class DebugController {
   constructor(
     scene: THREE.Scene,
     private readonly room: Room<DistrictNetworkState>,
-    private readonly surfaceHeightAt: (x: number, y: number) => number,
+    private readonly surfaceHeightAt: (x: number, y: number, surfaceId?: string) => number,
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
     private readonly mapStreaming: () => MapStreamingSnapshot | undefined = () => undefined,
@@ -127,7 +127,8 @@ export class DebugController {
       this.snapshot,
       this.networkQuality(),
       this.netcodeRollout(),
-      this.room.sessionId
+      this.room.sessionId,
+      this.surfaceHeightAt
     );
     for (const [key, element] of Object.entries(this.fields)) {
       if (element) element.textContent = String(projection[key as keyof typeof projection]);
@@ -161,13 +162,22 @@ export class DebugController {
         player.angle,
         11,
         0x70dcff,
-        this.surfaceHeightAt
+        this.surfaceHeightAt,
+        player.surfaceId
       ));
     }
     for (const npc of state.npcs.values()) {
       if (!npc.alive) continue;
       const color = npc.kind === 'police' ? 0xff5e68 : (npc.kind === 'hostile' ? 0xff7a66 : 0xf4cf55);
-      this.group.add(entityGlyph(npc.x, npc.y, npc.angle, 10, color, this.surfaceHeightAt));
+      this.group.add(entityGlyph(
+        npc.x,
+        npc.y,
+        npc.angle,
+        10,
+        color,
+        this.surfaceHeightAt,
+        npc.surfaceId
+      ));
     }
     for (const vehicle of state.vehicles.values()) {
       const pose = this.vehiclePose(vehicle.id) ?? vehicle;
@@ -179,7 +189,8 @@ export class DebugController {
         0x9d8bff,
         this.surfaceHeightAt,
         vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
-        vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed
+        vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
+        pose.surfaceId ?? vehicle.surfaceId
       ));
     }
     for (const ball of state.soccerBalls?.values() ?? []) {
@@ -189,7 +200,8 @@ export class DebugController {
         ball.angle,
         SOCCER_BALL_RADIUS,
         0x60f28b,
-        this.surfaceHeightAt
+        this.surfaceHeightAt,
+        ball.surfaceId
       ));
     }
     const laneGraph = this.snapshot?.trafficLaneGraph;
@@ -518,7 +530,8 @@ function entityGlyph(
   angle: number,
   radius: number,
   color: number,
-  surface: (x: number, y: number) => number
+  surface: (x: number, y: number, surfaceId?: string) => number,
+  surfaceId?: string
 ): THREE.Group {
   const group = new THREE.Group();
   group.add(debugRing(0, 0, radius, color, 0));
@@ -526,7 +539,7 @@ function entityGlyph(
     new THREE.Vector3(),
     new THREE.Vector3(Math.cos(angle) * radius * 1.7, -Math.sin(angle) * radius * 1.7, 0)
   ], color));
-  group.position.set(x, serverYToScene(y), surface(x, y) + 24);
+  group.position.set(x, serverYToScene(y), surface(x, y, surfaceId) + 24);
   return group;
 }
 
@@ -536,9 +549,10 @@ function vehicleGlyph(
   angle: number,
   kind: string,
   color: number,
-  surface: (x: number, y: number) => number,
+  surface: (x: number, y: number, surfaceId?: string) => number,
   velocityX = 0,
-  velocityY = 0
+  velocityY = 0,
+  surfaceId?: string
 ): THREE.Group {
   const collision = vehicleDefinition(kind).collision;
   const halfLength = collision.length / 2;
@@ -568,7 +582,7 @@ function vehicleGlyph(
       new THREE.Vector3(velocityX * 0.14, -velocityY * 0.14, 0)
     ], 0x48e2ff));
   }
-  group.position.set(x, serverYToScene(y), surface(x, y) + 24);
+  group.position.set(x, serverYToScene(y), surface(x, y, surfaceId) + 24);
   return group;
 }
 

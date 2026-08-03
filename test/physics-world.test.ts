@@ -168,3 +168,66 @@ test('forked worlds keep elevation partitions physically isolated', () => {
   assert.equal(elevated.has('player:ground'), false);
   root.free();
 });
+
+test('world-offset surface geometry collides in authoritative world coordinates', () => {
+  const root = PhysicsWorld.create(districtGeometry());
+  const surface = root.fork(true, {
+    width: 4,
+    height: 2,
+    tileWidth: 32,
+    tileHeight: 32,
+    originX: 1_000,
+    originY: 2_000,
+    collisions: [
+      1, 0, 0, 1,
+      1, 0, 0, 1
+    ]
+  });
+  surface.registerHumanoid('player:offset', 8, spawnState(1_080, 2_048));
+  for (let tick = 0; tick < 60; tick++) {
+    surface.setVelocity('player:offset', -120, 0, 0);
+    surface.step();
+  }
+  const state = surface.capture('player:offset');
+  assert.ok(state);
+  assert.ok(state.x >= 1_039, `offset collider failed to stop body at x=${state.x}`);
+  root.free();
+});
+
+test('authored surface barriers stop bodies without sealing exposed deck cells', () => {
+  const openGeometry: PhysicsWorldGeometry = {
+    width: 8,
+    height: 8,
+    tileWidth: 32,
+    tileHeight: 32,
+    encloseBorders: false,
+    collisions: new Array(64).fill(0)
+  };
+  const open = PhysicsWorld.create(openGeometry);
+  const guarded = PhysicsWorld.create({
+    ...openGeometry,
+    barriers: [{
+      from: {x: 128, y: 32},
+      to: {x: 128, y: 224},
+      thickness: 3
+    }]
+  });
+  open.registerHumanoid('player:open', 8, spawnState(96, 128));
+  guarded.registerHumanoid('player:guarded', 8, spawnState(96, 128));
+
+  for (let tick = 0; tick < 45; tick++) {
+    open.setVelocity('player:open', 180, 0, 0);
+    guarded.setVelocity('player:guarded', 180, 0, 0);
+    open.step();
+    guarded.step();
+  }
+
+  const openState = open.capture('player:open');
+  const guardedState = guarded.capture('player:guarded');
+  assert.ok(openState);
+  assert.ok(guardedState);
+  assert.ok(openState.x > 160, `unbarred body unexpectedly stopped at x=${openState.x}`);
+  assert.ok(guardedState.x < 121, `barrier failed to stop body at x=${guardedState.x}`);
+  open.free();
+  guarded.free();
+});

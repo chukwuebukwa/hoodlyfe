@@ -46,6 +46,14 @@ export interface PedestrianDiagnostic {
   waypoints: Array<{x: number; y: number}>;
 }
 
+interface PedestrianMoveCommand {
+  x: number;
+  y: number;
+  stopDistance: number;
+  speed: number;
+  action: string;
+}
+
 interface PedestrianControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -84,6 +92,7 @@ interface PedestrianControllerOptions {
 
 export class PedestrianController {
   private readonly runtime = new Map<string, PedestrianRuntime>();
+  private readonly moveCommands = new Map<string, PedestrianMoveCommand>();
   private readonly perception: PedestrianPerceptionSystem;
   private readonly behavior: PedestrianBehaviorSystem;
   private readonly combat: PedestrianCombatSystem;
@@ -231,12 +240,50 @@ export class PedestrianController {
     return this.runtime.get(npcId)?.lifecycle === 'owned';
   }
 
+  commandMoveTo(
+    npcId: string,
+    x: number,
+    y: number,
+    stopDistance = 32,
+    speed = 118,
+    action = 'return-to-car'
+  ): boolean {
+    if (!this.runtime.has(npcId) || !this.options.state.npcs.get(npcId)?.alive) return false;
+    this.moveCommands.set(npcId, {
+      x,
+      y,
+      stopDistance: Math.max(0, stopDistance),
+      speed: Math.max(0, speed),
+      action
+    });
+    return true;
+  }
+
+  clearMoveCommand(npcId: string): void {
+    this.moveCommands.delete(npcId);
+    const runtime = this.runtime.get(npcId);
+    if (runtime) clearPedestrianNavigation(runtime);
+  }
+
+  removeManaged(npcId: string): boolean {
+    const runtime = this.runtime.get(npcId);
+    if (!runtime) return false;
+    const npc = this.options.state.npcs.get(npcId);
+    if (npc) this.melee.clear(npc, runtime);
+    this.moveCommands.delete(npcId);
+    this.runtime.delete(npcId);
+    this.options.state.npcs.delete(npcId);
+    this.options.onDespawned?.(npcId);
+    return true;
+  }
+
   canStreamOut(npcId: string): boolean {
     const npc = this.options.state.npcs.get(npcId);
     const runtime = this.runtime.get(npcId);
     return Boolean(
       npc?.alive &&
       runtime?.lifecycle === 'ambient' &&
+      !this.moveCommands.has(npcId) &&
       runtime.objective === 'wander' &&
       !runtime.combatTargetId &&
       !runtime.threatId &&
@@ -265,6 +312,28 @@ export class PedestrianController {
       this.melee.clear(npc, runtime);
       npc.action = 'dead';
       this.tryRespawn(npc, runtime, nowMs);
+      return;
+    }
+    const command = this.moveCommands.get(npc.id);
+    if (command) {
+      const distance = Math.hypot(command.x - npc.x, command.y - npc.y);
+      npc.action = command.action;
+      if (distance <= command.stopDistance) return;
+      const directAngle = Math.atan2(command.y - npc.y, command.x - npc.x);
+      const moveAngle = this.navigation.resolveAngle(npc, runtime, {
+        objective: 'recover',
+        angle: directAngle,
+        speed: command.speed,
+        fire: false,
+        aimAngle: directAngle,
+        targetX: command.x,
+        targetY: command.y
+      }, nowMs);
+      runtime.objective = 'recover';
+      npc.angle = moveAngle;
+      if (!this.locomotion.move(npc, moveAngle, command.speed, deltaSeconds)) {
+        this.navigation.recoverFromBlock(runtime, npc.id, moveAngle, nowMs);
+      }
       return;
     }
     if (runtime.lifecycle === 'owned') return;
@@ -399,6 +468,7 @@ export class PedestrianController {
     if (!runtime || runtime.lifecycle !== 'mission') return false;
     const npc = this.options.state.npcs.get(npcId);
     if (npc) this.melee.clear(npc, runtime);
+    this.moveCommands.delete(npcId);
     this.runtime.delete(npcId);
     this.options.state.npcs.delete(npcId);
     this.options.onDespawned?.(npcId);

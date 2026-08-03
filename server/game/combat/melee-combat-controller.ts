@@ -272,7 +272,14 @@ export class MeleeCombatController {
       x: target.x,
       y: target.y,
       radius,
-      lineOfSight: this.options.world.hasLineOfSight(source.x, source.y, target.x, target.y)
+      lineOfSight: this.options.world.hasLineOfSight(
+        source.x,
+        source.y,
+        target.x,
+        target.y,
+        source.surfaceId,
+        'player'
+      )
     };
   }
 

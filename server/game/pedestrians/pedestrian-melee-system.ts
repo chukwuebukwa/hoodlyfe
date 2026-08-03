@@ -124,7 +124,14 @@ export class PedestrianMeleeSystem {
     if (Math.hypot(dx, dy) > NPC_MELEE.engageDistance) return false;
     const relative = normalizeAngle(Math.atan2(dy, dx) - npc.angle);
     if (Math.abs(relative) > NPC_MELEE.halfArcRadians) return false;
-    return this.options.world.hasLineOfSight(npc.x, npc.y, target.x, target.y);
+    return this.options.world.hasLineOfSight(
+      npc.x,
+      npc.y,
+      target.x,
+      target.y,
+      npc.surfaceId,
+      'pedestrian'
+    );
   }
 }
 

@@ -81,6 +81,7 @@ public sealed class WebAssetExporter
         var style = ReadStyle(Path.Combine(_options.Gta2Root, "data", _options.LevelName + ".sty"));
         var surfaces = ReadSurfaces(map, style.Tiles.TileCount);
         ResolvePedestrianFaces(surfaces, style);
+        DumpSurfaceDiagnostics(surfaces);
         var walkable = FindLargestWalkableArea(surfaces);
 
         if (walkable.Count == 0)
@@ -238,14 +239,53 @@ public sealed class WebAssetExporter
                         block.Lid.Flip,
                         block.SlopeType.GroundType,
                         z + 1,
-                        WalkableSurfaceGeometry.Build(ref block, new Vector3(x, y, z))));
+                        WalkableSurfaceGeometry.Build(ref block, new Vector3(x, y, z)),
+                        WallBarriers(ref block, x, y, z + 1)));
                 }
 
-                result[y, x] = new SurfaceCell(faces.ToArray());
+                result[y, x] = new SurfaceCell(faces.ToArray(), column.Offset, column.Height);
             }
         }
 
         return result;
+    }
+
+    private static void DumpSurfaceDiagnostics(SurfaceCell[,] surfaces)
+    {
+        var value = Environment.GetEnvironmentVariable("OPENGTA2_SURFACE_DEBUG");
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var parts = value.Split(',', StringSplitOptions.TrimEntries);
+        if (parts.Length != 4 || !parts.All(part => int.TryParse(part, out _)))
+        {
+            throw new InvalidDataException(
+                "OPENGTA2_SURFACE_DEBUG must be four comma-separated map coordinates: minX,minY,maxX,maxY.");
+        }
+
+        var coordinates = parts.Select(int.Parse).ToArray();
+        var minX = Math.Clamp(Math.Min(coordinates[0], coordinates[2]), 0, surfaces.GetLength(1) - 1);
+        var maxX = Math.Clamp(Math.Max(coordinates[0], coordinates[2]), 0, surfaces.GetLength(1) - 1);
+        var minY = Math.Clamp(Math.Min(coordinates[1], coordinates[3]), 0, surfaces.GetLength(0) - 1);
+        var maxY = Math.Clamp(Math.Max(coordinates[1], coordinates[3]), 0, surfaces.GetLength(0) - 1);
+
+        Console.WriteLine($"Surface diagnostics ({minX},{minY})-({maxX},{maxY}):");
+        for (var y = minY; y <= maxY; y++)
+        {
+            for (var x = minX; x <= maxX; x++)
+            {
+                var surface = surfaces[y, x];
+                var faces = string.Join(
+                    "; ",
+                    surface.Faces.Select(face =>
+                        $"tile={face.Tile},ground={face.GroundType},height={face.Height},triangles={face.Triangles.Count}"));
+                Console.WriteLine(
+                    $"  {x},{y}: column={surface.ColumnOffset}-{surface.ColumnHeight}," +
+                    $"pedestrian={surface.PedestrianFace?.Height.ToString() ?? "none"} [{faces}]");
+            }
+        }
     }
 
     private static HashSet<GridPoint> FindLargestWalkableArea(SurfaceCell[,] surfaces)
@@ -827,6 +867,22 @@ public sealed class WebAssetExporter
             }
         }
 
+        foreach (var candidate in FindImplicitUnderpassFaces(
+            surfaces,
+            originX,
+            originY,
+            width,
+            height))
+        {
+            faces.Add(new SurfaceFace(
+                faces.Count,
+                candidate.X,
+                candidate.Y,
+                candidate.Face,
+                PlaneKey(candidate.Face.Triangles[0]),
+                BoundaryEdges(candidate.Face.Triangles)));
+        }
+
         if (faces.Count == 0)
         {
             throw new InvalidDataException("Surface manifest requires at least one walkable face.");
@@ -896,6 +952,15 @@ public sealed class WebAssetExporter
                 id = surfaceIds[group.Key],
                 spaceId = "street",
                 actorKinds,
+                barriers = group
+                    .SelectMany(face => face.Face.Barriers)
+                    .DistinctBy(barrier => barrier.Key)
+                    .Select(barrier => new
+                    {
+                        from = SurfacePoint2(barrier.A, originX, originY),
+                        to = SurfacePoint2(barrier.B, originX, originY)
+                    })
+                    .ToArray(),
                 triangles = group
                     .SelectMany(face => face.Face.Triangles)
                     .Select(triangle => new
@@ -947,7 +1012,7 @@ public sealed class WebAssetExporter
             }
         }
 
-        WriteJson(Path.Combine(mapsDirectory, "surface-manifest.json"), new
+        WriteCompactJson(Path.Combine(mapsDirectory, "surface-manifest.json"), new
         {
             version = 1,
             collisionRevision = 2,
@@ -958,18 +1023,184 @@ public sealed class WebAssetExporter
         });
     }
 
+    private static IReadOnlyList<(int X, int Y, TileFace Face)> FindImplicitUnderpassFaces(
+        SurfaceCell[,] surfaces,
+        int originX,
+        int originY,
+        int width,
+        int height)
+    {
+        var maxX = originX + width;
+        var maxY = originY + height;
+        var candidates = new Dictionary<(int X, int Y, int Height), TileFace>();
+        var lowerHeights = Enumerable
+            .Range(originY, height)
+            .SelectMany(y => Enumerable.Range(originX, width)
+                .SelectMany(x => FlatGroundFaces(surfaces[y, x]).Select(face => face.Height)))
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        foreach (var lowerHeight in lowerHeights)
+        {
+            for (var y = originY; y < maxY; y++)
+            {
+                ScanLine(Enumerable.Range(originX, width).Select(x => (X: x, Y: y)), lowerHeight);
+            }
+            for (var x = originX; x < maxX; x++)
+            {
+                ScanLine(Enumerable.Range(originY, height).Select(y => (X: x, Y: y)), lowerHeight);
+            }
+        }
+
+        return candidates
+            .OrderBy(entry => entry.Key.Y)
+            .ThenBy(entry => entry.Key.X)
+            .ThenBy(entry => entry.Key.Height)
+            .Select(entry => (entry.Key.X, entry.Key.Y, entry.Value))
+            .ToArray();
+
+        void ScanLine(IEnumerable<(int X, int Y)> points, int lowerHeight)
+        {
+            TileFace? lowerFace = null;
+            var gap = new List<(int X, int Y)>();
+            foreach (var point in points)
+            {
+                var cell = surfaces[point.Y, point.X];
+                var matchingLowerFace = FlatGroundFaces(cell)
+                    .Where(face => face.Height == lowerHeight)
+                    .Select(face => (TileFace?)face)
+                    .FirstOrDefault();
+                if (matchingLowerFace is not null)
+                {
+                    if (lowerFace is not null && gap.Count > 0 && IsUnderpassGap(gap, lowerHeight))
+                    {
+                        foreach (var gapPoint in gap)
+                        {
+                            candidates.TryAdd(
+                                (gapPoint.X, gapPoint.Y, lowerHeight),
+                                CreateFlatUnderpassFace(gapPoint.X, gapPoint.Y, lowerFace.Value));
+                        }
+                    }
+
+                    lowerFace = matchingLowerFace;
+                    gap.Clear();
+                    continue;
+                }
+
+                if (lowerFace is null || !HasElevatedCover(cell, lowerHeight))
+                {
+                    lowerFace = null;
+                    gap.Clear();
+                    continue;
+                }
+
+                gap.Add(point);
+            }
+        }
+
+        bool IsUnderpassGap(IReadOnlyList<(int X, int Y)> gap, int lowerHeight)
+        {
+            if (gap.All(point => HasElevatedRoadCover(surfaces[point.Y, point.X], lowerHeight)))
+            {
+                return true;
+            }
+
+            var coverHeights = gap
+                .SelectMany(point => ElevatedCoverHeights(surfaces[point.Y, point.X], lowerHeight))
+                .Distinct()
+                .ToArray();
+            if (coverHeights.Length != 1)
+            {
+                return false;
+            }
+
+            var interior = gap.Count > 2 ? gap.Skip(1).SkipLast(1) : gap;
+            return interior.Any(point => surfaces[point.Y, point.X].ColumnOffset > lowerHeight) &&
+                interior.All(point => surfaces[point.Y, point.X].ColumnOffset > lowerHeight);
+        }
+    }
+
+    private static IEnumerable<TileFace> FlatGroundFaces(SurfaceCell surface) =>
+        surface.Faces.Where(face =>
+            face.GroundType != GroundType.Air &&
+            face.Triangles.Count > 0 &&
+            face.Triangles.All(triangle =>
+                MathF.Abs(triangle.A.Z - face.Height) <= 0.0001f &&
+                MathF.Abs(triangle.B.Z - face.Height) <= 0.0001f &&
+                MathF.Abs(triangle.C.Z - face.Height) <= 0.0001f));
+
+    private static bool HasElevatedRoadCover(SurfaceCell surface, int lowerHeight) =>
+        FlatGroundFaces(surface).Any(face =>
+            face.GroundType == GroundType.Road &&
+            face.Height == lowerHeight + 1);
+
+    private static bool HasElevatedCover(SurfaceCell surface, int lowerHeight) =>
+        ElevatedCoverHeights(surface, lowerHeight).Any();
+
+    private static IEnumerable<int> ElevatedCoverHeights(SurfaceCell surface, int lowerHeight) =>
+        FlatGroundFaces(surface)
+            .Where(face => face.Height > lowerHeight)
+            .Select(face => face.Height);
+
+    private static TileFace CreateFlatUnderpassFace(int x, int y, TileFace source)
+    {
+        var z = source.Height;
+        var northWest = new Vector3(x, y, z);
+        var northEast = new Vector3(x + 1, y, z);
+        var southEast = new Vector3(x + 1, y + 1, z);
+        var southWest = new Vector3(x, y + 1, z);
+        return new TileFace(
+            source.Tile,
+            source.Rotation,
+            source.Flip,
+            source.GroundType,
+            source.Height,
+            new[]
+            {
+                new WalkableSurfaceTriangle(northWest, northEast, southEast),
+                new WalkableSurfaceTriangle(northWest, southEast, southWest)
+            },
+            Array.Empty<SurfaceBoundaryEdge>());
+    }
+
+    private static IReadOnlyList<SurfaceBoundaryEdge> WallBarriers(
+        ref BlockInfo block,
+        int x,
+        int y,
+        int height)
+    {
+        var barriers = new List<SurfaceBoundaryEdge>(4);
+        Add(block.Top.Wall, new Vector3(x, y, height), new Vector3(x + 1, y, height));
+        Add(block.Bottom.Wall, new Vector3(x, y + 1, height), new Vector3(x + 1, y + 1, height));
+        Add(block.Left.Wall, new Vector3(x, y, height), new Vector3(x, y + 1, height));
+        Add(block.Right.Wall, new Vector3(x + 1, y, height), new Vector3(x + 1, y + 1, height));
+        return barriers;
+
+        void Add(bool enabled, Vector3 from, Vector3 to)
+        {
+            if (enabled)
+            {
+                barriers.Add(new SurfaceBoundaryEdge(SurfaceEdgeKey.From(from, to), from, to));
+            }
+        }
+    }
+
     private static object SurfacePoint(Vector3 point, int originX, int originY) => new
     {
-        x = (point.X - originX) * TileSize,
-        y = (point.Y - originY) * TileSize,
-        z = point.Z * TileSize
+        x = SurfaceCoordinate(point.X, originX),
+        y = SurfaceCoordinate(point.Y, originY),
+        z = SurfaceCoordinate(point.Z, 0)
     };
 
     private static object SurfacePoint2(Vector3 point, int originX, int originY) => new
     {
-        x = (point.X - originX) * TileSize,
-        y = (point.Y - originY) * TileSize
+        x = SurfaceCoordinate(point.X, originX),
+        y = SurfaceCoordinate(point.Y, originY)
     };
+
+    private static float SurfaceCoordinate(float value, int origin) =>
+        MathF.Round((value - origin) * TileSize, 3, MidpointRounding.AwayFromZero);
 
     private static SurfaceBoundaryEdge[] BoundaryEdges(IReadOnlyList<WalkableSurfaceTriangle> triangles)
     {
@@ -1563,12 +1794,16 @@ public sealed class WebAssetExporter
 
     private sealed class SurfaceCell
     {
-        public SurfaceCell(IReadOnlyList<TileFace> faces)
+        public SurfaceCell(IReadOnlyList<TileFace> faces, int columnOffset, int columnHeight)
         {
             Faces = faces;
+            ColumnOffset = columnOffset;
+            ColumnHeight = columnHeight;
         }
 
         public IReadOnlyList<TileFace> Faces { get; }
+        public int ColumnOffset { get; }
+        public int ColumnHeight { get; }
         public TileFace? PedestrianFace { get; set; }
         public bool HasTile => Faces.Count != 0;
         public TileFace? LowestGroundFace
@@ -1595,7 +1830,8 @@ public sealed class WebAssetExporter
         bool Flip,
         GroundType GroundType,
         int Height,
-        IReadOnlyList<WalkableSurfaceTriangle> Triangles);
+        IReadOnlyList<WalkableSurfaceTriangle> Triangles,
+        IReadOnlyList<SurfaceBoundaryEdge> Barriers);
     private sealed record SurfaceFace(
         int Index,
         int X,

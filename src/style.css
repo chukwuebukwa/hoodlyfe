@@ -3111,6 +3111,37 @@ canvas {
   filter: drop-shadow(0 1px 1px #000);
 }
 
+#heat-meter.spotted i.active {
+  filter:
+    drop-shadow(0 1px 1px #000)
+    drop-shadow(0 0 4px rgba(255, 67, 82, 0.82));
+}
+
+#heat-meter.searching i.active {
+  animation: wanted-search-flash 720ms steps(1, end) infinite;
+}
+
+@keyframes wanted-search-flash {
+  0%,
+  48% {
+    background: #f0d13d;
+    filter: drop-shadow(0 1px 1px #000);
+  }
+
+  49%,
+  100% {
+    background: rgba(240, 209, 61, 0.18);
+    filter: drop-shadow(0 0 2px rgba(240, 209, 61, 0.5));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #heat-meter.searching i.active {
+    animation: none;
+    background: #c8b95a;
+  }
+}
+
 #cash {
   color: #63d97f;
   font: 950 25px/1 ui-monospace, SFMono-Regular, Menlo, monospace;

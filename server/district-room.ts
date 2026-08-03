@@ -43,6 +43,10 @@ import {
 import {isMedicalCareKind} from '../shared/content/medical-care.ts';
 import {GAME_NOTICE_MESSAGE, type GameNotice} from '../shared/protocol/notices.ts';
 import {
+  POLICE_AWARENESS_MESSAGE,
+  type PoliceAwarenessMessage
+} from '../shared/protocol/police-awareness.ts';
+import {
   RADIO_STATION_MESSAGE,
   type RadioStationMessage
 } from '../shared/protocol/radio.ts';
@@ -78,6 +82,7 @@ import {
   SOCCER_BALL_KICK_MESSAGE,
   type SoccerBallKickMessage
 } from '../shared/protocol/soccer-ball.ts';
+import {PLAYER_JUMP_MESSAGE} from '../shared/protocol/player-jump.ts';
 import {WORLD_COLLISION_REVISION} from '../shared/simulation/world-collision-revision.ts';
 import {worldMinuteAt} from '../shared/content/world-time.ts';
 import {SIMULATION_HZ} from '../shared/simulation/timing.ts';
@@ -314,6 +319,7 @@ export class DistrictRoom extends Room<DistrictState> {
     phases: readonly SimulationPhaseDiagnostic[];
     vehicleMotion?: VehicleMotionObservation;
   };
+  private lastPoliceAwarenessPublishAt = Number.NEGATIVE_INFINITY;
   private epochMs = 0;
   private readonly journaledCommands = new Map<
     string,
@@ -375,6 +381,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.observability?.close();
     this.observability = undefined;
     this.pendingSimulationObservation = undefined;
+    this.lastPoliceAwarenessPublishAt = Number.NEGATIVE_INFINITY;
     this.journaledCommands.clear();
     const playtest = this.acceptsPlaytestRevision()
       ? await loadPlaytestWorld(options ?? {})
@@ -388,7 +395,9 @@ export class DistrictRoom extends Room<DistrictState> {
     );
     this.physicsWorld?.free();
     await initializePhysicsEngine();
-    this.physicsWorld = PhysicsWorld.create(this.world.physicsGeometry());
+    this.physicsWorld = PhysicsWorld.create(
+      this.world.physicsGeometry(this.world.surfaces.manifest.defaultSurfaceId)
+    );
     this.laneGraph = this.usesTrafficTopology()
       ? playtest?.laneGraph ?? (
         mapsDirectory
@@ -498,13 +507,6 @@ export class DistrictRoom extends Room<DistrictState> {
       queryNpcs: (x, y, radius) => this.spatialIndex.queryCircle(x, y, radius, {kinds: ['npc']})
         .map((record) => this.state.npcs.get(record.id))
         .filter((npc): npc is NpcState => Boolean(npc)),
-      queryVehicles: (x, y, radius) => this.spatialIndex.queryCircle(
-        x,
-        y,
-        radius,
-        {kinds: ['vehicle']}
-      ).map((record) => this.state.vehicles.get(record.id))
-        .filter((vehicle): vehicle is VehicleState => Boolean(vehicle)),
       panicWitness: (witnessId, suspectId, untilMs) => this.pedestrians.panic(
         witnessId,
         suspectId,
@@ -512,6 +514,7 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       isReservedPoliceUnit: (kind, unitId) => (
         (kind === 'vehicle' && this.policeRoadblocks?.ownsVehicle(unitId)) ||
+        (kind === 'vehicle' && this.policeResponseFleet?.ownsDismountedVehicle(unitId)) ||
         (kind === 'foot' && this.policeStingers?.ownsOfficer(unitId))
       )
     });
@@ -523,6 +526,12 @@ export class DistrictRoom extends Room<DistrictState> {
       ),
       reportTactic: (vehicleId, phase, goalX, goalY) => (
         this.crimeController.recordPoliceVehicleTactic(vehicleId, phase, goalX, goalY)
+      ),
+      reportObservation: (suspectId, canSeeTarget, nowMs) => (
+        this.crimeController.recordPoliceVehicleObservation(suspectId, canSeeTarget, nowMs)
+      ),
+      requestDismount: (vehicle, target, nowMs) => (
+        this.policeResponseFleet.dismount(vehicle.id, target.suspectId, nowMs)
       )
     });
     this.policeResponseFleet = new PoliceResponseFleetController({
@@ -530,6 +539,15 @@ export class DistrictRoom extends Room<DistrictState> {
       world: this.world,
       responsePlan: () => this.crimeController.responseFleetPlan(),
       police: this.policeVehicleController,
+      pedestrians: () => this.pedestrians,
+      onCrewDeployed: (vehicleId, suspectId, officers, nowMs) => (
+        this.crimeController.deployPoliceVehicleCrew(
+          vehicleId,
+          suspectId,
+          officers,
+          nowMs
+        )
+      ),
       onVehicleSpawned: (vehicle) => this.indexVehicle(vehicle),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
     });
@@ -1140,6 +1158,12 @@ export class DistrictRoom extends Room<DistrictState> {
           player.angle = pose.angle;
           player.spaceId = 'street';
           player.surfaceId = STREET_GROUND_SURFACE_ID;
+          player.airborne = false;
+          player.elevation = 0;
+          player.verticalVelocity = 0;
+          player.airborneVelocityX = 0;
+          player.airborneVelocityY = 0;
+          player.landingSurfaceId = '';
           player.action = '';
           player.actionUntil = 0;
           player.actionVehicleId = '';
@@ -1239,6 +1263,9 @@ export class DistrictRoom extends Room<DistrictState> {
     });
     this.registerJournaledCommand<OnFootInputBatchMessage>(ON_FOOT_INPUT_MESSAGE, (client, message) => {
       this.playerControl.acceptBatch(client.sessionId, message);
+    });
+    this.registerJournaledCommand(PLAYER_JUMP_MESSAGE, (client) => {
+      this.playerControl.jump(client.sessionId);
     });
     this.registerJournaledCommand<VehicleInputBatchMessage>(VEHICLE_INPUT_MESSAGE, (client, message) => {
       this.vehicleInput.accept(client.sessionId, message);
@@ -1375,7 +1402,7 @@ export class DistrictRoom extends Room<DistrictState> {
 
   private async spawnPlayerWithAuth(
     client: Client,
-    options: {name?: string; appearance?: unknown; auth?: ClientAuthPayload} = {}
+    options: DistrictJoinOptions = {}
   ): Promise<void> {
     if (this.state.players.has(client.sessionId)) return;
     const identity = await verifyClientAuth(options.auth);
@@ -1383,7 +1410,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.spawnPlayer(client, options);
   }
 
-  private spawnPlayer(client: Client, options: {name?: string; appearance?: unknown} = {}): void {
+  private spawnPlayer(client: Client, options: DistrictJoinOptions = {}): void {
     if (this.state.players.has(client.sessionId)) return;
     const spawn = this.world.spawnFor(this.state.players.size, PLAYER_RADIUS);
     const player = new PlayerState();
@@ -1606,6 +1633,19 @@ export class DistrictRoom extends Room<DistrictState> {
       this.fatalShutdown?.(error);
     }
     this.voiceChat.synchronize();
+    this.publishPoliceAwareness();
+  }
+
+  private publishPoliceAwareness(): void {
+    const nowMs = this.simulationClock.nowMs;
+    if (nowMs - this.lastPoliceAwarenessPublishAt < 100) return;
+    this.lastPoliceAwarenessPublishAt = nowMs;
+    for (const client of this.clients) {
+      if (!this.state.players.has(client.sessionId)) continue;
+      const snapshot: PoliceAwarenessMessage =
+        this.crimeController.policeAwarenessSnapshot(client.sessionId, nowMs);
+      client.send(POLICE_AWARENESS_MESSAGE, snapshot);
+    }
   }
 
   private noticePlayer(
