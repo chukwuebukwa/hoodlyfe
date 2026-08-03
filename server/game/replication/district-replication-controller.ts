@@ -214,6 +214,17 @@ export class DistrictReplicationController {
         `soccer-ball:${ball.id}`
       );
     }
+    for (const prop of this.state.streetProps.values()) {
+      this.addTransientIfRelevant(
+        desired,
+        projection,
+        prop,
+        x,
+        y,
+        false,
+        `street-prop:${prop.id}`
+      );
+    }
     for (const mission of this.state.missions.values()) {
       this.addDesired(desired, mission, 1, 0, `mission:${mission.id}`);
       if (!mission.participants.has(playerId)) continue;

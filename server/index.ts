@@ -15,7 +15,8 @@ import {
   DistrictPlaytestRoom,
   DistrictRaceRoom,
   DistrictResidentialRoom,
-  DistrictRoom
+  DistrictRoom,
+  DistrictWorldRoom
 } from './district-room.ts';
 import {initializePhysicsEngine} from '../shared/physics/physics-world.ts';
 import {CollisionMap} from './world-map.ts';
@@ -132,6 +133,11 @@ gameServer.define('district-city', DistrictCityRoom, {
   buildId
 });
 gameServer.define('district-residential', DistrictResidentialRoom, {
+  runtimeHealth,
+  fatalShutdown: requestFatalShutdown,
+  buildId
+});
+gameServer.define('district-world', DistrictWorldRoom, {
   runtimeHealth,
   fatalShutdown: requestFatalShutdown,
   buildId

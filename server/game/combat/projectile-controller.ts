@@ -10,6 +10,7 @@ import {classifyImpactZone} from '../vehicles/vehicle-damage-system.ts';
 import type {VehicleAccessController} from '../vehicles/vehicle-access-controller.ts';
 import type {VehicleSimulationController} from '../vehicles/vehicle-simulation-controller.ts';
 import type {DamageController} from './damage-controller.ts';
+import type {StreetPropController} from '../props/street-prop-controller.ts';
 import type {GameEventStream, ProjectileImpactEvent} from '../events/game-events.ts';
 import {
   CombatHitboxHistory,
@@ -30,6 +31,7 @@ interface ProjectileControllerOptions {
   events: GameEventStream;
   clock: () => {tick: number};
   history?: CombatHitboxHistory;
+  props?: StreetPropController;
   queryPlayers: (minX: number, minY: number, maxX: number, maxY: number) => PlayerState[];
   queryNpcs: (minX: number, minY: number, maxX: number, maxY: number) => NpcState[];
   queryVehicles: (minX: number, minY: number, maxX: number, maxY: number) => VehicleState[];
@@ -82,6 +84,13 @@ export class ProjectileController {
         };
       }
       const worldProgress = firstBlockedProgress(this.options.world, startX, startY, endX, endY);
+      const propHit = this.options.props?.firstSegmentHit(
+        startX,
+        startY,
+        endX,
+        endY,
+        nextSurface
+      );
       const historical = this.options.history?.querySegment({
         requestedServerTimeMs: window.effectiveServerTimeMs + (step + 1) * stepMs,
         nowMs: input.nowMs,
@@ -93,6 +102,28 @@ export class ProjectileController {
         surfaceId: nextSurface,
         excludedIds: input.excludedIds
       });
+      if (
+        propHit &&
+        (worldProgress === undefined || propHit.progress < worldProgress) &&
+        (!historical?.hit || propHit.progress < historical.hit.progress)
+      ) {
+        bullet.x = interpolate(startX, endX, propHit.progress);
+        bullet.y = interpolate(startY, endY, propHit.progress);
+        bullet.surfaceId = nextSurface;
+        this.options.props?.damage(
+          propHit.prop,
+          projectileDamage(bullet, weapon),
+          bullet.angle,
+          input.nowMs
+        );
+        this.publishImpact(bullet, input.nowMs, 'prop', propHit.prop.id);
+        this.options.state.bullets.delete(bullet.id);
+        return {
+          effectiveServerShotTimeMs: window.effectiveServerTimeMs,
+          rewindMs: window.rewindMs,
+          resolved: true
+        };
+      }
       if (historical?.hit && (worldProgress === undefined || historical.hit.progress < worldProgress)) {
         bullet.x = interpolate(startX, endX, historical.hit.progress);
         bullet.y = interpolate(startY, endY, historical.hit.progress);
@@ -163,6 +194,26 @@ export class ProjectileController {
     const minY = Math.min(previousY, bullet.y) - 4;
     const maxX = Math.max(previousX, bullet.x) + 4;
     const maxY = Math.max(previousY, bullet.y) + 4;
+    const propHit = this.options.props?.firstSegmentHit(
+      previousX,
+      previousY,
+      bullet.x,
+      bullet.y,
+      bullet.surfaceId
+    );
+    if (propHit) {
+      this.publishImpact(
+        bullet,
+        nowMs,
+        'prop',
+        propHit.prop.id,
+        interpolate(previousX, bullet.x, propHit.progress),
+        interpolate(previousY, bullet.y, propHit.progress)
+      );
+      this.options.props?.damage(propHit.prop, damage, bullet.angle, nowMs);
+      this.options.remove(bulletId);
+      return;
+    }
     for (const target of this.options.queryPlayers(minX, minY, maxX, maxY)) {
       if (
         !target.alive || target.vehicleId || target.id === bullet.ownerId ||

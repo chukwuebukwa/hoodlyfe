@@ -37,6 +37,29 @@ NOCK0 source assets. The browser schedules them as overlapping Web Audio one-sho
 hard-looping a WAV file. Both the main game and Vehicle Workshop drive playback from the same
 speed/slip-angle policy; nearby game vehicles use positional attenuation and stereo panning.
 
+## Reactive Street Props
+
+The custom dumpster, hydrant, and trash-can assets under `public/assets/custom/props/` use
+three-frame horizontal damage sheets: intact, damaged, and destroyed. Their generated source,
+effect masters, and processing metadata live under `art/source/`.
+
+The server deterministically distributes props from the collision and road layers. Hydrants
+prefer curb cells, trash cans prefer sidewalk or building edges, and dumpsters prefer deeper
+service edges. Generated placements are rejected on road tiles, blocked footprints, and
+coordinates covered by elevated surfaces. The industrial map derives its entire prop population
+from these placement rules; there are no hardcoded showcase props at player spawn.
+
+Props use the normal street area-of-interest replication radius, so clients only receive nearby
+state. The Three.js presenter groups visible props into `InstancedMesh` batches by definition and
+damage stage, limiting the static prop path to nine draw calls while retaining per-instance hit
+kick, wobble, and flash. Water and trash debris remain pooled client-side presentation effects;
+the server never replicates individual particles.
+
+Vehicle contact is authoritative. Props block parking-speed bumps, while impacts at or above 95
+world units per second destroy them. Vehicle paths are swept between simulation ticks and tested
+against a small prop spatial index, so fast cars cannot tunnel through props and the district-wide
+prop population does not require a full vehicle-by-prop scan.
+
 ## Local Development
 
 `npm run assets:export` reads `bil.gmp` and `bil.sty` from a local GTA2 installation. Keep the original game files untracked. By default the script looks for `GTA2_GAME/App_Executables/` inside the repository working tree, but that directory is ignored by git and must not be committed.
@@ -53,6 +76,7 @@ To export the complete Downtown district into its isolated runtime asset root, r
 ```bash
 npm run map:generate-downtown
 npm run map:generate-residential
+npm run map:compile-world
 ```
 
 Then start the web and game servers. Open `http://localhost:5173/city` for Downtown or
@@ -60,6 +84,13 @@ Then start the web and game servers. Open `http://localhost:5173/city` for Downt
 collision, and road classifications. Industrial-specific lanes, ambient population, traffic
 signals, services, and interiors remain disabled until district-specific gameplay metadata is
 authored.
+
+`http://localhost:5173/world` loads the experimental composite atlas. The compiler places
+Downtown northwest, Industrial northeast, and Residential southwest, namespaces their authored
+surfaces, stacks their texture atlases, and creates four four-block-wide connection roads with
+dedicated shoulder and center-line tiles. It also emits `phone-world-map.webp`; the phone Maps
+app projects the local player's current district coordinates into this shared atlas. Generated
+world output remains ignored alongside the source GTA-derived exports.
 
 Raw export is intended for converter development. To resize the active district, use the
 transactional map pipeline so gameplay coordinates move with the source crop:

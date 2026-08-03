@@ -16,6 +16,7 @@
     "map:generate-roads": "tsx scripts/generate-full-road-network.ts",
     "map:generate-downtown": "npm run district:export -- wil 256",
     "map:generate-residential": "npm run district:export -- ste 256",
+    "map:compile-world": "tsx scripts/compile-world-atlas.ts",
     "map:generate-raceway": "node scripts/generate-raceway-district.mjs",
     "map:generate-deathmatch": "node scripts/generate-raceway-district.mjs --deathmatch",
     "map:validate": "tsx scripts/validate-district-map.ts",
@@ -65,6 +66,7 @@
     "@types/three": "^0.185.1",
     "concurrently": "9.2.1",
     "playwright-core": "^1.61.1",
+    "sharp": "^0.34.5",
     "typescript": "5.9.3",
     "vite": "7.3.6"
   }

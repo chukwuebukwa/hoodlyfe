@@ -25,6 +25,11 @@ test('world catalog maps freeroam and activities to authoritative rooms', () => 
   assert.equal(residential.assetRoot, '/assets/districts/ste');
   assert.equal(residential.enableInteriors, false);
 
+  const world = gameWorldDefinition('world');
+  assert.equal(world.roomName, 'district-world');
+  assert.equal(world.assetRoot, '/assets/districts/world');
+  assert.equal(world.enableInteriors, false);
+
   const raceway = gameWorldDefinition('raceway');
   assert.equal(raceway.roomName, 'district-race');
   assert.equal(raceway.assetRoot, '/assets/districts/raceway');
@@ -41,6 +46,7 @@ test('canonical room names resolve to phone-travel world identifiers', () => {
   assert.equal(gameWorldIdForRoom('district'), 'industrial-district');
   assert.equal(gameWorldIdForRoom('district-city'), 'downtown');
   assert.equal(gameWorldIdForRoom('district-residential'), 'residential');
+  assert.equal(gameWorldIdForRoom('district-world'), 'world');
   assert.equal(gameWorldIdForRoom('district-race'), 'raceway');
   assert.equal(gameWorldIdForRoom('district-deathmatch'), 'deathmatch');
   assert.equal(gameWorldIdForRoom('district-playtest'), undefined);
@@ -52,6 +58,12 @@ test('phone activity sends street players to the raceway', () => {
   assert.equal(activities[0].actionLabel, 'Enter raceway');
   assert.equal(activities[1].actionLabel, 'Enter deathmatch');
   assert.equal(activities[1].locationLabel, 'Industrial District');
+});
+
+test('combined world remains a freeroam phone context', () => {
+  const activities = projectPhoneActivities('world');
+  assert.deepEqual(activities.map((activity) => activity.destination), ['raceway', 'deathmatch']);
+  assert.equal(activities[0].locationLabel, 'Greater NOCK0');
 });
 
 test('phone activity lets deathmatch players exit to freeroam', () => {

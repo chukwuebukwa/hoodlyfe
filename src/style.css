@@ -2074,7 +2074,8 @@ canvas {
 #phone-home.hidden,
 #phone-profile-app-screen.hidden,
 #phone-wallet-app-screen.hidden,
-#phone-jobs-app-screen.hidden {
+#phone-jobs-app-screen.hidden,
+#phone-maps-app-screen.hidden {
   display: none;
 }
 
@@ -2241,9 +2242,19 @@ canvas {
   color: #fff;
 }
 
+#phone-maps-app-screen {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #e8ece8;
+  color: #111;
+}
+
 #phone-app-header,
 #wallet-app-header,
-#jobs-app-header {
+#jobs-app-header,
+#maps-app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2276,6 +2287,14 @@ canvas {
 
 #jobs-app-header .phone-back-button { color: #ffb340 !important; }
 
+#maps-app-header .phone-back-button { color: #087bf5 !important; }
+
+#maps-app-header > span {
+  color: #51575b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
 #jobs-app-header > span {
   max-width: 150px;
   overflow: hidden;
@@ -2294,6 +2313,109 @@ canvas {
   overflow: hidden auto;
   padding: 0 16px 22px;
   scrollbar-width: none;
+}
+
+#maps-body {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 0 12px 16px;
+}
+
+#phone-world-map {
+  position: relative;
+  align-self: center;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(42, 49, 52, 0.3);
+  border-radius: 8px;
+  background: #11181c;
+  box-shadow: 0 5px 18px rgba(18, 25, 29, 0.24);
+}
+
+#phone-world-map > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  object-fit: cover;
+  user-select: none;
+}
+
+#phone-map-player {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #087bf5;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+#phone-map-player::after {
+  position: absolute;
+  inset: -8px;
+  border: 2px solid rgba(8, 123, 245, 0.35);
+  border-radius: 50%;
+  content: '';
+}
+
+#phone-map-player b {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+#phone-map-location {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 11px;
+  border: 1px solid rgba(42, 49, 52, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+#phone-map-location > i {
+  display: grid;
+  width: 40px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 8px;
+  background: #087bf5;
+  color: #fff;
+  font-style: normal;
+}
+
+#phone-map-location > i .phone-glyph {
+  width: 22px;
+  height: 22px;
+}
+
+#phone-map-location > div {
+  display: grid;
+  gap: 2px;
+}
+
+#phone-map-location small {
+  color: #73777b;
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: none;
+}
+
+#phone-map-location strong {
+  font-size: 16px;
+  letter-spacing: 0;
 }
 
 #jobs-body h1 {

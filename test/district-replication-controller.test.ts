@@ -11,6 +11,7 @@ import {
   PlayerState,
   RocketProjectileState,
   SoccerBallState,
+  StreetPropState,
   StingerState,
   StreetServiceState,
   VehicleState
@@ -34,6 +35,10 @@ test('district replication exposes complete street state and exact same-space in
   const ball = new SoccerBallState();
   ball.id = 'soccer-ball';
   state.soccerBalls.set(ball.id, ball);
+  const prop = new StreetPropState();
+  prop.id = 'dumpster';
+  prop.definitionId = 'dumpster.dark-green';
+  state.streetProps.set(prop.id, prop);
   const streetService = service('ammunition', 'street');
   const interiorService = service('threads', 'threads-showroom');
   state.services.set(streetService.id, streetService);
@@ -49,6 +54,7 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(streetView.has(npc), true);
   assert.equal(streetView.has(vehicle), true);
   assert.equal(streetView.has(ball), true);
+  assert.equal(streetView.has(prop), true);
   assert.equal(streetView.has(streetService), true);
   assert.equal(streetView.has(interiorService), false);
 
@@ -57,6 +63,7 @@ test('district replication exposes complete street state and exact same-space in
   assert.equal(interiorView.has(npc), false);
   assert.equal(interiorView.has(vehicle), false);
   assert.equal(interiorView.has(ball), false);
+  assert.equal(interiorView.has(prop), false);
   assert.equal(interiorView.has(streetService), false);
   assert.equal(interiorView.has(interiorService), true);
 });

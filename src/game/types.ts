@@ -220,6 +220,22 @@ export interface NetworkSoccerBall {
   angvel: number;
 }
 
+export interface NetworkStreetProp {
+  id: string;
+  definitionId: string;
+  surfaceId?: string;
+  x: number;
+  y: number;
+  angle: number;
+  health: number;
+  maxHealth: number;
+  damageStage: number;
+  hitSequence: number;
+  hitAngle: number;
+  destroyed: boolean;
+  resetAt: number;
+}
+
 export interface NetworkStinger {
   id: string;
   roadblockId: string;
@@ -307,6 +323,7 @@ export interface DistrictNetworkState {
   npcs: Map<string, NetworkNpc>;
   vehicles: Map<string, NetworkVehicle>;
   soccerBalls?: Map<string, NetworkSoccerBall>;
+  streetProps?: Map<string, NetworkStreetProp>;
   stingers?: Map<string, NetworkStinger>;
   missions: Map<string, NetworkMission>;
   services: Map<string, NetworkStreetService>;

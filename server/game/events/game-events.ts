@@ -20,7 +20,7 @@ export interface ProjectileImpactEvent extends EventMetadata {
   type: 'projectile.impact';
   projectileId: string;
   weapon: string;
-  targetKind: 'world' | 'player' | 'npc' | 'vehicle';
+  targetKind: 'world' | 'player' | 'npc' | 'vehicle' | 'prop';
   targetId?: string;
   x: number;
   y: number;

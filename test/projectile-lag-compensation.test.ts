@@ -4,6 +4,7 @@ import {CombatHitboxHistory} from '../server/game/combat/combat-hitbox-history.t
 import {ProjectileController} from '../server/game/combat/projectile-controller.ts';
 import {GameEventStream, type ProjectileImpactEvent} from '../server/game/events/game-events.ts';
 import {BulletState, DistrictState, PlayerState} from '../server/state.ts';
+import type {StreetPropController} from '../server/game/props/street-prop-controller.ts';
 
 test('physical projectile catch-up hits historical actors once and removes resolved authority', () => {
   const setup = fixture(() => false);
@@ -109,7 +110,35 @@ test('police use a reduced-damage pistol without changing the player pistol', ()
   assert.deepEqual(setup.playerDamages, [13]);
 });
 
-function fixture(blocked: (x: number, y: number) => boolean): {
+test('live projectiles stop on replicated street props and publish the prop impact', () => {
+  let propHits = 0;
+  const prop = {id: 'prototype-prop-1'};
+  const setup = fixture(
+    () => false,
+    {
+      firstSegmentHit: () => ({prop, progress: 0.5}),
+      damage: () => {
+        propHits++;
+        return true;
+      }
+    } as unknown as StreetPropController
+  );
+  const bullet = setup.bullet();
+
+  setup.controller.update(bullet, bullet.id, 0.016, 1_216);
+
+  assert.equal(propHits, 1);
+  assert.equal(setup.state.bullets.has(bullet.id), false);
+  assert.deepEqual(setup.impacts().map((impact) => ({
+    targetKind: impact.targetKind,
+    targetId: impact.targetId
+  })), [{targetKind: 'prop', targetId: prop.id}]);
+});
+
+function fixture(
+  blocked: (x: number, y: number) => boolean,
+  props?: StreetPropController
+): {
   state: DistrictState;
   controller: ProjectileController;
   capture: (time: number) => void;
@@ -129,6 +158,7 @@ function fixture(blocked: (x: number, y: number) => boolean): {
     state,
     world: {isBlockedAt: blocked} as any,
     history,
+    props,
     access: {occupants: () => []} as any,
     vehicles: {
       weaponDamage: (damage: number) => damage,

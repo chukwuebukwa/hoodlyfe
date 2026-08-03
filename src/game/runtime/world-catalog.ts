@@ -1,5 +1,5 @@
 export type GameWorldId =
-  'industrial-district' | 'downtown' | 'residential' | 'raceway' | 'deathmatch';
+  'industrial-district' | 'downtown' | 'residential' | 'world' | 'raceway' | 'deathmatch';
 
 export interface GameWorldDefinition {
   id: GameWorldId;
@@ -33,6 +33,14 @@ const GAME_WORLDS: Record<GameWorldId, GameWorldDefinition> = {
     assetRoot: '/assets/districts/ste',
     runtimeLabel: 'Residential District',
     loadingTitle: 'RESIDENTIAL',
+    enableInteriors: false
+  },
+  world: {
+    id: 'world',
+    roomName: 'district-world',
+    assetRoot: '/assets/districts/world',
+    runtimeLabel: 'Greater NOCK0',
+    loadingTitle: 'GREATER NOCK0',
     enableInteriors: false
   },
   raceway: {
