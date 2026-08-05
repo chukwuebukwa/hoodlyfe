@@ -437,7 +437,12 @@ export class DistrictRoom extends Room<DistrictState> {
     this.garageDoorController = new GarageDoorController({
       state: this.state,
       world: this.world,
-      physics: this.physicsWorld,
+      physics: {
+        setControlledStaticEnabled: (id, enabled) => {
+          this.physicsWorld.setControlledStaticEnabled(id, enabled);
+          this.vehicleSimulation?.setControlledStaticEnabled(id, enabled);
+        }
+      },
       doors: this.world.seamlessInteriors.garageDoors
     });
     this.voiceChat = new ProximityVoiceController({

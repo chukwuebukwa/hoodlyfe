@@ -29,6 +29,7 @@
     "level:apply": "tsx scripts/apply-level-editor-bundle.ts",
     "physics:soak": "tsx scripts/bench/persistent-physics-soak.ts",
     "physics:loadtest": "tsx scripts/loadtest/district-physics.ts --endpoint ws://127.0.0.1:2567 --room district --numClients 32 --delay 100",
+    "smoke:garage": "tsx scripts/smoke/garage-entry.ts",
     "bots:map": "LOADTEST_MAP_TRAVERSAL=1 LOADTEST_DURATION_MS=180000 LOADTEST_RECONNECT_INTERVAL_MS=600000 tsx scripts/loadtest/district-physics.ts --endpoint ws://127.0.0.1:2567 --room district --numClients 10 --delay 200 --logLevel none",
     "build": "tsc --noEmit && next build",
     "deploy:railway": "railway up --service \"hoodlyfe game\" --environment production",

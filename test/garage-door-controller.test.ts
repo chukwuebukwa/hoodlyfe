@@ -16,6 +16,9 @@ test('garage door opens by proximity, holds, reverses for obstruction, and close
   assert.ok(door);
   const state = new DistrictState();
   const world = CollisionMap.load();
+  const floorSurfaceId = world.surfaces.surfaceIdsAt(door.x - 48, door.y, 'player')
+    .find((surfaceId) => world.surfaces.heightAt(surfaceId, door.x - 48, door.y) === 128);
+  assert.ok(floorSurfaceId);
   const physicsChanges: Array<{id: string; enabled: boolean}> = [];
   const controller = new GarageDoorController({
     state,
@@ -26,7 +29,7 @@ test('garage door opens by proximity, holds, reverses for obstruction, and close
   });
   controller.initialize(0);
   assert.equal(state.garageDoors.size, 2);
-  assert.equal(world.canOccupy(door.x, door.y, 11, 'street-ground', 'player'), false);
+  assert.equal(world.canOccupy(door.x, door.y, 11, floorSurfaceId, 'player'), false);
 
   const player = new PlayerState();
   player.id = 'driver';
@@ -40,9 +43,9 @@ test('garage door opens by proximity, holds, reverses for obstruction, and close
 
   const passableAt = Math.ceil(door.animationMs * GARAGE_DOOR_PASSABLE_PROGRESS);
   controller.update(passableAt - 1);
-  assert.equal(world.canOccupy(door.x, door.y, 11, 'street-ground', 'player'), false);
+  assert.equal(world.canOccupy(door.x, door.y, 11, floorSurfaceId, 'player'), false);
   controller.update(passableAt);
-  assert.equal(world.canOccupy(door.x, door.y, 11, 'street-ground', 'player'), true);
+  assert.equal(world.canOccupy(door.x, door.y, 11, floorSurfaceId, 'player'), true);
   controller.update(door.animationMs);
   assert.equal(runtime.phase, 'open');
 
@@ -66,7 +69,7 @@ test('garage door opens by proximity, holds, reverses for obstruction, and close
   assert.equal(runtime.phase, 'closing');
   controller.update(door.animationMs * 3 + door.holdOpenMs * 2 + 100);
   assert.equal(runtime.phase, 'closed');
-  assert.equal(world.canOccupy(door.x, door.y, 11, 'street-ground', 'player'), false);
+  assert.equal(world.canOccupy(door.x, door.y, 11, floorSurfaceId, 'player'), false);
   assert.ok(physicsChanges.some(({id, enabled}) => id === door.id && enabled === false));
   assert.ok(physicsChanges.some(({id, enabled}) => id === door.id && enabled === true));
 });

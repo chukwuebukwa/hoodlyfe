@@ -12,7 +12,8 @@ import {
 } from '../shared/world/surface-map.ts';
 import {
   DEFAULT_SEAMLESS_INTERIOR_CATALOG,
-  type SeamlessInteriorCatalog
+  type SeamlessInteriorCatalog,
+  type SeamlessInteriorDefinition
 } from '../shared/content/seamless-interior-catalog.ts';
 
 const MAP_RANDOM = new DeterministicRandom('industrial-district-map:v1');
@@ -20,6 +21,18 @@ const MAP_RANDOM = new DeterministicRandom('industrial-district-map:v1');
 interface TileLayer {
   name: string;
   data: number[];
+}
+
+interface SeamlessSurfaceGeometry {
+  staticRects: Array<{minX: number; minY: number; maxX: number; maxY: number}>;
+  collisionExclusions: Array<{minX: number; minY: number; maxX: number; maxY: number}>;
+  garageDoors: Array<{
+    id: string;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }>;
 }
 
 export interface TiledMapData {
@@ -69,6 +82,7 @@ export class CollisionMap {
   private readonly collisions: number[];
   private readonly openCells: Array<{column: number; row: number}>;
   private readonly physicsGeometryBySurface = new Map<string, PhysicsWorldGeometry>();
+  private readonly seamlessGeometryBySurface = new Map<string, SeamlessSurfaceGeometry>();
   private readonly roads: number[];
   private readonly roadCells: RoadNode[];
   private readonly passableGarageDoors = new Set<string>();
@@ -90,6 +104,7 @@ export class CollisionMap {
     this.tileHeight = map.tileheight;
     this.authoredSurfaces = Boolean(surfaces);
     this.surfaces = surfaces ?? new SurfaceMap(flatSurfaceManifest(map));
+    if (this.authoredSurfaces) this.indexSeamlessSurfaceGeometry();
     this.collisions = collisionLayer.data;
     const roadLayer = map.layers.find((layer) => layer.name === 'roads');
     this.roads = roadLayer?.data.length === map.width * map.height
@@ -147,12 +162,13 @@ export class CollisionMap {
       this.surfaces,
       Math.max(16, Math.min(this.tileWidth, this.tileHeight) / 2)
     );
-    const geometry = surfaceId === this.surfaces.manifest.defaultSurfaceId
+    const seamless = this.seamlessGeometryBySurface.get(surfaceId);
+    const geometry = seamless
       ? Object.freeze({
         ...surfaceGeometry,
-        staticRects: this.seamlessInteriors.staticRects,
-        collisionExclusions: this.seamlessInteriors.collisionReplacementRects,
-        controlledStaticRects: this.seamlessInteriors.garageDoors
+        staticRects: seamless.staticRects,
+        collisionExclusions: seamless.collisionExclusions,
+        controlledStaticRects: seamless.garageDoors
       })
       : surfaceGeometry;
     this.physicsGeometryBySurface.set(surfaceId, geometry);
@@ -171,13 +187,13 @@ export class CollisionMap {
     actorKind: SurfaceActorKind = 'projectile'
   ): boolean {
     const seamlessCollision = (
-      !surfaceId || surfaceId === this.surfaces.manifest.defaultSurfaceId
+      !surfaceId || this.seamlessGeometryBySurface.has(surfaceId)
     ) && (
       this.seamlessInteriors.blocks(x, y, 0, actorKind) || this.blocksGarageDoor(x, y, 0)
     );
     if (seamlessCollision) return true;
     if (
-      surfaceId === this.surfaces.manifest.defaultSurfaceId &&
+      surfaceId !== undefined && this.seamlessGeometryBySurface.has(surfaceId) &&
       this.seamlessInteriors.replacesWorldCollision(x, y)
     ) return false;
     if (this.authoredSurfaces && surfaceId) {
@@ -202,7 +218,7 @@ export class CollisionMap {
     actorKind: SurfaceActorKind = 'player'
   ): boolean {
     if (
-      (!surfaceId || surfaceId === this.surfaces.manifest.defaultSurfaceId) &&
+      (!surfaceId || this.seamlessGeometryBySurface.has(surfaceId)) &&
       (
         this.seamlessInteriors.blocks(x, y, radius, actorKind) ||
         this.blocksGarageDoor(x, y, radius)
@@ -211,7 +227,7 @@ export class CollisionMap {
     const legacyProjectionAllows = this.legacyProjectionCanOccupy(x, y, radius);
     if (!surfaceId) return legacyProjectionAllows;
     if (
-      surfaceId === this.surfaces.manifest.defaultSurfaceId &&
+      this.seamlessGeometryBySurface.has(surfaceId) &&
       this.seamlessInteriors.replacesWorldCollision(x, y)
     ) return legacyProjectionAllows;
     if (!this.authoredSurfaces && !legacyProjectionAllows) return false;
@@ -222,6 +238,42 @@ export class CollisionMap {
     return this.seamlessInteriors.garageDoors.some((door) => (
       !this.passableGarageDoors.has(door.id) && circleOverlapsRect(x, y, radius, door)
     ));
+  }
+
+  private indexSeamlessSurfaceGeometry(): void {
+    for (const interior of this.seamlessInteriors.interiors) {
+      const surfaceId = this.seamlessFloorSurface(interior);
+      if (!surfaceId) continue;
+      const current = this.seamlessGeometryBySurface.get(surfaceId) ?? {
+        staticRects: [],
+        collisionExclusions: [],
+        garageDoors: []
+      };
+      current.staticRects.push(...interior.obstacles.map((obstacle) => ({
+        minX: obstacle.minX,
+        minY: obstacle.minY,
+        maxX: obstacle.maxX,
+        maxY: obstacle.maxY
+      })));
+      current.collisionExclusions.push(
+        ...interior.footprints,
+        ...interior.floorConnectors,
+        entranceCollisionRect(interior.entrance)
+      );
+      if (interior.garageDoor) current.garageDoors.push(interior.garageDoor);
+      this.seamlessGeometryBySurface.set(surfaceId, current);
+    }
+  }
+
+  private seamlessFloorSurface(interior: SeamlessInteriorDefinition): string | undefined {
+    const outward = entranceOutwardVector(interior.entrance.side);
+    const sampleDistance = Math.max(48, (interior.garageDoor?.thickness ?? 0) + 24);
+    const x = interior.entrance.x + outward.x * sampleDistance;
+    const y = interior.entrance.y + outward.y * sampleDistance;
+    return this.surfaces.surfaceIdsAt(x, y, 'player').find((surfaceId) => {
+      const height = this.surfaces.heightAt(surfaceId, x, y);
+      return height !== undefined && Math.abs(height - interior.floorZ) <= 1;
+    });
   }
 
   heightAt(surfaceId: string, x: number, y: number): number | undefined {
@@ -752,6 +804,29 @@ function circleOverlapsRect(
   return Math.hypot(x - nearestX, y - nearestY) < Math.max(0, radius) || (
     radius <= 0 && x >= rect.minX && x <= rect.maxX && y >= rect.minY && y <= rect.maxY
   );
+}
+
+function entranceOutwardVector(
+  side: SeamlessInteriorDefinition['entrance']['side']
+): {x: number; y: number} {
+  if (side === 'north') return {x: 0, y: -1};
+  if (side === 'east') return {x: 1, y: 0};
+  if (side === 'south') return {x: 0, y: 1};
+  return {x: -1, y: 0};
+}
+
+function entranceCollisionRect(
+  entrance: SeamlessInteriorDefinition['entrance']
+): {minX: number; minY: number; maxX: number; maxY: number} {
+  const depth = 32;
+  const halfWidth = entrance.width / 2;
+  const verticalSide = entrance.side === 'east' || entrance.side === 'west';
+  return {
+    minX: entrance.x - (verticalSide ? depth : halfWidth),
+    minY: entrance.y - (verticalSide ? halfWidth : depth),
+    maxX: entrance.x + (verticalSide ? depth : halfWidth),
+    maxY: entrance.y + (verticalSide ? halfWidth : depth)
+  };
 }
 
 function isFallableSurfaceEdge(

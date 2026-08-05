@@ -5,7 +5,8 @@ import {
   SEAMLESS_ROOF_EXIT_MARGIN,
   blocksSeamlessInterior,
   replacesSeamlessWorldCollision,
-  seamlessInteriorAt
+  seamlessInteriorAt,
+  type SeamlessInteriorDefinition
 } from '../shared/content/seamless-interior-catalog.ts';
 import {CollisionMap} from '../server/world-map.ts';
 import {ClientCollisionMap} from '../src/game/world/client-collision-map.ts';
@@ -91,9 +92,10 @@ test('Eastside Quick Mart seals its shell while keeping the south entrance open'
   assert.equal(blocksSeamlessInterior(10_500, 8_650, 11), false);
 
   const world = CollisionMap.load();
+  const floorSurfaceId = seamlessFloorSurfaceId(world, quickMart);
   for (let y = quickMart.entrance.y + 20; y >= quickMart.entrance.y - 72; y -= 8) {
     assert.equal(
-      world.canOccupy(quickMart.entrance.x, y, 11, 'street-ground', 'player'),
+      world.canOccupy(quickMart.entrance.x, y, 11, floorSurfaceId, 'player'),
       true,
       `Quick Mart entrance corridor is blocked at y=${y}`
     );
@@ -117,12 +119,13 @@ test('Westside Auto keeps its west entrance and L-shaped repair route open', () 
   assert.equal(blocksSeamlessInterior(service.x, service.y, radius, 'vehicle'), false);
 
   const world = CollisionMap.load();
+  const floorSurfaceId = seamlessFloorSurfaceId(world, westsideGarage, 'vehicle');
   assert.equal(
     world.canOccupy(
       westsideGarage.entrance.x,
       westsideGarage.entrance.y,
       radius,
-      'street-ground',
+      floorSurfaceId,
       'vehicle'
     ),
     false
@@ -139,15 +142,38 @@ test('Westside Auto keeps its west entrance and L-shaped repair route open', () 
   ] as const;
   for (const [x, y] of route) {
     assert.equal(
-      world.canOccupy(x, y, radius, 'street-ground', 'vehicle'),
+      world.canOccupy(x, y, radius, floorSurfaceId, 'vehicle'),
       true,
       `Westside Auto repair route is blocked at ${x},${y}`
     );
   }
+  const geometry = world.physicsGeometry(floorSurfaceId);
+  assert.ok(geometry.controlledStaticRects?.some(({id}) => id === westsideGarage.id));
+  assert.ok(geometry.collisionExclusions?.some((rect) => (
+    rect.minX <= westsideGarage.entrance.x && rect.maxX >= westsideGarage.entrance.x &&
+    rect.minY <= westsideGarage.entrance.y && rect.maxY >= westsideGarage.entrance.y
+  )));
+  const roofSurfaceId = world.surfaces.surfaceIdsAt(
+    westsideGarage.entrance.x + 96,
+    westsideGarage.entrance.y,
+    'vehicle'
+  ).find((surfaceId) => world.surfaces.heightAt(
+    surfaceId,
+    westsideGarage.entrance.x + 96,
+    westsideGarage.entrance.y
+  ) === westsideGarage.floorZ + 128);
+  assert.ok(roofSurfaceId);
+  assert.equal(
+    world.physicsGeometry(roofSurfaceId).controlledStaticRects?.some(
+      ({id}) => id === westsideGarage.id
+    ) ?? false,
+    false
+  );
 });
 
 test('server and browser collision agree on the seamless store', () => {
   const server = CollisionMap.load();
+  const storeFloorSurfaceId = seamlessFloorSurfaceId(server, store);
   const client = new ClientCollisionMap({
     width: server.width,
     height: server.height,
@@ -167,7 +193,7 @@ test('server and browser collision agree on the seamless store', () => {
     [12_590, 8_150, true],
     [12_672, 8_150, true]
   ] as const) {
-    assert.equal(server.canOccupy(x, y, 11, 'street-ground', 'player'), expected);
+    assert.equal(server.canOccupy(x, y, 11, storeFloorSurfaceId, 'player'), expected);
     assert.equal(client.canOccupy('street', x, y, 11), expected);
   }
   assert.equal(
@@ -181,16 +207,35 @@ test('server and browser collision agree on the seamless store', () => {
     ), 0)
   );
   assert.ok(garage?.garageDoor);
+  const garageFloorSurfaceId = seamlessFloorSurfaceId(server, garage);
   assert.equal(
-    server.canOccupy(garage.garageDoor.x, garage.garageDoor.y, 11, 'street-ground', 'player'),
+    server.canOccupy(garage.garageDoor.x, garage.garageDoor.y, 11, garageFloorSurfaceId, 'player'),
     false
   );
   assert.equal(client.canOccupy('street', garage.garageDoor.x, garage.garageDoor.y, 11), false);
   server.setGarageDoorPassable(garage.id, true);
   client.setGarageDoorPassable(garage.id, true);
   assert.equal(
-    server.canOccupy(garage.garageDoor.x, garage.garageDoor.y, 11, 'street-ground', 'player'),
+    server.canOccupy(garage.garageDoor.x, garage.garageDoor.y, 11, garageFloorSurfaceId, 'player'),
     true
   );
   assert.equal(client.canOccupy('street', garage.garageDoor.x, garage.garageDoor.y, 11), true);
 });
+
+function seamlessFloorSurfaceId(
+  world: CollisionMap,
+  interior: SeamlessInteriorDefinition,
+  actorKind: 'player' | 'vehicle' = 'player'
+): string {
+  const outward = interior.entrance.side === 'north' ? {x: 0, y: -1}
+    : interior.entrance.side === 'east' ? {x: 1, y: 0}
+    : interior.entrance.side === 'south' ? {x: 0, y: 1}
+    : {x: -1, y: 0};
+  const x = interior.entrance.x + outward.x * 48;
+  const y = interior.entrance.y + outward.y * 48;
+  const surfaceId = world.surfaces.surfaceIdsAt(x, y, actorKind).find((candidate) => (
+    world.surfaces.heightAt(candidate, x, y) === interior.floorZ
+  ));
+  assert.ok(surfaceId, `Missing floor surface for ${interior.id}.`);
+  return surfaceId;
+}

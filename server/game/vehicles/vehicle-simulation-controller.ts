@@ -141,6 +141,7 @@ export class VehicleSimulationController {
   >();
   private readonly impactAt = new Map<string, number>();
   private readonly physicsBySurface = new Map<string, PhysicsWorld>();
+  private readonly controlledStaticStates = new Map<string, boolean>();
   private readonly bodyRegistry: PhysicsBodyRegistry;
   private latestContactCount = 0;
   private rootSurfaceId?: string;
@@ -667,8 +668,18 @@ export class VehicleSimulationController {
       ? this.options.physics
       : this.options.physics.fork(Boolean(geometry), geometry);
     physics.setStaticsEnabled(surfaceId === defaultSurfaceId || Boolean(geometry));
+    for (const [id, enabled] of this.controlledStaticStates) {
+      physics.setControlledStaticEnabled(id, enabled);
+    }
     this.physicsBySurface.set(surfaceId, physics);
     return physics;
+  }
+
+  setControlledStaticEnabled(id: string, enabled: boolean): void {
+    this.controlledStaticStates.set(id, enabled);
+    for (const physics of this.physicsBySurface.values()) {
+      physics.setControlledStaticEnabled(id, enabled);
+    }
   }
 
   private assertPhysicsBodyOwnership(expectedBodies: number): void {
@@ -724,6 +735,7 @@ export class VehicleSimulationController {
   disposePhysics(): void {
     this.bodyRegistry.clear();
     this.physicsBySurface.clear();
+    this.controlledStaticStates.clear();
     this.pendingSoccerBallImpulses.clear();
   }
 
