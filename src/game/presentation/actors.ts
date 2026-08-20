@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
+import type {OnFootPose} from '../../../shared/simulation/on-foot-step.ts';
 import type {
   DistrictNetworkState,
   NetworkNpc,
@@ -182,7 +183,8 @@ export class ActorPresentation {
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
     private readonly remoteTimelinesEnabled: () => boolean = () => true,
-    private readonly playerVoiceActivity: (playerId: string) => number = () => 0
+    private readonly playerVoiceActivity: (playerId: string) => number = () => 0,
+    private readonly localPlayerPose: () => OnFootPose | undefined = () => undefined
   ) {
     this.skidMarks = new SkidMarkRenderer(scene, surfaceHeightAt);
   }
@@ -195,7 +197,8 @@ export class ActorPresentation {
       sample: Pick<RemoteMotionSample, 'snapshotAgeMs' | 'bufferUnderrun' | 'mode'>
     ) => void,
     remoteTimelinesEnabled: () => boolean = () => true,
-    playerVoiceActivity: (playerId: string) => number = () => 0
+    playerVoiceActivity: (playerId: string) => number = () => 0,
+    localPlayerPose: () => OnFootPose | undefined = () => undefined
   ): Promise<ActorPresentation> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
@@ -248,7 +251,8 @@ export class ActorPresentation {
       surfaceHeightAt,
       onRemoteTimeline,
       remoteTimelinesEnabled,
-      playerVoiceActivity
+      playerVoiceActivity,
+      localPlayerPose
     );
   }
 
@@ -609,8 +613,9 @@ export class ActorPresentation {
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const actorX = buffered?.x ?? player.x;
-    const actorY = buffered?.y ?? player.y;
+    const predicted = !vehicle && isLocalPlayer ? this.localPlayerPose() : undefined;
+    const actorX = predicted?.x ?? buffered?.x ?? player.x;
+    const actorY = predicted?.y ?? buffered?.y ?? player.y;
     const renderAngle = buffered?.angle ?? player.angle;
     const attachments = playerAttachmentPresentation(
       {x: actorX, y: actorY, angle: renderAngle},
@@ -621,6 +626,7 @@ export class ActorPresentation {
       Math.min(5, shot.kickDistance * 0.65)
     );
     const renderedSurfaceId = vehiclePose?.surfaceId ??
+      predicted?.surfaceId ??
       buffered?.surfaceId ??
       player.surfaceId ??
       STREET_GROUND_SURFACE_ID;

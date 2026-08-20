@@ -8,12 +8,13 @@ import {
 } from '../shared/protocol/netcode-rollout.ts';
 
 const ALL_ON = Object.freeze({
+  localOnFootPrediction: true,
   remoteTimelines: true,
   combatRewind: true
 });
 
 test('rollout requests and manifests are versioned, validated, and deeply frozen', () => {
-  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 3);
+  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 4);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION}), true);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 1}), false);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 99}), false);

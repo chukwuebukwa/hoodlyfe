@@ -142,6 +142,7 @@ const GAME_SHELL_HTML = `
       <div><dt>RTT p50/p95</dt><dd id="debug-latency">0/0ms</dd></div>
       <div><dt>Patch p95</dt><dd id="debug-patch-gap">0ms</dd></div>
       <div><dt>Clock / Buffer</dt><dd id="debug-clock-sync">unsynced</dd></div>
+      <div class="debug-wide"><dt>On-foot prediction</dt><dd id="debug-on-foot-prediction">off</dd></div>
       <div class="debug-wide"><dt>Netcode rollout</dt><dd id="debug-netcode-rollout">pending</dd></div>
       <div class="debug-wide"><dt>Player reaction</dt><dd id="debug-player-reaction">off</dd></div>
       <div class="debug-wide"><dt>Physical surface</dt><dd id="debug-surface">off</dd></div>

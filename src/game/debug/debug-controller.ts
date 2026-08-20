@@ -12,6 +12,7 @@ import {policeStingerSegmentPositions} from '../../../shared/simulation/police-s
 import type {MapStreamingSnapshot} from '../presentation/map/chunk-streamer.ts';
 import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import type {VehicleRenderPose} from '../rendering/render-types.ts';
+import type {OnFootPredictionSnapshot} from '../network/on-foot-prediction-controller.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -23,6 +24,7 @@ export class DebugController {
   private readonly shell = document.querySelector<HTMLElement>('#game-shell');
   private readonly eventList = document.querySelector<HTMLOListElement>('#debug-events');
   private readonly mapStreamingField = document.querySelector('#debug-map-streaming');
+  private readonly onFootPredictionField = document.querySelector('#debug-on-foot-prediction');
   private readonly fields: Record<string, Element | null> = {
     clock: document.querySelector('#debug-clock'),
     players: document.querySelector('#debug-players'),
@@ -71,7 +73,8 @@ export class DebugController {
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
     private readonly mapStreaming: () => MapStreamingSnapshot | undefined = () => undefined,
-    private readonly vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined
+    private readonly vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
+    private readonly onFootPrediction: () => OnFootPredictionSnapshot | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -140,6 +143,16 @@ export class DebugController {
           `${mapStreaming.loading} loading / ${mapStreaming.queued} queued / ` +
           `${mapStreaming.retained} retained / ${mapStreaming.failed} failed / ` +
           `${mapStreaming.loadedTriangles.toLocaleString()} triangles`
+        : 'off';
+    }
+    const prediction = this.onFootPrediction();
+    if (this.onFootPredictionField) {
+      this.onFootPredictionField.textContent = prediction
+        ? `${prediction.active ? 'active' : 'off'} / ${prediction.reason} / ` +
+          `seq ${prediction.sequence} ack ${prediction.acknowledgedSequence} / ` +
+          `${prediction.pendingInputs} pending / ${prediction.replayedInputs} replay / ` +
+          `${prediction.correctionErrorPx}px error / ` +
+          `${prediction.corrections} corrections / ${prediction.resets} resets`
         : 'off';
     }
     if (!this.eventList) return;

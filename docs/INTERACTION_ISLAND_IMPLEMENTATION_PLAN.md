@@ -1,8 +1,8 @@
 # Interaction-Island Netcode Implementation Plan
 
-> Superseded on 2026-07-19. The client prediction, reconciliation, interaction-snapshot,
-> and replay implementation described here was removed in favor of pure server authority
-> plus snapshot interpolation. This remains historical design context only.
+> Partially restored on 2026-08-20. Local grounded on-foot prediction and reconciliation
+> are active behind a rollout flag. The multi-body interaction-island selection, snapshot,
+> and replay stages below remain design work and are not deployed runtime behavior.
 
 ## Objective
 
@@ -39,7 +39,8 @@ promoting only the nearby bodies that can physically affect the locally controll
 Selection considers current contact, predicted time to contact, velocity, collider size,
 gameplay priority, and previous membership while enforcing a strict processing budget.
 
-The client retains 24 immutable fixed-tick island frames, approximately 800 ms. When an
+The current on-foot predictor retains 24 immutable fixed-tick frames, approximately 400
+ms at 60 Hz. A future island implementation must choose its own measured history budget. When an
 authoritative correction arrives, every island member is restored to the same server
 tick. The browser then replays the player's exact saved commands, briefly continues the
 last server-applied controls for relevant remote bodies, steps shared collision code,
@@ -83,8 +84,8 @@ game state or simulating the entire district in every browser.
 
 | Policy | Initial value |
 |---|---:|
-| Fixed simulation rate | 30 Hz |
-| Island history | 24 ticks / 800 ms |
+| Fixed simulation rate | 60 Hz |
+| Local on-foot history | 24 ticks / 400 ms |
 | Public combat rewind cap | 200 ms |
 | Desktop island budget | 32 weighted points |
 | Mobile island budget | 20 weighted points |
@@ -143,11 +144,12 @@ Gate: full tests and production build pass with no deterministic trace divergenc
 
 Gate: local walking remains immediate without walking through walls before correction.
 
-Implemented with a 30 Hz shared movement kernel, sequenced batched input, server-applied
-acknowledgements, 96-move saved history, authoritative rewind/replay, and hard correction
-for space transitions or errors above 120 px. Phaser and Three render the local body,
-weapon, label, and debug collider from one predicted transform. Deterministic wall and
-interior collision are shared between browser and server.
+Restored with a 60 Hz shared movement kernel, sequenced batched input, server-applied
+acknowledgements, 24-move saved history, authoritative rewind/replay, and hard correction
+for unsupported state transitions or errors above 120 px. Three renders the local body,
+weapon, label, and camera from one predicted transform. Authored surface occupancy and
+explicit surface transitions are shared between browser and server. Interiors, airborne
+movement, vehicles, and unsupported actions intentionally fall back to authority.
 
 ### M4: Remote Timelines - Complete
 

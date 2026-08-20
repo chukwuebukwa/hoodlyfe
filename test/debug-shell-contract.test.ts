@@ -14,6 +14,7 @@ const REQUIRED_MARKUP = [
   'id="debug-player-reaction"',
   'id="debug-surface"',
   'id="debug-simulation-phases"',
+  'id="debug-on-foot-prediction"',
   'id="debug-netcode-rollout"',
   'class="traffic-deadlock"',
   'class="traffic-recovery"'
@@ -24,6 +25,7 @@ const REQUIRED_WIDE_ROWS = [
   'Stingers',
   'Road graph',
   'Traffic risk',
+  'On-foot prediction',
   'Netcode rollout',
   'Player reaction',
   'Physical surface',

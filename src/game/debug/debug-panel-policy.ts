@@ -181,6 +181,7 @@ function rolloutSummary(rollout?: NetcodeRolloutSnapshot): string {
 }
 
 const ROLLOUT_STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  localOnFootPrediction: 'on-foot',
   remoteTimelines: 'timeline',
   combatRewind: 'rewind'
 });

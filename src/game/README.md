@@ -1,6 +1,6 @@
 # Client Game Modules
 
-The browser is a presentation and input client. It sends player intent, renders replicated server state, and never decides movement, collisions, damage, inventory, or mission outcomes.
+The browser is a presentation and input client. It sends player intent, predicts a bounded subset of local movement, renders replicated server state, and never decides authoritative movement, collision, elevation, damage, inventory, or mission outcomes.
 
 `DistrictClient` is the client composition root. It owns the scene renderer and coordinates focused modules for input, UI, audio, debug tools, network timing, remote interpolation, interiors, lighting, and entity presentation.
 
@@ -17,10 +17,18 @@ DistrictClient
 Rules:
 
 - Server commands carry intent only; the browser never sends positions or gameplay outcomes.
-- Every actor, including the local player and driven vehicle, is rendered from authoritative snapshots.
+- The grounded local street player may render from a reconciled predicted pose; all lasting outcomes remain authoritative.
+- Unsupported local states and every driven vehicle render from authoritative snapshots.
 - Remote motion timelines smooth snapshot delivery without simulating future local state.
 - Combat rewind is a server-side historical query; the client does not create provisional projectiles.
 - Device and DOM adapters install listeners once and remove them on shutdown.
 - HUD, minimap, debug, entity rendering, audio, and effects consume state through narrow inputs.
 
-Client-side prediction and reconciliation were deliberately removed. If responsiveness later requires prediction, introduce it as a separately measured feature rather than keeping a dormant second simulation stack.
+Local on-foot prediction runs the shared fixed-step movement kernel at 60 Hz, retains 24
+input frames, and reconciles against the server's last acknowledged input sequence. It is
+rollout-gated and fails closed when the surface manifest is unavailable or the player is
+inside an interior, airborne, dead, in a vehicle, or performing an unsupported action.
+Canonical physics rewinds immediately; a render-only offset decays after small corrections.
+
+This is the foundation for interaction islands, not the complete system. Nearby dynamic
+bodies are not yet promoted into client replay, and vehicles remain authoritative.

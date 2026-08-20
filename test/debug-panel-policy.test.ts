@@ -480,13 +480,14 @@ test('debug panel projects negotiated netcode stages and fail-closed state', () 
         combatProtocolVersion: 6,
         revision: 'canary-2',
         stages: {
+          localOnFootPrediction: true,
           remoteTimelines: true,
           combatRewind: true
         }
       }
     }
   );
-  assert.equal(panel.rollout, 'negotiated / canary-2 / timeline,rewind');
+  assert.equal(panel.rollout, 'negotiated / canary-2 / on-foot,timeline,rewind');
 });
 
 function createState(): DistrictNetworkState {

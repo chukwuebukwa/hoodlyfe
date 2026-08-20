@@ -3,6 +3,7 @@ import {
   PROJECTILE_IMPACTS_MESSAGE,
   type ProjectileImpactsMessage
 } from '../../shared/protocol/projectile-impacts.ts';
+import {ON_FOOT_INPUT_MESSAGE} from '../../shared/protocol/on-foot-input.ts';
 import type {Room} from 'colyseus.js';
 import type {DistrictNetworkState, NetworkPlayer} from './types.ts';
 import {ActorPresentation} from './presentation/actors.ts';
@@ -27,7 +28,10 @@ import {
   type SeamlessInteriorCatalog
 } from '../../shared/content/seamless-interior-catalog.ts';
 import {isWeaponId} from '../../shared/content/weapon-catalog.ts';
-import {STREET_GROUND_SURFACE_ID, SurfaceMap} from '../../shared/world/surface-map.ts';
+import {
+  STREET_GROUND_SURFACE_ID,
+  SurfaceMap
+} from '../../shared/world/surface-map.ts';
 import {
   mapSurfaceHeightAt,
   perspectiveHeightForSpan,
@@ -49,6 +53,11 @@ import {
 } from './camera/camera-policy.ts';
 import {gunshotPresentation} from './rendering/player-render-policy.ts';
 import {BuilderGunController} from './building-author/builder-gun-controller.ts';
+import {
+  OnFootPredictionController,
+  type OnFootPredictionAuthority
+} from './network/on-foot-prediction-controller.ts';
+import {SurfaceOnFootPredictionWorld} from './network/on-foot-prediction-world.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -97,8 +106,7 @@ export class DistrictClient {
   private builderGun?: BuilderGunController;
   private payload?: WorldGeometryManifest;
   private surfaceMap?: SurfaceMap;
-  private surfaceMapUrl?: string;
-  private surfaceMapLoadTimer?: number;
+  private onFootPrediction?: OnFootPredictionController;
   private destroyed = false;
   private centerInitialized = false;
   private cameraMode: CameraPresentationMode = readCameraMode();
@@ -155,7 +163,7 @@ export class DistrictClient {
         return value;
       })
     );
-    const [mapStreamer, metadata] = await Promise.all([
+    const [mapStreamer, metadata, surfaceMap] = await Promise.all([
       tracked('Map atlas ready', MapChunkStreamer.create(
         this.scene,
         this.mapOccluders,
@@ -163,10 +171,21 @@ export class DistrictClient {
       )),
       tracked('District metadata ready', loadMapMetadata(
         `${this.worldAssetRoot}/maps/district-map.metadata.json`
-      ))
+      )),
+      tracked('Surface navigation ready', loadSurfaceMap(
+        `${this.worldAssetRoot}/maps/surface-manifest.json`
+      ).catch((error) => {
+        console.error('Detailed surface navigation failed to load.', error);
+        return undefined;
+      }))
     ]);
     this.mapStreamer = mapStreamer;
-    this.surfaceMapUrl = `${this.worldAssetRoot}/maps/surface-manifest.json`;
+    this.surfaceMap = surfaceMap;
+    if (surfaceMap) {
+      this.onFootPrediction = new OnFootPredictionController(
+        new SurfaceOnFootPredictionWorld(surfaceMap)
+      );
+    }
     const payload = mapStreamer.manifest;
     this.payload = payload;
     if (this.enableInteriors) {
@@ -207,7 +226,8 @@ export class DistrictClient {
         this.surfaceHeightAt,
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
         () => this.rolloutEnabled('remoteTimelines'),
-        (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0
+        (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0,
+        () => this.onFootPrediction?.pose()
       );
       this.loadingStage(0.90, 'Loading street objects');
       this.objects = await WorldObjectPresentation.create(
@@ -260,7 +280,8 @@ export class DistrictClient {
         () => this.networkQuality?.snapshot(),
         () => this.netcodeRollout?.snapshot(),
         () => this.mapStreamer?.snapshot(),
-        (vehicleId) => this.actors?.vehiclePose(vehicleId)
+        (vehicleId) => this.actors?.vehiclePose(vehicleId),
+        () => this.onFootPrediction?.snapshot()
       );
       if (
         this.enableInteriors &&
@@ -334,7 +355,6 @@ export class DistrictClient {
     this.bind();
     this.resize();
     this.frame = requestAnimationFrame(this.render);
-    this.scheduleSurfaceMapLoad();
   }
 
   private loadingStage(progress: number, label: string): void {
@@ -344,7 +364,7 @@ export class DistrictClient {
 
   destroy(): void {
     this.destroyed = true;
-    if (this.surfaceMapLoadTimer !== undefined) window.clearTimeout(this.surfaceMapLoadTimer);
+    this.onFootPrediction?.reset('destroyed');
     cancelAnimationFrame(this.frame);
     this.unbind();
     this.input?.destroy();
@@ -374,19 +394,6 @@ export class DistrictClient {
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.status?.remove();
-  }
-
-  private scheduleSurfaceMapLoad(): void {
-    const url = this.surfaceMapUrl;
-    if (!url || this.surfaceMap || this.surfaceMapLoadTimer !== undefined) return;
-    this.surfaceMapLoadTimer = window.setTimeout(() => {
-      this.surfaceMapLoadTimer = undefined;
-      void loadSurfaceMap(url).then((surfaceMap) => {
-        if (!this.destroyed) this.surfaceMap = surfaceMap;
-      }).catch((error) => {
-        console.error('Detailed surface navigation failed to load.', error);
-      });
-    }, 1_000);
   }
 
   private rolloutEnabled(stage: Parameters<NetcodeRolloutController['enabled']>[0]): boolean {
@@ -506,6 +513,15 @@ export class DistrictClient {
       for (const [id, occluder] of this.mapOccluders) {
         occluder.visible = id !== hiddenOccluderId;
       }
+      const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
+      const local = this.room.state.players.get(this.room.sessionId);
+      const predictedInputs = this.onFootPrediction?.update(
+        onFootPredictionAuthority(local),
+        movement,
+        delta,
+        this.rolloutEnabled('localOnFootPrediction')
+      );
+      if (predictedInputs) this.room.send(ON_FOOT_INPUT_MESSAGE, predictedInputs);
       this.actors?.synchronize(
         this.room.state,
         localSpaceId,
@@ -524,8 +540,6 @@ export class DistrictClient {
         localSpaceId,
         this.actors?.playerPose(this.room.sessionId)
       );
-      const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
-      const local = this.room.state.players.get(this.room.sessionId);
       this.observeLocalShot(local, now);
       const localVehicle = local?.vehicleId
         ? this.room.state.vehicles.get(local.vehicleId)
@@ -534,7 +548,7 @@ export class DistrictClient {
         const targetZoom = drivingCameraZoom(localVehicle?.speed ?? 0);
         this.zoom = smoothDrivingCameraZoom(this.zoom, targetZoom, delta);
       }
-      if (local?.alive) {
+      if (local?.alive && !this.onFootPrediction?.snapshot().active) {
         if (
           now - this.lastAuthorityInputAt >= 50 ||
           movement.x !== this.lastAuthorityInput.x ||
@@ -904,6 +918,25 @@ async function loadSeamlessInteriorCatalog(
   return compileSeamlessInteriorCatalog(
     parseBuildingManifest(await response.json(), buildingsPath)
   );
+}
+
+function onFootPredictionAuthority(
+  player: NetworkPlayer | undefined
+): OnFootPredictionAuthority | undefined {
+  if (!player) return undefined;
+  return {
+    x: player.x,
+    y: player.y,
+    spaceId: player.spaceId ?? 'street',
+    surfaceId: player.surfaceId,
+    alive: player.alive,
+    vehicleId: player.vehicleId,
+    airborne: player.airborne ?? false,
+    action: player.action,
+    weapon: player.weapon,
+    attackCombo: player.attackCombo ?? 0,
+    lastInputSequence: player.lastInputSequence ?? 0
+  };
 }
 
 async function loadSurfaceMap(url: string): Promise<SurfaceMap> {

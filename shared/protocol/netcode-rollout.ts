@@ -3,9 +3,10 @@ import {boundedString, objectRecord, safePositiveInteger} from './protocol-valid
 
 export const NETCODE_ROLLOUT_REQUEST_MESSAGE = 'netcode.rollout.request';
 export const NETCODE_ROLLOUT_MANIFEST_MESSAGE = 'netcode.rollout.manifest';
-export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 3;
+export const NETCODE_ROLLOUT_PROTOCOL_VERSION = 4;
 
 export const NETCODE_ROLLOUT_STAGE_KEYS = Object.freeze([
+  'localOnFootPrediction',
   'remoteTimelines',
   'combatRewind'
 ] as const);
@@ -13,6 +14,7 @@ export const NETCODE_ROLLOUT_STAGE_KEYS = Object.freeze([
 export type NetcodeRolloutStage = typeof NETCODE_ROLLOUT_STAGE_KEYS[number];
 
 export interface NetcodeRolloutStages {
+  readonly localOnFootPrediction: boolean;
   readonly remoteTimelines: boolean;
   readonly combatRewind: boolean;
 }
@@ -44,6 +46,7 @@ export const LEGACY_NETCODE_ROLLOUT_MANIFEST: NetcodeRolloutManifest = freezeMan
   combatProtocolVersion: COMBAT_PROTOCOL_VERSION,
   revision: 'legacy-fallback',
   stages: {
+    localOnFootPrediction: false,
     remoteTimelines: false,
     combatRewind: false
   }
@@ -94,6 +97,7 @@ export function validateNetcodeRolloutManifest(message: unknown): NetcodeRollout
     combatProtocolVersion,
     revision,
     stages: {
+      localOnFootPrediction: stages.localOnFootPrediction,
       remoteTimelines: stages.remoteTimelines,
       combatRewind: stages.combatRewind
     }

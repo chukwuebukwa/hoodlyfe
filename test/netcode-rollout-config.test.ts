@@ -6,6 +6,7 @@ test('rollout configuration preserves the current all-on deployment by default',
   const manifest = resolveNetcodeRolloutManifest({});
   assert.equal(manifest.revision, 'server-authority');
   assert.deepEqual(manifest.stages, {
+    localOnFootPrediction: true,
     remoteTimelines: true,
     combatRewind: true
   });
