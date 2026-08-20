@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {STREET_GROUND_SURFACE_ID} from '../../../shared/world/surface-map.ts';
 import type {OnFootPose} from '../../../shared/simulation/on-foot-step.ts';
+import type {VehiclePredictionPose} from '../network/vehicle-prediction-controller.ts';
 import type {
   DistrictNetworkState,
   NetworkNpc,
@@ -184,7 +185,8 @@ export class ActorPresentation {
     ) => void,
     private readonly remoteTimelinesEnabled: () => boolean = () => true,
     private readonly playerVoiceActivity: (playerId: string) => number = () => 0,
-    private readonly localPlayerPose: () => OnFootPose | undefined = () => undefined
+    private readonly localPlayerPose: () => OnFootPose | undefined = () => undefined,
+    private readonly localVehiclePose: () => VehiclePredictionPose | undefined = () => undefined
   ) {
     this.skidMarks = new SkidMarkRenderer(scene, surfaceHeightAt);
   }
@@ -198,7 +200,8 @@ export class ActorPresentation {
     ) => void,
     remoteTimelinesEnabled: () => boolean = () => true,
     playerVoiceActivity: (playerId: string) => number = () => 0,
-    localPlayerPose: () => OnFootPose | undefined = () => undefined
+    localPlayerPose: () => OnFootPose | undefined = () => undefined,
+    localVehiclePose: () => VehiclePredictionPose | undefined = () => undefined
   ): Promise<ActorPresentation> {
     const loader = new THREE.TextureLoader();
     const characterSources = playerCharacterSources();
@@ -252,7 +255,8 @@ export class ActorPresentation {
       onRemoteTimeline,
       remoteTimelinesEnabled,
       playerVoiceActivity,
-      localPlayerPose
+      localPlayerPose,
+      localVehiclePose
     );
   }
 
@@ -607,7 +611,7 @@ export class ActorPresentation {
     const isLocalPlayer = !shouldUseRemoteTimeline(player.id, this.localPlayerId);
     const vehicle = player.vehicleId ? state.vehicles.get(player.vehicleId) : undefined;
     const vehiclePose = vehicle
-      ? (isLocalPlayer ? vehicle : this.vehiclePose(player.vehicleId) ?? vehicle)
+      ? (isLocalPlayer ? this.localVehiclePose() ?? vehicle : this.vehiclePose(player.vehicleId) ?? vehicle)
       : undefined;
     const buffered = !vehicle && !isLocalPlayer && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
@@ -966,19 +970,20 @@ export class ActorPresentation {
       vehicleDoorSpriteOffset(vehicle, door.frame)
     );
     const isLocalVehicle = !shouldUseRemoteTimeline(vehicle.id, localVehicleId);
+    const predicted = isLocalVehicle ? this.localVehiclePose() : undefined;
     const buffered = !isLocalVehicle && this.remoteTimelinesEnabled()
       ? rendered.motion?.sample(renderServerTimeMs, estimatedServerTimeMs)
       : undefined;
     if (buffered) this.onRemoteTimeline?.(buffered);
-    const x = buffered?.x ?? vehicle.x;
-    const y = buffered?.y ?? vehicle.y;
-    const angle = buffered?.angle ?? vehicle.angle;
+    const x = predicted?.x ?? buffered?.x ?? vehicle.x;
+    const y = predicted?.y ?? buffered?.y ?? vehicle.y;
+    const angle = predicted?.angle ?? buffered?.angle ?? vehicle.angle;
     const z = (vehicle.airborne
       ? buffered?.elevation ?? vehicle.elevation
       : undefined) ?? this.surfaceHeightAt(
       x,
       y,
-      buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
+      predicted?.surfaceId ?? buffered?.surfaceId ?? vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID
     );
     const renderedZ = z + 3;
     positionEntity(rendered.mesh, x, y, renderedZ, buffered || isLocalVehicle ? 1 : 0.3);

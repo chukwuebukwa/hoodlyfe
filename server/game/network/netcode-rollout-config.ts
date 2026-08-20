@@ -6,6 +6,7 @@ import {
 
 const ENVIRONMENT_KEYS: Readonly<Record<NetcodeRolloutStage, string>> = Object.freeze({
   localOnFootPrediction: 'GAME_NETCODE_LOCAL_ON_FOOT_PREDICTION',
+  localVehiclePrediction: 'GAME_NETCODE_LOCAL_VEHICLE_PREDICTION',
   remoteTimelines: 'GAME_NETCODE_REMOTE_TIMELINES',
   combatRewind: 'GAME_NETCODE_COMBAT_REWIND'
 });
@@ -22,6 +23,7 @@ export function resolveNetcodeRolloutManifest(
   const revision = environment.GAME_NETCODE_ROLLOUT_REVISION?.trim() || 'server-authority';
   return createNetcodeRolloutManifest(revision, {
     localOnFootPrediction: stages.localOnFootPrediction,
+    localVehiclePrediction: stages.localVehiclePrediction,
     remoteTimelines: stages.remoteTimelines,
     combatRewind: stages.combatRewind
   });

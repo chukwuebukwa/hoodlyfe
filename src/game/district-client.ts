@@ -4,8 +4,9 @@ import {
   type ProjectileImpactsMessage
 } from '../../shared/protocol/projectile-impacts.ts';
 import {ON_FOOT_INPUT_MESSAGE} from '../../shared/protocol/on-foot-input.ts';
+import {VEHICLE_INPUT_MESSAGE} from '../../shared/protocol/vehicle-input.ts';
 import type {Room} from 'colyseus.js';
-import type {DistrictNetworkState, NetworkPlayer} from './types.ts';
+import type {DistrictNetworkState, NetworkPlayer, NetworkVehicle} from './types.ts';
 import {ActorPresentation} from './presentation/actors.ts';
 import {DistrictUiController} from './ui/district-ui-controller.ts';
 import {WorldObjectPresentation} from './presentation/objects.ts';
@@ -58,6 +59,11 @@ import {
   type OnFootPredictionAuthority
 } from './network/on-foot-prediction-controller.ts';
 import {SurfaceOnFootPredictionWorld} from './network/on-foot-prediction-world.ts';
+import {
+  VehiclePredictionController,
+  type VehiclePredictionAuthority
+} from './network/vehicle-prediction-controller.ts';
+import {SurfaceVehiclePredictionWorld} from './network/vehicle-prediction-world.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -107,6 +113,7 @@ export class DistrictClient {
   private payload?: WorldGeometryManifest;
   private surfaceMap?: SurfaceMap;
   private onFootPrediction?: OnFootPredictionController;
+  private vehiclePrediction?: VehiclePredictionController;
   private destroyed = false;
   private centerInitialized = false;
   private cameraMode: CameraPresentationMode = readCameraMode();
@@ -185,6 +192,9 @@ export class DistrictClient {
       this.onFootPrediction = new OnFootPredictionController(
         new SurfaceOnFootPredictionWorld(surfaceMap)
       );
+      this.vehiclePrediction = new VehiclePredictionController(
+        new SurfaceVehiclePredictionWorld(surfaceMap)
+      );
     }
     const payload = mapStreamer.manifest;
     this.payload = payload;
@@ -227,7 +237,8 @@ export class DistrictClient {
         (sample) => this.networkQuality?.observeRemoteTimeline(sample),
         () => this.rolloutEnabled('remoteTimelines'),
         (playerId) => this.ui?.playerVoiceActivity(playerId) ?? 0,
-        () => this.onFootPrediction?.pose()
+        () => this.onFootPrediction?.pose(),
+        () => this.vehiclePrediction?.pose()
       );
       this.loadingStage(0.90, 'Loading street objects');
       this.objects = await WorldObjectPresentation.create(
@@ -280,8 +291,9 @@ export class DistrictClient {
         () => this.networkQuality?.snapshot(),
         () => this.netcodeRollout?.snapshot(),
         () => this.mapStreamer?.snapshot(),
-        (vehicleId) => this.actors?.vehiclePose(vehicleId),
-        () => this.onFootPrediction?.snapshot()
+        () => this.onFootPrediction?.snapshot(),
+        () => this.vehiclePrediction?.snapshot(),
+        () => this.vehiclePrediction?.pose()
       );
       if (
         this.enableInteriors &&
@@ -365,6 +377,7 @@ export class DistrictClient {
   destroy(): void {
     this.destroyed = true;
     this.onFootPrediction?.reset('destroyed');
+    this.vehiclePrediction?.reset('destroyed');
     cancelAnimationFrame(this.frame);
     this.unbind();
     this.input?.destroy();
@@ -515,6 +528,9 @@ export class DistrictClient {
       }
       const movement = this.input?.update(now) ?? {x: 0, y: 0, handbrake: false};
       const local = this.room.state.players.get(this.room.sessionId);
+      const localVehicle = local?.vehicleId
+        ? this.room.state.vehicles.get(local.vehicleId)
+        : undefined;
       const predictedInputs = this.onFootPrediction?.update(
         onFootPredictionAuthority(local),
         movement,
@@ -522,6 +538,13 @@ export class DistrictClient {
         this.rolloutEnabled('localOnFootPrediction')
       );
       if (predictedInputs) this.room.send(ON_FOOT_INPUT_MESSAGE, predictedInputs);
+      const predictedVehicleInputs = this.vehiclePrediction?.update(
+        vehiclePredictionAuthority(local, localVehicle),
+        movement,
+        delta,
+        this.rolloutEnabled('localVehiclePrediction')
+      );
+      if (predictedVehicleInputs) this.room.send(VEHICLE_INPUT_MESSAGE, predictedVehicleInputs);
       this.actors?.synchronize(
         this.room.state,
         localSpaceId,
@@ -541,14 +564,17 @@ export class DistrictClient {
         this.actors?.playerPose(this.room.sessionId)
       );
       this.observeLocalShot(local, now);
-      const localVehicle = local?.vehicleId
-        ? this.room.state.vehicles.get(local.vehicleId)
-        : undefined;
       if (this.cameraMode === 'overhead') {
-        const targetZoom = drivingCameraZoom(localVehicle?.speed ?? 0);
+        const targetZoom = drivingCameraZoom(
+          this.vehiclePrediction?.pose()?.speed ?? localVehicle?.speed ?? 0
+        );
         this.zoom = smoothDrivingCameraZoom(this.zoom, targetZoom, delta);
       }
-      if (local?.alive && !this.onFootPrediction?.snapshot().active) {
+      if (
+        local?.alive &&
+        !this.onFootPrediction?.snapshot().active &&
+        !this.vehiclePrediction?.snapshot().streaming
+      ) {
         if (
           now - this.lastAuthorityInputAt >= 50 ||
           movement.x !== this.lastAuthorityInput.x ||
@@ -936,6 +962,36 @@ function onFootPredictionAuthority(
     weapon: player.weapon,
     attackCombo: player.attackCombo ?? 0,
     lastInputSequence: player.lastInputSequence ?? 0
+  };
+}
+
+function vehiclePredictionAuthority(
+  player: NetworkPlayer | undefined,
+  vehicle: NetworkVehicle | undefined
+): VehiclePredictionAuthority | undefined {
+  if (!player || !vehicle) return undefined;
+  return {
+    playerId: player.id,
+    vehicleId: vehicle.id,
+    kind: vehicle.kind,
+    surfaceId: vehicle.surfaceId ?? STREET_GROUND_SURFACE_ID,
+    x: vehicle.x,
+    y: vehicle.y,
+    angle: vehicle.angle,
+    speed: vehicle.speed,
+    linvelX: vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
+    linvelY: vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
+    angvel: vehicle.angvel ?? 0,
+    alive: player.alive,
+    playerVehicleId: player.vehicleId,
+    playerVehicleSeat: player.vehicleSeat,
+    driverId: vehicle.driverId,
+    destroyed: vehicle.destroyed,
+    airborne: vehicle.airborne ?? false,
+    engineDamage: vehicle.engineDamage,
+    tyreDamageMask: vehicle.tyreDamageMask,
+    onFire: vehicle.onFire,
+    lastVehicleInputSequence: player.lastVehicleInputSequence ?? 0
   };
 }
 

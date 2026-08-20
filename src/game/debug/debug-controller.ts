@@ -11,8 +11,11 @@ import {vehicleDefinition} from '../../../shared/content/vehicle-catalog.ts';
 import {policeStingerSegmentPositions} from '../../../shared/simulation/police-stinger-contact.ts';
 import type {MapStreamingSnapshot} from '../presentation/map/chunk-streamer.ts';
 import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
-import type {VehicleRenderPose} from '../rendering/render-types.ts';
 import type {OnFootPredictionSnapshot} from '../network/on-foot-prediction-controller.ts';
+import type {
+  VehiclePredictionPose,
+  VehiclePredictionSnapshot
+} from '../network/vehicle-prediction-controller.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -25,6 +28,7 @@ export class DebugController {
   private readonly eventList = document.querySelector<HTMLOListElement>('#debug-events');
   private readonly mapStreamingField = document.querySelector('#debug-map-streaming');
   private readonly onFootPredictionField = document.querySelector('#debug-on-foot-prediction');
+  private readonly vehiclePredictionField = document.querySelector('#debug-vehicle-prediction');
   private readonly fields: Record<string, Element | null> = {
     clock: document.querySelector('#debug-clock'),
     players: document.querySelector('#debug-players'),
@@ -73,8 +77,9 @@ export class DebugController {
     private readonly networkQuality: () => NetworkQualitySnapshot | undefined,
     private readonly netcodeRollout: () => NetcodeRolloutSnapshot | undefined = () => undefined,
     private readonly mapStreaming: () => MapStreamingSnapshot | undefined = () => undefined,
-    private readonly vehiclePose: (vehicleId: string) => VehicleRenderPose | undefined = () => undefined,
-    private readonly onFootPrediction: () => OnFootPredictionSnapshot | undefined = () => undefined
+    private readonly onFootPrediction: () => OnFootPredictionSnapshot | undefined = () => undefined,
+    private readonly vehiclePrediction: () => VehiclePredictionSnapshot | undefined = () => undefined,
+    private readonly predictedVehiclePose: () => VehiclePredictionPose | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -155,6 +160,17 @@ export class DebugController {
           `${prediction.corrections} corrections / ${prediction.resets} resets`
         : 'off';
     }
+    const vehiclePrediction = this.vehiclePrediction();
+    if (this.vehiclePredictionField) {
+      this.vehiclePredictionField.textContent = vehiclePrediction
+        ? `${vehiclePrediction.active ? 'active' : (vehiclePrediction.streaming ? 'input-only' : 'off')} / ` +
+          `${vehiclePrediction.reason} / seq ${vehiclePrediction.sequence} ` +
+          `ack ${vehiclePrediction.acknowledgedSequence} / ${vehiclePrediction.pendingInputs} pending / ` +
+          `${vehiclePrediction.replayedInputs} replay / ${vehiclePrediction.correctionErrorPx}px / ` +
+          `${vehiclePrediction.angularErrorRad}rad / ${vehiclePrediction.corrections} corrections / ` +
+          `${vehiclePrediction.resets} resets`
+        : 'off';
+    }
     if (!this.eventList) return;
     this.eventList.replaceChildren(...projection.events.map((event) => {
       const item = document.createElement('li');
@@ -193,7 +209,7 @@ export class DebugController {
       ));
     }
     for (const vehicle of state.vehicles.values()) {
-      const pose = this.vehiclePose(vehicle.id) ?? vehicle;
+      const pose = vehicle;
       this.group.add(vehicleGlyph(
         pose.x,
         pose.y,
@@ -204,6 +220,20 @@ export class DebugController {
         vehicle.linvelX ?? Math.cos(vehicle.angle) * vehicle.speed,
         vehicle.linvelY ?? Math.sin(vehicle.angle) * vehicle.speed,
         pose.surfaceId ?? vehicle.surfaceId
+      ));
+    }
+    const predictedVehicle = this.predictedVehiclePose();
+    if (predictedVehicle) {
+      this.group.add(vehicleGlyph(
+        predictedVehicle.x,
+        predictedVehicle.y,
+        predictedVehicle.angle,
+        predictedVehicle.kind,
+        0x42e8e0,
+        this.surfaceHeightAt,
+        predictedVehicle.linvelX,
+        predictedVehicle.linvelY,
+        predictedVehicle.surfaceId
       ));
     }
     for (const ball of state.soccerBalls?.values() ?? []) {

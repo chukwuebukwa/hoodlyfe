@@ -9,6 +9,7 @@ import {NetcodeRolloutController} from '../src/game/network/netcode-rollout-cont
 
 const ALL_ON = Object.freeze({
   localOnFootPrediction: true,
+  localVehiclePrediction: true,
   remoteTimelines: true,
   combatRewind: true
 });
@@ -41,6 +42,7 @@ test('client installs its listener before request and enables only negotiated st
   assert.equal(controller.snapshot().source, 'negotiated');
   assert.equal(controller.enabled('remoteTimelines'), true);
   assert.equal(controller.enabled('localOnFootPrediction'), true);
+  assert.equal(controller.enabled('localVehiclePrediction'), true);
   assert.equal(controller.enabled('combatRewind'), true);
   scheduled?.();
   assert.equal(controller.snapshot().source, 'negotiated');

@@ -7,6 +7,7 @@ test('rollout configuration preserves the current all-on deployment by default',
   assert.equal(manifest.revision, 'server-authority');
   assert.deepEqual(manifest.stages, {
     localOnFootPrediction: true,
+    localVehiclePrediction: true,
     remoteTimelines: true,
     combatRewind: true
   });
@@ -19,6 +20,7 @@ test('rollout configuration supports independent safe fallbacks and explicit rev
   });
   assert.equal(manifest.revision, 'rewind-off');
   assert.equal(manifest.stages.remoteTimelines, true);
+  assert.equal(manifest.stages.localVehiclePrediction, true);
   assert.equal(manifest.stages.combatRewind, false);
 });
 
