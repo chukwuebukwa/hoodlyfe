@@ -82,6 +82,48 @@ test('small corrections preserve the rendered pose and decay without changing ca
   assert.ok((controller.pose()?.x ?? 0) > 101);
 });
 
+test('unchanged acknowledgements do not reapply repeated server-held movement', () => {
+  const controller = new OnFootPredictionController(world);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  const before = controller.pose();
+
+  controller.update(
+    authority({x: 104, lastInputSequence: 0}),
+    {x: 0, y: 0},
+    0,
+    true
+  );
+
+  assert.deepEqual(controller.pose(), before);
+  assert.equal(controller.snapshot().corrections, 0);
+  assert.equal(controller.snapshot().replayedInputs, 0);
+});
+
+test('reconciliation refreshes pending snapshots for later acknowledgements', () => {
+  const controller = new OnFootPredictionController(world);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  const step = ON_FOOT_PLAYER_SPEED * ON_FOOT_SIMULATION_STEP_SECONDS;
+
+  controller.update(
+    authority({x: 100 + step - 1, lastInputSequence: 1}),
+    {x: 0, y: 0},
+    0,
+    true
+  );
+  assert.equal(controller.snapshot().corrections, 1);
+
+  controller.update(
+    authority({x: 100 + step * 2 - 1, lastInputSequence: 2}),
+    {x: 0, y: 0},
+    0,
+    true
+  );
+  assert.equal(controller.snapshot().correctionErrorPx, 0);
+  assert.equal(controller.snapshot().corrections, 1);
+});
+
 test('prediction fails closed when rollout is disabled or surface authority is missing', () => {
   const controller = new OnFootPredictionController(world);
   assert.equal(controller.update(

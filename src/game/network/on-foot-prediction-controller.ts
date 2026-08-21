@@ -177,6 +177,10 @@ export class OnFootPredictionController {
     }
     const signature = authorityPoseSignature(authority, acknowledged);
     if (signature === this.authoritySignature) return;
+    if (acknowledged === this.acknowledgedSequence) {
+      this.authoritySignature = signature;
+      return;
+    }
     const before = this.pose() ?? this.predicted;
     const historical = this.pending.find(({message}) => (
       message.sequence === acknowledged
@@ -187,12 +191,16 @@ export class OnFootPredictionController {
     this.sequence = Math.max(this.sequence, acknowledged);
     this.pending = this.pending.filter(({message}) => message.sequence > acknowledged);
     let replayed = poseFromAuthority(authority);
-    for (const pending of this.pending) {
+    this.pending = this.pending.map((pending) => {
       replayed = this.world.step(replayed, {
         x: pending.message.x,
         y: pending.message.y
       }, pending.movementScale);
-    }
+      return Object.freeze({
+        ...pending,
+        predicted: {...replayed}
+      });
+    });
     this.replayedInputs = this.pending.length;
     this.correctionErrorPx = Math.hypot(
       compared.x - authority.x,

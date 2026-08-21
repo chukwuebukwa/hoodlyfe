@@ -88,6 +88,52 @@ test('small vehicle corrections preserve the rendered pose and decay smoothly', 
   assert.ok((controller.pose()?.x ?? 0) > 108);
 });
 
+test('unchanged vehicle acknowledgements do not reapply held server movement', () => {
+  const controller = new VehiclePredictionController(world);
+  controller.update(
+    authority(),
+    {x: 1, y: 0, handbrake: false},
+    VEHICLE_SIMULATION_STEP_SECONDS,
+    true
+  );
+  const before = controller.pose();
+
+  controller.update(
+    authority({x: 105, linvelX: 10, speed: 10, lastVehicleInputSequence: 0}),
+    {x: 0, y: 0, handbrake: false},
+    0,
+    true
+  );
+
+  assert.deepEqual(controller.pose(), before);
+  assert.equal(controller.snapshot().corrections, 0);
+  assert.equal(controller.snapshot().replayedInputs, 0);
+});
+
+test('vehicle reconciliation refreshes pending snapshots for later acknowledgements', () => {
+  const controller = new VehiclePredictionController(world);
+  controller.update(authority(), {x: 1, y: 0, handbrake: false}, VEHICLE_SIMULATION_STEP_SECONDS, true);
+  controller.update(authority(), {x: 1, y: 0, handbrake: false}, VEHICLE_SIMULATION_STEP_SECONDS, true);
+  controller.update(authority(), {x: 1, y: 0, handbrake: false}, VEHICLE_SIMULATION_STEP_SECONDS, true);
+
+  controller.update(
+    authority({x: 109, linvelX: 10, speed: 10, lastVehicleInputSequence: 1}),
+    {x: 0, y: 0, handbrake: false},
+    0,
+    true
+  );
+  assert.equal(controller.snapshot().corrections, 1);
+
+  controller.update(
+    authority({x: 119, linvelX: 10, speed: 10, lastVehicleInputSequence: 2}),
+    {x: 0, y: 0, handbrake: false},
+    0,
+    true
+  );
+  assert.equal(controller.snapshot().correctionErrorPx, 0);
+  assert.equal(controller.snapshot().corrections, 1);
+});
+
 test('airborne vehicles stream sequenced input but remain server-rendered', () => {
   const controller = new VehiclePredictionController(world);
   const batch = controller.update(
