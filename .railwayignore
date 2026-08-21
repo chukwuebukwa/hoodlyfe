@@ -1,5 +1,5 @@
-# `npm run deploy:railway` uses --no-gitignore so generated GTA2 assets in
-# public/ are included. A plain `railway up` produces a broken server package.
+# Keep deployment snapshots below Railway's upload limit. Runtime map and media
+# assets under public/ are tracked; local build output and reference source are not.
 node_modules/
 .git/
 .next/
