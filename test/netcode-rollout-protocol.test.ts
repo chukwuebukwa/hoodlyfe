@@ -11,11 +11,15 @@ const ALL_ON = Object.freeze({
   localOnFootPrediction: true,
   localVehiclePrediction: true,
   remoteTimelines: true,
-  combatRewind: true
+  combatRewind: true,
+  interactionSnapshots: true,
+  interactionSelection: true,
+  vehicleIslandReplay: true,
+  mixedIslandReplay: true
 });
 
 test('rollout requests and manifests are versioned, validated, and deeply frozen', () => {
-  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 5);
+  assert.equal(NETCODE_ROLLOUT_PROTOCOL_VERSION, 6);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: NETCODE_ROLLOUT_PROTOCOL_VERSION}), true);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 1}), false);
   assert.equal(validateNetcodeRolloutRequest({protocolVersion: 99}), false);
@@ -30,6 +34,22 @@ test('rollout requests and manifests are versioned, validated, and deeply frozen
     accepted: false,
     reason: 'unsupported-version'
   });
+});
+
+test('interaction stages require their safe rollout predecessors', () => {
+  const base = {...ALL_ON};
+  assert.deepEqual(validateNetcodeRolloutManifest({
+    ...createNetcodeRolloutManifest('base', ALL_ON),
+    stages: {...base, interactionSnapshots: false}
+  }), {accepted: false, reason: 'invalid-dependencies'});
+  assert.deepEqual(validateNetcodeRolloutManifest({
+    ...createNetcodeRolloutManifest('base', ALL_ON),
+    stages: {...base, interactionSelection: false}
+  }), {accepted: false, reason: 'invalid-dependencies'});
+  assert.deepEqual(validateNetcodeRolloutManifest({
+    ...createNetcodeRolloutManifest('base', ALL_ON),
+    stages: {...base, vehicleIslandReplay: false}
+  }), {accepted: false, reason: 'invalid-dependencies'});
 });
 
 test('rollout admission fails closed on malformed stages', () => {

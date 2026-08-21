@@ -11,7 +11,11 @@ const ALL_ON = Object.freeze({
   localOnFootPrediction: true,
   localVehiclePrediction: true,
   remoteTimelines: true,
-  combatRewind: true
+  combatRewind: true,
+  interactionSnapshots: true,
+  interactionSelection: true,
+  vehicleIslandReplay: true,
+  mixedIslandReplay: true
 });
 
 test('client installs its listener before request and enables only negotiated stages', () => {
@@ -44,6 +48,8 @@ test('client installs its listener before request and enables only negotiated st
   assert.equal(controller.enabled('localOnFootPrediction'), true);
   assert.equal(controller.enabled('localVehiclePrediction'), true);
   assert.equal(controller.enabled('combatRewind'), true);
+  assert.equal(controller.enabled('interactionSnapshots'), true);
+  assert.equal(controller.enabled('mixedIslandReplay'), true);
   scheduled?.();
   assert.equal(controller.snapshot().source, 'negotiated');
   controller.destroy();

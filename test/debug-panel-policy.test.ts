@@ -478,12 +478,17 @@ test('debug panel projects negotiated netcode stages and fail-closed state', () 
       manifest: {
         protocolVersion: 1,
         combatProtocolVersion: 6,
+        interactionProtocolVersion: 7,
         revision: 'canary-2',
         stages: {
           localOnFootPrediction: true,
           localVehiclePrediction: true,
           remoteTimelines: true,
-          combatRewind: true
+          combatRewind: true,
+          interactionSnapshots: false,
+          interactionSelection: false,
+          vehicleIslandReplay: false,
+          mixedIslandReplay: false
         }
       }
     }
