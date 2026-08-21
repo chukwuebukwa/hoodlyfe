@@ -2,12 +2,14 @@
 # public/ are included. A plain `railway up` produces a broken server package.
 node_modules/
 .git/
+.next/
 dist/
 coverage/
 tmp/
 art/
 docs/
 test/
+opengta2/
 .env
 .DS_Store
 npm-debug.log*
