@@ -8,9 +8,15 @@ import {
   type OnFootPose
 } from '../../../shared/simulation/on-foot-step.ts';
 
-const MAX_HISTORY_TICKS = 24;
+// Saved local input history is intentionally longer than the 800ms interaction-island
+// history. This preserves the 96 moves at 30Hz tolerance of the proven predictor.
+const MIN_HISTORY_SECONDS = 3.2;
+const MAX_HISTORY_TICKS = Math.ceil(
+  MIN_HISTORY_SECONDS / ON_FOOT_SIMULATION_STEP_SECONDS
+);
 const MAX_FRAME_TICKS = 4;
 const POSITION_EPSILON = 0.001;
+const RESIMULATE_POSITION_ERROR = 1;
 const HARD_CORRECTION_DISTANCE = 120;
 const VISUAL_CORRECTION_DECAY = 14;
 
@@ -42,6 +48,8 @@ export interface OnFootPredictionSnapshot {
   readonly sequence: number;
   readonly acknowledgedSequence: number;
   readonly pendingInputs: number;
+  readonly historyCapacity: number;
+  readonly historyMilliseconds: number;
   readonly replayedInputs: number;
   readonly correctionErrorPx: number;
   readonly corrections: number;
@@ -137,6 +145,10 @@ export class OnFootPredictionController {
       sequence: this.sequence,
       acknowledgedSequence: this.acknowledgedSequence,
       pendingInputs: this.pending.length,
+      historyCapacity: MAX_HISTORY_TICKS,
+      historyMilliseconds: Math.round(
+        MAX_HISTORY_TICKS * ON_FOOT_SIMULATION_STEP_SECONDS * 1_000
+      ),
       replayedInputs: this.replayedInputs,
       correctionErrorPx: round(this.correctionErrorPx, 2),
       corrections: this.corrections,
@@ -190,6 +202,21 @@ export class OnFootPredictionController {
     this.acknowledgedSequence = acknowledged;
     this.sequence = Math.max(this.sequence, acknowledged);
     this.pending = this.pending.filter(({message}) => message.sequence > acknowledged);
+    this.replayedInputs = 0;
+    this.correctionErrorPx = Math.hypot(
+      compared.x - authority.x,
+      compared.y - authority.y
+    );
+    if (this.correctionErrorPx > POSITION_EPSILON) this.corrections++;
+    const authorityPose = poseFromAuthority(authority);
+    const surfaceChanged = compared.spaceId !== authorityPose.spaceId ||
+      compared.surfaceId !== authorityPose.surfaceId;
+    if (
+      historical &&
+      !surfaceChanged &&
+      this.correctionErrorPx <= RESIMULATE_POSITION_ERROR
+    ) return;
+
     let replayed = poseFromAuthority(authority);
     this.pending = this.pending.map((pending) => {
       replayed = this.world.step(replayed, {
@@ -202,14 +229,8 @@ export class OnFootPredictionController {
       });
     });
     this.replayedInputs = this.pending.length;
-    this.correctionErrorPx = Math.hypot(
-      compared.x - authority.x,
-      compared.y - authority.y
-    );
-    if (this.correctionErrorPx > POSITION_EPSILON) this.corrections++;
     const hardCorrection =
-      compared.spaceId !== replayed.spaceId ||
-      compared.surfaceId !== replayed.surfaceId ||
+      surfaceChanged ||
       this.correctionErrorPx > HARD_CORRECTION_DISTANCE;
     this.predicted = replayed;
     this.visualOffsetX = hardCorrection ? 0 : before.x - replayed.x;

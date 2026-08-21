@@ -156,6 +156,7 @@ export class DebugController {
         ? `${prediction.active ? 'active' : 'off'} / ${prediction.reason} / ` +
           `seq ${prediction.sequence} ack ${prediction.acknowledgedSequence} / ` +
           `${prediction.pendingInputs} pending / ${prediction.replayedInputs} replay / ` +
+          `${prediction.historyCapacity} history (${prediction.historyMilliseconds}ms) / ` +
           `${prediction.correctionErrorPx}px error / ` +
           `${prediction.corrections} corrections / ${prediction.resets} resets`
         : 'off';

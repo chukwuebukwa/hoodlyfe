@@ -35,6 +35,8 @@ test('on-foot prediction advances immediately and emits ordered fixed-step input
     sequence: 1,
     acknowledgedSequence: 0,
     pendingInputs: 1,
+    historyCapacity: 192,
+    historyMilliseconds: 3200,
     replayedInputs: 0,
     correctionErrorPx: 0,
     corrections: 0,
@@ -43,7 +45,54 @@ test('on-foot prediction advances immediately and emits ordered fixed-step input
   });
 });
 
-test('authoritative acknowledgement removes confirmed input and replays the remainder', () => {
+test('prediction retains the previous 3.2s saved-input acknowledgement tolerance', () => {
+  const controller = new OnFootPredictionController(world);
+  const delayedTicks = Math.floor(3.1 / ON_FOOT_SIMULATION_STEP_SECONDS);
+  for (let index = 0; index < delayedTicks; index++) {
+    controller.update(
+      authority(),
+      {x: 1, y: 0},
+      ON_FOOT_SIMULATION_STEP_SECONDS,
+      true
+    );
+  }
+  const step = ON_FOOT_PLAYER_SPEED * ON_FOOT_SIMULATION_STEP_SECONDS;
+  controller.update(
+    authority({x: 100 + step, lastInputSequence: 1}),
+    {x: 0, y: 0},
+    0,
+    true
+  );
+
+  const snapshot = controller.snapshot();
+  assert.equal(snapshot.resets, 0);
+  assert.equal(snapshot.reason, 'predicting');
+  assert.equal(snapshot.acknowledgedSequence, 1);
+  assert.equal(snapshot.pendingInputs, delayedTicks - 1);
+  assert.equal(snapshot.historyMilliseconds, 3200);
+});
+
+test('sub-pixel acknowledgement drift does not resimulate pending inputs', () => {
+  const controller = new OnFootPredictionController(world);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
+  const step = ON_FOOT_PLAYER_SPEED * ON_FOOT_SIMULATION_STEP_SECONDS;
+  const before = controller.pose();
+
+  controller.update(
+    authority({x: 100 + step - 0.5, lastInputSequence: 1}),
+    {x: 0, y: 0},
+    0,
+    true
+  );
+
+  assert.deepEqual(controller.pose(), before);
+  assert.equal(controller.snapshot().replayedInputs, 0);
+  assert.equal(controller.snapshot().pendingInputs, 1);
+  assert.equal(controller.snapshot().correctionErrorPx, 0.5);
+});
+
+test('exact authoritative acknowledgement removes confirmed input without replay', () => {
   const controller = new OnFootPredictionController(world);
   controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
   controller.update(authority(), {x: 1, y: 0}, ON_FOOT_SIMULATION_STEP_SECONDS, true);
@@ -56,7 +105,7 @@ test('authoritative acknowledgement removes confirmed input and replays the rema
   );
   assert.equal(controller.snapshot().acknowledgedSequence, 1);
   assert.equal(controller.snapshot().pendingInputs, 1);
-  assert.equal(controller.snapshot().replayedInputs, 1);
+  assert.equal(controller.snapshot().replayedInputs, 0);
   assert.ok(Math.abs((controller.pose()?.x ?? 0) - (firstStepX * 2 - 100)) < 0.001);
 });
 
@@ -107,7 +156,7 @@ test('reconciliation refreshes pending snapshots for later acknowledgements', ()
   const step = ON_FOOT_PLAYER_SPEED * ON_FOOT_SIMULATION_STEP_SECONDS;
 
   controller.update(
-    authority({x: 100 + step - 1, lastInputSequence: 1}),
+    authority({x: 100 + step - 2, lastInputSequence: 1}),
     {x: 0, y: 0},
     0,
     true
@@ -115,7 +164,7 @@ test('reconciliation refreshes pending snapshots for later acknowledgements', ()
   assert.equal(controller.snapshot().corrections, 1);
 
   controller.update(
-    authority({x: 100 + step * 2 - 1, lastInputSequence: 2}),
+    authority({x: 100 + step * 2 - 2, lastInputSequence: 2}),
     {x: 0, y: 0},
     0,
     true
