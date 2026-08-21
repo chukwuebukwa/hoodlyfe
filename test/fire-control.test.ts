@@ -198,11 +198,16 @@ test('fire control applies server rewind without client projectile prediction', 
     sequence: 1,
     clientSampleTimeMs: 1_875,
     controlledEntityId: player.id,
-    aimAngle: Math.PI / 2
+    aimAngle: Math.PI / 2,
+    predictedSpawnIds: [73]
   });
   assert.equal(result.accepted, true);
   assert.deepEqual(compensations, [[...state.bullets.keys()][0]]);
   assert.ok(Math.abs([...state.bullets.values()][0].angle - Math.PI / 2) < 1e-12);
+  assert.equal(result.projectiles?.length, 1);
+  assert.equal(result.projectiles?.[0]?.clientSpawnId, 73);
+  assert.equal(result.projectiles?.[0]?.authoritativeSpawnId, [...state.bullets.keys()][0]);
+  assert.equal(result.projectiles?.[0]?.status, 'active');
   assert.equal(player.magazinePistol, 11);
   assert.equal(player.ammoPistol, 108);
 });

@@ -49,6 +49,7 @@ function command(sequence: number, clientSampleTimeMs: number): Record<string, u
     sequence,
     clientSampleTimeMs,
     controlledEntityId: 'shooter',
-    aimAngle: 0
+    aimAngle: 0,
+    predictedSpawnIds: [sequence]
   };
 }

@@ -28,6 +28,7 @@ import {createFireSmokeEffect, updateFireSmokeEffect} from './effects/fire-smoke
 import type {ProjectileImpactPayload} from '../../../shared/protocol/projectile-impacts.ts';
 import {ProjectileImpactEffects} from './effects/projectile-impacts.ts';
 import {StreetPropEffects} from './effects/street-prop-effects.ts';
+import type {PredictedProjectilePresentation} from '../network/combat-fire-prediction-controller.ts';
 
 interface TimedExplosion {
   group: THREE.Group;
@@ -49,6 +50,7 @@ interface StreetPropBatch {
 export class WorldObjectPresentation {
   private readonly markers = new Map<string, THREE.Group>();
   private readonly bullets = new Map<string, THREE.Mesh>();
+  private readonly predictedBullets = new Map<number, THREE.Mesh>();
   private readonly rockets = new Map<string, THREE.Group>();
   private readonly grenades = new Map<string, THREE.Group>();
   private readonly fires = new Map<string, THREE.Group>();
@@ -140,7 +142,8 @@ export class WorldObjectPresentation {
     state: DistrictNetworkState,
     nowMs: number,
     localSpaceId = 'street',
-    localPose?: {x: number; y: number}
+    localPose?: {x: number; y: number},
+    predictedProjectiles: readonly PredictedProjectilePresentation[] = []
   ): void {
     this.synchronizeMarkers(state, nowMs, localSpaceId);
     this.synchronizeObjectiveArrow(state, nowMs, localSpaceId, localPose);
@@ -150,6 +153,7 @@ export class WorldObjectPresentation {
     }
     this.projectileImpacts.update(nowMs);
     this.synchronizeBullets(state);
+    this.synchronizePredictedBullets(predictedProjectiles);
     this.synchronizeRockets(state);
     this.synchronizeGrenades(state, nowMs);
     this.synchronizeFires(state, nowMs);
@@ -160,12 +164,14 @@ export class WorldObjectPresentation {
 
   private clearStreetTransients(): void {
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const mesh of this.predictedBullets.values()) disposeObject(mesh);
     for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
     for (const group of this.fires.values()) disposeObject(group);
     for (const explosion of this.explosions.values()) disposeObject(explosion.group);
     for (const group of this.signals.values()) disposeObject(group);
     this.bullets.clear();
+    this.predictedBullets.clear();
     this.rockets.clear();
     this.grenades.clear();
     this.fires.clear();
@@ -183,6 +189,7 @@ export class WorldObjectPresentation {
   destroy(): void {
     for (const group of this.markers.values()) disposeObject(group);
     for (const mesh of this.bullets.values()) disposeObject(mesh);
+    for (const mesh of this.predictedBullets.values()) disposeObject(mesh);
     for (const group of this.rockets.values()) disposeObject(group);
     for (const group of this.grenades.values()) disposeObject(group);
     for (const group of this.fires.values()) disposeObject(group);
@@ -190,6 +197,7 @@ export class WorldObjectPresentation {
     for (const group of this.signals.values()) disposeObject(group);
     this.markers.clear();
     this.bullets.clear();
+    this.predictedBullets.clear();
     this.rockets.clear();
     this.grenades.clear();
     this.fires.clear();
@@ -420,6 +428,36 @@ export class WorldObjectPresentation {
       );
     }
     removeAbsent(this.bullets, present);
+  }
+
+  private synchronizePredictedBullets(
+    projectiles: readonly PredictedProjectilePresentation[]
+  ): void {
+    const present = new Set<number>();
+    for (const projectile of projectiles) {
+      present.add(projectile.clientSpawnId);
+      let mesh = this.predictedBullets.get(projectile.clientSpawnId);
+      if (!mesh) {
+        const style = projectileStyle({
+          ownerKind: 'player',
+          weapon: projectile.weapon
+        });
+        mesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(style.length, style.width),
+          material(style.color, projectile.phase === 'confirmed' ? 0.92 : 0.78, 25)
+        );
+        mesh.renderOrder = 25;
+        this.predictedBullets.set(projectile.clientSpawnId, mesh);
+        this.scene.add(mesh);
+      }
+      mesh.rotation.z = serverAngleToScene(projectile.angle);
+      mesh.position.set(
+        projectile.x,
+        serverYToScene(projectile.y),
+        this.surfaceHeightAt(projectile.x, projectile.y, projectile.surfaceId) + 12
+      );
+    }
+    removeAbsent(this.predictedBullets, present);
   }
 
 
@@ -931,7 +969,7 @@ function textLabel(text: string, color: number): THREE.Mesh {
   return mesh;
 }
 
-function removeAbsent<T extends THREE.Object3D>(map: Map<string, T>, present: Set<string>): void {
+function removeAbsent<Key, T extends THREE.Object3D>(map: Map<Key, T>, present: Set<Key>): void {
   for (const [id, object] of map) {
     if (present.has(id)) continue;
     disposeObject(object);

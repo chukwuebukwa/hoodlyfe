@@ -11,7 +11,10 @@ import {
 import {ammoFor, refillAmmo, setAmmo} from '../../weapons.ts';
 import type {DeterministicRandom} from '../world/deterministic-random.ts';
 import type {GameEventStream} from '../events/game-events.ts';
-import type {CombatFireCommand} from '../../../shared/protocol/combat-fire.ts';
+import type {
+  CombatFireCommand,
+  CombatProjectileReceipt
+} from '../../../shared/protocol/combat-fire.ts';
 import type {WeaponRuntimeController} from './weapon-runtime-controller.ts';
 
 export interface FireControlResult {
@@ -23,6 +26,7 @@ export interface FireControlResult {
   readonly shotSequence?: number;
   readonly reloadSequence?: number;
   readonly reloadEndsAt?: number;
+  readonly projectiles?: readonly CombatProjectileReceipt[];
 }
 
 interface FireControlControllerOptions {
@@ -78,6 +82,12 @@ export class FireControlController {
     }
     const weaponId: WeaponId = isWeaponId(player.weapon) ? player.weapon : 'pistol';
     const weapon = WEAPONS[weaponId];
+    if (command) {
+      const expectedPredictedSpawns = weapon.fireMode === 'bullet' ? weapon.pellets : 0;
+      if (command.predictedSpawnIds.length !== expectedPredictedSpawns) {
+        return rejected('invalid-predicted-spawn-count', weaponId);
+      }
+    }
     if (player.action) {
       if (player.action === 'melee' && weapon.fireMode === 'melee') {
         const result = this.options.meleeAttack?.({playerId, weapon: weapon.id, nowMs: clock.nowMs});
@@ -149,6 +159,7 @@ export class FireControlController {
     this.publishWeaponFired(playerId, 'player', origin.x, origin.y, weaponId, clock);
     const excludedIds = new Set([playerId]);
     if (player.vehicleId) excludedIds.add(player.vehicleId);
+    const projectiles: CombatProjectileReceipt[] = [];
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
       const spread = weapon.pellets === 1
         ? (this.options.random.unit('weapon-spread', `${playerId}:${clock.tick}`) - 0.5) * weapon.spread
@@ -162,16 +173,30 @@ export class FireControlController {
         clock.nowMs,
         weapon.id
       );
-      if (command && this.options.compensateBullet) {
-        this.options.compensateBullet({
+      const compensation = command && this.options.compensateBullet
+        ? this.options.compensateBullet({
           bullet,
           requestedServerShotTimeMs: command.clientSampleTimeMs,
           nowMs: clock.nowMs,
           excludedIds
-        });
+        })
+        : undefined;
+      if (command) {
+        projectiles.push(Object.freeze({
+          clientSpawnId: command.predictedSpawnIds[pellet],
+          authoritativeSpawnId: bullet.id,
+          status: compensation?.resolved ? 'resolved' : 'active',
+          weapon: weapon.id,
+          x: bullet.x,
+          y: bullet.y,
+          angle: bullet.angle
+        }));
       }
     }
-    return accepted(player, weaponId, consumed);
+    return Object.freeze({
+      ...accepted(player, weaponId, consumed),
+      projectiles: Object.freeze(projectiles)
+    });
   }
 
   cycle(playerId: string, rawDirection: unknown): void {

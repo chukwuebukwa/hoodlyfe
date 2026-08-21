@@ -134,6 +134,32 @@ test('vehicle reconciliation refreshes pending snapshots for later acknowledgeme
   assert.equal(controller.snapshot().corrections, 1);
 });
 
+test('delayed vehicle acknowledgements remain replayable through production latency bursts', () => {
+  const controller = new VehiclePredictionController(world);
+  for (let sequence = 1; sequence <= 72; sequence += 1) {
+    controller.update(
+      authority(),
+      {x: 1, y: 0, handbrake: false},
+      VEHICLE_SIMULATION_STEP_SECONDS,
+      true
+    );
+  }
+
+  controller.update(
+    authority({x: 110, linvelX: 10, speed: 10, lastVehicleInputSequence: 1}),
+    {x: 0, y: 0, handbrake: false},
+    0,
+    true
+  );
+
+  const snapshot = controller.snapshot();
+  assert.equal(snapshot.acknowledgedSequence, 1);
+  assert.equal(snapshot.pendingInputs, 71);
+  assert.equal(snapshot.replayedInputs, 71);
+  assert.equal(snapshot.resets, 0);
+  assert.equal(snapshot.reason, 'predicting');
+});
+
 test('airborne vehicles stream sequenced input but remain server-rendered', () => {
   const controller = new VehiclePredictionController(world);
   const batch = controller.update(

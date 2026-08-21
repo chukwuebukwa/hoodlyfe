@@ -20,7 +20,9 @@ Rules:
 - The grounded local street player may render from a reconciled predicted pose; all lasting outcomes remain authoritative.
 - Unsupported local states and every driven vehicle render from authoritative snapshots.
 - Remote motion timelines smooth snapshot delivery without simulating future local state.
-- Combat rewind is a server-side historical query; the client does not create provisional projectiles.
+- Combat rewind and hit resolution remain server-authoritative. The client may render
+  correlated provisional projectiles immediately, but never decides ammo, hits, damage,
+  or persistence; each provisional ID must hand off to or be rejected by a server receipt.
 - Device and DOM adapters install listeners once and remove them on shutdown.
 - HUD, minimap, debug, entity rendering, audio, and effects consume state through narrow inputs.
 
@@ -31,4 +33,6 @@ inside an interior, airborne, dead, in a vehicle, or performing an unsupported a
 Canonical physics rewinds immediately; a render-only offset decays after small corrections.
 
 This is the foundation for interaction islands, not the complete system. Nearby dynamic
-bodies are not yet promoted into client replay, and vehicles remain authoritative.
+bodies are not yet promoted into client replay. Driven vehicles use the same bounded
+saved-input reconciliation model for their local presentation while authority remains
+on the server.

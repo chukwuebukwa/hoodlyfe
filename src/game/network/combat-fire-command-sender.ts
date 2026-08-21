@@ -1,5 +1,6 @@
 import type {Room} from 'colyseus.js';
 import {STREET_SPACE_ID} from '../../../shared/content/interior-catalog.ts';
+import {weaponDefinition} from '../../../shared/content/weapon-catalog.ts';
 import {
   COMBAT_FIRE_RECEIPT_MESSAGE,
   COMBAT_FIRE_MESSAGE,
@@ -19,6 +20,7 @@ interface CombatFireCommandSenderOptions {
 
 export class CombatFireCommandSender {
   private nextSequence = 1;
+  private nextClientSpawnId = 1;
   private lastSampleTimeMs = 0;
   private readonly aimAngleBySequence = new Map<number, number>();
   private readonly removeReceipt?: () => void;
@@ -47,12 +49,17 @@ export class CombatFireCommandSender {
     if (Number.isFinite(sampleTimeMs) && sampleTimeMs >= 0) {
       this.lastSampleTimeMs = Math.max(this.lastSampleTimeMs, sampleTimeMs);
     }
+    const weapon = weaponDefinition(player.weapon);
+    const predictedSpawnIds = weapon.fireMode === 'bullet'
+      ? Array.from({length: weapon.pellets}, () => this.nextClientSpawnId++)
+      : [];
     const command: CombatFireCommand = {
       protocolVersion: COMBAT_PROTOCOL_VERSION,
       sequence: this.nextSequence++,
       clientSampleTimeMs: this.lastSampleTimeMs,
       controlledEntityId: player.id,
-      aimAngle: angle
+      aimAngle: angle,
+      predictedSpawnIds: Object.freeze(predictedSpawnIds)
     };
     this.aimAngleBySequence.set(command.sequence, angle);
     this.options.room.send(COMBAT_FIRE_MESSAGE, command);

@@ -7,7 +7,7 @@ import {
 } from '../shared/protocol/combat-fire.ts';
 import {CombatFireCommandSender} from '../src/game/network/combat-fire-command-sender.ts';
 
-test('authoritative fire commands preserve rewind metadata without local prediction', () => {
+test('authoritative fire commands preserve rewind metadata and per-pellet correlation', () => {
   const sent: Array<{type: string; message?: unknown}> = [];
   const sender = new CombatFireCommandSender({
     room: {send: (type: string, message?: unknown) => sent.push({type, message})} as never,
@@ -24,7 +24,8 @@ test('authoritative fire commands preserve rewind metadata without local predict
     sequence: 1,
     clientSampleTimeMs: 1_250,
     controlledEntityId: 'player-1',
-    aimAngle: Math.PI / 2
+    aimAngle: Math.PI / 2,
+    predictedSpawnIds: [1, 2, 3, 4, 5, 6]
   });
 });
 

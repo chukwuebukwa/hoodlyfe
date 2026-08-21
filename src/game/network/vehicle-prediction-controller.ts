@@ -9,7 +9,10 @@ import {
   type VehicleStepModifiers
 } from '../../../shared/simulation/vehicle-step.ts';
 
-const MAX_HISTORY_TICKS = 24;
+const MAX_PREDICTION_HISTORY_MS = 3_200;
+const MAX_HISTORY_TICKS = Math.ceil(
+  MAX_PREDICTION_HISTORY_MS / (VEHICLE_SIMULATION_STEP_SECONDS * 1_000)
+);
 const MAX_FRAME_TICKS = 4;
 const HARD_POSITION_ERROR = 180;
 const HARD_ANGLE_ERROR = 1.2;

@@ -20,7 +20,7 @@ import {PoliceHelicopterPresentation} from './presentation/police-helicopters.ts
 import {NetworkQualityController} from './network/network-quality-controller.ts';
 import type {NetcodeRolloutController} from './network/netcode-rollout-controller.ts';
 import type {NockPhoneController} from './ui/nock-phone-controller.ts';
-import {CombatFireCommandSender} from './network/combat-fire-command-sender.ts';
+import {CombatFirePredictionController} from './network/combat-fire-prediction-controller.ts';
 import {interiorDefinition} from '../../shared/content/interior-catalog.ts';
 import {parseBuildingManifest} from '../../shared/content/building-manifest.ts';
 import {
@@ -28,7 +28,6 @@ import {
   compileSeamlessInteriorCatalog,
   type SeamlessInteriorCatalog
 } from '../../shared/content/seamless-interior-catalog.ts';
-import {isWeaponId} from '../../shared/content/weapon-catalog.ts';
 import {
   STREET_GROUND_SURFACE_ID,
   SurfaceMap
@@ -100,7 +99,7 @@ export class DistrictClient {
   private objects?: WorldObjectPresentation;
   private debug?: DebugController;
   private networkQuality?: NetworkQualityController;
-  private combatFire?: CombatFireCommandSender;
+  private combatFire?: CombatFirePredictionController;
   private removeProjectileImpacts?: () => void;
   private interiors?: InteriorPresentation;
   private seamlessInteriors?: SeamlessInteriorPresentation;
@@ -260,27 +259,32 @@ export class DistrictClient {
         ? removeProjectileImpacts
         : undefined;
       this.networkQuality = new NetworkQualityController(this.room);
-      this.combatFire = new CombatFireCommandSender({
+      this.combatFire = new CombatFirePredictionController({
         room: this.room,
-        player: () => this.room?.state.players.get(this.room.sessionId),
+        getPlayer: () => this.room?.state.players.get(this.room.sessionId),
+        getAimOrigin: () => this.actors?.playerAimOrigin(this.room?.sessionId ?? ''),
         estimatedServerTimeMs: () => {
           const quality = this.networkQuality?.snapshot();
           return quality?.clockSynchronized
             ? quality.estimatedServerTimeMs
             : this.room?.state.serverTimeMs ?? 0;
         },
+        canOccupy: (surfaceId, x, y, radius) => (
+          this.surfaceMap?.canOccupy(surfaceId, x, y, radius, 'player') ?? true
+        ),
         combatRewindEnabled: () => this.rolloutEnabled('combatRewind'),
-        onReceipt: (receipt, aimAngle) => {
-          if (!receipt.accepted && receipt.reason === 'empty-magazine') this.ui?.presentDryFire();
-          const player = this.room?.state.players.get(this.room.sessionId);
-          if (
-            receipt.accepted &&
-            receipt.shotSequence !== undefined &&
-            receipt.weapon &&
-            isWeaponId(receipt.weapon) &&
-            aimAngle !== undefined
-          ) {
-            this.presentCameraShot(receipt.shotSequence, receipt.weapon, aimAngle, player, performance.now());
+        onPredictedFire: (weapon, angle, player) => {
+          this.presentPredictedCameraShot(weapon, angle, player, performance.now());
+        },
+        onReceipt: (receipt) => {
+          if (!receipt.accepted && (
+            receipt.reason === 'empty-magazine' || receipt.reason === 'empty-ammo'
+          )) this.ui?.presentDryFire();
+          if (receipt.accepted && receipt.shotSequence !== undefined) {
+            this.cameraShotSequence = Math.max(
+              this.cameraShotSequence ?? 0,
+              receipt.shotSequence
+            );
           }
         }
       });
@@ -357,7 +361,7 @@ export class DistrictClient {
             this.room?.state.deathmatch?.phase !== 'active'
           ),
         onFire: (angle) => {
-          this.combatFire?.send(angle);
+          this.combatFire?.requestFire(angle);
         },
         directAimAngle: () => this.cameraMode === 'explorer' ? this.explorerYaw : undefined
       });
@@ -482,6 +486,23 @@ export class DistrictClient {
     this.cameraShotPassenger = Boolean(player.vehicleId && player.vehicleSeat > 0);
   }
 
+  private presentPredictedCameraShot(
+    weapon: NetworkPlayer['weapon'],
+    angle: number,
+    player: NetworkPlayer,
+    nowMs: number
+  ): void {
+    if (!player.alive) return;
+    this.cameraShotSequence = Math.max(
+      this.cameraShotSequence ?? 0,
+      (player.shotSequence ?? 0) + 1
+    );
+    this.cameraShotStartedAt = nowMs;
+    this.cameraShotWeapon = weapon;
+    this.cameraShotAngle = angle;
+    this.cameraShotPassenger = Boolean(player.vehicleId && player.vehicleSeat > 0);
+  }
+
   private cameraRecoil(nowMs: number): {x: number; y: number; pitch: number} {
     const shot = this.cameraShotWeapon && this.cameraShotStartedAt !== undefined
       ? gunshotPresentation(this.cameraShotWeapon, nowMs - this.cameraShotStartedAt)
@@ -557,11 +578,14 @@ export class DistrictClient {
         localSpaceId,
         this.localCameraFocus()
       );
+      this.combatFire?.synchronizeAuthoritative(this.room.state.bullets);
+      const predictedProjectiles = this.combatFire?.update(now) ?? [];
       this.objects?.synchronize(
         this.room.state,
         now,
         localSpaceId,
-        this.actors?.playerPose(this.room.sessionId)
+        this.actors?.playerPose(this.room.sessionId),
+        predictedProjectiles
       );
       this.observeLocalShot(local, now);
       if (this.cameraMode === 'overhead') {

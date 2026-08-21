@@ -219,7 +219,8 @@ test('two clients can use weapons, share cars, drive, fight, and respawn cleanly
     sequence: 1,
     clientSampleTimeMs: first.state.serverTimeMs,
     controlledEntityId: first.sessionId,
-    aimAngle: safeFireAngle(first, first.sessionId, world)
+    aimAngle: safeFireAngle(first, first.sessionId, world),
+    predictedSpawnIds: [1]
   };
   first.send(COMBAT_FIRE_MESSAGE, correlatedCommand);
   await waitUntil(() => first.state.players.get(first.sessionId)?.magazineSmg === 29);
