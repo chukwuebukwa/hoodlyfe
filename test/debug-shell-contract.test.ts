@@ -16,6 +16,7 @@ const REQUIRED_MARKUP = [
   'id="debug-simulation-phases"',
   'id="debug-on-foot-prediction"',
   'id="debug-vehicle-prediction"',
+  'id="debug-interaction-island"',
   'id="debug-netcode-rollout"',
   'class="traffic-deadlock"',
   'class="traffic-recovery"'

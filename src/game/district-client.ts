@@ -18,6 +18,7 @@ import {InputController} from './input/input-controller.ts';
 import {LightingPresentation} from './presentation/lighting.ts';
 import {PoliceHelicopterPresentation} from './presentation/police-helicopters.ts';
 import {NetworkQualityController} from './network/network-quality-controller.ts';
+import {InteractionIslandController} from './network/interaction-island-controller.ts';
 import type {NetcodeRolloutController} from './network/netcode-rollout-controller.ts';
 import type {NockPhoneController} from './ui/nock-phone-controller.ts';
 import {CombatFirePredictionController} from './network/combat-fire-prediction-controller.ts';
@@ -99,6 +100,7 @@ export class DistrictClient {
   private objects?: WorldObjectPresentation;
   private debug?: DebugController;
   private networkQuality?: NetworkQualityController;
+  private interactionIslands?: InteractionIslandController;
   private combatFire?: CombatFirePredictionController;
   private removeProjectileImpacts?: () => void;
   private interiors?: InteriorPresentation;
@@ -259,6 +261,19 @@ export class DistrictClient {
         ? removeProjectileImpacts
         : undefined;
       this.networkQuality = new NetworkQualityController(this.room);
+      this.interactionIslands = new InteractionIslandController(this.room, {
+        currentServerTick: () => this.networkQuality?.snapshot().serverTick ??
+          this.room?.state.serverTick ?? 0,
+        estimatedServerTimeMs: () => {
+          const quality = this.networkQuality?.snapshot();
+          return quality?.clockSynchronized
+            ? quality.estimatedServerTimeMs
+            : this.room?.state.serverTimeMs ?? 0;
+        },
+        snapshotsEnabled: () => this.rolloutEnabled('interactionSnapshots'),
+        selectionEnabled: () => this.rolloutEnabled('interactionSelection'),
+        mobile: window.matchMedia('(pointer: coarse)').matches
+      });
       this.combatFire = new CombatFirePredictionController({
         room: this.room,
         getPlayer: () => this.room?.state.players.get(this.room.sessionId),
@@ -297,7 +312,8 @@ export class DistrictClient {
         () => this.mapStreamer?.snapshot(),
         () => this.onFootPrediction?.snapshot(),
         () => this.vehiclePrediction?.snapshot(),
-        () => this.vehiclePrediction?.pose()
+        () => this.vehiclePrediction?.pose(),
+        () => this.interactionIslands?.snapshot()
       );
       if (
         this.enableInteriors &&
@@ -393,6 +409,7 @@ export class DistrictClient {
     this.policeHelicopters?.destroy();
     this.debug?.destroy();
     this.networkQuality?.destroy();
+    this.interactionIslands?.destroy();
     this.interiors?.destroy();
     this.seamlessInteriors?.destroy();
     this.lighting?.destroy();

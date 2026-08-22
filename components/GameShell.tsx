@@ -144,6 +144,7 @@ const GAME_SHELL_HTML = `
       <div><dt>Clock / Buffer</dt><dd id="debug-clock-sync">unsynced</dd></div>
       <div class="debug-wide"><dt>On-foot prediction</dt><dd id="debug-on-foot-prediction">off</dd></div>
       <div class="debug-wide"><dt>Vehicle prediction</dt><dd id="debug-vehicle-prediction">off</dd></div>
+      <div class="debug-wide"><dt>Interaction island</dt><dd id="debug-interaction-island">off</dd></div>
       <div class="debug-wide"><dt>Netcode rollout</dt><dd id="debug-netcode-rollout">pending</dd></div>
       <div class="debug-wide"><dt>Player reaction</dt><dd id="debug-player-reaction">off</dd></div>
       <div class="debug-wide"><dt>Physical surface</dt><dd id="debug-surface">off</dd></div>

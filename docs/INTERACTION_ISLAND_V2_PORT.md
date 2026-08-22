@@ -50,6 +50,24 @@ surface. The projector validates its own outgoing protocol message and retains a
 24-tick server history. District publishing is guarded by `interactionSnapshots`, which is
 off by default.
 
+## Client Admission And Selection
+
+The client validates every snapshot before retaining it. Protocol version, future/history
+window, and world-collision revision mismatches are rejected with counted reasons. Accepted
+snapshots replace duplicate ticks, remain tick-sorted, and are bounded to the 24-tick policy
+window.
+
+Selection is deterministic and observational at this milestone. The controlled root is always
+first, current physical contacts are admitted before contacts retained by six-tick hysteresis,
+and the remaining bodies preserve the server's TTC/priority ordering. Desktop and coarse-pointer
+clients use separate weighted budgets. Root lifecycle, control, streaming, surface, or collision
+revision changes clear membership history. No selected remote body is replayed yet; current local
+prediction and remote interpolation remain the only presentation paths.
+
+The debug panel exposes selection mode, body count, weighted points and budget, overflow,
+current and retained contacts, snapshot age, server tick, inbox history, and reset count. This
+provides rollout evidence without claiming replay is active.
+
 ## Fixed Policy Baseline
 
 - History: 24 ticks (approximately 800 ms at the current simulation rate)

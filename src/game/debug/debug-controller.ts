@@ -16,6 +16,7 @@ import type {
   VehiclePredictionPose,
   VehiclePredictionSnapshot
 } from '../network/vehicle-prediction-controller.ts';
+import type {InteractionIslandControllerSnapshot} from '../network/interaction-island-controller.ts';
 
 const DRAW_INTERVAL_MS = 100;
 
@@ -29,6 +30,7 @@ export class DebugController {
   private readonly mapStreamingField = document.querySelector('#debug-map-streaming');
   private readonly onFootPredictionField = document.querySelector('#debug-on-foot-prediction');
   private readonly vehiclePredictionField = document.querySelector('#debug-vehicle-prediction');
+  private readonly interactionIslandField = document.querySelector('#debug-interaction-island');
   private readonly fields: Record<string, Element | null> = {
     clock: document.querySelector('#debug-clock'),
     players: document.querySelector('#debug-players'),
@@ -79,7 +81,8 @@ export class DebugController {
     private readonly mapStreaming: () => MapStreamingSnapshot | undefined = () => undefined,
     private readonly onFootPrediction: () => OnFootPredictionSnapshot | undefined = () => undefined,
     private readonly vehiclePrediction: () => VehiclePredictionSnapshot | undefined = () => undefined,
-    private readonly predictedVehiclePose: () => VehiclePredictionPose | undefined = () => undefined
+    private readonly predictedVehiclePose: () => VehiclePredictionPose | undefined = () => undefined,
+    private readonly interactionIsland: () => InteractionIslandControllerSnapshot | undefined = () => undefined
   ) {
     this.group.visible = false;
     scene.add(this.group);
@@ -170,6 +173,16 @@ export class DebugController {
           `${vehiclePrediction.replayedInputs} replay / ${vehiclePrediction.correctionErrorPx}px / ` +
           `${vehiclePrediction.angularErrorRad}rad / ${vehiclePrediction.corrections} corrections / ` +
           `${vehiclePrediction.resets} resets`
+        : 'off';
+    }
+    const island = this.interactionIsland();
+    if (this.interactionIslandField) {
+      this.interactionIslandField.textContent = island
+        ? `${island.mode} / ${island.bodies} bodies / ` +
+          `${island.weightedPoints}:${island.budgetPoints} points / ${island.overflow} overflow / ` +
+          `${island.contacts} contact + ${island.retainedContacts} retained / ` +
+          `${island.snapshotAgeMs}ms age / tick ${island.serverTick} / ` +
+          `${island.inbox.historySize} history / ${island.resetCount} resets`
         : 'off';
     }
     if (!this.eventList) return;
