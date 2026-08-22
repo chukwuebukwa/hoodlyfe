@@ -73,6 +73,42 @@ test('registry rejects duplicate actor keys before mutating the world', () => {
   root.free();
 });
 
+test('registry exposes frozen settled snapshots with stable revisions', () => {
+  const root = createWorld();
+  const upper = root.fork(false);
+  const registry = new PhysicsBodyRegistry((surfaceId) => (
+    surfaceId === 'street-ground' ? root : upper
+  ));
+  const descriptor = vehicleDescriptor();
+
+  registry.reconcile([descriptor]);
+  root.step();
+  const first = registry.snapshots();
+  assert.equal(Object.isFrozen(first), true);
+  assert.equal(Object.isFrozen(first[0]), true);
+  assert.equal(first[0]?.lifecycleRevision, 1);
+  assert.equal(first[0]?.shapeRevision, 1);
+  assert.deepEqual(first[0] && pickIdentity(first[0]), {
+    key: descriptor.key,
+    surfaceId: descriptor.surfaceId,
+    shapeKey: descriptor.shapeKey
+  });
+
+  registry.reconcile([{...descriptor, surfaceId: 'bridge-deck'}]);
+  assert.equal(registry.snapshots()[0]?.lifecycleRevision, 2);
+  assert.equal(registry.snapshots()[0]?.shapeRevision, 1);
+
+  registry.reconcile([{...descriptor, surfaceId: 'bridge-deck', shapeKey: 'vehicle:taxi'}]);
+  assert.equal(registry.snapshots()[0]?.lifecycleRevision, 3);
+  assert.equal(registry.snapshots()[0]?.shapeRevision, 2);
+
+  registry.reconcile([]);
+  registry.reconcile([descriptor]);
+  assert.equal(registry.snapshots()[0]?.lifecycleRevision, 4);
+  assert.equal(registry.snapshots()[0]?.shapeRevision, 3);
+  root.free();
+});
+
 function createWorld(): PhysicsWorld {
   return PhysicsWorld.create({
     width: 64,
@@ -96,4 +132,8 @@ function vehicleDescriptor(): PhysicsActorDescriptor {
 
 function operations(overrides: Partial<PhysicsLifecycleOperations> = {}): PhysicsLifecycleOperations {
   return {created: 0, removed: 0, migrated: 0, replaced: 0, teleported: 0, ...overrides};
+}
+
+function pickIdentity(snapshot: {key: string; surfaceId: string; shapeKey: string}) {
+  return {key: snapshot.key, surfaceId: snapshot.surfaceId, shapeKey: snapshot.shapeKey};
 }

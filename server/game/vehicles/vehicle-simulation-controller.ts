@@ -32,6 +32,7 @@ import {SOCCER_BALL_RADIUS} from '../../../shared/content/soccer-ball.ts';
 import {
   PhysicsBodyRegistry,
   type PhysicsActorDescriptor,
+  type PhysicsBodySnapshot,
   type PhysicsLifecycleOperations
 } from './physics-body-registry.ts';
 import {stepAirborneMotion} from '../../../shared/simulation/airborne-motion.ts';
@@ -94,6 +95,16 @@ export interface PhysicsRuntimeDiagnostics {
   };
 }
 
+export interface InteractionPhysicsContact {
+  firstBodyKey: string;
+  secondBodyKey: string;
+}
+
+export interface InteractionPhysicsFrame {
+  bodies: readonly PhysicsBodySnapshot[];
+  contacts: readonly InteractionPhysicsContact[];
+}
+
 interface VehicleSimulationControllerOptions {
   state: DistrictState;
   world: CollisionMap;
@@ -144,6 +155,10 @@ export class VehicleSimulationController {
   private readonly controlledStaticStates = new Map<string, boolean>();
   private readonly bodyRegistry: PhysicsBodyRegistry;
   private latestContactCount = 0;
+  private latestInteractionFrame: InteractionPhysicsFrame = Object.freeze({
+    bodies: Object.freeze([]),
+    contacts: Object.freeze([])
+  });
   private rootSurfaceId?: string;
 
   constructor(private readonly options: VehicleSimulationControllerOptions) {
@@ -298,6 +313,12 @@ export class VehicleSimulationController {
       this.physicsStepCostSamples.shift();
     }
     this.latestContactCount = results.reduce((sum, result) => sum + result.physicsContacts, 0);
+    this.latestInteractionFrame = Object.freeze({
+      bodies: this.bodyRegistry.snapshots(),
+      contacts: Object.freeze(results
+        .flatMap((result) => result.interactionContacts)
+        .sort(compareInteractionContacts))
+    });
     this.pendingPhysicsDrives.length = 0;
     this.pendingSoccerBallImpulses.clear();
     return Object.freeze({
@@ -524,7 +545,11 @@ export class VehicleSimulationController {
       soccerBalls: Object.freeze(soccerBalls),
       contacts,
       damagingContacts,
-      physicsContacts: physicsContacts.length
+      physicsContacts: physicsContacts.length,
+      interactionContacts: Object.freeze(physicsContacts.map((contact) => Object.freeze({
+        firstBodyKey: contact.first,
+        secondBodyKey: contact.second
+      })))
     });
   }
 
@@ -718,6 +743,10 @@ export class VehicleSimulationController {
     };
   }
 
+  interactionPhysicsFrame(): InteractionPhysicsFrame {
+    return this.latestInteractionFrame;
+  }
+
   physicsBodyIdentity(key: string): number | undefined {
     return this.bodyRegistry.bodyIdentity(key);
   }
@@ -737,6 +766,10 @@ export class VehicleSimulationController {
     this.physicsBySurface.clear();
     this.controlledStaticStates.clear();
     this.pendingSoccerBallImpulses.clear();
+    this.latestInteractionFrame = Object.freeze({
+      bodies: Object.freeze([]),
+      contacts: Object.freeze([])
+    });
   }
 
   private applyVehicleContact(
@@ -1283,6 +1316,14 @@ function approach(value: number, target: number, amount: number): number {
 function percentile(sorted: readonly number[], quantile: number): number {
   if (sorted.length === 0) return 0;
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * quantile))];
+}
+
+function compareInteractionContacts(
+  left: InteractionPhysicsContact,
+  right: InteractionPhysicsContact
+): number {
+  return left.firstBodyKey.localeCompare(right.firstBodyKey) ||
+    left.secondBodyKey.localeCompare(right.secondBodyKey);
 }
 
 export {classifyImpactZone};

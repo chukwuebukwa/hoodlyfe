@@ -35,6 +35,21 @@ The interaction path is additive and defaults off. Rollout order is:
 
 Current local prediction and remote interpolation remain the fallback at every stage.
 
+## Authoritative Snapshot Source
+
+The server does not reconstruct interaction bodies from replicated schema state. After all
+Rapier surface worlds finish their fixed tick, `VehicleSimulationController` captures one
+immutable frame containing settled body poses and contact pairs. `PhysicsBodyRegistry` owns
+stable actor keys plus monotonic shape and lifecycle revisions across replacement, migration,
+removal, and recreation.
+
+`InteractionSnapshotProjector` chooses the locally controlled on-foot or driver body as the
+root, retains exact contacts first, then ranks candidates by finite time-to-contact, physical
+priority, distance, and stable key. A baseline may contain only one space and one elevation
+surface. The projector validates its own outgoing protocol message and retains a bounded
+24-tick server history. District publishing is guarded by `interactionSnapshots`, which is
+off by default.
+
 ## Fixed Policy Baseline
 
 - History: 24 ticks (approximately 800 ms at the current simulation rate)

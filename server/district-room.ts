@@ -78,6 +78,7 @@ import {
   validateNetcodeRolloutRequest,
   type NetcodeRolloutRequest
 } from '../shared/protocol/netcode-rollout.ts';
+import {INTERACTION_SNAPSHOT_MESSAGE} from '../shared/protocol/interaction-islands.ts';
 import {
   SOCCER_BALL_KICK_MESSAGE,
   type SoccerBallKickMessage
@@ -158,6 +159,7 @@ import {SoccerBallController} from './game/props/soccer-ball-controller.ts';
 import {StreetPropController} from './game/props/street-prop-controller.ts';
 import {NetworkProbeController} from './game/network/network-probe-controller.ts';
 import {resolveNetcodeRolloutManifest} from './game/network/netcode-rollout-config.ts';
+import {InteractionSnapshotProjector} from './game/network/interaction-snapshot-projector.ts';
 import {initializePhysicsEngine, PhysicsWorld} from '../shared/physics/physics-world.ts';
 import {
   PlayerControlController,
@@ -288,6 +290,7 @@ export class DistrictRoom extends Room<DistrictState> {
   private trafficSignalController!: TrafficSignalController;
   private garageDoorController!: GarageDoorController;
   private vehicleSimulation!: VehicleSimulationController;
+  private interactionSnapshots?: InteractionSnapshotProjector;
   private vehicleInput!: VehicleInputController;
   private playerControl!: PlayerControlController;
   private appearanceController!: PlayerAppearanceController;
@@ -834,6 +837,26 @@ export class DistrictRoom extends Room<DistrictState> {
         this.populationStreaming?.retireDestroyedVehicle(vehicleId, nowMs) ?? false
       ),
       onVehicleRemoved: (vehicleId) => this.spatialIndex.remove('vehicle', vehicleId)
+    });
+    this.interactionSnapshots = new InteractionSnapshotProjector({
+      state: this.state,
+      clock: () => ({tick: this.simulationClock.tick, nowMs: this.simulationClock.nowMs}),
+      physicsFrame: () => this.vehicleSimulation.interactionPhysicsFrame(),
+      worldCollisionRevision: WORLD_COLLISION_REVISION,
+      playerIntentFor: (playerId) => {
+        const input = this.playerControl.inputFor(playerId);
+        return input ? {
+          inputX: input.inputX,
+          inputY: input.inputY,
+          sequence: input.lastSequence,
+          handbrake: input.handbrake
+        } : undefined;
+      },
+      vehicleIntentFor: (playerId, vehicleId) => this.vehicleInput.inputFor(playerId, vehicleId),
+      publish: (playerId, snapshot) => {
+        this.clients.find((client) => client.sessionId === playerId)
+          ?.send(INTERACTION_SNAPSHOT_MESSAGE, snapshot);
+      }
     });
     this.soccerBallController = new SoccerBallController({
       state: this.state,
@@ -1521,6 +1544,7 @@ export class DistrictRoom extends Room<DistrictState> {
     this.state.players.delete(client.sessionId);
     this.playerControl.unregister(client.sessionId);
     this.vehicleInput.clear(client.sessionId);
+    this.interactionSnapshots?.clearPlayer(client.sessionId);
     this.playerLifecycle.clearPlayer(client.sessionId);
     this.appearanceController.clearPlayer(client.sessionId);
     this.wardrobeController.clearPlayer(client.sessionId);
@@ -1753,6 +1777,9 @@ export class DistrictRoom extends Room<DistrictState> {
   }
 
   onBeforePatch(): void {
+    if (this.netcodeRollout.stages.interactionSnapshots) {
+      this.interactionSnapshots?.publishCurrent(this.state.players.keys(), this.simulationClock.tick);
+    }
     this.replicationController?.synchronize();
   }
 

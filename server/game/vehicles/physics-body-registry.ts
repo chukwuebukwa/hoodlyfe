@@ -21,12 +21,30 @@ export interface PhysicsLifecycleOperations {
   teleported: number;
 }
 
+export interface PhysicsBodySnapshot extends PhysicsBodyState {
+  key: string;
+  actorType: PhysicsActorType;
+  entityId: string;
+  surfaceId: string;
+  shapeKey: string;
+  shapeRevision: number;
+  lifecycleRevision: number;
+}
+
 interface PhysicsBodyRecord {
   actorType: PhysicsActorType;
   entityId: string;
   surfaceId: string;
   shapeKey: string;
+  shapeRevision: number;
+  lifecycleRevision: number;
   world: PhysicsWorld;
+}
+
+interface PhysicsBodyRevision {
+  shapeKey: string;
+  shapeRevision: number;
+  lifecycleRevision: number;
 }
 
 const ACTOR_ORDER: Readonly<Record<PhysicsActorType, number>> = Object.freeze({
@@ -38,6 +56,7 @@ const ACTOR_ORDER: Readonly<Record<PhysicsActorType, number>> = Object.freeze({
 
 export class PhysicsBodyRegistry {
   private readonly records = new Map<string, PhysicsBodyRecord>();
+  private readonly revisions = new Map<string, PhysicsBodyRevision>();
   private current = emptyOperations();
   private total = emptyOperations();
 
@@ -121,6 +140,25 @@ export class PhysicsBodyRegistry {
     return record?.world.bodyIdentity(key);
   }
 
+  snapshots(): readonly PhysicsBodySnapshot[] {
+    return Object.freeze([...this.records.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, record]) => {
+        const state = record.world.capture(key);
+        if (!state) throw new Error(`Physics body "${key}" disappeared during snapshot capture.`);
+        return Object.freeze({
+          key,
+          actorType: record.actorType,
+          entityId: record.entityId,
+          surfaceId: record.surfaceId,
+          shapeKey: record.shapeKey,
+          shapeRevision: record.shapeRevision,
+          lifecycleRevision: record.lifecycleRevision,
+          ...state
+        });
+      }));
+  }
+
   clear(): void {
     for (const key of [...this.records.keys()].sort()) this.removeRecord(key);
     this.current = emptyOperations();
@@ -140,11 +178,22 @@ export class PhysicsBodyRegistry {
     } else {
       world.registerHumanoid(descriptor.key, humanoidRadius(descriptor.shapeKey), descriptor.state);
     }
+    const previous = this.revisions.get(descriptor.key);
+    const revision = Object.freeze({
+      shapeKey: descriptor.shapeKey,
+      shapeRevision: previous
+        ? previous.shapeRevision + Number(previous.shapeKey !== descriptor.shapeKey)
+        : 1,
+      lifecycleRevision: previous ? previous.lifecycleRevision + 1 : 1
+    });
+    this.revisions.set(descriptor.key, revision);
     this.records.set(descriptor.key, {
       actorType: descriptor.actorType,
       entityId: descriptor.entityId,
       surfaceId: descriptor.surfaceId,
       shapeKey: descriptor.shapeKey,
+      shapeRevision: revision.shapeRevision,
+      lifecycleRevision: revision.lifecycleRevision,
       world
     });
   }
