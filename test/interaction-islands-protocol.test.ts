@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  DEFAULT_INTERACTION_HISTORY_MS,
+  DEFAULT_INTERACTION_HISTORY_TICKS,
   INTERACTION_PROTOCOL_VERSION,
   validateInteractionSnapshot,
   type InteractionSnapshot
 } from '../shared/protocol/interaction-islands.ts';
+import {SIMULATION_STEP_MS} from '../shared/simulation/timing.ts';
 
 function snapshot(): InteractionSnapshot {
   return {
@@ -75,6 +78,15 @@ const CONTEXT = Object.freeze({
   expectedSurfaceRevision: 7,
   expectedControlRevision: 3,
   expectedRootBodyKey: 'vehicle:local'
+});
+
+test('interaction history remains an 800 ms fixed-tick window', () => {
+  assert.equal(DEFAULT_INTERACTION_HISTORY_MS, 800);
+  assert.equal(
+    DEFAULT_INTERACTION_HISTORY_TICKS,
+    Math.ceil(DEFAULT_INTERACTION_HISTORY_MS / SIMULATION_STEP_MS)
+  );
+  assert.equal(DEFAULT_INTERACTION_HISTORY_TICKS, 48);
 });
 
 test('interaction snapshot validates and freezes a same-surface baseline', () => {

@@ -7,10 +7,14 @@ import {
   safeNonnegativeInteger,
   safePositiveInteger
 } from './protocol-validation.ts';
+import {SIMULATION_STEP_MS} from '../simulation/timing.ts';
 
 export const INTERACTION_SNAPSHOT_MESSAGE = 'simulation.interaction.snapshot';
 export const INTERACTION_PROTOCOL_VERSION = 7;
-export const DEFAULT_INTERACTION_HISTORY_TICKS = 24;
+export const DEFAULT_INTERACTION_HISTORY_MS = 800;
+export const DEFAULT_INTERACTION_HISTORY_TICKS = Math.ceil(
+  DEFAULT_INTERACTION_HISTORY_MS / SIMULATION_STEP_MS
+);
 export const MAX_INTERACTION_BODIES = 64;
 
 const MAX_BODY_KEY_LENGTH = 128;

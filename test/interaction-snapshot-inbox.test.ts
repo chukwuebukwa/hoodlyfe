@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INTERACTION_SNAPSHOT_MESSAGE, type InteractionSnapshot} from '../shared/protocol/interaction-islands.ts';
+import {
+  DEFAULT_INTERACTION_HISTORY_TICKS,
+  INTERACTION_SNAPSHOT_MESSAGE,
+  type InteractionSnapshot
+} from '../shared/protocol/interaction-islands.ts';
 import {InteractionSnapshotInbox} from '../src/game/network/interaction-snapshot-inbox.ts';
 
 test('inbox validates, sorts, replaces, and bounds interaction snapshots', () => {
@@ -19,9 +23,9 @@ test('inbox validates, sorts, replaces, and bounds interaction snapshots', () =>
   receive({...snapshot(10), serverTimeMs: 11});
   assert.deepEqual(inbox.snapshots().map(({serverTick}) => serverTick), [9, 10]);
   assert.equal(inbox.latest()?.serverTimeMs, 11);
-  currentTick = 50;
-  receive(snapshot(50));
-  assert.deepEqual(inbox.snapshots().map(({serverTick}) => serverTick), [50]);
+  currentTick = 10 + DEFAULT_INTERACTION_HISTORY_TICKS;
+  receive(snapshot(currentTick));
+  assert.deepEqual(inbox.snapshots().map(({serverTick}) => serverTick), [currentTick]);
   assert.equal(inbox.diagnostics().accepted, 4);
   inbox.destroy();
   assert.equal(removed, true);
