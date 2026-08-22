@@ -196,6 +196,32 @@ test('prediction fails closed for passengers and mismatched drivers', () => {
   assert.equal(controller.snapshot().reason, 'not-driver');
 });
 
+test('vehicle prediction exposes immutable contiguous saved inputs for island replay', () => {
+  const controller = new VehiclePredictionController(world);
+  controller.update(
+    authority(),
+    {x: 0.5, y: -1, handbrake: true},
+    VEHICLE_SIMULATION_STEP_SECONDS,
+    true
+  );
+  controller.update(
+    authority(),
+    {x: -0.25, y: 0, handbrake: false},
+    VEHICLE_SIMULATION_STEP_SECONDS,
+    true
+  );
+
+  const pending = controller.pendingMovesAfter(0);
+  assert.deepEqual(pending?.map(({message}) => message), [
+    {sequence: 1, x: 0.5, y: -1, handbrake: true},
+    {sequence: 2, x: -0.25, y: 0}
+  ]);
+  assert.equal(Object.isFrozen(pending), true);
+  assert.equal(Object.isFrozen(pending?.[0]?.message), true);
+  assert.deepEqual(controller.pendingMovesAfter(1)?.map(({message}) => message.sequence), [2]);
+  assert.equal(controller.rawPose()?.vehicleId, 'vehicle-1');
+});
+
 function authority(
   overrides: Partial<VehiclePredictionAuthority> = {}
 ): VehiclePredictionAuthority {

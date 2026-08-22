@@ -70,7 +70,7 @@ export interface VehiclePredictionSnapshot {
   readonly reason: string;
 }
 
-interface PendingMove {
+export interface VehiclePredictionPendingMove {
   readonly message: VehicleInputMoveMessage;
   readonly modifiers: VehicleStepModifiers;
   readonly predicted: VehiclePredictionPose;
@@ -80,7 +80,7 @@ export class VehiclePredictionController {
   private accumulatorSeconds = 0;
   private sequence = 0;
   private acknowledgedSequence = 0;
-  private pending: PendingMove[] = [];
+  private pending: VehiclePredictionPendingMove[] = [];
   private predicted?: VehiclePredictionPose;
   private visualOffsetX = 0;
   private visualOffsetY = 0;
@@ -156,6 +156,28 @@ export class VehiclePredictionController {
       y: this.predicted.y + this.visualOffsetY,
       angle: normalizeAngle(this.predicted.angle + this.visualOffsetAngle)
     } : undefined;
+  }
+
+  rawPose(): VehiclePredictionPose | undefined {
+    return this.predicted ? Object.freeze({...this.predicted}) : undefined;
+  }
+
+  pendingMovesAfter(acknowledgedSequence: number): readonly VehiclePredictionPendingMove[] | undefined {
+    const acknowledged = safeSequence(acknowledgedSequence);
+    const pending = this.pending.filter(({message}) => message.sequence > acknowledged);
+    if (pending.length === 0) return Object.freeze([]);
+    let expectedSequence = acknowledged + 1;
+    const result: VehiclePredictionPendingMove[] = [];
+    for (const move of pending) {
+      if (move.message.sequence !== expectedSequence) return undefined;
+      result.push(Object.freeze({
+        message: Object.freeze({...move.message}),
+        modifiers: Object.freeze({...move.modifiers}),
+        predicted: Object.freeze({...move.predicted})
+      }));
+      expectedSequence++;
+    }
+    return Object.freeze(result);
   }
 
   snapshot(): VehiclePredictionSnapshot {

@@ -25,6 +25,29 @@ test('controller keeps admission observational until selection rollout is enable
   assert.equal(controller.snapshot().mode, 'selection');
   assert.deepEqual(controller.latestSelection()?.bodyKeys, ['player:p1', 'vehicle:v1']);
   assert.equal(controller.snapshot().snapshotAgeMs, 16);
+  assert.equal(controller.latestReplaySource()?.snapshot.serverTick, 4);
+  controller.observeVehicleReplay({
+    active: true,
+    reason: 'replayed',
+    serverTick: 4,
+    replayTicks: 3,
+    vehicleBodies: 2,
+    contacts: 1,
+    correctionErrorPx: 0.5,
+    angularErrorRad: 0.01,
+    surfaceRejects: 0
+  });
+  assert.deepEqual(controller.snapshot().vehicleReplay, {
+    active: true,
+    reason: 'replayed',
+    serverTick: 4,
+    replayTicks: 3,
+    vehicleBodies: 2,
+    contacts: 1,
+    correctionErrorPx: 0.5,
+    angularErrorRad: 0.01,
+    surfaceRejects: 0
+  });
 });
 
 function snapshot(serverTick: number): InteractionSnapshot {

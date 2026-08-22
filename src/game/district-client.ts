@@ -64,6 +64,7 @@ import {
   type VehiclePredictionAuthority
 } from './network/vehicle-prediction-controller.ts';
 import {SurfaceVehiclePredictionWorld} from './network/vehicle-prediction-world.ts';
+import {VehicleInteractionReplayController} from './network/vehicle-interaction-replay.ts';
 
 interface MapMetadataPayload {
   spawn: {x: number; y: number};
@@ -115,6 +116,8 @@ export class DistrictClient {
   private surfaceMap?: SurfaceMap;
   private onFootPrediction?: OnFootPredictionController;
   private vehiclePrediction?: VehiclePredictionController;
+  private vehicleIslandReplay?: VehicleInteractionReplayController;
+  private vehicleIslandReplayLoading?: Promise<void>;
   private destroyed = false;
   private centerInitialized = false;
   private cameraMode: CameraPresentationMode = readCameraMode();
@@ -398,6 +401,8 @@ export class DistrictClient {
     this.destroyed = true;
     this.onFootPrediction?.reset('destroyed');
     this.vehiclePrediction?.reset('destroyed');
+    this.vehicleIslandReplay?.destroy();
+    this.vehicleIslandReplay = undefined;
     cancelAnimationFrame(this.frame);
     this.unbind();
     this.input?.destroy();
@@ -583,6 +588,7 @@ export class DistrictClient {
         this.rolloutEnabled('localVehiclePrediction')
       );
       if (predictedVehicleInputs) this.room.send(VEHICLE_INPUT_MESSAGE, predictedVehicleInputs);
+      this.observeVehicleIslandReplay();
       this.actors?.synchronize(
         this.room.state,
         localSpaceId,
@@ -664,6 +670,54 @@ export class DistrictClient {
     this.renderer.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.render);
   };
+
+  private observeVehicleIslandReplay(): void {
+    if (!this.rolloutEnabled('vehicleIslandReplay')) {
+      this.interactionIslands?.observeVehicleReplay(undefined);
+      return;
+    }
+    const source = this.interactionIslands?.latestReplaySource();
+    const prediction = this.vehiclePrediction;
+    if (!source || !prediction) {
+      this.interactionIslands?.observeVehicleReplay(undefined);
+      return;
+    }
+    if (!this.vehicleIslandReplay) {
+      this.ensureVehicleIslandReplay();
+      return;
+    }
+    this.interactionIslands?.observeVehicleReplay(this.vehicleIslandReplay.evaluate({
+      snapshot: source.snapshot,
+      selection: source.selection,
+      pendingMoves: prediction.pendingMovesAfter(
+        source.snapshot.acknowledgedLocalInputSequence
+      ),
+      currentLocalPose: prediction.rawPose()
+    }));
+  }
+
+  private ensureVehicleIslandReplay(): void {
+    if (
+      this.destroyed ||
+      !this.surfaceMap ||
+      this.vehicleIslandReplay ||
+      this.vehicleIslandReplayLoading
+    ) return;
+    this.vehicleIslandReplayLoading = VehicleInteractionReplayController.create(this.surfaceMap)
+      .then((controller) => {
+        if (this.destroyed) {
+          controller.destroy();
+          return;
+        }
+        this.vehicleIslandReplay = controller;
+      })
+      .catch((error) => {
+        console.error('Vehicle interaction-island replay failed to initialize.', error);
+      })
+      .finally(() => {
+        this.vehicleIslandReplayLoading = undefined;
+      });
+  }
 
   private readonly resize = (): void => {
     const width = Math.max(1, this.parent.clientWidth);

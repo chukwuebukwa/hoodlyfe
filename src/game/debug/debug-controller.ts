@@ -177,12 +177,19 @@ export class DebugController {
     }
     const island = this.interactionIsland();
     if (this.interactionIslandField) {
+      const replay = island?.vehicleReplay;
       this.interactionIslandField.textContent = island
         ? `${island.mode} / ${island.bodies} bodies / ` +
           `${island.weightedPoints}:${island.budgetPoints} points / ${island.overflow} overflow / ` +
           `${island.contacts} contact + ${island.retainedContacts} retained / ` +
           `${island.snapshotAgeMs}ms age / tick ${island.serverTick} / ` +
-          `${island.inbox.historySize} history / ${island.resetCount} resets`
+          `${island.inbox.historySize} history / ${island.resetCount} resets / ` +
+          (replay
+            ? `vehicle replay ${replay.active ? 'active' : 'off'} (${replay.reason}) / ` +
+              `${replay.vehicleBodies} vehicles / ${replay.replayTicks} ticks / ` +
+              `${replay.contacts} contacts / ${replay.correctionErrorPx}px / ` +
+              `${replay.angularErrorRad}rad / ${replay.surfaceRejects} surface rejects`
+            : 'vehicle replay idle')
         : 'off';
     }
     if (!this.eventList) return;

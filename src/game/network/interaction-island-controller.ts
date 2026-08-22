@@ -1,3 +1,4 @@
+import type {InteractionSnapshot} from '../../../shared/protocol/interaction-islands.ts';
 import type {InteractionSnapshotRoom} from './interaction-snapshot-inbox.ts';
 import {
   InteractionSnapshotInbox,
@@ -9,6 +10,10 @@ import {
   MOBILE_INTERACTION_ISLAND_BUDGET,
   type InteractionIslandSelection
 } from './interaction-island-selector.ts';
+import type {
+  VehicleInteractionReplayObservation,
+  VehicleInteractionReplayReason
+} from './vehicle-interaction-replay.ts';
 
 export interface InteractionIslandControllerOptions {
   readonly currentServerTick: () => number;
@@ -30,6 +35,24 @@ export interface InteractionIslandControllerSnapshot {
   readonly retainedContacts: number;
   readonly resetCount: number;
   readonly inbox: InteractionSnapshotInboxDiagnostics;
+  readonly vehicleReplay?: InteractionIslandVehicleReplaySnapshot;
+}
+
+export interface InteractionIslandVehicleReplaySnapshot {
+  readonly active: boolean;
+  readonly reason: VehicleInteractionReplayReason;
+  readonly serverTick: number;
+  readonly replayTicks: number;
+  readonly vehicleBodies: number;
+  readonly contacts: number;
+  readonly correctionErrorPx: number;
+  readonly angularErrorRad: number;
+  readonly surfaceRejects: number;
+}
+
+export interface InteractionIslandReplaySource {
+  readonly snapshot: InteractionSnapshot;
+  readonly selection: InteractionIslandSelection;
 }
 
 export class InteractionIslandController {
@@ -37,6 +60,7 @@ export class InteractionIslandController {
   private readonly selector: InteractionIslandSelector;
   private removeSnapshotListener?: () => void;
   private selection?: InteractionIslandSelection;
+  private vehicleReplay?: InteractionIslandVehicleReplaySnapshot;
 
   constructor(room: InteractionSnapshotRoom, private readonly options: InteractionIslandControllerOptions) {
     this.selector = new InteractionIslandSelector(options.mobile
@@ -60,6 +84,21 @@ export class InteractionIslandController {
     return this.selection;
   }
 
+  latestReplaySource(): InteractionIslandReplaySource | undefined {
+    const snapshot = this.inbox.latest();
+    const selection = this.selection;
+    if (
+      !snapshot || !selection ||
+      selection.serverTick !== snapshot.serverTick ||
+      selection.rootBodyKey !== snapshot.rootBodyKey
+    ) return undefined;
+    return Object.freeze({snapshot, selection});
+  }
+
+  observeVehicleReplay(observation: VehicleInteractionReplayObservation | undefined): void {
+    this.vehicleReplay = observation ? vehicleReplaySnapshot(observation) : undefined;
+  }
+
   snapshot(): InteractionIslandControllerSnapshot {
     const latest = this.inbox.latest();
     const selection = this.selection;
@@ -80,7 +119,8 @@ export class InteractionIslandController {
       contacts: selection?.members.filter(({reason}) => reason === 'current-contact').length ?? 0,
       retainedContacts: selection?.members.filter(({reason}) => reason === 'contact-retained').length ?? 0,
       resetCount: selection?.resetCount ?? 0,
-      inbox: this.inbox.diagnostics()
+      inbox: this.inbox.diagnostics(),
+      ...(this.vehicleReplay ? {vehicleReplay: this.vehicleReplay} : {})
     });
   }
 
@@ -90,5 +130,22 @@ export class InteractionIslandController {
     this.inbox.destroy();
     this.selector.reset();
     this.selection = undefined;
+    this.vehicleReplay = undefined;
   }
+}
+
+function vehicleReplaySnapshot(
+  observation: VehicleInteractionReplayObservation
+): InteractionIslandVehicleReplaySnapshot {
+  return Object.freeze({
+    active: observation.active,
+    reason: observation.reason,
+    serverTick: observation.serverTick,
+    replayTicks: observation.replayTicks,
+    vehicleBodies: observation.vehicleBodies,
+    contacts: observation.contacts,
+    correctionErrorPx: observation.correctionErrorPx,
+    angularErrorRad: observation.angularErrorRad,
+    surfaceRejects: observation.surfaceRejects
+  });
 }
